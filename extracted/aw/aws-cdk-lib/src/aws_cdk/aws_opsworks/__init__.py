@@ -69,7 +69,2712 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.AppReference",
+    jsii_struct_bases=[],
+    name_mapping={"app_id": "appId"},
+)
+class AppReference:
+    def __init__(self, *, app_id: builtins.str) -> None:
+        '''A reference to a App resource.
+
+        :param app_id: The Id of the App resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            app_reference = opsworks.AppReference(
+                app_id="appId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__daf50fc534a1336625fdc722bafadcf5fc9e8ac4ea574cc7dee6c63b78d8870e)
+            check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_id": app_id,
+        }
+
+    @builtins.property
+    def app_id(self) -> builtins.str:
+        '''The Id of the App resource.'''
+        result = self._values.get("app_id")
+        assert result is not None, "Required property 'app_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AppReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnAppProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "stack_id": "stackId",
+        "type": "type",
+        "app_source": "appSource",
+        "attributes": "attributes",
+        "data_sources": "dataSources",
+        "description": "description",
+        "domains": "domains",
+        "enable_ssl": "enableSsl",
+        "environment": "environment",
+        "shortname": "shortname",
+        "ssl_configuration": "sslConfiguration",
+    },
+)
+class CfnAppProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        stack_id: builtins.str,
+        type: builtins.str,
+        app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+        enable_ssl: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        shortname: typing.Optional[builtins.str] = None,
+        ssl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.SslConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApp``.
+
+        :param name: The app name.
+        :param stack_id: The stack ID.
+        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
+        :param app_source: A ``Source`` object that specifies the app repository.
+        :param attributes: One or more user-defined key/value pairs to be added to the stack attributes.
+        :param data_sources: The app's data source.
+        :param description: A description of the app.
+        :param domains: The app virtual host settings, with multiple domains separated by commas. For example: ``'www.example.com, example.com'``
+        :param enable_ssl: Whether to enable SSL for the app.
+        :param environment: An array of ``EnvironmentVariable`` objects that specify environment variables to be associated with the app. After you deploy the app, these variables are defined on the associated app server instance. For more information, see `Environment Variables <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html#workingapps-creating-environment>`_ . There is no specific limit on the number of environment variables. However, the size of the associated data structure - which includes the variables' names, values, and protected flag values - cannot exceed 20 KB. This limit should accommodate most if not all use cases. Exceeding it will cause an exception with the message, "Environment: is too large (maximum is 20KB)." .. epigraph:: If you have specified one or more environment variables, you cannot modify the stack's Chef version.
+        :param shortname: The app's short name.
+        :param ssl_configuration: An ``SslConfiguration`` object with the SSL configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            cfn_app_props = opsworks.CfnAppProps(
+                name="name",
+                stack_id="stackId",
+                type="type",
+            
+                # the properties below are optional
+                app_source=opsworks.CfnApp.SourceProperty(
+                    password="password",
+                    revision="revision",
+                    ssh_key="sshKey",
+                    type="type",
+                    url="url",
+                    username="username"
+                ),
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                data_sources=[opsworks.CfnApp.DataSourceProperty(
+                    arn="arn",
+                    database_name="databaseName",
+                    type="type"
+                )],
+                description="description",
+                domains=["domains"],
+                enable_ssl=False,
+                environment=[opsworks.CfnApp.EnvironmentVariableProperty(
+                    key="key",
+                    value="value",
+            
+                    # the properties below are optional
+                    secure=False
+                )],
+                shortname="shortname",
+                ssl_configuration=opsworks.CfnApp.SslConfigurationProperty(
+                    certificate="certificate",
+                    chain="chain",
+                    private_key="privateKey"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe0ae5f6e1367f942976862a375aa88ecad21e52429978b2181e9115ce82447e)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument app_source", value=app_source, expected_type=type_hints["app_source"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
+            check_type(argname="argument enable_ssl", value=enable_ssl, expected_type=type_hints["enable_ssl"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument shortname", value=shortname, expected_type=type_hints["shortname"])
+            check_type(argname="argument ssl_configuration", value=ssl_configuration, expected_type=type_hints["ssl_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "stack_id": stack_id,
+            "type": type,
+        }
+        if app_source is not None:
+            self._values["app_source"] = app_source
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if data_sources is not None:
+            self._values["data_sources"] = data_sources
+        if description is not None:
+            self._values["description"] = description
+        if domains is not None:
+            self._values["domains"] = domains
+        if enable_ssl is not None:
+            self._values["enable_ssl"] = enable_ssl
+        if environment is not None:
+            self._values["environment"] = environment
+        if shortname is not None:
+            self._values["shortname"] = shortname
+        if ssl_configuration is not None:
+            self._values["ssl_configuration"] = ssl_configuration
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The app name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The stack ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-stackid
+        '''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The app type.
+
+        Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.SourceProperty"]]:
+        '''A ``Source`` object that specifies the app repository.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-appsource
+        '''
+        result = self._values.get("app_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.SourceProperty"]], result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''One or more user-defined key/value pairs to be added to the stack attributes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def data_sources(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.DataSourceProperty"]]]]:
+        '''The app's data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-datasources
+        '''
+        result = self._values.get("data_sources")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.DataSourceProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domains(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The app virtual host settings, with multiple domains separated by commas.
+
+        For example: ``'www.example.com, example.com'``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-domains
+        '''
+        result = self._values.get("domains")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def enable_ssl(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to enable SSL for the app.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-enablessl
+        '''
+        result = self._values.get("enable_ssl")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EnvironmentVariableProperty"]]]]:
+        '''An array of ``EnvironmentVariable`` objects that specify environment variables to be associated with the app.
+
+        After you deploy the app, these variables are defined on the associated app server instance. For more information, see `Environment Variables <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html#workingapps-creating-environment>`_ .
+
+        There is no specific limit on the number of environment variables. However, the size of the associated data structure - which includes the variables' names, values, and protected flag values - cannot exceed 20 KB. This limit should accommodate most if not all use cases. Exceeding it will cause an exception with the message, "Environment: is too large (maximum is 20KB)."
+        .. epigraph::
+
+           If you have specified one or more environment variables, you cannot modify the stack's Chef version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-environment
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApp.EnvironmentVariableProperty"]]]], result)
+
+    @builtins.property
+    def shortname(self) -> typing.Optional[builtins.str]:
+        '''The app's short name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-shortname
+        '''
+        result = self._values.get("shortname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ssl_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.SslConfigurationProperty"]]:
+        '''An ``SslConfiguration`` object with the SSL configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-sslconfiguration
+        '''
+        result = self._values.get("ssl_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApp.SslConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAppProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnElasticLoadBalancerAttachmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "elastic_load_balancer_name": "elasticLoadBalancerName",
+        "layer_id": "layerId",
+    },
+)
+class CfnElasticLoadBalancerAttachmentProps:
+    def __init__(
+        self,
+        *,
+        elastic_load_balancer_name: builtins.str,
+        layer_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnElasticLoadBalancerAttachment``.
+
+        :param elastic_load_balancer_name: The Elastic Load Balancing instance name.
+        :param layer_id: The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            cfn_elastic_load_balancer_attachment_props = opsworks.CfnElasticLoadBalancerAttachmentProps(
+                elastic_load_balancer_name="elasticLoadBalancerName",
+                layer_id="layerId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cce4a38411eccbc7b0088bfd31a89e80bd98022d6249e27feb26e4ee7d3e6834)
+            check_type(argname="argument elastic_load_balancer_name", value=elastic_load_balancer_name, expected_type=type_hints["elastic_load_balancer_name"])
+            check_type(argname="argument layer_id", value=layer_id, expected_type=type_hints["layer_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "elastic_load_balancer_name": elastic_load_balancer_name,
+            "layer_id": layer_id,
+        }
+
+    @builtins.property
+    def elastic_load_balancer_name(self) -> builtins.str:
+        '''The Elastic Load Balancing instance name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html#cfn-opsworks-elasticloadbalancerattachment-elasticloadbalancername
+        '''
+        result = self._values.get("elastic_load_balancer_name")
+        assert result is not None, "Required property 'elastic_load_balancer_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def layer_id(self) -> builtins.str:
+        '''The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html#cfn-opsworks-elasticloadbalancerattachment-layerid
+        '''
+        result = self._values.get("layer_id")
+        assert result is not None, "Required property 'layer_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnElasticLoadBalancerAttachmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_type": "instanceType",
+        "layer_ids": "layerIds",
+        "stack_id": "stackId",
+        "agent_version": "agentVersion",
+        "ami_id": "amiId",
+        "architecture": "architecture",
+        "auto_scaling_type": "autoScalingType",
+        "availability_zone": "availabilityZone",
+        "block_device_mappings": "blockDeviceMappings",
+        "ebs_optimized": "ebsOptimized",
+        "elastic_ips": "elasticIps",
+        "hostname": "hostname",
+        "install_updates_on_boot": "installUpdatesOnBoot",
+        "os": "os",
+        "root_device_type": "rootDeviceType",
+        "ssh_key_name": "sshKeyName",
+        "subnet_id": "subnetId",
+        "tenancy": "tenancy",
+        "time_based_auto_scaling": "timeBasedAutoScaling",
+        "virtualization_type": "virtualizationType",
+        "volumes": "volumes",
+    },
+)
+class CfnInstanceProps:
+    def __init__(
+        self,
+        *,
+        instance_type: builtins.str,
+        layer_ids: typing.Sequence[builtins.str],
+        stack_id: builtins.str,
+        agent_version: typing.Optional[builtins.str] = None,
+        ami_id: typing.Optional[builtins.str] = None,
+        architecture: typing.Optional[builtins.str] = None,
+        auto_scaling_type: typing.Optional[builtins.str] = None,
+        availability_zone: typing.Optional[builtins.str] = None,
+        block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstance.BlockDeviceMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        elastic_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
+        hostname: typing.Optional[builtins.str] = None,
+        install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        os: typing.Optional[builtins.str] = None,
+        root_device_type: typing.Optional[builtins.str] = None,
+        ssh_key_name: typing.Optional[builtins.str] = None,
+        subnet_id: typing.Optional[builtins.str] = None,
+        tenancy: typing.Optional[builtins.str] = None,
+        time_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstance.TimeBasedAutoScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        virtualization_type: typing.Optional[builtins.str] = None,
+        volumes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstance``.
+
+        :param instance_type: The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
+        :param layer_ids: An array that contains the instance's layer IDs.
+        :param stack_id: The stack ID.
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
+        :param ami_id: A custom AMI ID to be used to create the instance. The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . .. epigraph:: If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
+        :param architecture: The instance architecture. The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
+        :param auto_scaling_type: For load-based or time-based instances, the type. Windows stacks can use only time-based instances.
+        :param availability_zone: The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
+        :param block_device_mappings: An array of ``BlockDeviceMapping`` objects that specify the instance's block devices. For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
+        :param ebs_optimized: Whether to create an Amazon EBS-optimized instance.
+        :param elastic_ips: A list of Elastic IP addresses to associate with the instance.
+        :param hostname: The instance host name. The following are character limits for instance host names. - Linux-based instances: 63 characters - Windows-based instances: 15 characters
+        :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
+        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+        :param root_device_type: The instance root device type. For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
+        :param ssh_key_name: The instance's Amazon EC2 key-pair name.
+        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
+        :param tenancy: The instance's tenancy option. The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
+        :param time_based_auto_scaling: The time-based scaling configuration for the instance.
+        :param virtualization_type: The instance's virtualization type, ``paravirtual`` or ``hvm`` .
+        :param volumes: A list of OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            cfn_instance_props = opsworks.CfnInstanceProps(
+                instance_type="instanceType",
+                layer_ids=["layerIds"],
+                stack_id="stackId",
+            
+                # the properties below are optional
+                agent_version="agentVersion",
+                ami_id="amiId",
+                architecture="architecture",
+                auto_scaling_type="autoScalingType",
+                availability_zone="availabilityZone",
+                block_device_mappings=[opsworks.CfnInstance.BlockDeviceMappingProperty(
+                    device_name="deviceName",
+                    ebs=opsworks.CfnInstance.EbsBlockDeviceProperty(
+                        delete_on_termination=False,
+                        iops=123,
+                        snapshot_id="snapshotId",
+                        volume_size=123,
+                        volume_type="volumeType"
+                    ),
+                    no_device="noDevice",
+                    virtual_name="virtualName"
+                )],
+                ebs_optimized=False,
+                elastic_ips=["elasticIps"],
+                hostname="hostname",
+                install_updates_on_boot=False,
+                os="os",
+                root_device_type="rootDeviceType",
+                ssh_key_name="sshKeyName",
+                subnet_id="subnetId",
+                tenancy="tenancy",
+                time_based_auto_scaling=opsworks.CfnInstance.TimeBasedAutoScalingProperty(
+                    friday={
+                        "friday_key": "friday"
+                    },
+                    monday={
+                        "monday_key": "monday"
+                    },
+                    saturday={
+                        "saturday_key": "saturday"
+                    },
+                    sunday={
+                        "sunday_key": "sunday"
+                    },
+                    thursday={
+                        "thursday_key": "thursday"
+                    },
+                    tuesday={
+                        "tuesday_key": "tuesday"
+                    },
+                    wednesday={
+                        "wednesday_key": "wednesday"
+                    }
+                ),
+                virtualization_type="virtualizationType",
+                volumes=["volumes"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__064c38cf60beb5ee54299be9e04fc9e0d751e94688227f7c131215ac7ef613f9)
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument layer_ids", value=layer_ids, expected_type=type_hints["layer_ids"])
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
+            check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
+            check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
+            check_type(argname="argument auto_scaling_type", value=auto_scaling_type, expected_type=type_hints["auto_scaling_type"])
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument block_device_mappings", value=block_device_mappings, expected_type=type_hints["block_device_mappings"])
+            check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
+            check_type(argname="argument elastic_ips", value=elastic_ips, expected_type=type_hints["elastic_ips"])
+            check_type(argname="argument hostname", value=hostname, expected_type=type_hints["hostname"])
+            check_type(argname="argument install_updates_on_boot", value=install_updates_on_boot, expected_type=type_hints["install_updates_on_boot"])
+            check_type(argname="argument os", value=os, expected_type=type_hints["os"])
+            check_type(argname="argument root_device_type", value=root_device_type, expected_type=type_hints["root_device_type"])
+            check_type(argname="argument ssh_key_name", value=ssh_key_name, expected_type=type_hints["ssh_key_name"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            check_type(argname="argument tenancy", value=tenancy, expected_type=type_hints["tenancy"])
+            check_type(argname="argument time_based_auto_scaling", value=time_based_auto_scaling, expected_type=type_hints["time_based_auto_scaling"])
+            check_type(argname="argument virtualization_type", value=virtualization_type, expected_type=type_hints["virtualization_type"])
+            check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_type": instance_type,
+            "layer_ids": layer_ids,
+            "stack_id": stack_id,
+        }
+        if agent_version is not None:
+            self._values["agent_version"] = agent_version
+        if ami_id is not None:
+            self._values["ami_id"] = ami_id
+        if architecture is not None:
+            self._values["architecture"] = architecture
+        if auto_scaling_type is not None:
+            self._values["auto_scaling_type"] = auto_scaling_type
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if block_device_mappings is not None:
+            self._values["block_device_mappings"] = block_device_mappings
+        if ebs_optimized is not None:
+            self._values["ebs_optimized"] = ebs_optimized
+        if elastic_ips is not None:
+            self._values["elastic_ips"] = elastic_ips
+        if hostname is not None:
+            self._values["hostname"] = hostname
+        if install_updates_on_boot is not None:
+            self._values["install_updates_on_boot"] = install_updates_on_boot
+        if os is not None:
+            self._values["os"] = os
+        if root_device_type is not None:
+            self._values["root_device_type"] = root_device_type
+        if ssh_key_name is not None:
+            self._values["ssh_key_name"] = ssh_key_name
+        if subnet_id is not None:
+            self._values["subnet_id"] = subnet_id
+        if tenancy is not None:
+            self._values["tenancy"] = tenancy
+        if time_based_auto_scaling is not None:
+            self._values["time_based_auto_scaling"] = time_based_auto_scaling
+        if virtualization_type is not None:
+            self._values["virtualization_type"] = virtualization_type
+        if volumes is not None:
+            self._values["volumes"] = volumes
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def layer_ids(self) -> typing.List[builtins.str]:
+        '''An array that contains the instance's layer IDs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-layerids
+        '''
+        result = self._values.get("layer_ids")
+        assert result is not None, "Required property 'layer_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The stack ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-stackid
+        '''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_version(self) -> typing.Optional[builtins.str]:
+        '''The default OpsWorks Stacks agent version. You have the following options:.
+
+        - ``INHERIT`` - Use the stack's default agent version setting.
+        - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance.
+
+        The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-agentversion
+        '''
+        result = self._values.get("agent_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ami_id(self) -> typing.Optional[builtins.str]:
+        '''A custom AMI ID to be used to create the instance.
+
+        The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+        .. epigraph::
+
+           If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-amiid
+        '''
+        result = self._values.get("ami_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def architecture(self) -> typing.Optional[builtins.str]:
+        '''The instance architecture.
+
+        The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-architecture
+        '''
+        result = self._values.get("architecture")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auto_scaling_type(self) -> typing.Optional[builtins.str]:
+        '''For load-based or time-based instances, the type.
+
+        Windows stacks can use only time-based instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-autoscalingtype
+        '''
+        result = self._values.get("auto_scaling_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def block_device_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstance.BlockDeviceMappingProperty"]]]]:
+        '''An array of ``BlockDeviceMapping`` objects that specify the instance's block devices.
+
+        For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-blockdevicemappings
+        '''
+        result = self._values.get("block_device_mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstance.BlockDeviceMappingProperty"]]]], result)
+
+    @builtins.property
+    def ebs_optimized(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to create an Amazon EBS-optimized instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-ebsoptimized
+        '''
+        result = self._values.get("ebs_optimized")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def elastic_ips(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Elastic IP addresses to associate with the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-elasticips
+        '''
+        result = self._values.get("elastic_ips")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def hostname(self) -> typing.Optional[builtins.str]:
+        '''The instance host name. The following are character limits for instance host names.
+
+        - Linux-based instances: 63 characters
+        - Windows-based instances: 15 characters
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-hostname
+        '''
+        result = self._values.get("hostname")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def install_updates_on_boot(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to install operating system and package updates when the instance boots.
+
+        The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances.
+        .. epigraph::
+
+           We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-installupdatesonboot
+        '''
+        result = self._values.get("install_updates_on_boot")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def os(self) -> typing.Optional[builtins.str]:
+        '''The instance's operating system, which must be set to one of the following.
+
+        - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` .
+        - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` .
+        - ``CentOS Linux 7``
+        - ``Red Hat Enterprise Linux 7``
+        - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
+        - A custom AMI: ``Custom`` .
+
+        Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+
+        The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-os
+        '''
+        result = self._values.get("os")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def root_device_type(self) -> typing.Optional[builtins.str]:
+        '''The instance root device type.
+
+        For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-rootdevicetype
+        '''
+        result = self._values.get("root_device_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ssh_key_name(self) -> typing.Optional[builtins.str]:
+        '''The instance's Amazon EC2 key-pair name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-sshkeyname
+        '''
+        result = self._values.get("ssh_key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the instance's subnet.
+
+        If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-subnetid
+        '''
+        result = self._values.get("subnet_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tenancy(self) -> typing.Optional[builtins.str]:
+        '''The instance's tenancy option.
+
+        The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-tenancy
+        '''
+        result = self._values.get("tenancy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def time_based_auto_scaling(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstance.TimeBasedAutoScalingProperty"]]:
+        '''The time-based scaling configuration for the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-timebasedautoscaling
+        '''
+        result = self._values.get("time_based_auto_scaling")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstance.TimeBasedAutoScalingProperty"]], result)
+
+    @builtins.property
+    def virtualization_type(self) -> typing.Optional[builtins.str]:
+        '''The instance's virtualization type, ``paravirtual`` or ``hvm`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-virtualizationtype
+        '''
+        result = self._values.get("virtualization_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def volumes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of OpsWorks volume IDs to associate with the instance.
+
+        For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-volumes
+        '''
+        result = self._values.get("volumes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnLayerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "auto_assign_elastic_ips": "autoAssignElasticIps",
+        "auto_assign_public_ips": "autoAssignPublicIps",
+        "enable_auto_healing": "enableAutoHealing",
+        "name": "name",
+        "shortname": "shortname",
+        "stack_id": "stackId",
+        "type": "type",
+        "attributes": "attributes",
+        "custom_instance_profile_arn": "customInstanceProfileArn",
+        "custom_json": "customJson",
+        "custom_recipes": "customRecipes",
+        "custom_security_group_ids": "customSecurityGroupIds",
+        "install_updates_on_boot": "installUpdatesOnBoot",
+        "lifecycle_event_configuration": "lifecycleEventConfiguration",
+        "load_based_auto_scaling": "loadBasedAutoScaling",
+        "packages": "packages",
+        "tags": "tags",
+        "use_ebs_optimized_instances": "useEbsOptimizedInstances",
+        "volume_configurations": "volumeConfigurations",
+    },
+)
+class CfnLayerProps:
+    def __init__(
+        self,
+        *,
+        auto_assign_elastic_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        auto_assign_public_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        enable_auto_healing: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        name: builtins.str,
+        shortname: builtins.str,
+        stack_id: builtins.str,
+        type: builtins.str,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        custom_instance_profile_arn: typing.Optional[builtins.str] = None,
+        custom_json: typing.Any = None,
+        custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLayer.RecipesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        lifecycle_event_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLayer.LifecycleEventConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLayer.LoadBasedAutoScalingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_ebs_optimized_instances: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        volume_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLayer.VolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLayer``.
+
+        :param auto_assign_elastic_ips: Whether to automatically assign an `Elastic IP address <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html>`_ to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
+        :param auto_assign_public_ips: For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
+        :param enable_auto_healing: Whether to disable auto healing for the layer.
+        :param name: The layer name, which is used by the console. Layer names can be a maximum of 32 characters.
+        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
+        :param stack_id: The layer stack ID.
+        :param type: The layer type. A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
+        :param attributes: One or more user-defined key-value pairs to be added to the stack attributes. To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
+        :param custom_instance_profile_arn: The ARN of an IAM profile to be used for the layer's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+        :param custom_json: A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances. For more information, see `Using Custom JSON <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook-json-override.html>`_ . This feature is supported as of version 1.7.42 of the AWS CLI .
+        :param custom_recipes: A ``LayerCustomRecipes`` object that specifies the layer custom recipes.
+        :param custom_security_group_ids: An array containing the layer custom security group IDs.
+        :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
+        :param lifecycle_event_configuration: A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
+        :param load_based_auto_scaling: The load-based scaling configuration for the OpsWorks layer.
+        :param packages: An array of ``Package`` objects that describes the layer packages.
+        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer. Use tags to manage your resources.
+        :param use_ebs_optimized_instances: Whether to use Amazon EBS-optimized instances.
+        :param volume_configurations: A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            # custom_json: Any
+            
+            cfn_layer_props = opsworks.CfnLayerProps(
+                auto_assign_elastic_ips=False,
+                auto_assign_public_ips=False,
+                enable_auto_healing=False,
+                name="name",
+                shortname="shortname",
+                stack_id="stackId",
+                type="type",
+            
+                # the properties below are optional
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                custom_instance_profile_arn="customInstanceProfileArn",
+                custom_json=custom_json,
+                custom_recipes=opsworks.CfnLayer.RecipesProperty(
+                    configure=["configure"],
+                    deploy=["deploy"],
+                    setup=["setup"],
+                    shutdown=["shutdown"],
+                    undeploy=["undeploy"]
+                ),
+                custom_security_group_ids=["customSecurityGroupIds"],
+                install_updates_on_boot=False,
+                lifecycle_event_configuration=opsworks.CfnLayer.LifecycleEventConfigurationProperty(
+                    shutdown_event_configuration=opsworks.CfnLayer.ShutdownEventConfigurationProperty(
+                        delay_until_elb_connections_drained=False,
+                        execution_timeout=123
+                    )
+                ),
+                load_based_auto_scaling=opsworks.CfnLayer.LoadBasedAutoScalingProperty(
+                    down_scaling=opsworks.CfnLayer.AutoScalingThresholdsProperty(
+                        cpu_threshold=123,
+                        ignore_metrics_time=123,
+                        instance_count=123,
+                        load_threshold=123,
+                        memory_threshold=123,
+                        thresholds_wait_time=123
+                    ),
+                    enable=False,
+                    up_scaling=opsworks.CfnLayer.AutoScalingThresholdsProperty(
+                        cpu_threshold=123,
+                        ignore_metrics_time=123,
+                        instance_count=123,
+                        load_threshold=123,
+                        memory_threshold=123,
+                        thresholds_wait_time=123
+                    )
+                ),
+                packages=["packages"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                use_ebs_optimized_instances=False,
+                volume_configurations=[opsworks.CfnLayer.VolumeConfigurationProperty(
+                    encrypted=False,
+                    iops=123,
+                    mount_point="mountPoint",
+                    number_of_disks=123,
+                    raid_level=123,
+                    size=123,
+                    volume_type="volumeType"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44c38216d74d64877783d8570f455e1bede8bb638962a7d006b49b8f741161c6)
+            check_type(argname="argument auto_assign_elastic_ips", value=auto_assign_elastic_ips, expected_type=type_hints["auto_assign_elastic_ips"])
+            check_type(argname="argument auto_assign_public_ips", value=auto_assign_public_ips, expected_type=type_hints["auto_assign_public_ips"])
+            check_type(argname="argument enable_auto_healing", value=enable_auto_healing, expected_type=type_hints["enable_auto_healing"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument shortname", value=shortname, expected_type=type_hints["shortname"])
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument custom_instance_profile_arn", value=custom_instance_profile_arn, expected_type=type_hints["custom_instance_profile_arn"])
+            check_type(argname="argument custom_json", value=custom_json, expected_type=type_hints["custom_json"])
+            check_type(argname="argument custom_recipes", value=custom_recipes, expected_type=type_hints["custom_recipes"])
+            check_type(argname="argument custom_security_group_ids", value=custom_security_group_ids, expected_type=type_hints["custom_security_group_ids"])
+            check_type(argname="argument install_updates_on_boot", value=install_updates_on_boot, expected_type=type_hints["install_updates_on_boot"])
+            check_type(argname="argument lifecycle_event_configuration", value=lifecycle_event_configuration, expected_type=type_hints["lifecycle_event_configuration"])
+            check_type(argname="argument load_based_auto_scaling", value=load_based_auto_scaling, expected_type=type_hints["load_based_auto_scaling"])
+            check_type(argname="argument packages", value=packages, expected_type=type_hints["packages"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_ebs_optimized_instances", value=use_ebs_optimized_instances, expected_type=type_hints["use_ebs_optimized_instances"])
+            check_type(argname="argument volume_configurations", value=volume_configurations, expected_type=type_hints["volume_configurations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "auto_assign_elastic_ips": auto_assign_elastic_ips,
+            "auto_assign_public_ips": auto_assign_public_ips,
+            "enable_auto_healing": enable_auto_healing,
+            "name": name,
+            "shortname": shortname,
+            "stack_id": stack_id,
+            "type": type,
+        }
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if custom_instance_profile_arn is not None:
+            self._values["custom_instance_profile_arn"] = custom_instance_profile_arn
+        if custom_json is not None:
+            self._values["custom_json"] = custom_json
+        if custom_recipes is not None:
+            self._values["custom_recipes"] = custom_recipes
+        if custom_security_group_ids is not None:
+            self._values["custom_security_group_ids"] = custom_security_group_ids
+        if install_updates_on_boot is not None:
+            self._values["install_updates_on_boot"] = install_updates_on_boot
+        if lifecycle_event_configuration is not None:
+            self._values["lifecycle_event_configuration"] = lifecycle_event_configuration
+        if load_based_auto_scaling is not None:
+            self._values["load_based_auto_scaling"] = load_based_auto_scaling
+        if packages is not None:
+            self._values["packages"] = packages
+        if tags is not None:
+            self._values["tags"] = tags
+        if use_ebs_optimized_instances is not None:
+            self._values["use_ebs_optimized_instances"] = use_ebs_optimized_instances
+        if volume_configurations is not None:
+            self._values["volume_configurations"] = volume_configurations
+
+    @builtins.property
+    def auto_assign_elastic_ips(
+        self,
+    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Whether to automatically assign an `Elastic IP address <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html>`_ to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-autoassignelasticips
+        '''
+        result = self._values.get("auto_assign_elastic_ips")
+        assert result is not None, "Required property 'auto_assign_elastic_ips' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def auto_assign_public_ips(
+        self,
+    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances.
+
+        For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-autoassignpublicips
+        '''
+        result = self._values.get("auto_assign_public_ips")
+        assert result is not None, "Required property 'auto_assign_public_ips' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def enable_auto_healing(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        '''Whether to disable auto healing for the layer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-enableautohealing
+        '''
+        result = self._values.get("enable_auto_healing")
+        assert result is not None, "Required property 'enable_auto_healing' is missing"
+        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The layer name, which is used by the console.
+
+        Layer names can be a maximum of 32 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def shortname(self) -> builtins.str:
+        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes.
+
+        The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'.
+
+        Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-shortname
+        '''
+        result = self._values.get("shortname")
+        assert result is not None, "Required property 'shortname' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The layer stack ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-stackid
+        '''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The layer type.
+
+        A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''One or more user-defined key-value pairs to be added to the stack attributes.
+
+        To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def custom_instance_profile_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of an IAM profile to be used for the layer's EC2 instances.
+
+        For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-custominstanceprofilearn
+        '''
+        result = self._values.get("custom_instance_profile_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_json(self) -> typing.Any:
+        '''A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances.
+
+        For more information, see `Using Custom JSON <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook-json-override.html>`_ . This feature is supported as of version 1.7.42 of the AWS CLI .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customjson
+        '''
+        result = self._values.get("custom_json")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def custom_recipes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.RecipesProperty"]]:
+        '''A ``LayerCustomRecipes`` object that specifies the layer custom recipes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customrecipes
+        '''
+        result = self._values.get("custom_recipes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.RecipesProperty"]], result)
+
+    @builtins.property
+    def custom_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array containing the layer custom security group IDs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customsecuritygroupids
+        '''
+        result = self._values.get("custom_security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def install_updates_on_boot(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to install operating system and package updates when the instance boots.
+
+        The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances.
+        .. epigraph::
+
+           To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-installupdatesonboot
+        '''
+        result = self._values.get("install_updates_on_boot")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def lifecycle_event_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LifecycleEventConfigurationProperty"]]:
+        '''A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-lifecycleeventconfiguration
+        '''
+        result = self._values.get("lifecycle_event_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LifecycleEventConfigurationProperty"]], result)
+
+    @builtins.property
+    def load_based_auto_scaling(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LoadBasedAutoScalingProperty"]]:
+        '''The load-based scaling configuration for the OpsWorks layer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-loadbasedautoscaling
+        '''
+        result = self._values.get("load_based_auto_scaling")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LoadBasedAutoScalingProperty"]], result)
+
+    @builtins.property
+    def packages(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of ``Package`` objects that describes the layer packages.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-packages
+        '''
+        result = self._values.get("packages")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer.
+
+        Use tags to manage your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def use_ebs_optimized_instances(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to use Amazon EBS-optimized instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-useebsoptimizedinstances
+        '''
+        result = self._values.get("use_ebs_optimized_instances")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def volume_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLayer.VolumeConfigurationProperty"]]]]:
+        '''A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-volumeconfigurations
+        '''
+        result = self._values.get("volume_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLayer.VolumeConfigurationProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLayerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnStackProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_instance_profile_arn": "defaultInstanceProfileArn",
+        "name": "name",
+        "service_role_arn": "serviceRoleArn",
+        "agent_version": "agentVersion",
+        "attributes": "attributes",
+        "chef_configuration": "chefConfiguration",
+        "clone_app_ids": "cloneAppIds",
+        "clone_permissions": "clonePermissions",
+        "configuration_manager": "configurationManager",
+        "custom_cookbooks_source": "customCookbooksSource",
+        "custom_json": "customJson",
+        "default_availability_zone": "defaultAvailabilityZone",
+        "default_os": "defaultOs",
+        "default_root_device_type": "defaultRootDeviceType",
+        "default_ssh_key_name": "defaultSshKeyName",
+        "default_subnet_id": "defaultSubnetId",
+        "ecs_cluster_arn": "ecsClusterArn",
+        "elastic_ips": "elasticIps",
+        "hostname_theme": "hostnameTheme",
+        "rds_db_instances": "rdsDbInstances",
+        "source_stack_id": "sourceStackId",
+        "tags": "tags",
+        "use_custom_cookbooks": "useCustomCookbooks",
+        "use_opsworks_security_groups": "useOpsworksSecurityGroups",
+        "vpc_id": "vpcId",
+    },
+)
+class CfnStackProps:
+    def __init__(
+        self,
+        *,
+        default_instance_profile_arn: builtins.str,
+        name: builtins.str,
+        service_role_arn: builtins.str,
+        agent_version: typing.Optional[builtins.str] = None,
+        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.ChefConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        configuration_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.StackConfigurationManagerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_cookbooks_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_json: typing.Any = None,
+        default_availability_zone: typing.Optional[builtins.str] = None,
+        default_os: typing.Optional[builtins.str] = None,
+        default_root_device_type: typing.Optional[builtins.str] = None,
+        default_ssh_key_name: typing.Optional[builtins.str] = None,
+        default_subnet_id: typing.Optional[builtins.str] = None,
+        ecs_cluster_arn: typing.Optional[builtins.str] = None,
+        elastic_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.ElasticIpProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        hostname_theme: typing.Optional[builtins.str] = None,
+        rds_db_instances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStack.RdsDbInstanceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        source_stack_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_custom_cookbooks: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        use_opsworks_security_groups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStack``.
+
+        :param default_instance_profile_arn: The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+        :param name: The stack name. Stack names can be a maximum of 64 characters.
+        :param service_role_arn: The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
+        :param attributes: One or more user-defined key-value pairs to be added to the stack attributes.
+        :param chef_configuration: A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+        :param clone_app_ids: If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
+        :param clone_permissions: If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
+        :param configuration_manager: The configuration manager. When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
+        :param custom_cookbooks_source: Contains the information required to retrieve an app or cookbook from a repository. For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
+        :param custom_json: A string that contains user-defined, custom JSON. It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format: ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"`` For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
+        :param default_availability_zone: The stack's default Availability Zone, which must be in the specified region. For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
+        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+        :param default_root_device_type: The default root device type. This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
+        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
+        :param default_subnet_id: The stack's default subnet ID. All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
+        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
+        :param elastic_ips: A list of Elastic IP addresses to register with the OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
+        :param hostname_theme: The stack's host name theme, with spaces replaced by underscores. The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are: - ``Baked_Goods`` - ``Clouds`` - ``Europe_Cities`` - ``Fruits`` - ``Greek_Deities_and_Titans`` - ``Legendary_creatures_from_Japan`` - ``Planets_and_Moons`` - ``Roman_Deities`` - ``Scottish_Islands`` - ``US_Cities`` - ``Wild_Cats`` To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
+        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
+        :param source_stack_id: If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
+        :param tags: A map that contains tag keys and tag values that are attached to a stack or layer. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - Leading and trailing white spaces are trimmed from both the key and value. - A maximum of 40 tags is allowed for any resource.
+        :param use_custom_cookbooks: Whether the stack uses custom cookbooks.
+        :param use_opsworks_security_groups: Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers. OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            # custom_json: Any
+            
+            cfn_stack_props = opsworks.CfnStackProps(
+                default_instance_profile_arn="defaultInstanceProfileArn",
+                name="name",
+                service_role_arn="serviceRoleArn",
+            
+                # the properties below are optional
+                agent_version="agentVersion",
+                attributes={
+                    "attributes_key": "attributes"
+                },
+                chef_configuration=opsworks.CfnStack.ChefConfigurationProperty(
+                    berkshelf_version="berkshelfVersion",
+                    manage_berkshelf=False
+                ),
+                clone_app_ids=["cloneAppIds"],
+                clone_permissions=False,
+                configuration_manager=opsworks.CfnStack.StackConfigurationManagerProperty(
+                    name="name",
+                    version="version"
+                ),
+                custom_cookbooks_source=opsworks.CfnStack.SourceProperty(
+                    password="password",
+                    revision="revision",
+                    ssh_key="sshKey",
+                    type="type",
+                    url="url",
+                    username="username"
+                ),
+                custom_json=custom_json,
+                default_availability_zone="defaultAvailabilityZone",
+                default_os="defaultOs",
+                default_root_device_type="defaultRootDeviceType",
+                default_ssh_key_name="defaultSshKeyName",
+                default_subnet_id="defaultSubnetId",
+                ecs_cluster_arn="ecsClusterArn",
+                elastic_ips=[opsworks.CfnStack.ElasticIpProperty(
+                    ip="ip",
+            
+                    # the properties below are optional
+                    name="name"
+                )],
+                hostname_theme="hostnameTheme",
+                rds_db_instances=[opsworks.CfnStack.RdsDbInstanceProperty(
+                    db_password="dbPassword",
+                    db_user="dbUser",
+                    rds_db_instance_arn="rdsDbInstanceArn"
+                )],
+                source_stack_id="sourceStackId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                use_custom_cookbooks=False,
+                use_opsworks_security_groups=False,
+                vpc_id="vpcId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__675a36919e38f296f3b53b7679384ec86298336f087126cb5bee9e1e22a8445c)
+            check_type(argname="argument default_instance_profile_arn", value=default_instance_profile_arn, expected_type=type_hints["default_instance_profile_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
+            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument chef_configuration", value=chef_configuration, expected_type=type_hints["chef_configuration"])
+            check_type(argname="argument clone_app_ids", value=clone_app_ids, expected_type=type_hints["clone_app_ids"])
+            check_type(argname="argument clone_permissions", value=clone_permissions, expected_type=type_hints["clone_permissions"])
+            check_type(argname="argument configuration_manager", value=configuration_manager, expected_type=type_hints["configuration_manager"])
+            check_type(argname="argument custom_cookbooks_source", value=custom_cookbooks_source, expected_type=type_hints["custom_cookbooks_source"])
+            check_type(argname="argument custom_json", value=custom_json, expected_type=type_hints["custom_json"])
+            check_type(argname="argument default_availability_zone", value=default_availability_zone, expected_type=type_hints["default_availability_zone"])
+            check_type(argname="argument default_os", value=default_os, expected_type=type_hints["default_os"])
+            check_type(argname="argument default_root_device_type", value=default_root_device_type, expected_type=type_hints["default_root_device_type"])
+            check_type(argname="argument default_ssh_key_name", value=default_ssh_key_name, expected_type=type_hints["default_ssh_key_name"])
+            check_type(argname="argument default_subnet_id", value=default_subnet_id, expected_type=type_hints["default_subnet_id"])
+            check_type(argname="argument ecs_cluster_arn", value=ecs_cluster_arn, expected_type=type_hints["ecs_cluster_arn"])
+            check_type(argname="argument elastic_ips", value=elastic_ips, expected_type=type_hints["elastic_ips"])
+            check_type(argname="argument hostname_theme", value=hostname_theme, expected_type=type_hints["hostname_theme"])
+            check_type(argname="argument rds_db_instances", value=rds_db_instances, expected_type=type_hints["rds_db_instances"])
+            check_type(argname="argument source_stack_id", value=source_stack_id, expected_type=type_hints["source_stack_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_custom_cookbooks", value=use_custom_cookbooks, expected_type=type_hints["use_custom_cookbooks"])
+            check_type(argname="argument use_opsworks_security_groups", value=use_opsworks_security_groups, expected_type=type_hints["use_opsworks_security_groups"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_instance_profile_arn": default_instance_profile_arn,
+            "name": name,
+            "service_role_arn": service_role_arn,
+        }
+        if agent_version is not None:
+            self._values["agent_version"] = agent_version
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if chef_configuration is not None:
+            self._values["chef_configuration"] = chef_configuration
+        if clone_app_ids is not None:
+            self._values["clone_app_ids"] = clone_app_ids
+        if clone_permissions is not None:
+            self._values["clone_permissions"] = clone_permissions
+        if configuration_manager is not None:
+            self._values["configuration_manager"] = configuration_manager
+        if custom_cookbooks_source is not None:
+            self._values["custom_cookbooks_source"] = custom_cookbooks_source
+        if custom_json is not None:
+            self._values["custom_json"] = custom_json
+        if default_availability_zone is not None:
+            self._values["default_availability_zone"] = default_availability_zone
+        if default_os is not None:
+            self._values["default_os"] = default_os
+        if default_root_device_type is not None:
+            self._values["default_root_device_type"] = default_root_device_type
+        if default_ssh_key_name is not None:
+            self._values["default_ssh_key_name"] = default_ssh_key_name
+        if default_subnet_id is not None:
+            self._values["default_subnet_id"] = default_subnet_id
+        if ecs_cluster_arn is not None:
+            self._values["ecs_cluster_arn"] = ecs_cluster_arn
+        if elastic_ips is not None:
+            self._values["elastic_ips"] = elastic_ips
+        if hostname_theme is not None:
+            self._values["hostname_theme"] = hostname_theme
+        if rds_db_instances is not None:
+            self._values["rds_db_instances"] = rds_db_instances
+        if source_stack_id is not None:
+            self._values["source_stack_id"] = source_stack_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if use_custom_cookbooks is not None:
+            self._values["use_custom_cookbooks"] = use_custom_cookbooks
+        if use_opsworks_security_groups is not None:
+            self._values["use_opsworks_security_groups"] = use_opsworks_security_groups
+        if vpc_id is not None:
+            self._values["vpc_id"] = vpc_id
+
+    @builtins.property
+    def default_instance_profile_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances.
+
+        For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultinstanceprofilearn
+        '''
+        result = self._values.get("default_instance_profile_arn")
+        assert result is not None, "Required property 'default_instance_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The stack name.
+
+        Stack names can be a maximum of 64 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_role_arn(self) -> builtins.str:
+        '''The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf.
+
+        You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-servicerolearn
+        '''
+        result = self._values.get("service_role_arn")
+        assert result is not None, "Required property 'service_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_version(self) -> typing.Optional[builtins.str]:
+        '''The default OpsWorks Stacks agent version. You have the following options:.
+
+        - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available.
+        - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances.
+
+        The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
+        .. epigraph::
+
+           You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-agentversion
+        '''
+        result = self._values.get("agent_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''One or more user-defined key-value pairs to be added to the stack attributes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def chef_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.ChefConfigurationProperty"]]:
+        '''A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-chefconfiguration
+        '''
+        result = self._values.get("chef_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.ChefConfigurationProperty"]], result)
+
+    @builtins.property
+    def clone_app_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-cloneappids
+        '''
+        result = self._values.get("clone_app_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def clone_permissions(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-clonepermissions
+        '''
+        result = self._values.get("clone_permissions")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def configuration_manager(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.StackConfigurationManagerProperty"]]:
+        '''The configuration manager.
+
+        When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-configurationmanager
+        '''
+        result = self._values.get("configuration_manager")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.StackConfigurationManagerProperty"]], result)
+
+    @builtins.property
+    def custom_cookbooks_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.SourceProperty"]]:
+        '''Contains the information required to retrieve an app or cookbook from a repository.
+
+        For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-customcookbookssource
+        '''
+        result = self._values.get("custom_cookbooks_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStack.SourceProperty"]], result)
+
+    @builtins.property
+    def custom_json(self) -> typing.Any:
+        '''A string that contains user-defined, custom JSON.
+
+        It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format:
+
+        ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"``
+
+        For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-customjson
+        '''
+        result = self._values.get("custom_json")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def default_availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The stack's default Availability Zone, which must be in the specified region.
+
+        For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultavailabilityzone
+        '''
+        result = self._values.get("default_availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_os(self) -> typing.Optional[builtins.str]:
+        '''The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance.
+
+        You can specify one of the following.
+
+        - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` .
+        - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` .
+        - ``CentOS Linux 7``
+        - ``Red Hat Enterprise Linux 7``
+        - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
+        - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+
+        The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultos
+        '''
+        result = self._values.get("default_os")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_root_device_type(self) -> typing.Optional[builtins.str]:
+        '''The default root device type.
+
+        This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultrootdevicetype
+        '''
+        result = self._values.get("default_root_device_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_ssh_key_name(self) -> typing.Optional[builtins.str]:
+        '''A default Amazon EC2 key pair name.
+
+        The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultsshkeyname
+        '''
+        result = self._values.get("default_ssh_key_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_subnet_id(self) -> typing.Optional[builtins.str]:
+        '''The stack's default subnet ID.
+
+        All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultsubnetid
+        '''
+        result = self._values.get("default_subnet_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ecs_cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack.
+
+        .. epigraph::
+
+           If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-ecsclusterarn
+        '''
+        result = self._values.get("ecs_cluster_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def elastic_ips(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.ElasticIpProperty"]]]]:
+        '''A list of Elastic IP addresses to register with the OpsWorks stack.
+
+        .. epigraph::
+
+           If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-elasticips
+        '''
+        result = self._values.get("elastic_ips")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.ElasticIpProperty"]]]], result)
+
+    @builtins.property
+    def hostname_theme(self) -> typing.Optional[builtins.str]:
+        '''The stack's host name theme, with spaces replaced by underscores.
+
+        The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are:
+
+        - ``Baked_Goods``
+        - ``Clouds``
+        - ``Europe_Cities``
+        - ``Fruits``
+        - ``Greek_Deities_and_Titans``
+        - ``Legendary_creatures_from_Japan``
+        - ``Planets_and_Moons``
+        - ``Roman_Deities``
+        - ``Scottish_Islands``
+        - ``US_Cities``
+        - ``Wild_Cats``
+
+        To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-hostnametheme
+        '''
+        result = self._values.get("hostname_theme")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rds_db_instances(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.RdsDbInstanceProperty"]]]]:
+        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack.
+
+        .. epigraph::
+
+           If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-rdsdbinstances
+        '''
+        result = self._values.get("rds_db_instances")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.RdsDbInstanceProperty"]]]], result)
+
+    @builtins.property
+    def source_stack_id(self) -> typing.Optional[builtins.str]:
+        '''If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-sourcestackid
+        '''
+        result = self._values.get("source_stack_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A map that contains tag keys and tag values that are attached to a stack or layer.
+
+        - The key cannot be empty.
+        - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /``
+        - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /``
+        - Leading and trailing white spaces are trimmed from both the key and value.
+        - A maximum of 40 tags is allowed for any resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def use_custom_cookbooks(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether the stack uses custom cookbooks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-usecustomcookbooks
+        '''
+        result = self._values.get("use_custom_cookbooks")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def use_opsworks_security_groups(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers.
+
+        OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings:
+
+        - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group.
+        - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings.
+
+        For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-useopsworkssecuritygroups
+        '''
+        result = self._values.get("use_opsworks_security_groups")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the VPC that the stack is to be launched into.
+
+        The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later.
+
+        - If your account supports EC2-Classic, the default value is ``no VPC`` .
+        - If your account does not support EC2-Classic, the default value is the default VPC for the specified region.
+
+        If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively.
+
+        If you specify a nondefault VPC ID, note the following:
+
+        - It must belong to a VPC in your account that is in the specified region.
+        - You must specify a value for ``DefaultSubnetId`` .
+
+        For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStackProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnUserProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "iam_user_arn": "iamUserArn",
+        "allow_self_management": "allowSelfManagement",
+        "ssh_public_key": "sshPublicKey",
+        "ssh_username": "sshUsername",
+    },
+)
+class CfnUserProfileProps:
+    def __init__(
+        self,
+        *,
+        iam_user_arn: builtins.str,
+        allow_self_management: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ssh_public_key: typing.Optional[builtins.str] = None,
+        ssh_username: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserProfile``.
+
+        :param iam_user_arn: The user's IAM ARN.
+        :param allow_self_management: Whether users can specify their own SSH public key through the My Settings page. For more information, see `Managing User Permissions <https://docs.aws.amazon.com/opsworks/latest/userguide/security-settingsshkey.html>`_ .
+        :param ssh_public_key: The user's SSH public key.
+        :param ssh_username: The user's SSH user name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            cfn_user_profile_props = opsworks.CfnUserProfileProps(
+                iam_user_arn="iamUserArn",
+            
+                # the properties below are optional
+                allow_self_management=False,
+                ssh_public_key="sshPublicKey",
+                ssh_username="sshUsername"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c4119cda15b50587c240dbd706f63701c8bc940cdb11ef0e8c6fa341479ff30)
+            check_type(argname="argument iam_user_arn", value=iam_user_arn, expected_type=type_hints["iam_user_arn"])
+            check_type(argname="argument allow_self_management", value=allow_self_management, expected_type=type_hints["allow_self_management"])
+            check_type(argname="argument ssh_public_key", value=ssh_public_key, expected_type=type_hints["ssh_public_key"])
+            check_type(argname="argument ssh_username", value=ssh_username, expected_type=type_hints["ssh_username"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "iam_user_arn": iam_user_arn,
+        }
+        if allow_self_management is not None:
+            self._values["allow_self_management"] = allow_self_management
+        if ssh_public_key is not None:
+            self._values["ssh_public_key"] = ssh_public_key
+        if ssh_username is not None:
+            self._values["ssh_username"] = ssh_username
+
+    @builtins.property
+    def iam_user_arn(self) -> builtins.str:
+        '''The user's IAM ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-iamuserarn
+        '''
+        result = self._values.get("iam_user_arn")
+        assert result is not None, "Required property 'iam_user_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_self_management(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether users can specify their own SSH public key through the My Settings page.
+
+        For more information, see `Managing User Permissions <https://docs.aws.amazon.com/opsworks/latest/userguide/security-settingsshkey.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-allowselfmanagement
+        '''
+        result = self._values.get("allow_self_management")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def ssh_public_key(self) -> typing.Optional[builtins.str]:
+        '''The user's SSH public key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-sshpublickey
+        '''
+        result = self._values.get("ssh_public_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ssh_username(self) -> typing.Optional[builtins.str]:
+        '''The user's SSH user name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-sshusername
+        '''
+        result = self._values.get("ssh_username")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.CfnVolumeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ec2_volume_id": "ec2VolumeId",
+        "stack_id": "stackId",
+        "mount_point": "mountPoint",
+        "name": "name",
+    },
+)
+class CfnVolumeProps:
+    def __init__(
+        self,
+        *,
+        ec2_volume_id: builtins.str,
+        stack_id: builtins.str,
+        mount_point: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVolume``.
+
+        :param ec2_volume_id: The Amazon EC2 volume ID.
+        :param stack_id: The stack ID.
+        :param mount_point: The volume mount point. For example, "/mnt/disk1".
+        :param name: The volume name. Volume names are a maximum of 128 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            cfn_volume_props = opsworks.CfnVolumeProps(
+                ec2_volume_id="ec2VolumeId",
+                stack_id="stackId",
+            
+                # the properties below are optional
+                mount_point="mountPoint",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bf9954f0ce70eb8d07abcbf62b393f8247aa21a5f0e2ca31bf1461d3f31d76f)
+            check_type(argname="argument ec2_volume_id", value=ec2_volume_id, expected_type=type_hints["ec2_volume_id"])
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+            check_type(argname="argument mount_point", value=mount_point, expected_type=type_hints["mount_point"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ec2_volume_id": ec2_volume_id,
+            "stack_id": stack_id,
+        }
+        if mount_point is not None:
+            self._values["mount_point"] = mount_point
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def ec2_volume_id(self) -> builtins.str:
+        '''The Amazon EC2 volume ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-ec2volumeid
+        '''
+        result = self._values.get("ec2_volume_id")
+        assert result is not None, "Required property 'ec2_volume_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The stack ID.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-stackid
+        '''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mount_point(self) -> typing.Optional[builtins.str]:
+        '''The volume mount point.
+
+        For example, "/mnt/disk1".
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-mountpoint
+        '''
+        result = self._values.get("mount_point")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The volume name.
+
+        Volume names are a maximum of 128 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVolumeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.ElasticLoadBalancerAttachmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "elastic_load_balancer_attachment_id": "elasticLoadBalancerAttachmentId",
+    },
+)
+class ElasticLoadBalancerAttachmentReference:
+    def __init__(self, *, elastic_load_balancer_attachment_id: builtins.str) -> None:
+        '''A reference to a ElasticLoadBalancerAttachment resource.
+
+        :param elastic_load_balancer_attachment_id: The Id of the ElasticLoadBalancerAttachment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            elastic_load_balancer_attachment_reference = opsworks.ElasticLoadBalancerAttachmentReference(
+                elastic_load_balancer_attachment_id="elasticLoadBalancerAttachmentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16db147cc70dc25e16b8baa7f225c8687a7f1bcca0412cdad210fb941f2ed700)
+            check_type(argname="argument elastic_load_balancer_attachment_id", value=elastic_load_balancer_attachment_id, expected_type=type_hints["elastic_load_balancer_attachment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "elastic_load_balancer_attachment_id": elastic_load_balancer_attachment_id,
+        }
+
+    @builtins.property
+    def elastic_load_balancer_attachment_id(self) -> builtins.str:
+        '''The Id of the ElasticLoadBalancerAttachment resource.'''
+        result = self._values.get("elastic_load_balancer_attachment_id")
+        assert result is not None, "Required property 'elastic_load_balancer_attachment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ElasticLoadBalancerAttachmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IAppRef")
+class IAppRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAppRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a App.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IAppRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''(experimental) A reference to a App resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAppRef).__jsii_proxy_class__ = lambda : _IAppRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IElasticLoadBalancerAttachmentRef")
+class IElasticLoadBalancerAttachmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ElasticLoadBalancerAttachment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticLoadBalancerAttachmentRef")
+    def elastic_load_balancer_attachment_ref(
+        self,
+    ) -> ElasticLoadBalancerAttachmentReference:
+        '''(experimental) A reference to a ElasticLoadBalancerAttachment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IElasticLoadBalancerAttachmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ElasticLoadBalancerAttachment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IElasticLoadBalancerAttachmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="elasticLoadBalancerAttachmentRef")
+    def elastic_load_balancer_attachment_ref(
+        self,
+    ) -> ElasticLoadBalancerAttachmentReference:
+        '''(experimental) A reference to a ElasticLoadBalancerAttachment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ElasticLoadBalancerAttachmentReference, jsii.get(self, "elasticLoadBalancerAttachmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IElasticLoadBalancerAttachmentRef).__jsii_proxy_class__ = lambda : _IElasticLoadBalancerAttachmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IInstanceRef")
+class IInstanceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceReference", jsii.get(self, "instanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.ILayerRef")
+class ILayerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Layer.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="layerRef")
+    def layer_ref(self) -> "LayerReference":
+        '''(experimental) A reference to a Layer resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILayerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Layer.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.ILayerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="layerRef")
+    def layer_ref(self) -> "LayerReference":
+        '''(experimental) A reference to a Layer resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LayerReference", jsii.get(self, "layerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILayerRef).__jsii_proxy_class__ = lambda : _ILayerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IStackRef")
+class IStackRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Stack.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IStackRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> "StackReference":
+        '''(experimental) A reference to a Stack resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackReference", jsii.get(self, "stackRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackRef).__jsii_proxy_class__ = lambda : _IStackRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IUserProfileRef")
+class IUserProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a UserProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userProfileRef")
+    def user_profile_ref(self) -> "UserProfileReference":
+        '''(experimental) A reference to a UserProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IUserProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userProfileRef")
+    def user_profile_ref(self) -> "UserProfileReference":
+        '''(experimental) A reference to a UserProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserProfileReference", jsii.get(self, "userProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserProfileRef).__jsii_proxy_class__ = lambda : _IUserProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_opsworks.IVolumeRef")
+class IVolumeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Volume.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> "VolumeReference":
+        '''(experimental) A reference to a Volume resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IVolumeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Volume.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_opsworks.IVolumeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> "VolumeReference":
+        '''(experimental) A reference to a Volume resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("VolumeReference", jsii.get(self, "volumeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IVolumeRef).__jsii_proxy_class__ = lambda : _IVolumeRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.InstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_id": "instanceId"},
+)
+class InstanceReference:
+    def __init__(self, *, instance_id: builtins.str) -> None:
+        '''A reference to a Instance resource.
+
+        :param instance_id: The Id of the Instance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            instance_reference = opsworks.InstanceReference(
+                instance_id="instanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85762ac2f2cd2aed99393b0d40197dd1bf4c2b2c2c13ebb3687683a9a4b2f9fa)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The Id of the Instance resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.LayerReference",
+    jsii_struct_bases=[],
+    name_mapping={"layer_id": "layerId"},
+)
+class LayerReference:
+    def __init__(self, *, layer_id: builtins.str) -> None:
+        '''A reference to a Layer resource.
+
+        :param layer_id: The Id of the Layer resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            layer_reference = opsworks.LayerReference(
+                layer_id="layerId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7b61392c8ee646b870768dfdb4d337bf287f112d842b057934f36059f2c5bc4)
+            check_type(argname="argument layer_id", value=layer_id, expected_type=type_hints["layer_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "layer_id": layer_id,
+        }
+
+    @builtins.property
+    def layer_id(self) -> builtins.str:
+        '''The Id of the Layer resource.'''
+        result = self._values.get("layer_id")
+        assert result is not None, "Required property 'layer_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LayerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.StackReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_id": "stackId"},
+)
+class StackReference:
+    def __init__(self, *, stack_id: builtins.str) -> None:
+        '''A reference to a Stack resource.
+
+        :param stack_id: The Id of the Stack resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            stack_reference = opsworks.StackReference(
+                stack_id="stackId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__070e76b31d2d962c094efb551dff4aec0771fdf33062332ecabc98b65b5e9083)
+            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_id": stack_id,
+        }
+
+    @builtins.property
+    def stack_id(self) -> builtins.str:
+        '''The Id of the Stack resource.'''
+        result = self._values.get("stack_id")
+        assert result is not None, "Required property 'stack_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.UserProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_profile_id": "userProfileId"},
+)
+class UserProfileReference:
+    def __init__(self, *, user_profile_id: builtins.str) -> None:
+        '''A reference to a UserProfile resource.
+
+        :param user_profile_id: The Id of the UserProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            user_profile_reference = opsworks.UserProfileReference(
+                user_profile_id="userProfileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c852511ac1a96ab36a7882782cab11aefd0ec77f533bd6ab7acb23737d85d6dc)
+            check_type(argname="argument user_profile_id", value=user_profile_id, expected_type=type_hints["user_profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_profile_id": user_profile_id,
+        }
+
+    @builtins.property
+    def user_profile_id(self) -> builtins.str:
+        '''The Id of the UserProfile resource.'''
+        result = self._values.get("user_profile_id")
+        assert result is not None, "Required property 'user_profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opsworks.VolumeReference",
+    jsii_struct_bases=[],
+    name_mapping={"volume_id": "volumeId"},
+)
+class VolumeReference:
+    def __init__(self, *, volume_id: builtins.str) -> None:
+        '''A reference to a Volume resource.
+
+        :param volume_id: The Id of the Volume resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opsworks as opsworks
+            
+            volume_reference = opsworks.VolumeReference(
+                volume_id="volumeId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbfbfb44af94fa3aef0f52ebabaec327b3116706524b7789ba1ddd66a145b1bc)
+            check_type(argname="argument volume_id", value=volume_id, expected_type=type_hints["volume_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "volume_id": volume_id,
+        }
+
+    @builtins.property
+    def volume_id(self) -> builtins.str:
+        '''The Id of the Volume resource.'''
+        result = self._values.get("volume_id")
+        assert result is not None, "Required property 'volume_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "VolumeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IAppRef)
 class CfnApp(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -212,6 +2917,12 @@ class CfnApp(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appRef")
+    def app_ref(self) -> AppReference:
+        '''A reference to a App resource.'''
+        return typing.cast(AppReference, jsii.get(self, "appRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -836,290 +3547,7 @@ class CfnApp(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnAppProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "stack_id": "stackId",
-        "type": "type",
-        "app_source": "appSource",
-        "attributes": "attributes",
-        "data_sources": "dataSources",
-        "description": "description",
-        "domains": "domains",
-        "enable_ssl": "enableSsl",
-        "environment": "environment",
-        "shortname": "shortname",
-        "ssl_configuration": "sslConfiguration",
-    },
-)
-class CfnAppProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        stack_id: builtins.str,
-        type: builtins.str,
-        app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-        enable_ssl: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        shortname: typing.Optional[builtins.str] = None,
-        ssl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SslConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApp``.
-
-        :param name: The app name.
-        :param stack_id: The stack ID.
-        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
-        :param app_source: A ``Source`` object that specifies the app repository.
-        :param attributes: One or more user-defined key/value pairs to be added to the stack attributes.
-        :param data_sources: The app's data source.
-        :param description: A description of the app.
-        :param domains: The app virtual host settings, with multiple domains separated by commas. For example: ``'www.example.com, example.com'``
-        :param enable_ssl: Whether to enable SSL for the app.
-        :param environment: An array of ``EnvironmentVariable`` objects that specify environment variables to be associated with the app. After you deploy the app, these variables are defined on the associated app server instance. For more information, see `Environment Variables <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html#workingapps-creating-environment>`_ . There is no specific limit on the number of environment variables. However, the size of the associated data structure - which includes the variables' names, values, and protected flag values - cannot exceed 20 KB. This limit should accommodate most if not all use cases. Exceeding it will cause an exception with the message, "Environment: is too large (maximum is 20KB)." .. epigraph:: If you have specified one or more environment variables, you cannot modify the stack's Chef version.
-        :param shortname: The app's short name.
-        :param ssl_configuration: An ``SslConfiguration`` object with the SSL configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            cfn_app_props = opsworks.CfnAppProps(
-                name="name",
-                stack_id="stackId",
-                type="type",
-            
-                # the properties below are optional
-                app_source=opsworks.CfnApp.SourceProperty(
-                    password="password",
-                    revision="revision",
-                    ssh_key="sshKey",
-                    type="type",
-                    url="url",
-                    username="username"
-                ),
-                attributes={
-                    "attributes_key": "attributes"
-                },
-                data_sources=[opsworks.CfnApp.DataSourceProperty(
-                    arn="arn",
-                    database_name="databaseName",
-                    type="type"
-                )],
-                description="description",
-                domains=["domains"],
-                enable_ssl=False,
-                environment=[opsworks.CfnApp.EnvironmentVariableProperty(
-                    key="key",
-                    value="value",
-            
-                    # the properties below are optional
-                    secure=False
-                )],
-                shortname="shortname",
-                ssl_configuration=opsworks.CfnApp.SslConfigurationProperty(
-                    certificate="certificate",
-                    chain="chain",
-                    private_key="privateKey"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe0ae5f6e1367f942976862a375aa88ecad21e52429978b2181e9115ce82447e)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument app_source", value=app_source, expected_type=type_hints["app_source"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
-            check_type(argname="argument enable_ssl", value=enable_ssl, expected_type=type_hints["enable_ssl"])
-            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-            check_type(argname="argument shortname", value=shortname, expected_type=type_hints["shortname"])
-            check_type(argname="argument ssl_configuration", value=ssl_configuration, expected_type=type_hints["ssl_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "stack_id": stack_id,
-            "type": type,
-        }
-        if app_source is not None:
-            self._values["app_source"] = app_source
-        if attributes is not None:
-            self._values["attributes"] = attributes
-        if data_sources is not None:
-            self._values["data_sources"] = data_sources
-        if description is not None:
-            self._values["description"] = description
-        if domains is not None:
-            self._values["domains"] = domains
-        if enable_ssl is not None:
-            self._values["enable_ssl"] = enable_ssl
-        if environment is not None:
-            self._values["environment"] = environment
-        if shortname is not None:
-            self._values["shortname"] = shortname
-        if ssl_configuration is not None:
-            self._values["ssl_configuration"] = ssl_configuration
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The app name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_id(self) -> builtins.str:
-        '''The stack ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-stackid
-        '''
-        result = self._values.get("stack_id")
-        assert result is not None, "Required property 'stack_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The app type.
-
-        Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def app_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.SourceProperty]]:
-        '''A ``Source`` object that specifies the app repository.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-appsource
-        '''
-        result = self._values.get("app_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.SourceProperty]], result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''One or more user-defined key/value pairs to be added to the stack attributes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-attributes
-        '''
-        result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def data_sources(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.DataSourceProperty]]]]:
-        '''The app's data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-datasources
-        '''
-        result = self._values.get("data_sources")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.DataSourceProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The app virtual host settings, with multiple domains separated by commas.
-
-        For example: ``'www.example.com, example.com'``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-domains
-        '''
-        result = self._values.get("domains")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def enable_ssl(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to enable SSL for the app.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-enablessl
-        '''
-        result = self._values.get("enable_ssl")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def environment(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EnvironmentVariableProperty]]]]:
-        '''An array of ``EnvironmentVariable`` objects that specify environment variables to be associated with the app.
-
-        After you deploy the app, these variables are defined on the associated app server instance. For more information, see `Environment Variables <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html#workingapps-creating-environment>`_ .
-
-        There is no specific limit on the number of environment variables. However, the size of the associated data structure - which includes the variables' names, values, and protected flag values - cannot exceed 20 KB. This limit should accommodate most if not all use cases. Exceeding it will cause an exception with the message, "Environment: is too large (maximum is 20KB)."
-        .. epigraph::
-
-           If you have specified one or more environment variables, you cannot modify the stack's Chef version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-environment
-        '''
-        result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApp.EnvironmentVariableProperty]]]], result)
-
-    @builtins.property
-    def shortname(self) -> typing.Optional[builtins.str]:
-        '''The app's short name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-shortname
-        '''
-        result = self._values.get("shortname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ssl_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.SslConfigurationProperty]]:
-        '''An ``SslConfiguration`` object with the SSL configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-sslconfiguration
-        '''
-        result = self._values.get("ssl_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApp.SslConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAppProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IElasticLoadBalancerAttachmentRef)
 class CfnElasticLoadBalancerAttachment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1211,6 +3639,14 @@ class CfnElasticLoadBalancerAttachment(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="elasticLoadBalancerAttachmentRef")
+    def elastic_load_balancer_attachment_ref(
+        self,
+    ) -> ElasticLoadBalancerAttachmentReference:
+        '''A reference to a ElasticLoadBalancerAttachment resource.'''
+        return typing.cast(ElasticLoadBalancerAttachmentReference, jsii.get(self, "elasticLoadBalancerAttachmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="elasticLoadBalancerName")
     def elastic_load_balancer_name(self) -> builtins.str:
         '''The Elastic Load Balancing instance name.'''
@@ -1237,82 +3673,7 @@ class CfnElasticLoadBalancerAttachment(
         jsii.set(self, "layerId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnElasticLoadBalancerAttachmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "elastic_load_balancer_name": "elasticLoadBalancerName",
-        "layer_id": "layerId",
-    },
-)
-class CfnElasticLoadBalancerAttachmentProps:
-    def __init__(
-        self,
-        *,
-        elastic_load_balancer_name: builtins.str,
-        layer_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnElasticLoadBalancerAttachment``.
-
-        :param elastic_load_balancer_name: The Elastic Load Balancing instance name.
-        :param layer_id: The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            cfn_elastic_load_balancer_attachment_props = opsworks.CfnElasticLoadBalancerAttachmentProps(
-                elastic_load_balancer_name="elasticLoadBalancerName",
-                layer_id="layerId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cce4a38411eccbc7b0088bfd31a89e80bd98022d6249e27feb26e4ee7d3e6834)
-            check_type(argname="argument elastic_load_balancer_name", value=elastic_load_balancer_name, expected_type=type_hints["elastic_load_balancer_name"])
-            check_type(argname="argument layer_id", value=layer_id, expected_type=type_hints["layer_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "elastic_load_balancer_name": elastic_load_balancer_name,
-            "layer_id": layer_id,
-        }
-
-    @builtins.property
-    def elastic_load_balancer_name(self) -> builtins.str:
-        '''The Elastic Load Balancing instance name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html#cfn-opsworks-elasticloadbalancerattachment-elasticloadbalancername
-        '''
-        result = self._values.get("elastic_load_balancer_name")
-        assert result is not None, "Required property 'elastic_load_balancer_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def layer_id(self) -> builtins.str:
-        '''The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html#cfn-opsworks-elasticloadbalancerattachment-layerid
-        '''
-        result = self._values.get("layer_id")
-        assert result is not None, "Required property 'layer_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnElasticLoadBalancerAttachmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInstanceRef)
 class CfnInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1563,6 +3924,12 @@ class CfnInstance(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> InstanceReference:
+        '''A reference to a Instance resource.'''
+        return typing.cast(InstanceReference, jsii.get(self, "instanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceType")
@@ -2292,472 +4659,7 @@ class CfnInstance(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_type": "instanceType",
-        "layer_ids": "layerIds",
-        "stack_id": "stackId",
-        "agent_version": "agentVersion",
-        "ami_id": "amiId",
-        "architecture": "architecture",
-        "auto_scaling_type": "autoScalingType",
-        "availability_zone": "availabilityZone",
-        "block_device_mappings": "blockDeviceMappings",
-        "ebs_optimized": "ebsOptimized",
-        "elastic_ips": "elasticIps",
-        "hostname": "hostname",
-        "install_updates_on_boot": "installUpdatesOnBoot",
-        "os": "os",
-        "root_device_type": "rootDeviceType",
-        "ssh_key_name": "sshKeyName",
-        "subnet_id": "subnetId",
-        "tenancy": "tenancy",
-        "time_based_auto_scaling": "timeBasedAutoScaling",
-        "virtualization_type": "virtualizationType",
-        "volumes": "volumes",
-    },
-)
-class CfnInstanceProps:
-    def __init__(
-        self,
-        *,
-        instance_type: builtins.str,
-        layer_ids: typing.Sequence[builtins.str],
-        stack_id: builtins.str,
-        agent_version: typing.Optional[builtins.str] = None,
-        ami_id: typing.Optional[builtins.str] = None,
-        architecture: typing.Optional[builtins.str] = None,
-        auto_scaling_type: typing.Optional[builtins.str] = None,
-        availability_zone: typing.Optional[builtins.str] = None,
-        block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        elastic_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
-        hostname: typing.Optional[builtins.str] = None,
-        install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        os: typing.Optional[builtins.str] = None,
-        root_device_type: typing.Optional[builtins.str] = None,
-        ssh_key_name: typing.Optional[builtins.str] = None,
-        subnet_id: typing.Optional[builtins.str] = None,
-        tenancy: typing.Optional[builtins.str] = None,
-        time_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.TimeBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        virtualization_type: typing.Optional[builtins.str] = None,
-        volumes: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstance``.
-
-        :param instance_type: The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
-        :param layer_ids: An array that contains the instance's layer IDs.
-        :param stack_id: The stack ID.
-        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
-        :param ami_id: A custom AMI ID to be used to create the instance. The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . .. epigraph:: If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
-        :param architecture: The instance architecture. The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
-        :param auto_scaling_type: For load-based or time-based instances, the type. Windows stacks can use only time-based instances.
-        :param availability_zone: The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
-        :param block_device_mappings: An array of ``BlockDeviceMapping`` objects that specify the instance's block devices. For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
-        :param ebs_optimized: Whether to create an Amazon EBS-optimized instance.
-        :param elastic_ips: A list of Elastic IP addresses to associate with the instance.
-        :param hostname: The instance host name. The following are character limits for instance host names. - Linux-based instances: 63 characters - Windows-based instances: 15 characters
-        :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
-        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
-        :param root_device_type: The instance root device type. For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-        :param ssh_key_name: The instance's Amazon EC2 key-pair name.
-        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
-        :param tenancy: The instance's tenancy option. The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
-        :param time_based_auto_scaling: The time-based scaling configuration for the instance.
-        :param virtualization_type: The instance's virtualization type, ``paravirtual`` or ``hvm`` .
-        :param volumes: A list of OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            cfn_instance_props = opsworks.CfnInstanceProps(
-                instance_type="instanceType",
-                layer_ids=["layerIds"],
-                stack_id="stackId",
-            
-                # the properties below are optional
-                agent_version="agentVersion",
-                ami_id="amiId",
-                architecture="architecture",
-                auto_scaling_type="autoScalingType",
-                availability_zone="availabilityZone",
-                block_device_mappings=[opsworks.CfnInstance.BlockDeviceMappingProperty(
-                    device_name="deviceName",
-                    ebs=opsworks.CfnInstance.EbsBlockDeviceProperty(
-                        delete_on_termination=False,
-                        iops=123,
-                        snapshot_id="snapshotId",
-                        volume_size=123,
-                        volume_type="volumeType"
-                    ),
-                    no_device="noDevice",
-                    virtual_name="virtualName"
-                )],
-                ebs_optimized=False,
-                elastic_ips=["elasticIps"],
-                hostname="hostname",
-                install_updates_on_boot=False,
-                os="os",
-                root_device_type="rootDeviceType",
-                ssh_key_name="sshKeyName",
-                subnet_id="subnetId",
-                tenancy="tenancy",
-                time_based_auto_scaling=opsworks.CfnInstance.TimeBasedAutoScalingProperty(
-                    friday={
-                        "friday_key": "friday"
-                    },
-                    monday={
-                        "monday_key": "monday"
-                    },
-                    saturday={
-                        "saturday_key": "saturday"
-                    },
-                    sunday={
-                        "sunday_key": "sunday"
-                    },
-                    thursday={
-                        "thursday_key": "thursday"
-                    },
-                    tuesday={
-                        "tuesday_key": "tuesday"
-                    },
-                    wednesday={
-                        "wednesday_key": "wednesday"
-                    }
-                ),
-                virtualization_type="virtualizationType",
-                volumes=["volumes"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__064c38cf60beb5ee54299be9e04fc9e0d751e94688227f7c131215ac7ef613f9)
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument layer_ids", value=layer_ids, expected_type=type_hints["layer_ids"])
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
-            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
-            check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
-            check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
-            check_type(argname="argument auto_scaling_type", value=auto_scaling_type, expected_type=type_hints["auto_scaling_type"])
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument block_device_mappings", value=block_device_mappings, expected_type=type_hints["block_device_mappings"])
-            check_type(argname="argument ebs_optimized", value=ebs_optimized, expected_type=type_hints["ebs_optimized"])
-            check_type(argname="argument elastic_ips", value=elastic_ips, expected_type=type_hints["elastic_ips"])
-            check_type(argname="argument hostname", value=hostname, expected_type=type_hints["hostname"])
-            check_type(argname="argument install_updates_on_boot", value=install_updates_on_boot, expected_type=type_hints["install_updates_on_boot"])
-            check_type(argname="argument os", value=os, expected_type=type_hints["os"])
-            check_type(argname="argument root_device_type", value=root_device_type, expected_type=type_hints["root_device_type"])
-            check_type(argname="argument ssh_key_name", value=ssh_key_name, expected_type=type_hints["ssh_key_name"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-            check_type(argname="argument tenancy", value=tenancy, expected_type=type_hints["tenancy"])
-            check_type(argname="argument time_based_auto_scaling", value=time_based_auto_scaling, expected_type=type_hints["time_based_auto_scaling"])
-            check_type(argname="argument virtualization_type", value=virtualization_type, expected_type=type_hints["virtualization_type"])
-            check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_type": instance_type,
-            "layer_ids": layer_ids,
-            "stack_id": stack_id,
-        }
-        if agent_version is not None:
-            self._values["agent_version"] = agent_version
-        if ami_id is not None:
-            self._values["ami_id"] = ami_id
-        if architecture is not None:
-            self._values["architecture"] = architecture
-        if auto_scaling_type is not None:
-            self._values["auto_scaling_type"] = auto_scaling_type
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if block_device_mappings is not None:
-            self._values["block_device_mappings"] = block_device_mappings
-        if ebs_optimized is not None:
-            self._values["ebs_optimized"] = ebs_optimized
-        if elastic_ips is not None:
-            self._values["elastic_ips"] = elastic_ips
-        if hostname is not None:
-            self._values["hostname"] = hostname
-        if install_updates_on_boot is not None:
-            self._values["install_updates_on_boot"] = install_updates_on_boot
-        if os is not None:
-            self._values["os"] = os
-        if root_device_type is not None:
-            self._values["root_device_type"] = root_device_type
-        if ssh_key_name is not None:
-            self._values["ssh_key_name"] = ssh_key_name
-        if subnet_id is not None:
-            self._values["subnet_id"] = subnet_id
-        if tenancy is not None:
-            self._values["tenancy"] = tenancy
-        if time_based_auto_scaling is not None:
-            self._values["time_based_auto_scaling"] = time_based_auto_scaling
-        if virtualization_type is not None:
-            self._values["virtualization_type"] = virtualization_type
-        if volumes is not None:
-            self._values["volumes"] = volumes
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def layer_ids(self) -> typing.List[builtins.str]:
-        '''An array that contains the instance's layer IDs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-layerids
-        '''
-        result = self._values.get("layer_ids")
-        assert result is not None, "Required property 'layer_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def stack_id(self) -> builtins.str:
-        '''The stack ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-stackid
-        '''
-        result = self._values.get("stack_id")
-        assert result is not None, "Required property 'stack_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default OpsWorks Stacks agent version. You have the following options:.
-
-        - ``INHERIT`` - Use the stack's default agent version setting.
-        - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance.
-
-        The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-agentversion
-        '''
-        result = self._values.get("agent_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ami_id(self) -> typing.Optional[builtins.str]:
-        '''A custom AMI ID to be used to create the instance.
-
-        The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
-        .. epigraph::
-
-           If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-amiid
-        '''
-        result = self._values.get("ami_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def architecture(self) -> typing.Optional[builtins.str]:
-        '''The instance architecture.
-
-        The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-architecture
-        '''
-        result = self._values.get("architecture")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auto_scaling_type(self) -> typing.Optional[builtins.str]:
-        '''For load-based or time-based instances, the type.
-
-        Windows stacks can use only time-based instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-autoscalingtype
-        '''
-        result = self._values.get("auto_scaling_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def block_device_mappings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstance.BlockDeviceMappingProperty]]]]:
-        '''An array of ``BlockDeviceMapping`` objects that specify the instance's block devices.
-
-        For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-blockdevicemappings
-        '''
-        result = self._values.get("block_device_mappings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstance.BlockDeviceMappingProperty]]]], result)
-
-    @builtins.property
-    def ebs_optimized(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to create an Amazon EBS-optimized instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-ebsoptimized
-        '''
-        result = self._values.get("ebs_optimized")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def elastic_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Elastic IP addresses to associate with the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-elasticips
-        '''
-        result = self._values.get("elastic_ips")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def hostname(self) -> typing.Optional[builtins.str]:
-        '''The instance host name. The following are character limits for instance host names.
-
-        - Linux-based instances: 63 characters
-        - Windows-based instances: 15 characters
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-hostname
-        '''
-        result = self._values.get("hostname")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def install_updates_on_boot(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to install operating system and package updates when the instance boots.
-
-        The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances.
-        .. epigraph::
-
-           We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-installupdatesonboot
-        '''
-        result = self._values.get("install_updates_on_boot")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def os(self) -> typing.Optional[builtins.str]:
-        '''The instance's operating system, which must be set to one of the following.
-
-        - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` .
-        - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` .
-        - ``CentOS Linux 7``
-        - ``Red Hat Enterprise Linux 7``
-        - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
-        - A custom AMI: ``Custom`` .
-
-        Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
-
-        The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-os
-        '''
-        result = self._values.get("os")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def root_device_type(self) -> typing.Optional[builtins.str]:
-        '''The instance root device type.
-
-        For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-rootdevicetype
-        '''
-        result = self._values.get("root_device_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ssh_key_name(self) -> typing.Optional[builtins.str]:
-        '''The instance's Amazon EC2 key-pair name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-sshkeyname
-        '''
-        result = self._values.get("ssh_key_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the instance's subnet.
-
-        If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-subnetid
-        '''
-        result = self._values.get("subnet_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tenancy(self) -> typing.Optional[builtins.str]:
-        '''The instance's tenancy option.
-
-        The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-tenancy
-        '''
-        result = self._values.get("tenancy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def time_based_auto_scaling(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstance.TimeBasedAutoScalingProperty]]:
-        '''The time-based scaling configuration for the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-timebasedautoscaling
-        '''
-        result = self._values.get("time_based_auto_scaling")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstance.TimeBasedAutoScalingProperty]], result)
-
-    @builtins.property
-    def virtualization_type(self) -> typing.Optional[builtins.str]:
-        '''The instance's virtualization type, ``paravirtual`` or ``hvm`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-virtualizationtype
-        '''
-        result = self._values.get("virtualization_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def volumes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of OpsWorks volume IDs to associate with the instance.
-
-        For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-volumes
-        '''
-        result = self._values.get("volumes")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, ILayerRef, _ITaggable_36806126)
 class CfnLayer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2962,6 +4864,12 @@ class CfnLayer(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="layerRef")
+    def layer_ref(self) -> LayerReference:
+        '''A reference to a Layer resource.'''
+        return typing.cast(LayerReference, jsii.get(self, "layerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3943,441 +5851,7 @@ class CfnLayer(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnLayerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "auto_assign_elastic_ips": "autoAssignElasticIps",
-        "auto_assign_public_ips": "autoAssignPublicIps",
-        "enable_auto_healing": "enableAutoHealing",
-        "name": "name",
-        "shortname": "shortname",
-        "stack_id": "stackId",
-        "type": "type",
-        "attributes": "attributes",
-        "custom_instance_profile_arn": "customInstanceProfileArn",
-        "custom_json": "customJson",
-        "custom_recipes": "customRecipes",
-        "custom_security_group_ids": "customSecurityGroupIds",
-        "install_updates_on_boot": "installUpdatesOnBoot",
-        "lifecycle_event_configuration": "lifecycleEventConfiguration",
-        "load_based_auto_scaling": "loadBasedAutoScaling",
-        "packages": "packages",
-        "tags": "tags",
-        "use_ebs_optimized_instances": "useEbsOptimizedInstances",
-        "volume_configurations": "volumeConfigurations",
-    },
-)
-class CfnLayerProps:
-    def __init__(
-        self,
-        *,
-        auto_assign_elastic_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        auto_assign_public_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        enable_auto_healing: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        name: builtins.str,
-        shortname: builtins.str,
-        stack_id: builtins.str,
-        type: builtins.str,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        custom_instance_profile_arn: typing.Optional[builtins.str] = None,
-        custom_json: typing.Any = None,
-        custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.RecipesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        lifecycle_event_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LifecycleEventConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        load_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LoadBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        packages: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_ebs_optimized_instances: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        volume_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.VolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLayer``.
-
-        :param auto_assign_elastic_ips: Whether to automatically assign an `Elastic IP address <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html>`_ to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
-        :param auto_assign_public_ips: For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
-        :param enable_auto_healing: Whether to disable auto healing for the layer.
-        :param name: The layer name, which is used by the console. Layer names can be a maximum of 32 characters.
-        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
-        :param stack_id: The layer stack ID.
-        :param type: The layer type. A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
-        :param attributes: One or more user-defined key-value pairs to be added to the stack attributes. To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
-        :param custom_instance_profile_arn: The ARN of an IAM profile to be used for the layer's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-        :param custom_json: A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances. For more information, see `Using Custom JSON <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook-json-override.html>`_ . This feature is supported as of version 1.7.42 of the AWS CLI .
-        :param custom_recipes: A ``LayerCustomRecipes`` object that specifies the layer custom recipes.
-        :param custom_security_group_ids: An array containing the layer custom security group IDs.
-        :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
-        :param lifecycle_event_configuration: A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
-        :param load_based_auto_scaling: The load-based scaling configuration for the OpsWorks layer.
-        :param packages: An array of ``Package`` objects that describes the layer packages.
-        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer. Use tags to manage your resources.
-        :param use_ebs_optimized_instances: Whether to use Amazon EBS-optimized instances.
-        :param volume_configurations: A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            # custom_json: Any
-            
-            cfn_layer_props = opsworks.CfnLayerProps(
-                auto_assign_elastic_ips=False,
-                auto_assign_public_ips=False,
-                enable_auto_healing=False,
-                name="name",
-                shortname="shortname",
-                stack_id="stackId",
-                type="type",
-            
-                # the properties below are optional
-                attributes={
-                    "attributes_key": "attributes"
-                },
-                custom_instance_profile_arn="customInstanceProfileArn",
-                custom_json=custom_json,
-                custom_recipes=opsworks.CfnLayer.RecipesProperty(
-                    configure=["configure"],
-                    deploy=["deploy"],
-                    setup=["setup"],
-                    shutdown=["shutdown"],
-                    undeploy=["undeploy"]
-                ),
-                custom_security_group_ids=["customSecurityGroupIds"],
-                install_updates_on_boot=False,
-                lifecycle_event_configuration=opsworks.CfnLayer.LifecycleEventConfigurationProperty(
-                    shutdown_event_configuration=opsworks.CfnLayer.ShutdownEventConfigurationProperty(
-                        delay_until_elb_connections_drained=False,
-                        execution_timeout=123
-                    )
-                ),
-                load_based_auto_scaling=opsworks.CfnLayer.LoadBasedAutoScalingProperty(
-                    down_scaling=opsworks.CfnLayer.AutoScalingThresholdsProperty(
-                        cpu_threshold=123,
-                        ignore_metrics_time=123,
-                        instance_count=123,
-                        load_threshold=123,
-                        memory_threshold=123,
-                        thresholds_wait_time=123
-                    ),
-                    enable=False,
-                    up_scaling=opsworks.CfnLayer.AutoScalingThresholdsProperty(
-                        cpu_threshold=123,
-                        ignore_metrics_time=123,
-                        instance_count=123,
-                        load_threshold=123,
-                        memory_threshold=123,
-                        thresholds_wait_time=123
-                    )
-                ),
-                packages=["packages"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                use_ebs_optimized_instances=False,
-                volume_configurations=[opsworks.CfnLayer.VolumeConfigurationProperty(
-                    encrypted=False,
-                    iops=123,
-                    mount_point="mountPoint",
-                    number_of_disks=123,
-                    raid_level=123,
-                    size=123,
-                    volume_type="volumeType"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__44c38216d74d64877783d8570f455e1bede8bb638962a7d006b49b8f741161c6)
-            check_type(argname="argument auto_assign_elastic_ips", value=auto_assign_elastic_ips, expected_type=type_hints["auto_assign_elastic_ips"])
-            check_type(argname="argument auto_assign_public_ips", value=auto_assign_public_ips, expected_type=type_hints["auto_assign_public_ips"])
-            check_type(argname="argument enable_auto_healing", value=enable_auto_healing, expected_type=type_hints["enable_auto_healing"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument shortname", value=shortname, expected_type=type_hints["shortname"])
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument custom_instance_profile_arn", value=custom_instance_profile_arn, expected_type=type_hints["custom_instance_profile_arn"])
-            check_type(argname="argument custom_json", value=custom_json, expected_type=type_hints["custom_json"])
-            check_type(argname="argument custom_recipes", value=custom_recipes, expected_type=type_hints["custom_recipes"])
-            check_type(argname="argument custom_security_group_ids", value=custom_security_group_ids, expected_type=type_hints["custom_security_group_ids"])
-            check_type(argname="argument install_updates_on_boot", value=install_updates_on_boot, expected_type=type_hints["install_updates_on_boot"])
-            check_type(argname="argument lifecycle_event_configuration", value=lifecycle_event_configuration, expected_type=type_hints["lifecycle_event_configuration"])
-            check_type(argname="argument load_based_auto_scaling", value=load_based_auto_scaling, expected_type=type_hints["load_based_auto_scaling"])
-            check_type(argname="argument packages", value=packages, expected_type=type_hints["packages"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument use_ebs_optimized_instances", value=use_ebs_optimized_instances, expected_type=type_hints["use_ebs_optimized_instances"])
-            check_type(argname="argument volume_configurations", value=volume_configurations, expected_type=type_hints["volume_configurations"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auto_assign_elastic_ips": auto_assign_elastic_ips,
-            "auto_assign_public_ips": auto_assign_public_ips,
-            "enable_auto_healing": enable_auto_healing,
-            "name": name,
-            "shortname": shortname,
-            "stack_id": stack_id,
-            "type": type,
-        }
-        if attributes is not None:
-            self._values["attributes"] = attributes
-        if custom_instance_profile_arn is not None:
-            self._values["custom_instance_profile_arn"] = custom_instance_profile_arn
-        if custom_json is not None:
-            self._values["custom_json"] = custom_json
-        if custom_recipes is not None:
-            self._values["custom_recipes"] = custom_recipes
-        if custom_security_group_ids is not None:
-            self._values["custom_security_group_ids"] = custom_security_group_ids
-        if install_updates_on_boot is not None:
-            self._values["install_updates_on_boot"] = install_updates_on_boot
-        if lifecycle_event_configuration is not None:
-            self._values["lifecycle_event_configuration"] = lifecycle_event_configuration
-        if load_based_auto_scaling is not None:
-            self._values["load_based_auto_scaling"] = load_based_auto_scaling
-        if packages is not None:
-            self._values["packages"] = packages
-        if tags is not None:
-            self._values["tags"] = tags
-        if use_ebs_optimized_instances is not None:
-            self._values["use_ebs_optimized_instances"] = use_ebs_optimized_instances
-        if volume_configurations is not None:
-            self._values["volume_configurations"] = volume_configurations
-
-    @builtins.property
-    def auto_assign_elastic_ips(
-        self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Whether to automatically assign an `Elastic IP address <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html>`_ to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-autoassignelasticips
-        '''
-        result = self._values.get("auto_assign_elastic_ips")
-        assert result is not None, "Required property 'auto_assign_elastic_ips' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def auto_assign_public_ips(
-        self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances.
-
-        For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-autoassignpublicips
-        '''
-        result = self._values.get("auto_assign_public_ips")
-        assert result is not None, "Required property 'auto_assign_public_ips' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def enable_auto_healing(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Whether to disable auto healing for the layer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-enableautohealing
-        '''
-        result = self._values.get("enable_auto_healing")
-        assert result is not None, "Required property 'enable_auto_healing' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The layer name, which is used by the console.
-
-        Layer names can be a maximum of 32 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def shortname(self) -> builtins.str:
-        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes.
-
-        The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'.
-
-        Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-shortname
-        '''
-        result = self._values.get("shortname")
-        assert result is not None, "Required property 'shortname' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_id(self) -> builtins.str:
-        '''The layer stack ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-stackid
-        '''
-        result = self._values.get("stack_id")
-        assert result is not None, "Required property 'stack_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The layer type.
-
-        A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''One or more user-defined key-value pairs to be added to the stack attributes.
-
-        To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-attributes
-        '''
-        result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def custom_instance_profile_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of an IAM profile to be used for the layer's EC2 instances.
-
-        For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-custominstanceprofilearn
-        '''
-        result = self._values.get("custom_instance_profile_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def custom_json(self) -> typing.Any:
-        '''A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances.
-
-        For more information, see `Using Custom JSON <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook-json-override.html>`_ . This feature is supported as of version 1.7.42 of the AWS CLI .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customjson
-        '''
-        result = self._values.get("custom_json")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def custom_recipes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.RecipesProperty]]:
-        '''A ``LayerCustomRecipes`` object that specifies the layer custom recipes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customrecipes
-        '''
-        result = self._values.get("custom_recipes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.RecipesProperty]], result)
-
-    @builtins.property
-    def custom_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array containing the layer custom security group IDs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-customsecuritygroupids
-        '''
-        result = self._values.get("custom_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def install_updates_on_boot(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to install operating system and package updates when the instance boots.
-
-        The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances.
-        .. epigraph::
-
-           To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-installupdatesonboot
-        '''
-        result = self._values.get("install_updates_on_boot")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def lifecycle_event_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.LifecycleEventConfigurationProperty]]:
-        '''A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-lifecycleeventconfiguration
-        '''
-        result = self._values.get("lifecycle_event_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.LifecycleEventConfigurationProperty]], result)
-
-    @builtins.property
-    def load_based_auto_scaling(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.LoadBasedAutoScalingProperty]]:
-        '''The load-based scaling configuration for the OpsWorks layer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-loadbasedautoscaling
-        '''
-        result = self._values.get("load_based_auto_scaling")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.LoadBasedAutoScalingProperty]], result)
-
-    @builtins.property
-    def packages(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of ``Package`` objects that describes the layer packages.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-packages
-        '''
-        result = self._values.get("packages")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer.
-
-        Use tags to manage your resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def use_ebs_optimized_instances(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to use Amazon EBS-optimized instances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-useebsoptimizedinstances
-        '''
-        result = self._values.get("use_ebs_optimized_instances")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def volume_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLayer.VolumeConfigurationProperty]]]]:
-        '''A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-volumeconfigurations
-        '''
-        result = self._values.get("volume_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLayer.VolumeConfigurationProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLayerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStackRef, _ITaggable_36806126)
 class CfnStack(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4591,6 +6065,12 @@ class CfnStack(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stackRef")
+    def stack_ref(self) -> StackReference:
+        '''A reference to a Stack resource.'''
+        return typing.cast(StackReference, jsii.get(self, "stackRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5434,597 +6914,7 @@ class CfnStack(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnStackProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_instance_profile_arn": "defaultInstanceProfileArn",
-        "name": "name",
-        "service_role_arn": "serviceRoleArn",
-        "agent_version": "agentVersion",
-        "attributes": "attributes",
-        "chef_configuration": "chefConfiguration",
-        "clone_app_ids": "cloneAppIds",
-        "clone_permissions": "clonePermissions",
-        "configuration_manager": "configurationManager",
-        "custom_cookbooks_source": "customCookbooksSource",
-        "custom_json": "customJson",
-        "default_availability_zone": "defaultAvailabilityZone",
-        "default_os": "defaultOs",
-        "default_root_device_type": "defaultRootDeviceType",
-        "default_ssh_key_name": "defaultSshKeyName",
-        "default_subnet_id": "defaultSubnetId",
-        "ecs_cluster_arn": "ecsClusterArn",
-        "elastic_ips": "elasticIps",
-        "hostname_theme": "hostnameTheme",
-        "rds_db_instances": "rdsDbInstances",
-        "source_stack_id": "sourceStackId",
-        "tags": "tags",
-        "use_custom_cookbooks": "useCustomCookbooks",
-        "use_opsworks_security_groups": "useOpsworksSecurityGroups",
-        "vpc_id": "vpcId",
-    },
-)
-class CfnStackProps:
-    def __init__(
-        self,
-        *,
-        default_instance_profile_arn: builtins.str,
-        name: builtins.str,
-        service_role_arn: builtins.str,
-        agent_version: typing.Optional[builtins.str] = None,
-        attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ChefConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        configuration_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StackConfigurationManagerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_cookbooks_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_json: typing.Any = None,
-        default_availability_zone: typing.Optional[builtins.str] = None,
-        default_os: typing.Optional[builtins.str] = None,
-        default_root_device_type: typing.Optional[builtins.str] = None,
-        default_ssh_key_name: typing.Optional[builtins.str] = None,
-        default_subnet_id: typing.Optional[builtins.str] = None,
-        ecs_cluster_arn: typing.Optional[builtins.str] = None,
-        elastic_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ElasticIpProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        hostname_theme: typing.Optional[builtins.str] = None,
-        rds_db_instances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.RdsDbInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        source_stack_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_custom_cookbooks: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        use_opsworks_security_groups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        vpc_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStack``.
-
-        :param default_instance_profile_arn: The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-        :param name: The stack name. Stack names can be a maximum of 64 characters.
-        :param service_role_arn: The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
-        :param attributes: One or more user-defined key-value pairs to be added to the stack attributes.
-        :param chef_configuration: A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param clone_app_ids: If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
-        :param clone_permissions: If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
-        :param configuration_manager: The configuration manager. When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
-        :param custom_cookbooks_source: Contains the information required to retrieve an app or cookbook from a repository. For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
-        :param custom_json: A string that contains user-defined, custom JSON. It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format: ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"`` For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
-        :param default_availability_zone: The stack's default Availability Zone, which must be in the specified region. For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
-        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
-        :param default_root_device_type: The default root device type. This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
-        :param default_subnet_id: The stack's default subnet ID. All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
-        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
-        :param elastic_ips: A list of Elastic IP addresses to register with the OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
-        :param hostname_theme: The stack's host name theme, with spaces replaced by underscores. The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are: - ``Baked_Goods`` - ``Clouds`` - ``Europe_Cities`` - ``Fruits`` - ``Greek_Deities_and_Titans`` - ``Legendary_creatures_from_Japan`` - ``Planets_and_Moons`` - ``Roman_Deities`` - ``Scottish_Islands`` - ``US_Cities`` - ``Wild_Cats`` To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
-        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
-        :param source_stack_id: If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
-        :param tags: A map that contains tag keys and tag values that are attached to a stack or layer. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - Leading and trailing white spaces are trimmed from both the key and value. - A maximum of 40 tags is allowed for any resource.
-        :param use_custom_cookbooks: Whether the stack uses custom cookbooks.
-        :param use_opsworks_security_groups: Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers. OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            # custom_json: Any
-            
-            cfn_stack_props = opsworks.CfnStackProps(
-                default_instance_profile_arn="defaultInstanceProfileArn",
-                name="name",
-                service_role_arn="serviceRoleArn",
-            
-                # the properties below are optional
-                agent_version="agentVersion",
-                attributes={
-                    "attributes_key": "attributes"
-                },
-                chef_configuration=opsworks.CfnStack.ChefConfigurationProperty(
-                    berkshelf_version="berkshelfVersion",
-                    manage_berkshelf=False
-                ),
-                clone_app_ids=["cloneAppIds"],
-                clone_permissions=False,
-                configuration_manager=opsworks.CfnStack.StackConfigurationManagerProperty(
-                    name="name",
-                    version="version"
-                ),
-                custom_cookbooks_source=opsworks.CfnStack.SourceProperty(
-                    password="password",
-                    revision="revision",
-                    ssh_key="sshKey",
-                    type="type",
-                    url="url",
-                    username="username"
-                ),
-                custom_json=custom_json,
-                default_availability_zone="defaultAvailabilityZone",
-                default_os="defaultOs",
-                default_root_device_type="defaultRootDeviceType",
-                default_ssh_key_name="defaultSshKeyName",
-                default_subnet_id="defaultSubnetId",
-                ecs_cluster_arn="ecsClusterArn",
-                elastic_ips=[opsworks.CfnStack.ElasticIpProperty(
-                    ip="ip",
-            
-                    # the properties below are optional
-                    name="name"
-                )],
-                hostname_theme="hostnameTheme",
-                rds_db_instances=[opsworks.CfnStack.RdsDbInstanceProperty(
-                    db_password="dbPassword",
-                    db_user="dbUser",
-                    rds_db_instance_arn="rdsDbInstanceArn"
-                )],
-                source_stack_id="sourceStackId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                use_custom_cookbooks=False,
-                use_opsworks_security_groups=False,
-                vpc_id="vpcId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__675a36919e38f296f3b53b7679384ec86298336f087126cb5bee9e1e22a8445c)
-            check_type(argname="argument default_instance_profile_arn", value=default_instance_profile_arn, expected_type=type_hints["default_instance_profile_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
-            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
-            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
-            check_type(argname="argument chef_configuration", value=chef_configuration, expected_type=type_hints["chef_configuration"])
-            check_type(argname="argument clone_app_ids", value=clone_app_ids, expected_type=type_hints["clone_app_ids"])
-            check_type(argname="argument clone_permissions", value=clone_permissions, expected_type=type_hints["clone_permissions"])
-            check_type(argname="argument configuration_manager", value=configuration_manager, expected_type=type_hints["configuration_manager"])
-            check_type(argname="argument custom_cookbooks_source", value=custom_cookbooks_source, expected_type=type_hints["custom_cookbooks_source"])
-            check_type(argname="argument custom_json", value=custom_json, expected_type=type_hints["custom_json"])
-            check_type(argname="argument default_availability_zone", value=default_availability_zone, expected_type=type_hints["default_availability_zone"])
-            check_type(argname="argument default_os", value=default_os, expected_type=type_hints["default_os"])
-            check_type(argname="argument default_root_device_type", value=default_root_device_type, expected_type=type_hints["default_root_device_type"])
-            check_type(argname="argument default_ssh_key_name", value=default_ssh_key_name, expected_type=type_hints["default_ssh_key_name"])
-            check_type(argname="argument default_subnet_id", value=default_subnet_id, expected_type=type_hints["default_subnet_id"])
-            check_type(argname="argument ecs_cluster_arn", value=ecs_cluster_arn, expected_type=type_hints["ecs_cluster_arn"])
-            check_type(argname="argument elastic_ips", value=elastic_ips, expected_type=type_hints["elastic_ips"])
-            check_type(argname="argument hostname_theme", value=hostname_theme, expected_type=type_hints["hostname_theme"])
-            check_type(argname="argument rds_db_instances", value=rds_db_instances, expected_type=type_hints["rds_db_instances"])
-            check_type(argname="argument source_stack_id", value=source_stack_id, expected_type=type_hints["source_stack_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument use_custom_cookbooks", value=use_custom_cookbooks, expected_type=type_hints["use_custom_cookbooks"])
-            check_type(argname="argument use_opsworks_security_groups", value=use_opsworks_security_groups, expected_type=type_hints["use_opsworks_security_groups"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_instance_profile_arn": default_instance_profile_arn,
-            "name": name,
-            "service_role_arn": service_role_arn,
-        }
-        if agent_version is not None:
-            self._values["agent_version"] = agent_version
-        if attributes is not None:
-            self._values["attributes"] = attributes
-        if chef_configuration is not None:
-            self._values["chef_configuration"] = chef_configuration
-        if clone_app_ids is not None:
-            self._values["clone_app_ids"] = clone_app_ids
-        if clone_permissions is not None:
-            self._values["clone_permissions"] = clone_permissions
-        if configuration_manager is not None:
-            self._values["configuration_manager"] = configuration_manager
-        if custom_cookbooks_source is not None:
-            self._values["custom_cookbooks_source"] = custom_cookbooks_source
-        if custom_json is not None:
-            self._values["custom_json"] = custom_json
-        if default_availability_zone is not None:
-            self._values["default_availability_zone"] = default_availability_zone
-        if default_os is not None:
-            self._values["default_os"] = default_os
-        if default_root_device_type is not None:
-            self._values["default_root_device_type"] = default_root_device_type
-        if default_ssh_key_name is not None:
-            self._values["default_ssh_key_name"] = default_ssh_key_name
-        if default_subnet_id is not None:
-            self._values["default_subnet_id"] = default_subnet_id
-        if ecs_cluster_arn is not None:
-            self._values["ecs_cluster_arn"] = ecs_cluster_arn
-        if elastic_ips is not None:
-            self._values["elastic_ips"] = elastic_ips
-        if hostname_theme is not None:
-            self._values["hostname_theme"] = hostname_theme
-        if rds_db_instances is not None:
-            self._values["rds_db_instances"] = rds_db_instances
-        if source_stack_id is not None:
-            self._values["source_stack_id"] = source_stack_id
-        if tags is not None:
-            self._values["tags"] = tags
-        if use_custom_cookbooks is not None:
-            self._values["use_custom_cookbooks"] = use_custom_cookbooks
-        if use_opsworks_security_groups is not None:
-            self._values["use_opsworks_security_groups"] = use_opsworks_security_groups
-        if vpc_id is not None:
-            self._values["vpc_id"] = vpc_id
-
-    @builtins.property
-    def default_instance_profile_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances.
-
-        For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultinstanceprofilearn
-        '''
-        result = self._values.get("default_instance_profile_arn")
-        assert result is not None, "Required property 'default_instance_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The stack name.
-
-        Stack names can be a maximum of 64 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_role_arn(self) -> builtins.str:
-        '''The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf.
-
-        You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-servicerolearn
-        '''
-        result = self._values.get("service_role_arn")
-        assert result is not None, "Required property 'service_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default OpsWorks Stacks agent version. You have the following options:.
-
-        - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available.
-        - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances.
-
-        The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
-        .. epigraph::
-
-           You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-agentversion
-        '''
-        result = self._values.get("agent_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def attributes(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''One or more user-defined key-value pairs to be added to the stack attributes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-attributes
-        '''
-        result = self._values.get("attributes")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def chef_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.ChefConfigurationProperty]]:
-        '''A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-chefconfiguration
-        '''
-        result = self._values.get("chef_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.ChefConfigurationProperty]], result)
-
-    @builtins.property
-    def clone_app_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-cloneappids
-        '''
-        result = self._values.get("clone_app_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def clone_permissions(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-clonepermissions
-        '''
-        result = self._values.get("clone_permissions")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def configuration_manager(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.StackConfigurationManagerProperty]]:
-        '''The configuration manager.
-
-        When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-configurationmanager
-        '''
-        result = self._values.get("configuration_manager")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.StackConfigurationManagerProperty]], result)
-
-    @builtins.property
-    def custom_cookbooks_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.SourceProperty]]:
-        '''Contains the information required to retrieve an app or cookbook from a repository.
-
-        For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-customcookbookssource
-        '''
-        result = self._values.get("custom_cookbooks_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.SourceProperty]], result)
-
-    @builtins.property
-    def custom_json(self) -> typing.Any:
-        '''A string that contains user-defined, custom JSON.
-
-        It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format:
-
-        ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"``
-
-        For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-customjson
-        '''
-        result = self._values.get("custom_json")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def default_availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The stack's default Availability Zone, which must be in the specified region.
-
-        For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultavailabilityzone
-        '''
-        result = self._values.get("default_availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_os(self) -> typing.Optional[builtins.str]:
-        '''The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance.
-
-        You can specify one of the following.
-
-        - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` .
-        - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` .
-        - ``CentOS Linux 7``
-        - ``Red Hat Enterprise Linux 7``
-        - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
-        - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
-
-        The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultos
-        '''
-        result = self._values.get("default_os")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_root_device_type(self) -> typing.Optional[builtins.str]:
-        '''The default root device type.
-
-        This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultrootdevicetype
-        '''
-        result = self._values.get("default_root_device_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_ssh_key_name(self) -> typing.Optional[builtins.str]:
-        '''A default Amazon EC2 key pair name.
-
-        The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultsshkeyname
-        '''
-        result = self._values.get("default_ssh_key_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''The stack's default subnet ID.
-
-        All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultsubnetid
-        '''
-        result = self._values.get("default_subnet_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ecs_cluster_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack.
-
-        .. epigraph::
-
-           If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-ecsclusterarn
-        '''
-        result = self._values.get("ecs_cluster_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def elastic_ips(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.ElasticIpProperty]]]]:
-        '''A list of Elastic IP addresses to register with the OpsWorks stack.
-
-        .. epigraph::
-
-           If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-elasticips
-        '''
-        result = self._values.get("elastic_ips")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.ElasticIpProperty]]]], result)
-
-    @builtins.property
-    def hostname_theme(self) -> typing.Optional[builtins.str]:
-        '''The stack's host name theme, with spaces replaced by underscores.
-
-        The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are:
-
-        - ``Baked_Goods``
-        - ``Clouds``
-        - ``Europe_Cities``
-        - ``Fruits``
-        - ``Greek_Deities_and_Titans``
-        - ``Legendary_creatures_from_Japan``
-        - ``Planets_and_Moons``
-        - ``Roman_Deities``
-        - ``Scottish_Islands``
-        - ``US_Cities``
-        - ``Wild_Cats``
-
-        To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-hostnametheme
-        '''
-        result = self._values.get("hostname_theme")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rds_db_instances(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.RdsDbInstanceProperty]]]]:
-        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack.
-
-        .. epigraph::
-
-           If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-rdsdbinstances
-        '''
-        result = self._values.get("rds_db_instances")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.RdsDbInstanceProperty]]]], result)
-
-    @builtins.property
-    def source_stack_id(self) -> typing.Optional[builtins.str]:
-        '''If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-sourcestackid
-        '''
-        result = self._values.get("source_stack_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A map that contains tag keys and tag values that are attached to a stack or layer.
-
-        - The key cannot be empty.
-        - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /``
-        - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /``
-        - Leading and trailing white spaces are trimmed from both the key and value.
-        - A maximum of 40 tags is allowed for any resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def use_custom_cookbooks(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether the stack uses custom cookbooks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-usecustomcookbooks
-        '''
-        result = self._values.get("use_custom_cookbooks")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def use_opsworks_security_groups(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers.
-
-        OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings:
-
-        - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group.
-        - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings.
-
-        For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-useopsworkssecuritygroups
-        '''
-        result = self._values.get("use_opsworks_security_groups")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the VPC that the stack is to be launched into.
-
-        The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later.
-
-        - If your account supports EC2-Classic, the default value is ``no VPC`` .
-        - If your account does not support EC2-Classic, the default value is the default VPC for the specified region.
-
-        If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively.
-
-        If you specify a nondefault VPC ID, note the following:
-
-        - It must belong to a VPC in your account that is in the specified region.
-        - You must specify a value for ``DefaultSubnetId`` .
-
-        For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStackProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IUserProfileRef)
 class CfnUserProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6136,6 +7026,12 @@ class CfnUserProfile(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="userProfileRef")
+    def user_profile_ref(self) -> UserProfileReference:
+        '''A reference to a UserProfile resource.'''
+        return typing.cast(UserProfileReference, jsii.get(self, "userProfileRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="iamUserArn")
     def iam_user_arn(self) -> builtins.str:
         '''The user's IAM ARN.'''
@@ -6193,120 +7089,7 @@ class CfnUserProfile(
         jsii.set(self, "sshUsername", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnUserProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "iam_user_arn": "iamUserArn",
-        "allow_self_management": "allowSelfManagement",
-        "ssh_public_key": "sshPublicKey",
-        "ssh_username": "sshUsername",
-    },
-)
-class CfnUserProfileProps:
-    def __init__(
-        self,
-        *,
-        iam_user_arn: builtins.str,
-        allow_self_management: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ssh_public_key: typing.Optional[builtins.str] = None,
-        ssh_username: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUserProfile``.
-
-        :param iam_user_arn: The user's IAM ARN.
-        :param allow_self_management: Whether users can specify their own SSH public key through the My Settings page. For more information, see `Managing User Permissions <https://docs.aws.amazon.com/opsworks/latest/userguide/security-settingsshkey.html>`_ .
-        :param ssh_public_key: The user's SSH public key.
-        :param ssh_username: The user's SSH user name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            cfn_user_profile_props = opsworks.CfnUserProfileProps(
-                iam_user_arn="iamUserArn",
-            
-                # the properties below are optional
-                allow_self_management=False,
-                ssh_public_key="sshPublicKey",
-                ssh_username="sshUsername"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c4119cda15b50587c240dbd706f63701c8bc940cdb11ef0e8c6fa341479ff30)
-            check_type(argname="argument iam_user_arn", value=iam_user_arn, expected_type=type_hints["iam_user_arn"])
-            check_type(argname="argument allow_self_management", value=allow_self_management, expected_type=type_hints["allow_self_management"])
-            check_type(argname="argument ssh_public_key", value=ssh_public_key, expected_type=type_hints["ssh_public_key"])
-            check_type(argname="argument ssh_username", value=ssh_username, expected_type=type_hints["ssh_username"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "iam_user_arn": iam_user_arn,
-        }
-        if allow_self_management is not None:
-            self._values["allow_self_management"] = allow_self_management
-        if ssh_public_key is not None:
-            self._values["ssh_public_key"] = ssh_public_key
-        if ssh_username is not None:
-            self._values["ssh_username"] = ssh_username
-
-    @builtins.property
-    def iam_user_arn(self) -> builtins.str:
-        '''The user's IAM ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-iamuserarn
-        '''
-        result = self._values.get("iam_user_arn")
-        assert result is not None, "Required property 'iam_user_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allow_self_management(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether users can specify their own SSH public key through the My Settings page.
-
-        For more information, see `Managing User Permissions <https://docs.aws.amazon.com/opsworks/latest/userguide/security-settingsshkey.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-allowselfmanagement
-        '''
-        result = self._values.get("allow_self_management")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def ssh_public_key(self) -> typing.Optional[builtins.str]:
-        '''The user's SSH public key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-sshpublickey
-        '''
-        result = self._values.get("ssh_public_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ssh_username(self) -> typing.Optional[builtins.str]:
-        '''The user's SSH user name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-userprofile.html#cfn-opsworks-userprofile-sshusername
-        '''
-        result = self._values.get("ssh_username")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IVolumeRef)
 class CfnVolume(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6409,6 +7192,12 @@ class CfnVolume(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="volumeRef")
+    def volume_ref(self) -> VolumeReference:
+        '''A reference to a Volume resource.'''
+        return typing.cast(VolumeReference, jsii.get(self, "volumeRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="ec2VolumeId")
     def ec2_volume_id(self) -> builtins.str:
         '''The Amazon EC2 volume ID.'''
@@ -6461,120 +7250,8 @@ class CfnVolume(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_opsworks.CfnVolumeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ec2_volume_id": "ec2VolumeId",
-        "stack_id": "stackId",
-        "mount_point": "mountPoint",
-        "name": "name",
-    },
-)
-class CfnVolumeProps:
-    def __init__(
-        self,
-        *,
-        ec2_volume_id: builtins.str,
-        stack_id: builtins.str,
-        mount_point: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVolume``.
-
-        :param ec2_volume_id: The Amazon EC2 volume ID.
-        :param stack_id: The stack ID.
-        :param mount_point: The volume mount point. For example, "/mnt/disk1".
-        :param name: The volume name. Volume names are a maximum of 128 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_opsworks as opsworks
-            
-            cfn_volume_props = opsworks.CfnVolumeProps(
-                ec2_volume_id="ec2VolumeId",
-                stack_id="stackId",
-            
-                # the properties below are optional
-                mount_point="mountPoint",
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bf9954f0ce70eb8d07abcbf62b393f8247aa21a5f0e2ca31bf1461d3f31d76f)
-            check_type(argname="argument ec2_volume_id", value=ec2_volume_id, expected_type=type_hints["ec2_volume_id"])
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
-            check_type(argname="argument mount_point", value=mount_point, expected_type=type_hints["mount_point"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ec2_volume_id": ec2_volume_id,
-            "stack_id": stack_id,
-        }
-        if mount_point is not None:
-            self._values["mount_point"] = mount_point
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def ec2_volume_id(self) -> builtins.str:
-        '''The Amazon EC2 volume ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-ec2volumeid
-        '''
-        result = self._values.get("ec2_volume_id")
-        assert result is not None, "Required property 'ec2_volume_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stack_id(self) -> builtins.str:
-        '''The stack ID.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-stackid
-        '''
-        result = self._values.get("stack_id")
-        assert result is not None, "Required property 'stack_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mount_point(self) -> typing.Optional[builtins.str]:
-        '''The volume mount point.
-
-        For example, "/mnt/disk1".
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-mountpoint
-        '''
-        result = self._values.get("mount_point")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The volume name.
-
-        Volume names are a maximum of 128 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html#cfn-opsworks-volume-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVolumeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AppReference",
     "CfnApp",
     "CfnAppProps",
     "CfnElasticLoadBalancerAttachment",
@@ -6589,9 +7266,200 @@ __all__ = [
     "CfnUserProfileProps",
     "CfnVolume",
     "CfnVolumeProps",
+    "ElasticLoadBalancerAttachmentReference",
+    "IAppRef",
+    "IElasticLoadBalancerAttachmentRef",
+    "IInstanceRef",
+    "ILayerRef",
+    "IStackRef",
+    "IUserProfileRef",
+    "IVolumeRef",
+    "InstanceReference",
+    "LayerReference",
+    "StackReference",
+    "UserProfileReference",
+    "VolumeReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__daf50fc534a1336625fdc722bafadcf5fc9e8ac4ea574cc7dee6c63b78d8870e(
+    *,
+    app_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe0ae5f6e1367f942976862a375aa88ecad21e52429978b2181e9115ce82447e(
+    *,
+    name: builtins.str,
+    stack_id: builtins.str,
+    type: builtins.str,
+    app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+    enable_ssl: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    shortname: typing.Optional[builtins.str] = None,
+    ssl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SslConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cce4a38411eccbc7b0088bfd31a89e80bd98022d6249e27feb26e4ee7d3e6834(
+    *,
+    elastic_load_balancer_name: builtins.str,
+    layer_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__064c38cf60beb5ee54299be9e04fc9e0d751e94688227f7c131215ac7ef613f9(
+    *,
+    instance_type: builtins.str,
+    layer_ids: typing.Sequence[builtins.str],
+    stack_id: builtins.str,
+    agent_version: typing.Optional[builtins.str] = None,
+    ami_id: typing.Optional[builtins.str] = None,
+    architecture: typing.Optional[builtins.str] = None,
+    auto_scaling_type: typing.Optional[builtins.str] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    elastic_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
+    hostname: typing.Optional[builtins.str] = None,
+    install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    os: typing.Optional[builtins.str] = None,
+    root_device_type: typing.Optional[builtins.str] = None,
+    ssh_key_name: typing.Optional[builtins.str] = None,
+    subnet_id: typing.Optional[builtins.str] = None,
+    tenancy: typing.Optional[builtins.str] = None,
+    time_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.TimeBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    virtualization_type: typing.Optional[builtins.str] = None,
+    volumes: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44c38216d74d64877783d8570f455e1bede8bb638962a7d006b49b8f741161c6(
+    *,
+    auto_assign_elastic_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    auto_assign_public_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enable_auto_healing: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    name: builtins.str,
+    shortname: builtins.str,
+    stack_id: builtins.str,
+    type: builtins.str,
+    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    custom_instance_profile_arn: typing.Optional[builtins.str] = None,
+    custom_json: typing.Any = None,
+    custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.RecipesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    lifecycle_event_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LifecycleEventConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    load_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LoadBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    packages: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_ebs_optimized_instances: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    volume_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.VolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__675a36919e38f296f3b53b7679384ec86298336f087126cb5bee9e1e22a8445c(
+    *,
+    default_instance_profile_arn: builtins.str,
+    name: builtins.str,
+    service_role_arn: builtins.str,
+    agent_version: typing.Optional[builtins.str] = None,
+    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ChefConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    configuration_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StackConfigurationManagerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_cookbooks_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_json: typing.Any = None,
+    default_availability_zone: typing.Optional[builtins.str] = None,
+    default_os: typing.Optional[builtins.str] = None,
+    default_root_device_type: typing.Optional[builtins.str] = None,
+    default_ssh_key_name: typing.Optional[builtins.str] = None,
+    default_subnet_id: typing.Optional[builtins.str] = None,
+    ecs_cluster_arn: typing.Optional[builtins.str] = None,
+    elastic_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ElasticIpProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    hostname_theme: typing.Optional[builtins.str] = None,
+    rds_db_instances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.RdsDbInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_stack_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_custom_cookbooks: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    use_opsworks_security_groups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c4119cda15b50587c240dbd706f63701c8bc940cdb11ef0e8c6fa341479ff30(
+    *,
+    iam_user_arn: builtins.str,
+    allow_self_management: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ssh_public_key: typing.Optional[builtins.str] = None,
+    ssh_username: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bf9954f0ce70eb8d07abcbf62b393f8247aa21a5f0e2ca31bf1461d3f31d76f(
+    *,
+    ec2_volume_id: builtins.str,
+    stack_id: builtins.str,
+    mount_point: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16db147cc70dc25e16b8baa7f225c8687a7f1bcca0412cdad210fb941f2ed700(
+    *,
+    elastic_load_balancer_attachment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85762ac2f2cd2aed99393b0d40197dd1bf4c2b2c2c13ebb3687683a9a4b2f9fa(
+    *,
+    instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7b61392c8ee646b870768dfdb4d337bf287f112d842b057934f36059f2c5bc4(
+    *,
+    layer_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__070e76b31d2d962c094efb551dff4aec0771fdf33062332ecabc98b65b5e9083(
+    *,
+    stack_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c852511ac1a96ab36a7882782cab11aefd0ec77f533bd6ab7acb23737d85d6dc(
+    *,
+    user_profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbfbfb44af94fa3aef0f52ebabaec327b3116706524b7789ba1ddd66a145b1bc(
+    *,
+    volume_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__9cfc69040af8322a035060c3c2b7a93463983dd64c29f11c41157c08be717ae8(
     scope: _constructs_77d1e7e8.Construct,
@@ -6736,24 +7604,6 @@ def _typecheckingstub__cfa3e28175cca76b2b379e24dd298856761e8b2b972fbefd13fb45c20
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fe0ae5f6e1367f942976862a375aa88ecad21e52429978b2181e9115ce82447e(
-    *,
-    name: builtins.str,
-    stack_id: builtins.str,
-    type: builtins.str,
-    app_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    enable_ssl: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    shortname: typing.Optional[builtins.str] = None,
-    ssl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.SslConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__486f7e1e8e8052927626441be8be1b13d2a9ce484c4915a83fb32a7def2f835d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6784,14 +7634,6 @@ def _typecheckingstub__f09a3b90cb26ee5103e9da8d0751d21ff83e1203e9f45fb281e8704f6
 
 def _typecheckingstub__07fc612753cec7293a77d1dee6f0043e104fdad08f108eeff357be2fc4d973b7(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cce4a38411eccbc7b0088bfd31a89e80bd98022d6249e27feb26e4ee7d3e6834(
-    *,
-    elastic_load_balancer_name: builtins.str,
-    layer_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6993,33 +7835,6 @@ def _typecheckingstub__8dfcb549734883fb71a8f431ae16a65e4c926d97e9483cc865e0718bd
     thursday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     tuesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     wednesday: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__064c38cf60beb5ee54299be9e04fc9e0d751e94688227f7c131215ac7ef613f9(
-    *,
-    instance_type: builtins.str,
-    layer_ids: typing.Sequence[builtins.str],
-    stack_id: builtins.str,
-    agent_version: typing.Optional[builtins.str] = None,
-    ami_id: typing.Optional[builtins.str] = None,
-    architecture: typing.Optional[builtins.str] = None,
-    auto_scaling_type: typing.Optional[builtins.str] = None,
-    availability_zone: typing.Optional[builtins.str] = None,
-    block_device_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.BlockDeviceMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ebs_optimized: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    elastic_ips: typing.Optional[typing.Sequence[builtins.str]] = None,
-    hostname: typing.Optional[builtins.str] = None,
-    install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    os: typing.Optional[builtins.str] = None,
-    root_device_type: typing.Optional[builtins.str] = None,
-    ssh_key_name: typing.Optional[builtins.str] = None,
-    subnet_id: typing.Optional[builtins.str] = None,
-    tenancy: typing.Optional[builtins.str] = None,
-    time_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstance.TimeBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    virtualization_type: typing.Optional[builtins.str] = None,
-    volumes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7233,31 +8048,6 @@ def _typecheckingstub__35bb02a582c61891e39f2981442acc233a0b3ee0ff93a8df791d8e2bf
     raid_level: typing.Optional[jsii.Number] = None,
     size: typing.Optional[jsii.Number] = None,
     volume_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__44c38216d74d64877783d8570f455e1bede8bb638962a7d006b49b8f741161c6(
-    *,
-    auto_assign_elastic_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    auto_assign_public_ips: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    enable_auto_healing: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    name: builtins.str,
-    shortname: builtins.str,
-    stack_id: builtins.str,
-    type: builtins.str,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    custom_instance_profile_arn: typing.Optional[builtins.str] = None,
-    custom_json: typing.Any = None,
-    custom_recipes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.RecipesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    install_updates_on_boot: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    lifecycle_event_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LifecycleEventConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    load_based_auto_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.LoadBasedAutoScalingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    packages: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_ebs_optimized_instances: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    volume_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLayer.VolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7502,37 +8292,6 @@ def _typecheckingstub__7c21d7fcd41f5c5f2c62e0d7b9877b307d95ccdeece063c91c4db1d44
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__675a36919e38f296f3b53b7679384ec86298336f087126cb5bee9e1e22a8445c(
-    *,
-    default_instance_profile_arn: builtins.str,
-    name: builtins.str,
-    service_role_arn: builtins.str,
-    agent_version: typing.Optional[builtins.str] = None,
-    attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    chef_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ChefConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    clone_app_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    clone_permissions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    configuration_manager: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StackConfigurationManagerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_cookbooks_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_json: typing.Any = None,
-    default_availability_zone: typing.Optional[builtins.str] = None,
-    default_os: typing.Optional[builtins.str] = None,
-    default_root_device_type: typing.Optional[builtins.str] = None,
-    default_ssh_key_name: typing.Optional[builtins.str] = None,
-    default_subnet_id: typing.Optional[builtins.str] = None,
-    ecs_cluster_arn: typing.Optional[builtins.str] = None,
-    elastic_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ElasticIpProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    hostname_theme: typing.Optional[builtins.str] = None,
-    rds_db_instances: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.RdsDbInstanceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    source_stack_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_custom_cookbooks: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    use_opsworks_security_groups: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f841ed2cddcf6c81296cc894f86e940d11eef568430b95d1b3254394ce0adb34(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7581,16 +8340,6 @@ def _typecheckingstub__8836ddb30644943ce6efae3bc2a36b644b5c82b5a34b9b1b4ea35bf98
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4c4119cda15b50587c240dbd706f63701c8bc940cdb11ef0e8c6fa341479ff30(
-    *,
-    iam_user_arn: builtins.str,
-    allow_self_management: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ssh_public_key: typing.Optional[builtins.str] = None,
-    ssh_username: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__de0e780e9e0d4eda3a819d96c95bf8c36e8e41adc99aba36d5e3f3c53ddf411e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -7635,16 +8384,6 @@ def _typecheckingstub__d02062f7451093adc07a5a66fd778bc01992b2a7cb415288b2e20f9c7
 
 def _typecheckingstub__3ed129bda5b40c633ec64dfe0e7c2cdb5d48c7d652f80ba3114b2b4099f98441(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1bf9954f0ce70eb8d07abcbf62b393f8247aa21a5f0e2ca31bf1461d3f31d76f(
-    *,
-    ec2_volume_id: builtins.str,
-    stack_id: builtins.str,
-    mount_point: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

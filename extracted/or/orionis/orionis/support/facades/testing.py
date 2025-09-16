@@ -1,23 +1,22 @@
 from orionis.container.facades.facade import Facade
-from orionis.test.contracts.unit_test import IUnitTest
 
 class Test(Facade):
 
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Get the registered name of the component.
+        Retrieves the service container binding key for the testing component.
 
-        This method returns the service container binding key that identifies
-        the testing component implementation. The facade uses this key to
-        resolve the appropriate testing service from the container when
-        static methods are called on the facade.
+        This method returns the unique string identifier used by the service container
+        to resolve the implementation of the testing component. The facade relies on
+        this key to delegate static method calls to the appropriate service instance.
 
         Returns
         -------
         str
-            The service container binding key "x-orionis.test.contracts.unit_test.IUnitTest"
-            used to resolve the testing component implementation.
+            The string "x-orionis.test.contracts.unit_test.IUnitTest", which is the
+            service container binding key for the unit testing component.
         """
 
-        return f"x-{IUnitTest.__module__}.{IUnitTest.__name__}"
+        # Return the binding key used to resolve the unit testing component from the container
+        return "x-orionis.test.contracts.unit_test.IUnitTest"

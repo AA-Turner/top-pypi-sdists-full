@@ -415,6 +415,7 @@ from ..aws_iam import (
     IGrantable as _IGrantable_71c4f5de,
     IResourceWithPolicy as _IResourceWithPolicy_720d64fc,
     IRole as _IRole_235f5d8e,
+    IRoleRef as _IRoleRef_613dafc2,
     PolicyStatement as _PolicyStatement_0fe33853,
 )
 from ..aws_kms import IKey as _IKey_5f11635f
@@ -645,6 +646,74 @@ class ApiDestinationProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ApiDestinationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "api_destination_arn": "apiDestinationArn",
+        "api_destination_name": "apiDestinationName",
+    },
+)
+class ApiDestinationReference:
+    def __init__(
+        self,
+        *,
+        api_destination_arn: builtins.str,
+        api_destination_name: builtins.str,
+    ) -> None:
+        '''A reference to a ApiDestination resource.
+
+        :param api_destination_arn: The ARN of the ApiDestination resource.
+        :param api_destination_name: The Name of the ApiDestination resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            api_destination_reference = events.ApiDestinationReference(
+                api_destination_arn="apiDestinationArn",
+                api_destination_name="apiDestinationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45a1502f2e1740cf2ec9d78b56b9fb346c73d07f9b42f0d9390d5db39e914177)
+            check_type(argname="argument api_destination_arn", value=api_destination_arn, expected_type=type_hints["api_destination_arn"])
+            check_type(argname="argument api_destination_name", value=api_destination_name, expected_type=type_hints["api_destination_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "api_destination_arn": api_destination_arn,
+            "api_destination_name": api_destination_name,
+        }
+
+    @builtins.property
+    def api_destination_arn(self) -> builtins.str:
+        '''The ARN of the ApiDestination resource.'''
+        result = self._values.get("api_destination_arn")
+        assert result is not None, "Required property 'api_destination_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def api_destination_name(self) -> builtins.str:
+        '''The Name of the ApiDestination resource.'''
+        result = self._values.get("api_destination_name")
+        assert result is not None, "Required property 'api_destination_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApiDestinationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Archive(
     _Resource_45bc6135,
     metaclass=jsii.JSIIMeta,
@@ -736,6 +805,71 @@ class Archive(
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "archiveName"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ArchiveReference",
+    jsii_struct_bases=[],
+    name_mapping={"archive_arn": "archiveArn", "archive_name": "archiveName"},
+)
+class ArchiveReference:
+    def __init__(
+        self,
+        *,
+        archive_arn: builtins.str,
+        archive_name: builtins.str,
+    ) -> None:
+        '''A reference to a Archive resource.
+
+        :param archive_arn: The ARN of the Archive resource.
+        :param archive_name: The ArchiveName of the Archive resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            archive_reference = events.ArchiveReference(
+                archive_arn="archiveArn",
+                archive_name="archiveName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16f817695a043b6ae331eb081db1fea6cce66f91d1cf9f77974fee4bbdb33dc8)
+            check_type(argname="argument archive_arn", value=archive_arn, expected_type=type_hints["archive_arn"])
+            check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "archive_arn": archive_arn,
+            "archive_name": archive_name,
+        }
+
+    @builtins.property
+    def archive_arn(self) -> builtins.str:
+        '''The ARN of the Archive resource.'''
+        result = self._values.get("archive_arn")
+        assert result is not None, "Required property 'archive_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def archive_name(self) -> builtins.str:
+        '''The ArchiveName of the Archive resource.'''
+        result = self._values.get("archive_name")
+        assert result is not None, "Required property 'archive_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ArchiveReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class Authorization(
@@ -975,226 +1109,6 @@ class BaseArchiveProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnApiDestination(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.CfnApiDestination",
-):
-    '''Creates an API destination, which is an HTTP invocation endpoint configured as a target for events.
-
-    When using ApiDesinations with OAuth authentication we recommend these best practices:
-
-    - Create a secret in Secrets Manager with your OAuth credentials.
-    - Reference that secret in your CloudFormation template for ``AWS::Events::Connection`` using CloudFormation dynamic reference syntax. For more information, see `Secrets Manager secrets <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-secretsmanager>`_ .
-
-    When the Connection resource is created the secret will be passed to EventBridge and stored in the customer account using “Service Linked Secrets,” effectively creating two secrets. This will minimize the cost because the original secret is only accessed when a CloudFormation template is created or updated, not every time an event is sent to the ApiDestination. The secret stored in the customer account by EventBridge is the one used for each event sent to the ApiDestination and AWS is responsible for the fees.
-    .. epigraph::
-
-       The secret stored in the customer account by EventBridge can’t be updated directly, only when a CloudFormation template is updated.
-
-    For examples of CloudFormation templates that use secrets, see `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#aws-resource-events-connection--examples>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-apidestination.html
-    :cloudformationResource: AWS::Events::ApiDestination
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_events as events
-        
-        cfn_api_destination = events.CfnApiDestination(self, "MyCfnApiDestination",
-            connection_arn="connectionArn",
-            http_method="httpMethod",
-            invocation_endpoint="invocationEndpoint",
-        
-            # the properties below are optional
-            description="description",
-            invocation_rate_limit_per_second=123,
-            name="name"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        connection_arn: builtins.str,
-        http_method: builtins.str,
-        invocation_endpoint: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        invocation_rate_limit_per_second: typing.Optional[jsii.Number] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param connection_arn: The ARN of the connection to use for the API destination. The destination endpoint must support the authorization type specified for the connection.
-        :param http_method: The method to use for the request to the HTTP invocation endpoint.
-        :param invocation_endpoint: The URL to the HTTP invocation endpoint for the API destination.
-        :param description: A description for the API destination to create.
-        :param invocation_rate_limit_per_second: The maximum number of requests per second to send to the HTTP invocation endpoint.
-        :param name: The name for the API destination to create.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c7f09c3557e2395656d23b74c8de1fbe1e4a3b537284c9d270edc631fd5c381)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApiDestinationProps(
-            connection_arn=connection_arn,
-            http_method=http_method,
-            invocation_endpoint=invocation_endpoint,
-            description=description,
-            invocation_rate_limit_per_second=invocation_rate_limit_per_second,
-            name=name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__158c0bb8fa8e9ef1c2e58e89a44ebad609986b410e381f81aedd0308a9e35b28)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0f2e973aeeb184a33b784b368926fdb617424f826092c6e70ccf86a37581596)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the API destination that was created by the request.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArnForPolicy")
-    def attr_arn_for_policy(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the ``Resource`` element of IAM permission policy statements.
-
-        For more information, see `Resource types defined by Amazon EventBridge <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies>`_ in the *Service Authorization Reference* .
-
-        For example, the following resource defines an IAM policy that grants permission to update a specific API destination.
-
-        ``Resources: ExamplePolicy: Type: AWS::IAM::Policy Properties: PolicyName: ExamplePolicy PolicyDocument: Version: '2012-10-17' Statement: - Effect: Allow Action: - events:UpdateApiDestination Resource: - !GetAtt myApiDestination.ArnForPolicy``
-
-        :cloudformationAttribute: ArnForPolicy
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArnForPolicy"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionArn")
-    def connection_arn(self) -> builtins.str:
-        '''The ARN of the connection to use for the API destination.'''
-        return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
-
-    @connection_arn.setter
-    def connection_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9501e856d3f68b4ded9a308e792cdcecf0340171c8b9d14fd716a17af7518d9d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="httpMethod")
-    def http_method(self) -> builtins.str:
-        '''The method to use for the request to the HTTP invocation endpoint.'''
-        return typing.cast(builtins.str, jsii.get(self, "httpMethod"))
-
-    @http_method.setter
-    def http_method(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3dd44ad831630a84328af4ec169ba7d0d104f0da3e75ce7db348f157cef540c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="invocationEndpoint")
-    def invocation_endpoint(self) -> builtins.str:
-        '''The URL to the HTTP invocation endpoint for the API destination.'''
-        return typing.cast(builtins.str, jsii.get(self, "invocationEndpoint"))
-
-    @invocation_endpoint.setter
-    def invocation_endpoint(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7668deb1cc151c41fb734ca6f771eb305e7a0f4bf19d57321e46db09cd22a0f1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "invocationEndpoint", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the API destination to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d76989d48f92cde7f07576f0a60e184723262c7effa5c3daff9008386921b88)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="invocationRateLimitPerSecond")
-    def invocation_rate_limit_per_second(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of requests per second to send to the HTTP invocation endpoint.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "invocationRateLimitPerSecond"))
-
-    @invocation_rate_limit_per_second.setter
-    def invocation_rate_limit_per_second(
-        self,
-        value: typing.Optional[jsii.Number],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9158b78e5f7961eb499fbf284d15087f9205e259120ad3cdf7a14469525e5df2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "invocationRateLimitPerSecond", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name for the API destination to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5205bc5753f69d2aea87688685a5236a470f7cba4982bd2e636e55fe8d95121)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_events.CfnApiDestinationProps",
     jsii_struct_bases=[],
@@ -1336,205 +1250,6 @@ class CfnApiDestinationProps:
         return "CfnApiDestinationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnArchive(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.CfnArchive",
-):
-    '''Creates an archive of events with the specified settings.
-
-    When you create an archive, incoming events might not immediately start being sent to the archive. Allow a short period of time for changes to take effect. If you do not specify a pattern to filter events sent to the archive, all events are sent to the archive except replayed events. Replayed events are not sent to an archive.
-    .. epigraph::
-
-       If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well.
-
-       For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-archive.html
-    :cloudformationResource: AWS::Events::Archive
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_events as events
-        
-        # event_pattern: Any
-        
-        cfn_archive = events.CfnArchive(self, "MyCfnArchive",
-            source_arn="sourceArn",
-        
-            # the properties below are optional
-            archive_name="archiveName",
-            description="description",
-            event_pattern=event_pattern,
-            kms_key_identifier="kmsKeyIdentifier",
-            retention_days=123
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        source_arn: builtins.str,
-        archive_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Any = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        retention_days: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param source_arn: The ARN of the event bus that sends events to the archive.
-        :param archive_name: The name for the archive to create.
-        :param description: A description for the archive.
-        :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the archive. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
-        :param retention_days: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db58d059f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnArchiveProps(
-            source_arn=source_arn,
-            archive_name=archive_name,
-            description=description,
-            event_pattern=event_pattern,
-            kms_key_identifier=kms_key_identifier,
-            retention_days=retention_days,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7da996869ac9a69e8a63a58883200e217a1913f5d321926f7ab5c4ebb3e56a6)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b70dabfc4299a157456f9345f439a1627afc2b7ffb0bb20c33e1a1bc17baaac)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The ARN of the archive created.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceArn")
-    def source_arn(self) -> builtins.str:
-        '''The ARN of the event bus that sends events to the archive.'''
-        return typing.cast(builtins.str, jsii.get(self, "sourceArn"))
-
-    @source_arn.setter
-    def source_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f400bdbd4fcd20b44476556f9ef5225de9092a59cb55cbedae0a7f07ba71e1a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="archiveName")
-    def archive_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the archive to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "archiveName"))
-
-    @archive_name.setter
-    def archive_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7757fdbaf1d2ce3f07d1aac83abcdb1f4659013282005e66b7d1b79b72459f87)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "archiveName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the archive.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventPattern")
-    def event_pattern(self) -> typing.Any:
-        '''An event pattern to use to filter events sent to the archive.'''
-        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
-
-    @event_pattern.setter
-    def event_pattern(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="kmsKeyIdentifier")
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
-
-    @kms_key_identifier.setter
-    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afc87131b030ea9e94a54d65380d8caa92af44402dd0a1c9ec3e6c55aa14bbad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="retentionDays")
-    def retention_days(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain events for.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionDays"))
-
-    @retention_days.setter
-    def retention_days(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743453e352)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionDays", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1693,7 +1408,6047 @@ class CfnArchiveProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization_type": "authorizationType",
+        "auth_parameters": "authParameters",
+        "description": "description",
+        "invocation_connectivity_parameters": "invocationConnectivityParameters",
+        "kms_key_identifier": "kmsKeyIdentifier",
+        "name": "name",
+    },
+)
+class CfnConnectionProps:
+    def __init__(
+        self,
+        *,
+        authorization_type: typing.Optional[builtins.str] = None,
+        auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnection.AuthParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConnection.InvocationConnectivityParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnection``.
+
+        :param authorization_type: The type of authorization to use for the connection. .. epigraph:: OAUTH tokens are refreshed when a 401 or 407 response is returned.
+        :param auth_parameters: The authorization parameters to use to authorize with the endpoint. You must include only authorization parameters for the ``AuthorizationType`` you specify.
+        :param description: A description for the connection to create.
+        :param invocation_connectivity_parameters: For connections to private APIs, the parameters to use for invoking the API. For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        :param name: The name for the connection to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            cfn_connection_props = events.CfnConnectionProps(
+                authorization_type="authorizationType",
+                auth_parameters=events.CfnConnection.AuthParametersProperty(
+                    api_key_auth_parameters=events.CfnConnection.ApiKeyAuthParametersProperty(
+                        api_key_name="apiKeyName",
+                        api_key_value="apiKeyValue"
+                    ),
+                    basic_auth_parameters=events.CfnConnection.BasicAuthParametersProperty(
+                        password="password",
+                        username="username"
+                    ),
+                    connectivity_parameters=events.CfnConnection.ConnectivityParametersProperty(
+                        resource_parameters=events.CfnConnection.ResourceParametersProperty(
+                            resource_configuration_arn="resourceConfigurationArn",
+            
+                            # the properties below are optional
+                            resource_association_arn="resourceAssociationArn"
+                        )
+                    ),
+                    invocation_http_parameters=events.CfnConnection.ConnectionHttpParametersProperty(
+                        body_parameters=[events.CfnConnection.ParameterProperty(
+                            key="key",
+                            value="value",
+            
+                            # the properties below are optional
+                            is_value_secret=False
+                        )],
+                        header_parameters=[events.CfnConnection.ParameterProperty(
+                            key="key",
+                            value="value",
+            
+                            # the properties below are optional
+                            is_value_secret=False
+                        )],
+                        query_string_parameters=[events.CfnConnection.ParameterProperty(
+                            key="key",
+                            value="value",
+            
+                            # the properties below are optional
+                            is_value_secret=False
+                        )]
+                    ),
+                    o_auth_parameters=events.CfnConnection.OAuthParametersProperty(
+                        authorization_endpoint="authorizationEndpoint",
+                        client_parameters=events.CfnConnection.ClientParametersProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret"
+                        ),
+                        http_method="httpMethod",
+            
+                        # the properties below are optional
+                        o_auth_http_parameters=events.CfnConnection.ConnectionHttpParametersProperty(
+                            body_parameters=[events.CfnConnection.ParameterProperty(
+                                key="key",
+                                value="value",
+            
+                                # the properties below are optional
+                                is_value_secret=False
+                            )],
+                            header_parameters=[events.CfnConnection.ParameterProperty(
+                                key="key",
+                                value="value",
+            
+                                # the properties below are optional
+                                is_value_secret=False
+                            )],
+                            query_string_parameters=[events.CfnConnection.ParameterProperty(
+                                key="key",
+                                value="value",
+            
+                                # the properties below are optional
+                                is_value_secret=False
+                            )]
+                        )
+                    )
+                ),
+                description="description",
+                invocation_connectivity_parameters=events.CfnConnection.InvocationConnectivityParametersProperty(
+                    resource_parameters=events.CfnConnection.ResourceParametersProperty(
+                        resource_configuration_arn="resourceConfigurationArn",
+            
+                        # the properties below are optional
+                        resource_association_arn="resourceAssociationArn"
+                    )
+                ),
+                kms_key_identifier="kmsKeyIdentifier",
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394)
+            check_type(argname="argument authorization_type", value=authorization_type, expected_type=type_hints["authorization_type"])
+            check_type(argname="argument auth_parameters", value=auth_parameters, expected_type=type_hints["auth_parameters"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument invocation_connectivity_parameters", value=invocation_connectivity_parameters, expected_type=type_hints["invocation_connectivity_parameters"])
+            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if authorization_type is not None:
+            self._values["authorization_type"] = authorization_type
+        if auth_parameters is not None:
+            self._values["auth_parameters"] = auth_parameters
+        if description is not None:
+            self._values["description"] = description
+        if invocation_connectivity_parameters is not None:
+            self._values["invocation_connectivity_parameters"] = invocation_connectivity_parameters
+        if kms_key_identifier is not None:
+            self._values["kms_key_identifier"] = kms_key_identifier
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def authorization_type(self) -> typing.Optional[builtins.str]:
+        '''The type of authorization to use for the connection.
+
+        .. epigraph::
+
+           OAUTH tokens are refreshed when a 401 or 407 response is returned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-authorizationtype
+        '''
+        result = self._values.get("authorization_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def auth_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnection.AuthParametersProperty"]]:
+        '''The authorization parameters to use to authorize with the endpoint.
+
+        You must include only authorization parameters for the ``AuthorizationType`` you specify.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-authparameters
+        '''
+        result = self._values.get("auth_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnection.AuthParametersProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the connection to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def invocation_connectivity_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnection.InvocationConnectivityParametersProperty"]]:
+        '''For connections to private APIs, the parameters to use for invoking the API.
+
+        For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-invocationconnectivityparameters
+        '''
+        result = self._values.get("invocation_connectivity_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConnection.InvocationConnectivityParametersProperty"]], result)
+
+    @builtins.property
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection.
+
+        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
+
+        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection.
+
+        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-kmskeyidentifier
+        '''
+        result = self._values.get("kms_key_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the connection to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_buses": "eventBuses",
+        "routing_config": "routingConfig",
+        "description": "description",
+        "name": "name",
+        "replication_config": "replicationConfig",
+        "role_arn": "roleArn",
+    },
+)
+class CfnEndpointProps:
+    def __init__(
+        self,
+        *,
+        event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.EndpointEventBusProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        routing_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.RoutingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.ReplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEndpoint``.
+
+        :param event_buses: The event buses being used by the endpoint. *Exactly* : ``2``
+        :param routing_config: The routing configuration of the endpoint.
+        :param description: A description for the endpoint.
+        :param name: The name of the endpoint.
+        :param replication_config: Whether event replication was enabled or disabled for this endpoint. The default state is ``ENABLED`` which means you must supply a ``RoleArn`` . If you don't have a ``RoleArn`` or you don't want event replication enabled, set the state to ``DISABLED`` .
+        :param role_arn: The ARN of the role used by event replication for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            cfn_endpoint_props = events.CfnEndpointProps(
+                event_buses=[events.CfnEndpoint.EndpointEventBusProperty(
+                    event_bus_arn="eventBusArn"
+                )],
+                routing_config=events.CfnEndpoint.RoutingConfigProperty(
+                    failover_config=events.CfnEndpoint.FailoverConfigProperty(
+                        primary=events.CfnEndpoint.PrimaryProperty(
+                            health_check="healthCheck"
+                        ),
+                        secondary=events.CfnEndpoint.SecondaryProperty(
+                            route="route"
+                        )
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                replication_config=events.CfnEndpoint.ReplicationConfigProperty(
+                    state="state"
+                ),
+                role_arn="roleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144)
+            check_type(argname="argument event_buses", value=event_buses, expected_type=type_hints["event_buses"])
+            check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument replication_config", value=replication_config, expected_type=type_hints["replication_config"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_buses": event_buses,
+            "routing_config": routing_config,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if replication_config is not None:
+            self._values["replication_config"] = replication_config
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+
+    @builtins.property
+    def event_buses(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.EndpointEventBusProperty"]]]:
+        '''The event buses being used by the endpoint.
+
+        *Exactly* : ``2``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-eventbuses
+        '''
+        result = self._values.get("event_buses")
+        assert result is not None, "Required property 'event_buses' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.EndpointEventBusProperty"]]], result)
+
+    @builtins.property
+    def routing_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RoutingConfigProperty"]:
+        '''The routing configuration of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-routingconfig
+        '''
+        result = self._values.get("routing_config")
+        assert result is not None, "Required property 'routing_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RoutingConfigProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ReplicationConfigProperty"]]:
+        '''Whether event replication was enabled or disabled for this endpoint.
+
+        The default state is ``ENABLED`` which means you must supply a ``RoleArn`` . If you don't have a ``RoleArn`` or you don't want event replication enabled, set the state to ``DISABLED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-replicationconfig
+        '''
+        result = self._values.get("replication_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ReplicationConfigProperty"]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the role used by event replication for the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnEventBusPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "statement_id": "statementId",
+        "action": "action",
+        "condition": "condition",
+        "event_bus_name": "eventBusName",
+        "principal": "principal",
+        "statement": "statement",
+    },
+)
+class CfnEventBusPolicyProps:
+    def __init__(
+        self,
+        *,
+        statement_id: builtins.str,
+        action: typing.Optional[builtins.str] = None,
+        condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBusPolicy.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_bus_name: typing.Optional[builtins.str] = None,
+        principal: typing.Optional[builtins.str] = None,
+        statement: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventBusPolicy``.
+
+        :param statement_id: An identifier string for the external account that you are granting permissions to. If you later want to revoke the permission for this external account, specify this ``StatementId`` when you run `RemovePermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RemovePermission.html>`_ . .. epigraph:: Each ``StatementId`` must be unique.
+        :param action: The action that you are enabling the other account to perform.
+        :param condition: This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization. For more information about AWS Organizations, see `What Is AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html>`_ in the *AWS Organizations User Guide* . If you specify ``Condition`` with an AWS organization ID, and specify "*" as the value for ``Principal`` , you grant permission to all the accounts in the named organization. The ``Condition`` is a JSON string which must contain ``Type`` , ``Key`` , and ``Value`` fields.
+        :param event_bus_name: The name of the event bus associated with the rule. If you omit this, the default event bus is used.
+        :param principal: The 12-digit AWS account ID that you are permitting to put events to your default event bus. Specify "*" to permit any account to put events to your default event bus. If you specify "*" without specifying ``Condition`` , avoid creating rules that may match undesirable events. To create more secure rules, make sure that the event pattern for each rule contains an ``account`` field with a specific account ID from which to receive events. Rules with an account field do not match any events sent from other accounts.
+        :param statement: A JSON string that describes the permission policy statement. You can include a ``Policy`` parameter in the request instead of using the ``StatementId`` , ``Action`` , ``Principal`` , or ``Condition`` parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            # statement: Any
+            
+            cfn_event_bus_policy_props = events.CfnEventBusPolicyProps(
+                statement_id="statementId",
+            
+                # the properties below are optional
+                action="action",
+                condition=events.CfnEventBusPolicy.ConditionProperty(
+                    key="key",
+                    type="type",
+                    value="value"
+                ),
+                event_bus_name="eventBusName",
+                principal="principal",
+                statement=statement
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2)
+            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "statement_id": statement_id,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if condition is not None:
+            self._values["condition"] = condition
+        if event_bus_name is not None:
+            self._values["event_bus_name"] = event_bus_name
+        if principal is not None:
+            self._values["principal"] = principal
+        if statement is not None:
+            self._values["statement"] = statement
+
+    @builtins.property
+    def statement_id(self) -> builtins.str:
+        '''An identifier string for the external account that you are granting permissions to.
+
+        If you later want to revoke the permission for this external account, specify this ``StatementId`` when you run `RemovePermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RemovePermission.html>`_ .
+        .. epigraph::
+
+           Each ``StatementId`` must be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-statementid
+        '''
+        result = self._values.get("statement_id")
+        assert result is not None, "Required property 'statement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action(self) -> typing.Optional[builtins.str]:
+        '''The action that you are enabling the other account to perform.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-action
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def condition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBusPolicy.ConditionProperty"]]:
+        '''This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization.
+
+        For more information about AWS Organizations, see `What Is AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html>`_ in the *AWS Organizations User Guide* .
+
+        If you specify ``Condition`` with an AWS organization ID, and specify "*" as the value for ``Principal`` , you grant permission to all the accounts in the named organization.
+
+        The ``Condition`` is a JSON string which must contain ``Type`` , ``Key`` , and ``Value`` fields.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-condition
+        '''
+        result = self._values.get("condition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBusPolicy.ConditionProperty"]], result)
+
+    @builtins.property
+    def event_bus_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the event bus associated with the rule.
+
+        If you omit this, the default event bus is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-eventbusname
+        '''
+        result = self._values.get("event_bus_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def principal(self) -> typing.Optional[builtins.str]:
+        '''The 12-digit AWS account ID that you are permitting to put events to your default event bus.
+
+        Specify "*" to permit any account to put events to your default event bus.
+
+        If you specify "*" without specifying ``Condition`` , avoid creating rules that may match undesirable events. To create more secure rules, make sure that the event pattern for each rule contains an ``account`` field with a specific account ID from which to receive events. Rules with an account field do not match any events sent from other accounts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-principal
+        '''
+        result = self._values.get("principal")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def statement(self) -> typing.Any:
+        '''A JSON string that describes the permission policy statement.
+
+        You can include a ``Policy`` parameter in the request instead of using the ``StatementId`` , ``Action`` , ``Principal`` , or ``Condition`` parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-statement
+        '''
+        result = self._values.get("statement")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventBusPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnEventBusProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "dead_letter_config": "deadLetterConfig",
+        "description": "description",
+        "event_source_name": "eventSourceName",
+        "kms_key_identifier": "kmsKeyIdentifier",
+        "log_config": "logConfig",
+        "policy": "policy",
+        "tags": "tags",
+    },
+)
+class CfnEventBusProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBus.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_source_name: typing.Optional[builtins.str] = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventBus.LogConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        policy: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventBus``.
+
+        :param name: The name of the new event bus. Custom event bus names can't contain the ``/`` character, but you can use the ``/`` character in partner event bus names. In addition, for partner event buses, the name must exactly match the name of the partner event source that this event bus is matched to. You can't use the name ``default`` for a custom event bus, as this name is already used for your account's default event bus.
+        :param dead_letter_config: Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ). For more information, see `Using dead-letter queues to process undelivered events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq>`_ in the *EventBridge User Guide* .
+        :param description: The event bus description.
+        :param event_source_name: If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if: - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption. - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled. To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+        :param log_config: The logging configuration settings for the event bus. For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
+        :param policy: The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
+        :param tags: Tags to associate with the event bus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            # policy: Any
+            
+            cfn_event_bus_props = events.CfnEventBusProps(
+                name="name",
+            
+                # the properties below are optional
+                dead_letter_config=events.CfnEventBus.DeadLetterConfigProperty(
+                    arn="arn"
+                ),
+                description="description",
+                event_source_name="eventSourceName",
+                kms_key_identifier="kmsKeyIdentifier",
+                log_config=events.CfnEventBus.LogConfigProperty(
+                    include_detail="includeDetail",
+                    level="level"
+                ),
+                policy=policy,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
+            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
+            check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if dead_letter_config is not None:
+            self._values["dead_letter_config"] = dead_letter_config
+        if description is not None:
+            self._values["description"] = description
+        if event_source_name is not None:
+            self._values["event_source_name"] = event_source_name
+        if kms_key_identifier is not None:
+            self._values["kms_key_identifier"] = kms_key_identifier
+        if log_config is not None:
+            self._values["log_config"] = log_config
+        if policy is not None:
+            self._values["policy"] = policy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the new event bus.
+
+        Custom event bus names can't contain the ``/`` character, but you can use the ``/`` character in partner event bus names. In addition, for partner event buses, the name must exactly match the name of the partner event source that this event bus is matched to.
+
+        You can't use the name ``default`` for a custom event bus, as this name is already used for your account's default event bus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dead_letter_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.DeadLetterConfigProperty"]]:
+        '''Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ).
+
+        For more information, see `Using dead-letter queues to process undelivered events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq>`_ in the *EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-deadletterconfig
+        '''
+        result = self._values.get("dead_letter_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.DeadLetterConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The event bus description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_source_name(self) -> typing.Optional[builtins.str]:
+        '''If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
+        '''
+        result = self._values.get("event_source_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus.
+
+        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
+
+        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus.
+
+        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
+        .. epigraph::
+
+           Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if:
+
+           - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption.
+           - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled.
+
+           To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well.
+
+           For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-kmskeyidentifier
+        '''
+        result = self._values.get("kms_key_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.LogConfigProperty"]]:
+        '''The logging configuration settings for the event bus.
+
+        For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-logconfig
+        '''
+        result = self._values.get("log_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventBus.LogConfigProperty"]], result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to associate with the event bus.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventBusProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "event_bus_name": "eventBusName",
+        "event_pattern": "eventPattern",
+        "name": "name",
+        "role_arn": "roleArn",
+        "schedule_expression": "scheduleExpression",
+        "state": "state",
+        "tags": "tags",
+        "targets": "targets",
+    },
+)
+class CfnRuleProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        event_bus_name: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Any = None,
+        name: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        schedule_expression: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRule``.
+
+        :param description: The description of the rule.
+        :param event_bus_name: The name or ARN of the event bus associated with the rule. If you omit this, the default event bus is used.
+        :param event_pattern: The event pattern of the rule. For more information, see `Events and Event Patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html>`_ in the **Amazon EventBridge User Guide** .
+        :param name: The name of the rule.
+        :param role_arn: The Amazon Resource Name (ARN) of the role that is used for target invocation. If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
+        :param schedule_expression: The scheduling expression. For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
+        :param state: The state of the rule. Valid values include: - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule. - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail. - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail. Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** . This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
+        :param tags: Any tags assigned to the event rule.
+        :param targets: Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule. Targets are the resources that are invoked when a rule is triggered. The maximum number of entries per request is 10. .. epigraph:: Each rule can have up to five (5) targets associated with it at one time. For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** . Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are: - ``Amazon EBS CreateSnapshot API call`` - ``Amazon EC2 RebootInstances API call`` - ``Amazon EC2 StopInstances API call`` - ``Amazon EC2 TerminateInstances API call`` For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field. To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions: - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies. - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` . For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** . If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ . .. epigraph:: ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account. If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* . .. epigraph:: If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role. For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ . *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event: - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target). - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant. - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed). - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target. When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation. When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect. This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            # event_pattern: Any
+            
+            cfn_rule_props = events.CfnRuleProps(
+                description="description",
+                event_bus_name="eventBusName",
+                event_pattern=event_pattern,
+                name="name",
+                role_arn="roleArn",
+                schedule_expression="scheduleExpression",
+                state="state",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                targets=[events.CfnRule.TargetProperty(
+                    arn="arn",
+                    id="id",
+            
+                    # the properties below are optional
+                    app_sync_parameters=events.CfnRule.AppSyncParametersProperty(
+                        graph_ql_operation="graphQlOperation"
+                    ),
+                    batch_parameters=events.CfnRule.BatchParametersProperty(
+                        job_definition="jobDefinition",
+                        job_name="jobName",
+            
+                        # the properties below are optional
+                        array_properties=events.CfnRule.BatchArrayPropertiesProperty(
+                            size=123
+                        ),
+                        retry_strategy=events.CfnRule.BatchRetryStrategyProperty(
+                            attempts=123
+                        )
+                    ),
+                    dead_letter_config=events.CfnRule.DeadLetterConfigProperty(
+                        arn="arn"
+                    ),
+                    ecs_parameters=events.CfnRule.EcsParametersProperty(
+                        task_definition_arn="taskDefinitionArn",
+            
+                        # the properties below are optional
+                        capacity_provider_strategy=[events.CfnRule.CapacityProviderStrategyItemProperty(
+                            capacity_provider="capacityProvider",
+            
+                            # the properties below are optional
+                            base=123,
+                            weight=123
+                        )],
+                        enable_ecs_managed_tags=False,
+                        enable_execute_command=False,
+                        group="group",
+                        launch_type="launchType",
+                        network_configuration=events.CfnRule.NetworkConfigurationProperty(
+                            aws_vpc_configuration=events.CfnRule.AwsVpcConfigurationProperty(
+                                subnets=["subnets"],
+            
+                                # the properties below are optional
+                                assign_public_ip="assignPublicIp",
+                                security_groups=["securityGroups"]
+                            )
+                        ),
+                        placement_constraints=[events.CfnRule.PlacementConstraintProperty(
+                            expression="expression",
+                            type="type"
+                        )],
+                        placement_strategies=[events.CfnRule.PlacementStrategyProperty(
+                            field="field",
+                            type="type"
+                        )],
+                        platform_version="platformVersion",
+                        propagate_tags="propagateTags",
+                        reference_id="referenceId",
+                        tag_list=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        task_count=123
+                    ),
+                    http_parameters=events.CfnRule.HttpParametersProperty(
+                        header_parameters={
+                            "header_parameters_key": "headerParameters"
+                        },
+                        path_parameter_values=["pathParameterValues"],
+                        query_string_parameters={
+                            "query_string_parameters_key": "queryStringParameters"
+                        }
+                    ),
+                    input="input",
+                    input_path="inputPath",
+                    input_transformer=events.CfnRule.InputTransformerProperty(
+                        input_template="inputTemplate",
+            
+                        # the properties below are optional
+                        input_paths_map={
+                            "input_paths_map_key": "inputPathsMap"
+                        }
+                    ),
+                    kinesis_parameters=events.CfnRule.KinesisParametersProperty(
+                        partition_key_path="partitionKeyPath"
+                    ),
+                    redshift_data_parameters=events.CfnRule.RedshiftDataParametersProperty(
+                        database="database",
+            
+                        # the properties below are optional
+                        db_user="dbUser",
+                        secret_manager_arn="secretManagerArn",
+                        sql="sql",
+                        sqls=["sqls"],
+                        statement_name="statementName",
+                        with_event=False
+                    ),
+                    retry_policy=events.CfnRule.RetryPolicyProperty(
+                        maximum_event_age_in_seconds=123,
+                        maximum_retry_attempts=123
+                    ),
+                    role_arn="roleArn",
+                    run_command_parameters=events.CfnRule.RunCommandParametersProperty(
+                        run_command_targets=[events.CfnRule.RunCommandTargetProperty(
+                            key="key",
+                            values=["values"]
+                        )]
+                    ),
+                    sage_maker_pipeline_parameters=events.CfnRule.SageMakerPipelineParametersProperty(
+                        pipeline_parameter_list=[events.CfnRule.SageMakerPipelineParameterProperty(
+                            name="name",
+                            value="value"
+                        )]
+                    ),
+                    sqs_parameters=events.CfnRule.SqsParametersProperty(
+                        message_group_id="messageGroupId"
+                    )
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if event_bus_name is not None:
+            self._values["event_bus_name"] = event_bus_name
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+        if name is not None:
+            self._values["name"] = name
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if schedule_expression is not None:
+            self._values["schedule_expression"] = schedule_expression
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+        if targets is not None:
+            self._values["targets"] = targets
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_bus_name(self) -> typing.Optional[builtins.str]:
+        '''The name or ARN of the event bus associated with the rule.
+
+        If you omit this, the default event bus is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-eventbusname
+        '''
+        result = self._values.get("event_bus_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Any:
+        '''The event pattern of the rule.
+
+        For more information, see `Events and Event Patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html>`_ in the **Amazon EventBridge User Guide** .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-eventpattern
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the role that is used for target invocation.
+
+        If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule_expression(self) -> typing.Optional[builtins.str]:
+        '''The scheduling expression.
+
+        For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-scheduleexpression
+        '''
+        result = self._values.get("schedule_expression")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the rule.
+
+        Valid values include:
+
+        - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule.
+        - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail.
+        - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail.
+
+        Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** .
+
+        This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Any tags assigned to the event rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.TargetProperty"]]]]:
+        '''Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule.
+
+        Targets are the resources that are invoked when a rule is triggered.
+
+        The maximum number of entries per request is 10.
+        .. epigraph::
+
+           Each rule can have up to five (5) targets associated with it at one time.
+
+        For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** .
+
+        Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are:
+
+        - ``Amazon EBS CreateSnapshot API call``
+        - ``Amazon EC2 RebootInstances API call``
+        - ``Amazon EC2 StopInstances API call``
+        - ``Amazon EC2 TerminateInstances API call``
+
+        For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field.
+
+        To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions:
+
+        - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies.
+        - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` .
+
+        For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** .
+
+        If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ .
+        .. epigraph::
+
+           ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account.
+
+        If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* .
+        .. epigraph::
+
+           If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role.
+
+        For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ .
+
+        *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event:
+
+        - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target).
+        - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant.
+        - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed).
+        - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target.
+
+        When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation.
+
+        When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect.
+
+        This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-targets
+        '''
+        result = self._values.get("targets")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRule.TargetProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ConnectionAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_arn": "connectionArn",
+        "connection_name": "connectionName",
+        "connection_secret_arn": "connectionSecretArn",
+    },
+)
+class ConnectionAttributes:
+    def __init__(
+        self,
+        *,
+        connection_arn: builtins.str,
+        connection_name: builtins.str,
+        connection_secret_arn: builtins.str,
+    ) -> None:
+        '''Interface with properties necessary to import a reusable Connection.
+
+        :param connection_arn: The ARN of the connection created.
+        :param connection_name: The Name for the connection.
+        :param connection_secret_arn: The ARN for the secret created for the connection.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            connection_attributes = events.ConnectionAttributes(
+                connection_arn="connectionArn",
+                connection_name="connectionName",
+                connection_secret_arn="connectionSecretArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630)
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+            check_type(argname="argument connection_secret_arn", value=connection_secret_arn, expected_type=type_hints["connection_secret_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_arn": connection_arn,
+            "connection_name": connection_name,
+            "connection_secret_arn": connection_secret_arn,
+        }
+
+    @builtins.property
+    def connection_arn(self) -> builtins.str:
+        '''The ARN of the connection created.'''
+        result = self._values.get("connection_arn")
+        assert result is not None, "Required property 'connection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_name(self) -> builtins.str:
+        '''The Name for the connection.'''
+        result = self._values.get("connection_name")
+        assert result is not None, "Required property 'connection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_secret_arn(self) -> builtins.str:
+        '''The ARN for the secret created for the connection.'''
+        result = self._values.get("connection_secret_arn")
+        assert result is not None, "Required property 'connection_secret_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization": "authorization",
+        "body_parameters": "bodyParameters",
+        "connection_name": "connectionName",
+        "description": "description",
+        "header_parameters": "headerParameters",
+        "query_string_parameters": "queryStringParameters",
+    },
+)
+class ConnectionProps:
+    def __init__(
+        self,
+        *,
+        authorization: Authorization,
+        body_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
+        connection_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        header_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
+        query_string_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
+    ) -> None:
+        '''An API Destination Connection.
+
+        A connection defines the authorization type and credentials to use for authorization with an API destination HTTP endpoint.
+
+        :param authorization: The authorization type for the connection.
+        :param body_parameters: Additional string parameters to add to the invocation bodies. Default: - No additional parameters
+        :param connection_name: The name of the connection. Default: - A name is automatically generated
+        :param description: The name of the connection. Default: - none
+        :param header_parameters: Additional string parameters to add to the invocation headers. Default: - No additional parameters
+        :param query_string_parameters: Additional string parameters to add to the invocation query strings. Default: - No additional parameters
+
+        :exampleMetadata: infused
+
+        Example::
+
+            connection = events.Connection(self, "Connection",
+                authorization=events.Authorization.api_key("x-api-key", SecretValue.secrets_manager("ApiSecretName")),
+                description="Connection with API Key x-api-key"
+            )
+            
+            destination = events.ApiDestination(self, "Destination",
+                connection=connection,
+                endpoint="https://example.com",
+                description="Calling example.com with API key x-api-key"
+            )
+            
+            rule = events.Rule(self, "Rule",
+                schedule=events.Schedule.rate(Duration.minutes(1)),
+                targets=[targets.ApiDestination(destination)]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd)
+            check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
+            check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
+            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
+            check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorization": authorization,
+        }
+        if body_parameters is not None:
+            self._values["body_parameters"] = body_parameters
+        if connection_name is not None:
+            self._values["connection_name"] = connection_name
+        if description is not None:
+            self._values["description"] = description
+        if header_parameters is not None:
+            self._values["header_parameters"] = header_parameters
+        if query_string_parameters is not None:
+            self._values["query_string_parameters"] = query_string_parameters
+
+    @builtins.property
+    def authorization(self) -> Authorization:
+        '''The authorization type for the connection.'''
+        result = self._values.get("authorization")
+        assert result is not None, "Required property 'authorization' is missing"
+        return typing.cast(Authorization, result)
+
+    @builtins.property
+    def body_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
+        '''Additional string parameters to add to the invocation bodies.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("body_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
+
+    @builtins.property
+    def connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the connection.
+
+        :default: - A name is automatically generated
+        '''
+        result = self._values.get("connection_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The name of the connection.
+
+        :default: - none
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def header_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
+        '''Additional string parameters to add to the invocation headers.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("header_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
+
+    @builtins.property
+    def query_string_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
+        '''Additional string parameters to add to the invocation query strings.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("query_string_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ConnectionReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_arn": "connectionArn",
+        "connection_name": "connectionName",
+    },
+)
+class ConnectionReference:
+    def __init__(
+        self,
+        *,
+        connection_arn: builtins.str,
+        connection_name: builtins.str,
+    ) -> None:
+        '''A reference to a Connection resource.
+
+        :param connection_arn: The ARN of the Connection resource.
+        :param connection_name: The Name of the Connection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            connection_reference = events.ConnectionReference(
+                connection_arn="connectionArn",
+                connection_name="connectionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b166a4c913a01320ea9ff2aa92f37262edeccaf678d74f91c6e93e16c0fbb49b)
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_arn": connection_arn,
+            "connection_name": connection_name,
+        }
+
+    @builtins.property
+    def connection_arn(self) -> builtins.str:
+        '''The ARN of the Connection resource.'''
+        result = self._values.get("connection_arn")
+        assert result is not None, "Required property 'connection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connection_name(self) -> builtins.str:
+        '''The Name of the Connection resource.'''
+        result = self._values.get("connection_name")
+        assert result is not None, "Required property 'connection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CronOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "day": "day",
+        "hour": "hour",
+        "minute": "minute",
+        "month": "month",
+        "week_day": "weekDay",
+        "year": "year",
+    },
+)
+class CronOptions:
+    def __init__(
+        self,
+        *,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+        year: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Options to configure a cron expression.
+
+        All fields are strings so you can use complex expressions. Absence of
+        a field implies '*' or '?', whichever one is appropriate.
+
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+        :param year: The year to run this rule at. Default: - Every year
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html#cron-expressions
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_events as events
+            import aws_cdk.aws_events_targets as targets
+            
+            # fn: lambda.Function
+            
+            rule = events.Rule(self, "Schedule Rule",
+                schedule=events.Schedule.cron(minute="0", hour="4")
+            )
+            rule.add_target(targets.LambdaFunction(fn))
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de)
+            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
+            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
+            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
+            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
+            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
+            check_type(argname="argument year", value=year, expected_type=type_hints["year"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if day is not None:
+            self._values["day"] = day
+        if hour is not None:
+            self._values["hour"] = hour
+        if minute is not None:
+            self._values["minute"] = minute
+        if month is not None:
+            self._values["month"] = month
+        if week_day is not None:
+            self._values["week_day"] = week_day
+        if year is not None:
+            self._values["year"] = year
+
+    @builtins.property
+    def day(self) -> typing.Optional[builtins.str]:
+        '''The day of the month to run this rule at.
+
+        :default: - Every day of the month
+        '''
+        result = self._values.get("day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hour(self) -> typing.Optional[builtins.str]:
+        '''The hour to run this rule at.
+
+        :default: - Every hour
+        '''
+        result = self._values.get("hour")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def minute(self) -> typing.Optional[builtins.str]:
+        '''The minute to run this rule at.
+
+        :default: - Every minute
+        '''
+        result = self._values.get("minute")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def month(self) -> typing.Optional[builtins.str]:
+        '''The month to run this rule at.
+
+        :default: - Every month
+        '''
+        result = self._values.get("month")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def week_day(self) -> typing.Optional[builtins.str]:
+        '''The day of the week to run this rule at.
+
+        :default: - Any day of the week
+        '''
+        result = self._values.get("week_day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def year(self) -> typing.Optional[builtins.str]:
+        '''The year to run this rule at.
+
+        :default: - Every year
+        '''
+        result = self._values.get("year")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CronOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"endpoint_arn": "endpointArn", "endpoint_name": "endpointName"},
+)
+class EndpointReference:
+    def __init__(
+        self,
+        *,
+        endpoint_arn: builtins.str,
+        endpoint_name: builtins.str,
+    ) -> None:
+        '''A reference to a Endpoint resource.
+
+        :param endpoint_arn: The ARN of the Endpoint resource.
+        :param endpoint_name: The Name of the Endpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            endpoint_reference = events.EndpointReference(
+                endpoint_arn="endpointArn",
+                endpoint_name="endpointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21f67896991a2f803f6d04c0946310bae2ab48a0817895aa3ed6ccf99ceb2711)
+            check_type(argname="argument endpoint_arn", value=endpoint_arn, expected_type=type_hints["endpoint_arn"])
+            check_type(argname="argument endpoint_name", value=endpoint_name, expected_type=type_hints["endpoint_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_arn": endpoint_arn,
+            "endpoint_name": endpoint_name,
+        }
+
+    @builtins.property
+    def endpoint_arn(self) -> builtins.str:
+        '''The ARN of the Endpoint resource.'''
+        result = self._values.get("endpoint_arn")
+        assert result is not None, "Required property 'endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def endpoint_name(self) -> builtins.str:
+        '''The Name of the Endpoint resource.'''
+        result = self._values.get("endpoint_name")
+        assert result is not None, "Required property 'endpoint_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventBusAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_bus_arn": "eventBusArn",
+        "event_bus_name": "eventBusName",
+        "event_bus_policy": "eventBusPolicy",
+        "event_source_name": "eventSourceName",
+    },
+)
+class EventBusAttributes:
+    def __init__(
+        self,
+        *,
+        event_bus_arn: builtins.str,
+        event_bus_name: builtins.str,
+        event_bus_policy: builtins.str,
+        event_source_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Interface with properties necessary to import a reusable EventBus.
+
+        :param event_bus_arn: The ARN of this event bus resource.
+        :param event_bus_name: The physical ID of this event bus resource.
+        :param event_bus_policy: The JSON policy of this event bus resource.
+        :param event_source_name: The partner event source to associate with this event bus resource. Default: - no partner event source
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            event_bus_attributes = events.EventBusAttributes(
+                event_bus_arn="eventBusArn",
+                event_bus_name="eventBusName",
+                event_bus_policy="eventBusPolicy",
+            
+                # the properties below are optional
+                event_source_name="eventSourceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda)
+            check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
+            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
+            check_type(argname="argument event_bus_policy", value=event_bus_policy, expected_type=type_hints["event_bus_policy"])
+            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_bus_arn": event_bus_arn,
+            "event_bus_name": event_bus_name,
+            "event_bus_policy": event_bus_policy,
+        }
+        if event_source_name is not None:
+            self._values["event_source_name"] = event_source_name
+
+    @builtins.property
+    def event_bus_arn(self) -> builtins.str:
+        '''The ARN of this event bus resource.
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
+        '''
+        result = self._values.get("event_bus_arn")
+        assert result is not None, "Required property 'event_bus_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_bus_name(self) -> builtins.str:
+        '''The physical ID of this event bus resource.
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
+        '''
+        result = self._values.get("event_bus_name")
+        assert result is not None, "Required property 'event_bus_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_bus_policy(self) -> builtins.str:
+        '''The JSON policy of this event bus resource.
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
+        '''
+        result = self._values.get("event_bus_policy")
+        assert result is not None, "Required property 'event_bus_policy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_source_name(self) -> typing.Optional[builtins.str]:
+        '''The partner event source to associate with this event bus resource.
+
+        :default: - no partner event source
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
+        '''
+        result = self._values.get("event_source_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventBusAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EventBusPolicy(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.EventBusPolicy",
+):
+    '''The policy for an Event Bus.
+
+    Policies define the operations that are allowed on this resource.
+
+    You almost never need to define this construct directly.
+
+    All AWS resources that support resource policies have a method called
+    ``addToResourcePolicy()``, which will automatically create a new resource
+    policy if one doesn't exist yet, otherwise it will add to the existing
+    policy.
+
+    Prefer to use ``addToResourcePolicy()`` instead.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_events as events
+        from aws_cdk import aws_iam as iam
+        
+        # event_bus: events.EventBus
+        # policy_statement: iam.PolicyStatement
+        
+        event_bus_policy = events.EventBusPolicy(self, "MyEventBusPolicy",
+            event_bus=event_bus,
+            statement=policy_statement,
+            statement_id="statementId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        event_bus: "IEventBus",
+        statement: _PolicyStatement_0fe33853,
+        statement_id: builtins.str,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param event_bus: The event bus to which the policy applies.
+        :param statement: An IAM Policy Statement to apply to the Event Bus.
+        :param statement_id: An identifier string for the external account that you are granting permissions to.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = EventBusPolicyProps(
+            event_bus=event_bus, statement=statement, statement_id=statement_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventBusPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_bus": "eventBus",
+        "statement": "statement",
+        "statement_id": "statementId",
+    },
+)
+class EventBusPolicyProps:
+    def __init__(
+        self,
+        *,
+        event_bus: "IEventBus",
+        statement: _PolicyStatement_0fe33853,
+        statement_id: builtins.str,
+    ) -> None:
+        '''Properties to associate Event Buses with a policy.
+
+        :param event_bus: The event bus to which the policy applies.
+        :param statement: An IAM Policy Statement to apply to the Event Bus.
+        :param statement_id: An identifier string for the external account that you are granting permissions to.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            from aws_cdk import aws_iam as iam
+            
+            # event_bus: events.EventBus
+            # policy_statement: iam.PolicyStatement
+            
+            event_bus_policy_props = events.EventBusPolicyProps(
+                event_bus=event_bus,
+                statement=policy_statement,
+                statement_id="statementId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da)
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_bus": event_bus,
+            "statement": statement,
+            "statement_id": statement_id,
+        }
+
+    @builtins.property
+    def event_bus(self) -> "IEventBus":
+        '''The event bus to which the policy applies.'''
+        result = self._values.get("event_bus")
+        assert result is not None, "Required property 'event_bus' is missing"
+        return typing.cast("IEventBus", result)
+
+    @builtins.property
+    def statement(self) -> _PolicyStatement_0fe33853:
+        '''An IAM Policy Statement to apply to the Event Bus.'''
+        result = self._values.get("statement")
+        assert result is not None, "Required property 'statement' is missing"
+        return typing.cast(_PolicyStatement_0fe33853, result)
+
+    @builtins.property
+    def statement_id(self) -> builtins.str:
+        '''An identifier string for the external account that you are granting permissions to.'''
+        result = self._values.get("statement_id")
+        assert result is not None, "Required property 'statement_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventBusPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventBusPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_bus_policy_id": "eventBusPolicyId"},
+)
+class EventBusPolicyReference:
+    def __init__(self, *, event_bus_policy_id: builtins.str) -> None:
+        '''A reference to a EventBusPolicy resource.
+
+        :param event_bus_policy_id: The Id of the EventBusPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            event_bus_policy_reference = events.EventBusPolicyReference(
+                event_bus_policy_id="eventBusPolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19c9d9c8efa21ce278b518a9e2bdc78537f74146fda2a922ca6a3e076ab6e91f)
+            check_type(argname="argument event_bus_policy_id", value=event_bus_policy_id, expected_type=type_hints["event_bus_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_bus_policy_id": event_bus_policy_id,
+        }
+
+    @builtins.property
+    def event_bus_policy_id(self) -> builtins.str:
+        '''The Id of the EventBusPolicy resource.'''
+        result = self._values.get("event_bus_policy_id")
+        assert result is not None, "Required property 'event_bus_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventBusPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventBusProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dead_letter_queue": "deadLetterQueue",
+        "description": "description",
+        "event_bus_name": "eventBusName",
+        "event_source_name": "eventSourceName",
+        "kms_key": "kmsKey",
+    },
+)
+class EventBusProps:
+    def __init__(
+        self,
+        *,
+        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_bus_name: typing.Optional[builtins.str] = None,
+        event_source_name: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
+    ) -> None:
+        '''Properties to define an event bus.
+
+        :param dead_letter_queue: Dead-letter queue for the event bus. Default: - no dead-letter queue
+        :param description: The event bus description. The description can be up to 512 characters long. Default: - no description
+        :param event_bus_name: The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this. Default: - automatically generated name
+        :param event_source_name: The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this. Default: - no partner event source
+        :param kms_key: The customer managed key that encrypt events on this event bus. Default: - Use an AWS managed key
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_events as events
+            
+            
+            my_event_bus = events.EventBus(self, "EventBus",
+                event_bus_name="MyEventBus1"
+            )
+            
+            tasks.EventBridgePutEvents(self, "Send an event to EventBridge",
+                entries=[tasks.EventBridgePutEventsEntry(
+                    detail=sfn.TaskInput.from_object({
+                        "Message": "Hello from Step Functions!"
+                    }),
+                    event_bus=my_event_bus,
+                    detail_type="MessageFromStepFunctions",
+                    source="step.functions"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743)
+            check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
+            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dead_letter_queue is not None:
+            self._values["dead_letter_queue"] = dead_letter_queue
+        if description is not None:
+            self._values["description"] = description
+        if event_bus_name is not None:
+            self._values["event_bus_name"] = event_bus_name
+        if event_source_name is not None:
+            self._values["event_source_name"] = event_source_name
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+
+    @builtins.property
+    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+        '''Dead-letter queue for the event bus.
+
+        :default: - no dead-letter queue
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq
+        '''
+        result = self._values.get("dead_letter_queue")
+        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The event bus description.
+
+        The description can be up to 512 characters long.
+
+        :default: - no description
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_bus_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this.
+
+        :default: - automatically generated name
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
+        '''
+        result = self._values.get("event_bus_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_source_name(self) -> typing.Optional[builtins.str]:
+        '''The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this.
+
+        :default: - no partner event source
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
+        '''
+        result = self._values.get("event_source_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed key that encrypt events on this event bus.
+
+        :default: - Use an AWS managed key
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventBusProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventBusReference",
+    jsii_struct_bases=[],
+    name_mapping={"event_bus_arn": "eventBusArn", "event_bus_name": "eventBusName"},
+)
+class EventBusReference:
+    def __init__(
+        self,
+        *,
+        event_bus_arn: builtins.str,
+        event_bus_name: builtins.str,
+    ) -> None:
+        '''A reference to a EventBus resource.
+
+        :param event_bus_arn: The ARN of the EventBus resource.
+        :param event_bus_name: The Name of the EventBus resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            event_bus_reference = events.EventBusReference(
+                event_bus_arn="eventBusArn",
+                event_bus_name="eventBusName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c9e03e2bd4d59494f9e5d58ff91c201aadc288d3b7e93a322ea7b919505bd45)
+            check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
+            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_bus_arn": event_bus_arn,
+            "event_bus_name": event_bus_name,
+        }
+
+    @builtins.property
+    def event_bus_arn(self) -> builtins.str:
+        '''The ARN of the EventBus resource.'''
+        result = self._values.get("event_bus_arn")
+        assert result is not None, "Required property 'event_bus_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_bus_name(self) -> builtins.str:
+        '''The Name of the EventBus resource.'''
+        result = self._values.get("event_bus_name")
+        assert result is not None, "Required property 'event_bus_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventBusReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventCommonOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cross_stack_scope": "crossStackScope",
+        "description": "description",
+        "event_pattern": "eventPattern",
+        "rule_name": "ruleName",
+    },
+)
+class EventCommonOptions:
+    def __init__(
+        self,
+        *,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Common options for Events.
+
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            import constructs as constructs
+            
+            # construct: constructs.Construct
+            # detail: Any
+            
+            event_common_options = events.EventCommonOptions(
+                cross_stack_scope=construct,
+                description="description",
+                event_pattern=events.EventPattern(
+                    account=["account"],
+                    detail={
+                        "detail_key": detail
+                    },
+                    detail_type=["detailType"],
+                    id=["id"],
+                    region=["region"],
+                    resources=["resources"],
+                    source=["source"],
+                    time=["time"],
+                    version=["version"]
+                ),
+                rule_name="ruleName"
+            )
+        '''
+        if isinstance(event_pattern, dict):
+            event_pattern = EventPattern(**event_pattern)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433)
+            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cross_stack_scope is not None:
+            self._values["cross_stack_scope"] = cross_stack_scope
+        if description is not None:
+            self._values["description"] = description
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+
+    @builtins.property
+    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
+        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
+
+        This helps dealing with cycles that often arise in these situations.
+
+        :default: - none (the main scope will be used, even for cross-stack Events)
+        '''
+        result = self._values.get("cross_stack_scope")
+        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the rule's purpose.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Optional["EventPattern"]:
+        '''Additional restrictions for the event to route to the specified target.
+
+        The method that generates the rule probably imposes some type of event
+        filtering. The filtering implied by what you pass here is added
+        on top of that filtering.
+
+        :default: - No additional filtering based on an event pattern.
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Optional["EventPattern"], result)
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the rule.
+
+        :default: AWS CloudFormation generates a unique physical ID.
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventCommonOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IResolvable_da3f097b)
+class EventField(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.EventField",
+):
+    '''Represents a field in the event pattern.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_logs as logs
+        # log_group: logs.LogGroup
+        # rule: events.Rule
+        
+        
+        rule.add_target(targets.CloudWatchLogGroup(log_group,
+            log_event=targets.LogGroupTargetInput.from_object_v2(
+                timestamp=events.EventField.from_path("$.time"),
+                message=events.EventField.from_path("$.detail-type")
+            )
+        ))
+    '''
+
+    @jsii.member(jsii_name="fromPath")
+    @builtins.classmethod
+    def from_path(cls, path: builtins.str) -> builtins.str:
+        '''Extract a custom JSON path from the event.
+
+        :param path: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "fromPath", [path]))
+
+    @jsii.member(jsii_name="resolve")
+    def resolve(self, _ctx: _IResolveContext_b2df1921) -> typing.Any:
+        '''Produce the Token's value at resolution time.
+
+        :param _ctx: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3)
+            check_type(argname="argument _ctx", value=_ctx, expected_type=type_hints["_ctx"])
+        return typing.cast(typing.Any, jsii.invoke(self, "resolve", [_ctx]))
+
+    @jsii.member(jsii_name="toJSON")
+    def to_json(self) -> builtins.str:
+        '''Convert the path to the field in the event pattern to JSON.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toJSON", []))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Return a string representation of this resolvable object.
+
+        Returns a reversible string representation.
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="account")
+    def account(cls) -> builtins.str:
+        '''Extract the account from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "account"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="detailType")
+    def detail_type(cls) -> builtins.str:
+        '''Extract the detail type from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "detailType"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="eventId")
+    def event_id(cls) -> builtins.str:
+        '''Extract the event ID from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "eventId"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="region")
+    def region(cls) -> builtins.str:
+        '''Extract the region from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "region"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="source")
+    def source(cls) -> builtins.str:
+        '''Extract the source from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "source"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="time")
+    def time(cls) -> builtins.str:
+        '''Extract the time from the event.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "time"))
+
+    @builtins.property
+    @jsii.member(jsii_name="creationStack")
+    def creation_stack(self) -> typing.List[builtins.str]:
+        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
+
+        This may return an array with a single informational element indicating how
+        to get this property populated, if it was skipped for performance reasons.
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "creationStack"))
+
+    @builtins.property
+    @jsii.member(jsii_name="displayHint")
+    def display_hint(self) -> builtins.str:
+        '''Human readable display hint about the event pattern.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayHint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> builtins.str:
+        '''the path to a field in the event pattern.'''
+        return typing.cast(builtins.str, jsii.get(self, "path"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.EventPattern",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account": "account",
+        "detail": "detail",
+        "detail_type": "detailType",
+        "id": "id",
+        "region": "region",
+        "resources": "resources",
+        "source": "source",
+        "time": "time",
+        "version": "version",
+    },
+)
+class EventPattern:
+    def __init__(
+        self,
+        *,
+        account: typing.Optional[typing.Sequence[builtins.str]] = None,
+        detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
+        id: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source: typing.Optional[typing.Sequence[builtins.str]] = None,
+        time: typing.Optional[typing.Sequence[builtins.str]] = None,
+        version: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Events in Amazon CloudWatch Events are represented as JSON objects. For more information about JSON objects, see RFC 7159.
+
+        **Important**: this class can only be used with a ``Rule`` class. In particular,
+        do not use it with ``CfnRule`` class: your pattern will not be rendered
+        correctly. In a ``CfnRule`` class, write the pattern as you normally would when
+        directly writing CloudFormation.
+
+        Rules use event patterns to select events and route them to targets. A
+        pattern either matches an event or it doesn't. Event patterns are represented
+        as JSON objects with a structure that is similar to that of events.
+
+        It is important to remember the following about event pattern matching:
+
+        - For a pattern to match an event, the event must contain all the field names
+          listed in the pattern. The field names must appear in the event with the
+          same nesting structure.
+        - Other fields of the event not mentioned in the pattern are ignored;
+          effectively, there is a ``"*": "*"`` wildcard for fields not mentioned.
+        - The matching is exact (character-by-character), without case-folding or any
+          other string normalization.
+        - The values being matched follow JSON rules: Strings enclosed in quotes,
+          numbers, and the unquoted keywords true, false, and null.
+        - Number matching is at the string representation level. For example, 300,
+          300.0, and 3.0e2 are not considered equal.
+
+        For custom events, some optional properties are required. For more information, see
+        `Minimum information needed for a valid custom event <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events-structure.html#eb-custom-event>`_.
+
+        :param account: The 12-digit number identifying an AWS account. Default: - No filtering on account
+        :param detail: A JSON object, whose content is at the discretion of the service originating the event. Default: - No filtering on detail
+        :param detail_type: Identifies, in combination with the source field, the fields and values that appear in the detail field. Represents the "detail-type" event field. Default: - No filtering on detail type
+        :param id: A unique value is generated for every event. This can be helpful in tracing events as they move through rules to targets, and are processed. Default: - No filtering on id
+        :param region: Identifies the AWS region where the event originated. Default: - No filtering on region
+        :param resources: This JSON array contains ARNs that identify resources that are involved in the event. Inclusion of these ARNs is at the discretion of the service. For example, Amazon EC2 instance state-changes include Amazon EC2 instance ARNs, Auto Scaling events include ARNs for both instances and Auto Scaling groups, but API calls with AWS CloudTrail do not include resource ARNs. Default: - No filtering on resource
+        :param source: Identifies the service that sourced the event. All events sourced from within AWS begin with "aws." Customer-generated events can have any value here, as long as it doesn't begin with "aws." We recommend the use of Java package-name style reverse domain-name strings. To find the correct value for source for an AWS service, see the table in AWS Service Namespaces. For example, the source value for Amazon CloudFront is aws.cloudfront. Default: - No filtering on source
+        :param time: The event timestamp, which can be specified by the service originating the event. If the event spans a time interval, the service might choose to report the start time, so this value can be noticeably before the time the event is actually received. Default: - No filtering on time
+        :param version: By default, this is set to 0 (zero) in all events. Default: - No filtering on version
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/CloudWatchEventsandEventPatterns.html
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_lambda as lambda_
+            
+            
+            fn = lambda_.Function(self, "MyFunc",
+                runtime=lambda_.Runtime.NODEJS_LATEST,
+                handler="index.handler",
+                code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+            )
+            
+            rule = events.Rule(self, "rule",
+                event_pattern=events.EventPattern(
+                    source=["aws.ec2"]
+                )
+            )
+            
+            queue = sqs.Queue(self, "Queue")
+            
+            rule.add_target(targets.LambdaFunction(fn,
+                dead_letter_queue=queue,  # Optional: add a dead letter queue
+                max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
+                retry_attempts=2
+            ))
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944)
+            check_type(argname="argument account", value=account, expected_type=type_hints["account"])
+            check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
+            check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument time", value=time, expected_type=type_hints["time"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if account is not None:
+            self._values["account"] = account
+        if detail is not None:
+            self._values["detail"] = detail
+        if detail_type is not None:
+            self._values["detail_type"] = detail_type
+        if id is not None:
+            self._values["id"] = id
+        if region is not None:
+            self._values["region"] = region
+        if resources is not None:
+            self._values["resources"] = resources
+        if source is not None:
+            self._values["source"] = source
+        if time is not None:
+            self._values["time"] = time
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def account(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The 12-digit number identifying an AWS account.
+
+        :default: - No filtering on account
+        '''
+        result = self._values.get("account")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def detail(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''A JSON object, whose content is at the discretion of the service originating the event.
+
+        :default: - No filtering on detail
+        '''
+        result = self._values.get("detail")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def detail_type(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Identifies, in combination with the source field, the fields and values that appear in the detail field.
+
+        Represents the "detail-type" event field.
+
+        :default: - No filtering on detail type
+        '''
+        result = self._values.get("detail_type")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def id(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A unique value is generated for every event.
+
+        This can be helpful in
+        tracing events as they move through rules to targets, and are processed.
+
+        :default: - No filtering on id
+        '''
+        result = self._values.get("id")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Identifies the AWS region where the event originated.
+
+        :default: - No filtering on region
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''This JSON array contains ARNs that identify resources that are involved in the event.
+
+        Inclusion of these ARNs is at the discretion of the
+        service.
+
+        For example, Amazon EC2 instance state-changes include Amazon EC2
+        instance ARNs, Auto Scaling events include ARNs for both instances and
+        Auto Scaling groups, but API calls with AWS CloudTrail do not include
+        resource ARNs.
+
+        :default: - No filtering on resource
+        '''
+        result = self._values.get("resources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def source(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Identifies the service that sourced the event.
+
+        All events sourced from
+        within AWS begin with "aws." Customer-generated events can have any value
+        here, as long as it doesn't begin with "aws." We recommend the use of
+        Java package-name style reverse domain-name strings.
+
+        To find the correct value for source for an AWS service, see the table in
+        AWS Service Namespaces. For example, the source value for Amazon
+        CloudFront is aws.cloudfront.
+
+        :default: - No filtering on source
+
+        :see: http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
+        '''
+        result = self._values.get("source")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def time(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The event timestamp, which can be specified by the service originating the event.
+
+        If the event spans a time interval, the service might choose
+        to report the start time, so this value can be noticeably before the time
+        the event is actually received.
+
+        :default: - No filtering on time
+        '''
+        result = self._values.get("time")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''By default, this is set to 0 (zero) in all events.
+
+        :default: - No filtering on version
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventPattern(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_events.HttpMethod")
+class HttpMethod(enum.Enum):
+    '''Supported HTTP operations.'''
+
+    POST = "POST"
+    '''POST.'''
+    GET = "GET"
+    '''GET.'''
+    HEAD = "HEAD"
+    '''HEAD.'''
+    OPTIONS = "OPTIONS"
+    '''OPTIONS.'''
+    PUT = "PUT"
+    '''PUT.'''
+    PATCH = "PATCH"
+    '''PATCH.'''
+    DELETE = "DELETE"
+    '''DELETE.'''
+
+
+class HttpParameter(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_events.HttpParameter",
+):
+    '''An additional HTTP parameter to send along with the OAuth request.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        from aws_cdk import aws_events as events
+        
+        # secret_value: cdk.SecretValue
+        
+        http_parameter = events.HttpParameter.from_secret(secret_value)
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="fromSecret")
+    @builtins.classmethod
+    def from_secret(cls, value: _SecretValue_3dd0ddae) -> "HttpParameter":
+        '''Make an OAuthParameter from a secret.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromSecret", [value]))
+
+    @jsii.member(jsii_name="fromString")
+    @builtins.classmethod
+    def from_string(cls, value: builtins.str) -> "HttpParameter":
+        '''Make an OAuthParameter from a string value.
+
+        The value is not treated as a secret.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromString", [value]))
+
+
+class _HttpParameterProxy(HttpParameter):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, HttpParameter).__jsii_proxy_class__ = lambda : _HttpParameterProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IApiDestination")
+class IApiDestination(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Interface for API Destinations.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArn")
+    def api_destination_arn(self) -> builtins.str:
+        '''The ARN of the Api Destination created.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationName")
+    def api_destination_name(self) -> builtins.str:
+        '''The Name of the Api Destination created.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
+        :attribute: true
+        '''
+        ...
+
+
+class _IApiDestinationProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Interface for API Destinations.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IApiDestination"
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArn")
+    def api_destination_arn(self) -> builtins.str:
+        '''The ARN of the Api Destination created.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "apiDestinationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationName")
+    def api_destination_name(self) -> builtins.str:
+        '''The Name of the Api Destination created.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "apiDestinationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApiDestination).__jsii_proxy_class__ = lambda : _IApiDestinationProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IApiDestinationRef")
+class IApiDestinationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ApiDestination.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationRef")
+    def api_destination_ref(self) -> ApiDestinationReference:
+        '''(experimental) A reference to a ApiDestination resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApiDestinationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApiDestination.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IApiDestinationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationRef")
+    def api_destination_ref(self) -> ApiDestinationReference:
+        '''(experimental) A reference to a ApiDestination resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApiDestinationReference, jsii.get(self, "apiDestinationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApiDestinationRef).__jsii_proxy_class__ = lambda : _IApiDestinationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IArchiveRef")
+class IArchiveRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Archive.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRef")
+    def archive_ref(self) -> ArchiveReference:
+        '''(experimental) A reference to a Archive resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IArchiveRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Archive.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IArchiveRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRef")
+    def archive_ref(self) -> ArchiveReference:
+        '''(experimental) A reference to a Archive resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ArchiveReference, jsii.get(self, "archiveRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IArchiveRef).__jsii_proxy_class__ = lambda : _IArchiveRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IConnection")
+class IConnection(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Interface for EventBus Connections.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionArn")
+    def connection_arn(self) -> builtins.str:
+        '''The ARN of the connection created.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionName")
+    def connection_name(self) -> builtins.str:
+        '''The Name for the connection.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionSecretArn")
+    def connection_secret_arn(self) -> builtins.str:
+        '''The ARN for the secret created for the connection.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IConnectionProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Interface for EventBus Connections.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IConnection"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionArn")
+    def connection_arn(self) -> builtins.str:
+        '''The ARN of the connection created.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionName")
+    def connection_name(self) -> builtins.str:
+        '''The Name for the connection.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "connectionName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionSecretArn")
+    def connection_secret_arn(self) -> builtins.str:
+        '''The ARN for the secret created for the connection.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "connectionSecretArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnection).__jsii_proxy_class__ = lambda : _IConnectionProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IConnectionRef")
+class IConnectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IConnectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectionReference, jsii.get(self, "connectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnectionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEndpointRef")
+class IEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''(experimental) A reference to a Endpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''(experimental) A reference to a Endpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEndpointRef).__jsii_proxy_class__ = lambda : _IEndpointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEventBus")
+class IEventBus(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Interface which all EventBus based classes MUST implement.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusArn")
+    def event_bus_arn(self) -> builtins.str:
+        '''The ARN of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusName")
+    def event_bus_name(self) -> builtins.str:
+        '''The physical ID of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusPolicy")
+    def event_bus_policy(self) -> builtins.str:
+        '''The JSON policy of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSourceName")
+    def event_source_name(self) -> typing.Optional[builtins.str]:
+        '''The partner event source to associate with this event bus resource.
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
+        '''
+        ...
+
+    @jsii.member(jsii_name="archive")
+    def archive(
+        self,
+        id: builtins.str,
+        *,
+        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
+        archive_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        retention: typing.Optional[_Duration_4839e8c3] = None,
+    ) -> Archive:
+        '''Create an EventBridge archive to send events to.
+
+        When you create an archive, incoming events might not immediately start being sent to the archive.
+        Allow a short period of time for changes to take effect.
+
+        :param id: -
+        :param event_pattern: An event pattern to use to filter events sent to the archive.
+        :param archive_name: The name of the archive. Default: - Automatically generated
+        :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
+        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantPutEventsTo")
+    def grant_put_events_to(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        sid: typing.Optional[builtins.str] = None,
+    ) -> _Grant_a7ae64f8:
+        '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
+
+        :param grantee: The principal (no-op if undefined).
+        :param sid: The Statement ID used if we need to add a trust policy on the event bus.
+        '''
+        ...
+
+
+class _IEventBusProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Interface which all EventBus based classes MUST implement.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IEventBus"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusArn")
+    def event_bus_arn(self) -> builtins.str:
+        '''The ARN of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "eventBusArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusName")
+    def event_bus_name(self) -> builtins.str:
+        '''The physical ID of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "eventBusName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusPolicy")
+    def event_bus_policy(self) -> builtins.str:
+        '''The JSON policy of this event bus resource.
+
+        :attribute: true
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "eventBusPolicy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSourceName")
+    def event_source_name(self) -> typing.Optional[builtins.str]:
+        '''The partner event source to associate with this event bus resource.
+
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventSourceName"))
+
+    @jsii.member(jsii_name="archive")
+    def archive(
+        self,
+        id: builtins.str,
+        *,
+        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
+        archive_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        retention: typing.Optional[_Duration_4839e8c3] = None,
+    ) -> Archive:
+        '''Create an EventBridge archive to send events to.
+
+        When you create an archive, incoming events might not immediately start being sent to the archive.
+        Allow a short period of time for changes to take effect.
+
+        :param id: -
+        :param event_pattern: An event pattern to use to filter events sent to the archive.
+        :param archive_name: The name of the archive. Default: - Automatically generated
+        :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
+        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = BaseArchiveProps(
+            event_pattern=event_pattern,
+            archive_name=archive_name,
+            description=description,
+            kms_key=kms_key,
+            retention=retention,
+        )
+
+        return typing.cast(Archive, jsii.invoke(self, "archive", [id, props]))
+
+    @jsii.member(jsii_name="grantPutEventsTo")
+    def grant_put_events_to(
+        self,
+        grantee: _IGrantable_71c4f5de,
+        sid: typing.Optional[builtins.str] = None,
+    ) -> _Grant_a7ae64f8:
+        '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
+
+        :param grantee: The principal (no-op if undefined).
+        :param sid: The Statement ID used if we need to add a trust policy on the event bus.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
+        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventBus).__jsii_proxy_class__ = lambda : _IEventBusProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEventBusPolicyRef")
+class IEventBusPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EventBusPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusPolicyRef")
+    def event_bus_policy_ref(self) -> EventBusPolicyReference:
+        '''(experimental) A reference to a EventBusPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventBusPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventBusPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IEventBusPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusPolicyRef")
+    def event_bus_policy_ref(self) -> EventBusPolicyReference:
+        '''(experimental) A reference to a EventBusPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventBusPolicyReference, jsii.get(self, "eventBusPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventBusPolicyRef).__jsii_proxy_class__ = lambda : _IEventBusPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEventBusRef")
+class IEventBusRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EventBus.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusRef")
+    def event_bus_ref(self) -> EventBusReference:
+        '''(experimental) A reference to a EventBus resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEventBusRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EventBus.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IEventBusRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusRef")
+    def event_bus_ref(self) -> EventBusReference:
+        '''(experimental) A reference to a EventBus resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EventBusReference, jsii.get(self, "eventBusRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEventBusRef).__jsii_proxy_class__ = lambda : _IEventBusRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRule")
+class IRule(_IResource_c80c4260, typing_extensions.Protocol):
+    '''Represents an EventBridge Rule.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleArn")
+    def rule_arn(self) -> builtins.str:
+        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name event rule.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _IRuleProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''Represents an EventBridge Rule.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IRule"
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleArn")
+    def rule_arn(self) -> builtins.str:
+        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "ruleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name event rule.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRule).__jsii_proxy_class__ = lambda : _IRuleProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRuleRef")
+class IRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Rule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> "RuleReference":
+        '''(experimental) A reference to a Rule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RuleReference", jsii.get(self, "ruleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRuleTarget")
+class IRuleTarget(typing_extensions.Protocol):
+    '''An abstract target for EventRules.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        rule: IRule,
+        id: typing.Optional[builtins.str] = None,
+    ) -> "RuleTargetConfig":
+        '''Returns the rule target specification.
+
+        NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
+
+        :param rule: The EventBridge Rule that would trigger this target.
+        :param id: The id of the target that will be attached to the rule.
+        '''
+        ...
+
+
+class _IRuleTargetProxy:
+    '''An abstract target for EventRules.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IRuleTarget"
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        rule: IRule,
+        id: typing.Optional[builtins.str] = None,
+    ) -> "RuleTargetConfig":
+        '''Returns the rule target specification.
+
+        NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
+
+        :param rule: The EventBridge Rule that would trigger this target.
+        :param id: The id of the target that will be attached to the rule.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        return typing.cast("RuleTargetConfig", jsii.invoke(self, "bind", [rule, id]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRuleTarget).__jsii_proxy_class__ = lambda : _IRuleTargetProxy
+
+
+@jsii.implements(_IResolvable_da3f097b)
+class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
+    '''An event pattern matcher.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        rule = events.Rule(self, "rule",
+            event_pattern=events.EventPattern(
+                detail={
+                    "object": {
+                        # Matchers may appear at any level
+                        "size": events.Match.greater_than(1024)
+                    },
+        
+                    # 'OR' condition
+                    "source-storage-class": events.Match.any_of(
+                        events.Match.prefix("GLACIER"),
+                        events.Match.exact_string("DEEP_ARCHIVE"))
+                },
+        
+                # If you prefer, you can use a low level array of strings, as directly consumed by EventBridge
+                source=["aws.s3"],
+        
+                region=events.Match.anything_but_prefix("us-gov")
+            )
+        )
+    '''
+
+    @jsii.member(jsii_name="allOf")
+    @builtins.classmethod
+    def all_of(cls, *matchers: typing.Any) -> typing.List[builtins.str]:
+        '''Matches an event if any of the provided matchers do.
+
+        Only numeric matchers are accepted.
+
+        :param matchers: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa)
+            check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "allOf", [*matchers]))
+
+    @jsii.member(jsii_name="anyOf")
+    @builtins.classmethod
+    def any_of(cls, *matchers: typing.Any) -> typing.List[builtins.str]:
+        '''Matches an event if any of the provided matchers does.
+
+        :param matchers: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae)
+            check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anyOf", [*matchers]))
+
+    @jsii.member(jsii_name="anythingBut")
+    @builtins.classmethod
+    def anything_but(cls, *values: typing.Any) -> typing.List[builtins.str]:
+        '''Matches anything except what's provided in the rule.
+
+        The list of provided values must contain
+        only strings or only numbers.
+
+        :param values: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6)
+            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingBut", [*values]))
+
+    @jsii.member(jsii_name="anythingButEqualsIgnoreCase")
+    @builtins.classmethod
+    def anything_but_equals_ignore_case(
+        cls,
+        *values: builtins.str,
+    ) -> typing.List[builtins.str]:
+        '''Matches any string that doesn't match with the given value regardless of character casing.
+
+        :param values: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7)
+            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButEqualsIgnoreCase", [*values]))
+
+    @jsii.member(jsii_name="anythingButPrefix")
+    @builtins.classmethod
+    def anything_but_prefix(cls, *values: builtins.str) -> typing.List[builtins.str]:
+        '''Matches any string that doesn't start with the given prefix.
+
+        :param values: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090)
+            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButPrefix", [*values]))
+
+    @jsii.member(jsii_name="anythingButSuffix")
+    @builtins.classmethod
+    def anything_but_suffix(cls, *values: builtins.str) -> typing.List[builtins.str]:
+        '''Matches any string that doesn't end with the given suffix.
+
+        :param values: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9)
+            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButSuffix", [*values]))
+
+    @jsii.member(jsii_name="anythingButWildcard")
+    @builtins.classmethod
+    def anything_but_wildcard(cls, *values: builtins.str) -> typing.List[builtins.str]:
+        '''Matches any string that doesn't match with the given wildcard pattern.
+
+        :param values: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01)
+            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButWildcard", [*values]))
+
+    @jsii.member(jsii_name="cidr")
+    @builtins.classmethod
+    def cidr(cls, range: builtins.str) -> typing.List[builtins.str]:
+        '''Matches IPv4 and IPv6 network addresses using the Classless Inter-Domain Routing (CIDR) format.
+
+        :param range: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50)
+            check_type(argname="argument range", value=range, expected_type=type_hints["range"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "cidr", [range]))
+
+    @jsii.member(jsii_name="doesNotExist")
+    @builtins.classmethod
+    def does_not_exist(cls) -> typing.List[builtins.str]:
+        '''Matches when the field is absent from the JSON of the event.'''
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "doesNotExist", []))
+
+    @jsii.member(jsii_name="equal")
+    @builtins.classmethod
+    def equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
+        '''Matches numbers equal to the provided value.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equal", [value]))
+
+    @jsii.member(jsii_name="equalsIgnoreCase")
+    @builtins.classmethod
+    def equals_ignore_case(cls, value: builtins.str) -> typing.List[builtins.str]:
+        '''Matches a string, regardless of case, in the JSON of the event.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equalsIgnoreCase", [value]))
+
+    @jsii.member(jsii_name="exactString")
+    @builtins.classmethod
+    def exact_string(cls, value: builtins.str) -> typing.List[builtins.str]:
+        '''Matches a string, exactly, in the JSON of the event.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "exactString", [value]))
+
+    @jsii.member(jsii_name="exists")
+    @builtins.classmethod
+    def exists(cls) -> typing.List[builtins.str]:
+        '''Matches when the field is present in the JSON of the event.'''
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "exists", []))
+
+    @jsii.member(jsii_name="greaterThan")
+    @builtins.classmethod
+    def greater_than(cls, value: jsii.Number) -> typing.List[builtins.str]:
+        '''Matches numbers greater than the provided value.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThan", [value]))
+
+    @jsii.member(jsii_name="greaterThanOrEqual")
+    @builtins.classmethod
+    def greater_than_or_equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
+        '''Matches numbers greater than, or equal to, the provided value.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThanOrEqual", [value]))
+
+    @jsii.member(jsii_name="interval")
+    @builtins.classmethod
+    def interval(
+        cls,
+        lower: jsii.Number,
+        upper: jsii.Number,
+    ) -> typing.List[builtins.str]:
+        '''Matches numbers inside a closed numeric interval. Equivalent to:.
+
+        Match.allOf(Match.greaterThanOrEqual(lower), Match.lessThanOrEqual(upper))
+
+        :param lower: Lower bound (inclusive).
+        :param upper: Upper bound (inclusive).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7)
+            check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
+            check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "interval", [lower, upper]))
+
+    @jsii.member(jsii_name="ipAddressRange")
+    @builtins.classmethod
+    def ip_address_range(cls, range: builtins.str) -> typing.List[builtins.str]:
+        '''Matches IPv4 and IPv6 network addresses using the Classless Inter-Domain Routing (CIDR) format.
+
+        Alias of ``cidr()``.
+
+        :param range: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc)
+            check_type(argname="argument range", value=range, expected_type=type_hints["range"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "ipAddressRange", [range]))
+
+    @jsii.member(jsii_name="lessThan")
+    @builtins.classmethod
+    def less_than(cls, value: jsii.Number) -> typing.List[builtins.str]:
+        '''Matches numbers less than the provided value.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThan", [value]))
+
+    @jsii.member(jsii_name="lessThanOrEqual")
+    @builtins.classmethod
+    def less_than_or_equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
+        '''Matches numbers less than, or equal to, the provided value.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThanOrEqual", [value]))
+
+    @jsii.member(jsii_name="nullValue")
+    @builtins.classmethod
+    def null_value(cls) -> typing.List[builtins.str]:
+        '''Matches a null value in the JSON of the event.'''
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "nullValue", []))
+
+    @jsii.member(jsii_name="prefix")
+    @builtins.classmethod
+    def prefix(cls, value: builtins.str) -> typing.List[builtins.str]:
+        '''Matches strings with the given prefix in the JSON of the event.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefix", [value]))
+
+    @jsii.member(jsii_name="prefixEqualsIgnoreCase")
+    @builtins.classmethod
+    def prefix_equals_ignore_case(
+        cls,
+        value: builtins.str,
+    ) -> typing.List[builtins.str]:
+        '''Matches strings with the given prefix in the JSON of the event regardless of the casing.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefixEqualsIgnoreCase", [value]))
+
+    @jsii.member(jsii_name="suffix")
+    @builtins.classmethod
+    def suffix(cls, value: builtins.str) -> typing.List[builtins.str]:
+        '''Matches strings with the given suffix in the JSON of the event.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffix", [value]))
+
+    @jsii.member(jsii_name="suffixEqualsIgnoreCase")
+    @builtins.classmethod
+    def suffix_equals_ignore_case(
+        cls,
+        value: builtins.str,
+    ) -> typing.List[builtins.str]:
+        '''Matches strings with the given suffix in the JSON of the event regardless of the casing.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffixEqualsIgnoreCase", [value]))
+
+    @jsii.member(jsii_name="wildcard")
+    @builtins.classmethod
+    def wildcard(cls, value: builtins.str) -> typing.List[builtins.str]:
+        '''Matches strings with the given wildcard pattern in the JSON of the event.
+
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "wildcard", [value]))
+
+    @jsii.member(jsii_name="asList")
+    def as_list(self) -> typing.List[builtins.str]:
+        '''A representation of this matcher as a list of strings.'''
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "asList", []))
+
+    @jsii.member(jsii_name="resolve")
+    def resolve(self, context: _IResolveContext_b2df1921) -> typing.Any:
+        '''Produce the Token's value at resolution time.
+
+        :param context: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840)
+            check_type(argname="argument context", value=context, expected_type=type_hints["context"])
+        return typing.cast(typing.Any, jsii.invoke(self, "resolve", [context]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Return a string representation of this resolvable object.
+
+        Returns a reversible string representation.
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="creationStack")
+    def creation_stack(self) -> typing.List[builtins.str]:
+        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
+
+        This may return an array with a single informational element indicating how
+        to get this property populated, if it was skipped for performance reasons.
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "creationStack"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.OAuthAuthorizationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorization_endpoint": "authorizationEndpoint",
+        "client_id": "clientId",
+        "client_secret": "clientSecret",
+        "http_method": "httpMethod",
+        "body_parameters": "bodyParameters",
+        "header_parameters": "headerParameters",
+        "query_string_parameters": "queryStringParameters",
+    },
+)
+class OAuthAuthorizationProps:
+    def __init__(
+        self,
+        *,
+        authorization_endpoint: builtins.str,
+        client_id: builtins.str,
+        client_secret: _SecretValue_3dd0ddae,
+        http_method: HttpMethod,
+        body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+        header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+        query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+    ) -> None:
+        '''Properties for ``Authorization.oauth()``.
+
+        :param authorization_endpoint: The URL to the authorization endpoint.
+        :param client_id: The client ID to use for OAuth authorization for the connection.
+        :param client_secret: The client secret associated with the client ID to use for OAuth authorization for the connection.
+        :param http_method: The method to use for the authorization request. (Can only choose POST, GET or PUT).
+        :param body_parameters: Additional string parameters to add to the OAuth request body. Default: - No additional parameters
+        :param header_parameters: Additional string parameters to add to the OAuth request header. Default: - No additional parameters
+        :param query_string_parameters: Additional string parameters to add to the OAuth request query string. Default: - No additional parameters
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_events as events
+            
+            # http_parameter: events.HttpParameter
+            # secret_value: cdk.SecretValue
+            
+            o_auth_authorization_props = events.OAuthAuthorizationProps(
+                authorization_endpoint="authorizationEndpoint",
+                client_id="clientId",
+                client_secret=secret_value,
+                http_method=events.HttpMethod.POST,
+            
+                # the properties below are optional
+                body_parameters={
+                    "body_parameters_key": http_parameter
+                },
+                header_parameters={
+                    "header_parameters_key": http_parameter
+                },
+                query_string_parameters={
+                    "query_string_parameters_key": http_parameter
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4)
+            check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+            check_type(argname="argument http_method", value=http_method, expected_type=type_hints["http_method"])
+            check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
+            check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
+            check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorization_endpoint": authorization_endpoint,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "http_method": http_method,
+        }
+        if body_parameters is not None:
+            self._values["body_parameters"] = body_parameters
+        if header_parameters is not None:
+            self._values["header_parameters"] = header_parameters
+        if query_string_parameters is not None:
+            self._values["query_string_parameters"] = query_string_parameters
+
+    @builtins.property
+    def authorization_endpoint(self) -> builtins.str:
+        '''The URL to the authorization endpoint.'''
+        result = self._values.get("authorization_endpoint")
+        assert result is not None, "Required property 'authorization_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_id(self) -> builtins.str:
+        '''The client ID to use for OAuth authorization for the connection.'''
+        result = self._values.get("client_id")
+        assert result is not None, "Required property 'client_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_secret(self) -> _SecretValue_3dd0ddae:
+        '''The client secret associated with the client ID to use for OAuth authorization for the connection.'''
+        result = self._values.get("client_secret")
+        assert result is not None, "Required property 'client_secret' is missing"
+        return typing.cast(_SecretValue_3dd0ddae, result)
+
+    @builtins.property
+    def http_method(self) -> HttpMethod:
+        '''The method to use for the authorization request.
+
+        (Can only choose POST, GET or PUT).
+        '''
+        result = self._values.get("http_method")
+        assert result is not None, "Required property 'http_method' is missing"
+        return typing.cast(HttpMethod, result)
+
+    @builtins.property
+    def body_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
+        '''Additional string parameters to add to the OAuth request body.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("body_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
+
+    @builtins.property
+    def header_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
+        '''Additional string parameters to add to the OAuth request header.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("header_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
+
+    @builtins.property
+    def query_string_parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
+        '''Additional string parameters to add to the OAuth request query string.
+
+        :default: - No additional parameters
+        '''
+        result = self._values.get("query_string_parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OAuthAuthorizationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.OnEventOptions",
+    jsii_struct_bases=[EventCommonOptions],
+    name_mapping={
+        "cross_stack_scope": "crossStackScope",
+        "description": "description",
+        "event_pattern": "eventPattern",
+        "rule_name": "ruleName",
+        "target": "target",
+    },
+)
+class OnEventOptions(EventCommonOptions):
+    def __init__(
+        self,
+        *,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+        target: typing.Optional[IRuleTarget] = None,
+    ) -> None:
+        '''Standard set of options for ``onXxx`` event handlers on construct.
+
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # Lambda function containing logic that evaluates compliance with the rule.
+            eval_compliance_fn = lambda_.Function(self, "CustomFunction",
+                code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
+                handler="index.handler",
+                runtime=lambda_.Runtime.NODEJS_18_X
+            )
+            
+            # A custom rule that runs on configuration changes of EC2 instances
+            custom_rule = config.CustomRule(self, "Custom",
+                configuration_changes=True,
+                lambda_function=eval_compliance_fn,
+                rule_scope=config.RuleScope.from_resource(config.ResourceType.EC2_INSTANCE)
+            )
+            
+            # A rule to detect stack drifts
+            drift_rule = config.CloudFormationStackDriftDetectionCheck(self, "Drift")
+            
+            # Topic to which compliance notification events will be published
+            compliance_topic = sns.Topic(self, "ComplianceTopic")
+            
+            # Send notification on compliance change events
+            drift_rule.on_compliance_change("ComplianceChange",
+                target=targets.SnsTopic(compliance_topic)
+            )
+        '''
+        if isinstance(event_pattern, dict):
+            event_pattern = EventPattern(**event_pattern)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24)
+            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cross_stack_scope is not None:
+            self._values["cross_stack_scope"] = cross_stack_scope
+        if description is not None:
+            self._values["description"] = description
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+        if target is not None:
+            self._values["target"] = target
+
+    @builtins.property
+    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
+        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
+
+        This helps dealing with cycles that often arise in these situations.
+
+        :default: - none (the main scope will be used, even for cross-stack Events)
+        '''
+        result = self._values.get("cross_stack_scope")
+        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the rule's purpose.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Optional[EventPattern]:
+        '''Additional restrictions for the event to route to the specified target.
+
+        The method that generates the rule probably imposes some type of event
+        filtering. The filtering implied by what you pass here is added
+        on top of that filtering.
+
+        :default: - No additional filtering based on an event pattern.
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Optional[EventPattern], result)
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the rule.
+
+        :default: AWS CloudFormation generates a unique physical ID.
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target(self) -> typing.Optional[IRuleTarget]:
+        '''The target to register for the event.
+
+        :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        '''
+        result = self._values.get("target")
+        return typing.cast(typing.Optional[IRuleTarget], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnEventOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IRule)
+class Rule(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.Rule",
+):
+    '''Defines an EventBridge Rule in this stack.
+
+    :resource: AWS::Events::Rule
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        
+        fn = lambda_.Function(self, "MyFunc",
+            runtime=lambda_.Runtime.NODEJS_LATEST,
+            handler="index.handler",
+            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+        )
+        
+        rule = events.Rule(self, "rule",
+            event_pattern=events.EventPattern(
+                source=["aws.ec2"]
+            )
+        )
+        
+        queue = sqs.Queue(self, "Queue")
+        
+        rule.add_target(targets.LambdaFunction(fn,
+            dead_letter_queue=queue,  # Optional: add a dead letter queue
+            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
+            retry_attempts=2
+        ))
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        enabled: typing.Optional[builtins.bool] = None,
+        event_bus: typing.Optional[IEventBus] = None,
+        role: typing.Optional[_IRoleRef_613dafc2] = None,
+        schedule: typing.Optional["Schedule"] = None,
+        targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param enabled: Indicates whether the rule is enabled. Default: true
+        :param event_bus: The event bus to associate with this rule. Default: - The default event bus.
+        :param role: The role that is used for target invocation. Must be assumable by principal ``events.amazonaws.com``. Default: - No role associated
+        :param schedule: The schedule or rate (frequency) that determines when EventBridge runs the rule. You must specify this property, the ``eventPattern`` property, or both. For more information, see Schedule Expression Syntax for Rules in the Amazon EventBridge User Guide. Default: - None.
+        :param targets: Targets to invoke when this rule matches an event. Input will be the full matched event. If you wish to specify custom target input, use ``addTarget(target[, inputOptions])``. Default: - No targets.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = RuleProps(
+            enabled=enabled,
+            event_bus=event_bus,
+            role=role,
+            schedule=schedule,
+            targets=targets,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromEventRuleArn")
+    @builtins.classmethod
+    def from_event_rule_arn(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        event_rule_arn: builtins.str,
+    ) -> IRule:
+        '''Import an existing EventBridge Rule provided an ARN.
+
+        :param scope: The parent creating construct (usually ``this``).
+        :param id: The construct's name.
+        :param event_rule_arn: Event Rule ARN (i.e. arn:aws:events:::rule/MyScheduledRule).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument event_rule_arn", value=event_rule_arn, expected_type=type_hints["event_rule_arn"])
+        return typing.cast(IRule, jsii.sinvoke(cls, "fromEventRuleArn", [scope, id, event_rule_arn]))
+
+    @jsii.member(jsii_name="addEventPattern")
+    def add_event_pattern(
+        self,
+        *,
+        account: typing.Optional[typing.Sequence[builtins.str]] = None,
+        detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
+        id: typing.Optional[typing.Sequence[builtins.str]] = None,
+        region: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source: typing.Optional[typing.Sequence[builtins.str]] = None,
+        time: typing.Optional[typing.Sequence[builtins.str]] = None,
+        version: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Adds an event pattern filter to this rule.
+
+        If a pattern was already specified,
+        these values are merged into the existing pattern.
+
+        For example, if the rule already contains the pattern:
+
+        {
+        "resources": [ "r1" ],
+        "detail": {
+        "hello": [ 1 ]
+        }
+        }
+
+        And ``addEventPattern`` is called with the pattern:
+
+        {
+        "resources": [ "r2" ],
+        "detail": {
+        "foo": [ "bar" ]
+        }
+        }
+
+        The resulting event pattern will be:
+
+        {
+        "resources": [ "r1", "r2" ],
+        "detail": {
+        "hello": [ 1 ],
+        "foo": [ "bar" ]
+        }
+        }
+
+        :param account: The 12-digit number identifying an AWS account. Default: - No filtering on account
+        :param detail: A JSON object, whose content is at the discretion of the service originating the event. Default: - No filtering on detail
+        :param detail_type: Identifies, in combination with the source field, the fields and values that appear in the detail field. Represents the "detail-type" event field. Default: - No filtering on detail type
+        :param id: A unique value is generated for every event. This can be helpful in tracing events as they move through rules to targets, and are processed. Default: - No filtering on id
+        :param region: Identifies the AWS region where the event originated. Default: - No filtering on region
+        :param resources: This JSON array contains ARNs that identify resources that are involved in the event. Inclusion of these ARNs is at the discretion of the service. For example, Amazon EC2 instance state-changes include Amazon EC2 instance ARNs, Auto Scaling events include ARNs for both instances and Auto Scaling groups, but API calls with AWS CloudTrail do not include resource ARNs. Default: - No filtering on resource
+        :param source: Identifies the service that sourced the event. All events sourced from within AWS begin with "aws." Customer-generated events can have any value here, as long as it doesn't begin with "aws." We recommend the use of Java package-name style reverse domain-name strings. To find the correct value for source for an AWS service, see the table in AWS Service Namespaces. For example, the source value for Amazon CloudFront is aws.cloudfront. Default: - No filtering on source
+        :param time: The event timestamp, which can be specified by the service originating the event. If the event spans a time interval, the service might choose to report the start time, so this value can be noticeably before the time the event is actually received. Default: - No filtering on time
+        :param version: By default, this is set to 0 (zero) in all events. Default: - No filtering on version
+        '''
+        event_pattern = EventPattern(
+            account=account,
+            detail=detail,
+            detail_type=detail_type,
+            id=id,
+            region=region,
+            resources=resources,
+            source=source,
+            time=time,
+            version=version,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addEventPattern", [event_pattern]))
+
+    @jsii.member(jsii_name="addTarget")
+    def add_target(self, target: typing.Optional[IRuleTarget] = None) -> None:
+        '''Adds a target to the rule. The abstract class RuleTarget can be extended to define new targets.
+
+        No-op if target is undefined.
+
+        :param target: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3)
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+        return typing.cast(None, jsii.invoke(self, "addTarget", [target]))
+
+    @jsii.member(jsii_name="validateRule")
+    def _validate_rule(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateRule", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleArn")
+    def rule_arn(self) -> builtins.str:
+        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleName")
+    def rule_name(self) -> builtins.str:
+        '''The name event rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.RuleProps",
+    jsii_struct_bases=[EventCommonOptions],
+    name_mapping={
+        "cross_stack_scope": "crossStackScope",
+        "description": "description",
+        "event_pattern": "eventPattern",
+        "rule_name": "ruleName",
+        "enabled": "enabled",
+        "event_bus": "eventBus",
+        "role": "role",
+        "schedule": "schedule",
+        "targets": "targets",
+    },
+)
+class RuleProps(EventCommonOptions):
+    def __init__(
+        self,
+        *,
+        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        event_bus: typing.Optional[IEventBus] = None,
+        role: typing.Optional[_IRoleRef_613dafc2] = None,
+        schedule: typing.Optional["Schedule"] = None,
+        targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
+    ) -> None:
+        '''Properties for defining an EventBridge Rule.
+
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+        :param enabled: Indicates whether the rule is enabled. Default: true
+        :param event_bus: The event bus to associate with this rule. Default: - The default event bus.
+        :param role: The role that is used for target invocation. Must be assumable by principal ``events.amazonaws.com``. Default: - No role associated
+        :param schedule: The schedule or rate (frequency) that determines when EventBridge runs the rule. You must specify this property, the ``eventPattern`` property, or both. For more information, see Schedule Expression Syntax for Rules in the Amazon EventBridge User Guide. Default: - None.
+        :param targets: Targets to invoke when this rule matches an event. Input will be the full matched event. If you wish to specify custom target input, use ``addTarget(target[, inputOptions])``. Default: - No targets.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_redshiftserverless as redshiftserverless
+            
+            # workgroup: redshiftserverless.CfnWorkgroup
+            
+            
+            rule = events.Rule(self, "Rule",
+                schedule=events.Schedule.rate(cdk.Duration.hours(1))
+            )
+            
+            dlq = sqs.Queue(self, "DeadLetterQueue")
+            
+            rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
+                database="dev",
+                dead_letter_queue=dlq,
+                sql=["SELECT * FROM foo", "SELECT * FROM baz"]
+            ))
+        '''
+        if isinstance(event_pattern, dict):
+            event_pattern = EventPattern(**event_pattern)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830)
+            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cross_stack_scope is not None:
+            self._values["cross_stack_scope"] = cross_stack_scope
+        if description is not None:
+            self._values["description"] = description
+        if event_pattern is not None:
+            self._values["event_pattern"] = event_pattern
+        if rule_name is not None:
+            self._values["rule_name"] = rule_name
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if event_bus is not None:
+            self._values["event_bus"] = event_bus
+        if role is not None:
+            self._values["role"] = role
+        if schedule is not None:
+            self._values["schedule"] = schedule
+        if targets is not None:
+            self._values["targets"] = targets
+
+    @builtins.property
+    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
+        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
+
+        This helps dealing with cycles that often arise in these situations.
+
+        :default: - none (the main scope will be used, even for cross-stack Events)
+        '''
+        result = self._values.get("cross_stack_scope")
+        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the rule's purpose.
+
+        :default: - No description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_pattern(self) -> typing.Optional[EventPattern]:
+        '''Additional restrictions for the event to route to the specified target.
+
+        The method that generates the rule probably imposes some type of event
+        filtering. The filtering implied by what you pass here is added
+        on top of that filtering.
+
+        :default: - No additional filtering based on an event pattern.
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
+        '''
+        result = self._values.get("event_pattern")
+        return typing.cast(typing.Optional[EventPattern], result)
+
+    @builtins.property
+    def rule_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the rule.
+
+        :default: AWS CloudFormation generates a unique physical ID.
+        '''
+        result = self._values.get("rule_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the rule is enabled.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def event_bus(self) -> typing.Optional[IEventBus]:
+        '''The event bus to associate with this rule.
+
+        :default: - The default event bus.
+        '''
+        result = self._values.get("event_bus")
+        return typing.cast(typing.Optional[IEventBus], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRoleRef_613dafc2]:
+        '''The role that is used for target invocation.
+
+        Must be assumable by principal ``events.amazonaws.com``.
+
+        :default: - No role associated
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRoleRef_613dafc2], result)
+
+    @builtins.property
+    def schedule(self) -> typing.Optional["Schedule"]:
+        '''The schedule or rate (frequency) that determines when EventBridge runs the rule.
+
+        You must specify this property, the ``eventPattern`` property, or both.
+
+        For more information, see Schedule Expression Syntax for
+        Rules in the Amazon EventBridge User Guide.
+
+        :default: - None.
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html
+        '''
+        result = self._values.get("schedule")
+        return typing.cast(typing.Optional["Schedule"], result)
+
+    @builtins.property
+    def targets(self) -> typing.Optional[typing.List[IRuleTarget]]:
+        '''Targets to invoke when this rule matches an event.
+
+        Input will be the full matched event. If you wish to specify custom
+        target input, use ``addTarget(target[, inputOptions])``.
+
+        :default: - No targets.
+        '''
+        result = self._values.get("targets")
+        return typing.cast(typing.Optional[typing.List[IRuleTarget]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.RuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"rule_arn": "ruleArn"},
+)
+class RuleReference:
+    def __init__(self, *, rule_arn: builtins.str) -> None:
+        '''A reference to a Rule resource.
+
+        :param rule_arn: The Arn of the Rule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            rule_reference = events.RuleReference(
+                rule_arn="ruleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02d984139bcc7485b917d72df2611830e1ead92012cb7bc3e20c2baaf30c90ac)
+            check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_arn": rule_arn,
+        }
+
+    @builtins.property
+    def rule_arn(self) -> builtins.str:
+        '''The Arn of the Rule resource.'''
+        result = self._values.get("rule_arn")
+        assert result is not None, "Required property 'rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.RuleTargetConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arn": "arn",
+        "app_sync_parameters": "appSyncParameters",
+        "batch_parameters": "batchParameters",
+        "dead_letter_config": "deadLetterConfig",
+        "ecs_parameters": "ecsParameters",
+        "http_parameters": "httpParameters",
+        "input": "input",
+        "kinesis_parameters": "kinesisParameters",
+        "redshift_data_parameters": "redshiftDataParameters",
+        "retry_policy": "retryPolicy",
+        "role": "role",
+        "run_command_parameters": "runCommandParameters",
+        "sqs_parameters": "sqsParameters",
+        "target_resource": "targetResource",
+    },
+)
+class RuleTargetConfig:
+    def __init__(
+        self,
+        *,
+        arn: builtins.str,
+        app_sync_parameters: typing.Optional[typing.Union["CfnRule.AppSyncParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        batch_parameters: typing.Optional[typing.Union["CfnRule.BatchParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_config: typing.Optional[typing.Union["CfnRule.DeadLetterConfigProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        ecs_parameters: typing.Optional[typing.Union["CfnRule.EcsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        http_parameters: typing.Optional[typing.Union["CfnRule.HttpParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        input: typing.Optional["RuleTargetInput"] = None,
+        kinesis_parameters: typing.Optional[typing.Union["CfnRule.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        redshift_data_parameters: typing.Optional[typing.Union["CfnRule.RedshiftDataParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        retry_policy: typing.Optional[typing.Union["CfnRule.RetryPolicyProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        run_command_parameters: typing.Optional[typing.Union["CfnRule.RunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        sqs_parameters: typing.Optional[typing.Union["CfnRule.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        target_resource: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+    ) -> None:
+        '''Properties for an event rule target.
+
+        :param arn: The Amazon Resource Name (ARN) of the target.
+        :param app_sync_parameters: Contains the GraphQL operation to be parsed and executed, if the event target is an AWS AppSync API. Default: - None
+        :param batch_parameters: Parameters used when the rule invokes Amazon AWS Batch Job/Queue. Default: no parameters set
+        :param dead_letter_config: Contains information about a dead-letter queue configuration. Default: no dead-letter queue set
+        :param ecs_parameters: The Amazon ECS task definition and task count to use, if the event target is an Amazon ECS task.
+        :param http_parameters: Contains the HTTP parameters to use when the target is a API Gateway REST endpoint or EventBridge API destination. Default: - None
+        :param input: What input to send to the event target. Default: the entire event
+        :param kinesis_parameters: Settings that control shard assignment, when the target is a Kinesis stream. If you don't include this parameter, eventId is used as the partition key.
+        :param redshift_data_parameters: Parameters used when the rule invokes Amazon Redshift Queries. Default: - no parameters set
+        :param retry_policy: A RetryPolicy object that includes information about the retry policy settings. Default: EventBridge default retry policy
+        :param role: Role to use to invoke this event target.
+        :param run_command_parameters: Parameters used when the rule invokes Amazon EC2 Systems Manager Run Command.
+        :param sqs_parameters: Parameters used when the FIFO sqs queue is used an event target by the rule.
+        :param target_resource: The resource that is backing this target. This is the resource that will actually have some action performed on it when used as a target (for example, start a build for a CodeBuild project). We need it to determine whether the rule belongs to a different account than the target - if so, we generate a more complex setup, including an additional stack containing the EventBusPolicy. Default: the target is not backed by any resource
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            from aws_cdk import aws_iam as iam
+            import constructs as constructs
+            
+            # construct: constructs.Construct
+            # role: iam.Role
+            # rule_target_input: events.RuleTargetInput
+            
+            rule_target_config = events.RuleTargetConfig(
+                arn="arn",
+            
+                # the properties below are optional
+                app_sync_parameters=events.CfnRule.AppSyncParametersProperty(
+                    graph_ql_operation="graphQlOperation"
+                ),
+                batch_parameters=events.CfnRule.BatchParametersProperty(
+                    job_definition="jobDefinition",
+                    job_name="jobName",
+            
+                    # the properties below are optional
+                    array_properties=events.CfnRule.BatchArrayPropertiesProperty(
+                        size=123
+                    ),
+                    retry_strategy=events.CfnRule.BatchRetryStrategyProperty(
+                        attempts=123
+                    )
+                ),
+                dead_letter_config=events.CfnRule.DeadLetterConfigProperty(
+                    arn="arn"
+                ),
+                ecs_parameters=events.CfnRule.EcsParametersProperty(
+                    task_definition_arn="taskDefinitionArn",
+            
+                    # the properties below are optional
+                    capacity_provider_strategy=[events.CfnRule.CapacityProviderStrategyItemProperty(
+                        capacity_provider="capacityProvider",
+            
+                        # the properties below are optional
+                        base=123,
+                        weight=123
+                    )],
+                    enable_ecs_managed_tags=False,
+                    enable_execute_command=False,
+                    group="group",
+                    launch_type="launchType",
+                    network_configuration=events.CfnRule.NetworkConfigurationProperty(
+                        aws_vpc_configuration=events.CfnRule.AwsVpcConfigurationProperty(
+                            subnets=["subnets"],
+            
+                            # the properties below are optional
+                            assign_public_ip="assignPublicIp",
+                            security_groups=["securityGroups"]
+                        )
+                    ),
+                    placement_constraints=[events.CfnRule.PlacementConstraintProperty(
+                        expression="expression",
+                        type="type"
+                    )],
+                    placement_strategies=[events.CfnRule.PlacementStrategyProperty(
+                        field="field",
+                        type="type"
+                    )],
+                    platform_version="platformVersion",
+                    propagate_tags="propagateTags",
+                    reference_id="referenceId",
+                    tag_list=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    task_count=123
+                ),
+                http_parameters=events.CfnRule.HttpParametersProperty(
+                    header_parameters={
+                        "header_parameters_key": "headerParameters"
+                    },
+                    path_parameter_values=["pathParameterValues"],
+                    query_string_parameters={
+                        "query_string_parameters_key": "queryStringParameters"
+                    }
+                ),
+                input=rule_target_input,
+                kinesis_parameters=events.CfnRule.KinesisParametersProperty(
+                    partition_key_path="partitionKeyPath"
+                ),
+                redshift_data_parameters=events.CfnRule.RedshiftDataParametersProperty(
+                    database="database",
+            
+                    # the properties below are optional
+                    db_user="dbUser",
+                    secret_manager_arn="secretManagerArn",
+                    sql="sql",
+                    sqls=["sqls"],
+                    statement_name="statementName",
+                    with_event=False
+                ),
+                retry_policy=events.CfnRule.RetryPolicyProperty(
+                    maximum_event_age_in_seconds=123,
+                    maximum_retry_attempts=123
+                ),
+                role=role,
+                run_command_parameters=events.CfnRule.RunCommandParametersProperty(
+                    run_command_targets=[events.CfnRule.RunCommandTargetProperty(
+                        key="key",
+                        values=["values"]
+                    )]
+                ),
+                sqs_parameters=events.CfnRule.SqsParametersProperty(
+                    message_group_id="messageGroupId"
+                ),
+                target_resource=construct
+            )
+        '''
+        if isinstance(app_sync_parameters, dict):
+            app_sync_parameters = CfnRule.AppSyncParametersProperty(**app_sync_parameters)
+        if isinstance(batch_parameters, dict):
+            batch_parameters = CfnRule.BatchParametersProperty(**batch_parameters)
+        if isinstance(dead_letter_config, dict):
+            dead_letter_config = CfnRule.DeadLetterConfigProperty(**dead_letter_config)
+        if isinstance(ecs_parameters, dict):
+            ecs_parameters = CfnRule.EcsParametersProperty(**ecs_parameters)
+        if isinstance(http_parameters, dict):
+            http_parameters = CfnRule.HttpParametersProperty(**http_parameters)
+        if isinstance(kinesis_parameters, dict):
+            kinesis_parameters = CfnRule.KinesisParametersProperty(**kinesis_parameters)
+        if isinstance(redshift_data_parameters, dict):
+            redshift_data_parameters = CfnRule.RedshiftDataParametersProperty(**redshift_data_parameters)
+        if isinstance(retry_policy, dict):
+            retry_policy = CfnRule.RetryPolicyProperty(**retry_policy)
+        if isinstance(run_command_parameters, dict):
+            run_command_parameters = CfnRule.RunCommandParametersProperty(**run_command_parameters)
+        if isinstance(sqs_parameters, dict):
+            sqs_parameters = CfnRule.SqsParametersProperty(**sqs_parameters)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab)
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            check_type(argname="argument app_sync_parameters", value=app_sync_parameters, expected_type=type_hints["app_sync_parameters"])
+            check_type(argname="argument batch_parameters", value=batch_parameters, expected_type=type_hints["batch_parameters"])
+            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
+            check_type(argname="argument ecs_parameters", value=ecs_parameters, expected_type=type_hints["ecs_parameters"])
+            check_type(argname="argument http_parameters", value=http_parameters, expected_type=type_hints["http_parameters"])
+            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+            check_type(argname="argument kinesis_parameters", value=kinesis_parameters, expected_type=type_hints["kinesis_parameters"])
+            check_type(argname="argument redshift_data_parameters", value=redshift_data_parameters, expected_type=type_hints["redshift_data_parameters"])
+            check_type(argname="argument retry_policy", value=retry_policy, expected_type=type_hints["retry_policy"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument run_command_parameters", value=run_command_parameters, expected_type=type_hints["run_command_parameters"])
+            check_type(argname="argument sqs_parameters", value=sqs_parameters, expected_type=type_hints["sqs_parameters"])
+            check_type(argname="argument target_resource", value=target_resource, expected_type=type_hints["target_resource"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "arn": arn,
+        }
+        if app_sync_parameters is not None:
+            self._values["app_sync_parameters"] = app_sync_parameters
+        if batch_parameters is not None:
+            self._values["batch_parameters"] = batch_parameters
+        if dead_letter_config is not None:
+            self._values["dead_letter_config"] = dead_letter_config
+        if ecs_parameters is not None:
+            self._values["ecs_parameters"] = ecs_parameters
+        if http_parameters is not None:
+            self._values["http_parameters"] = http_parameters
+        if input is not None:
+            self._values["input"] = input
+        if kinesis_parameters is not None:
+            self._values["kinesis_parameters"] = kinesis_parameters
+        if redshift_data_parameters is not None:
+            self._values["redshift_data_parameters"] = redshift_data_parameters
+        if retry_policy is not None:
+            self._values["retry_policy"] = retry_policy
+        if role is not None:
+            self._values["role"] = role
+        if run_command_parameters is not None:
+            self._values["run_command_parameters"] = run_command_parameters
+        if sqs_parameters is not None:
+            self._values["sqs_parameters"] = sqs_parameters
+        if target_resource is not None:
+            self._values["target_resource"] = target_resource
+
+    @builtins.property
+    def arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the target.'''
+        result = self._values.get("arn")
+        assert result is not None, "Required property 'arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def app_sync_parameters(
+        self,
+    ) -> typing.Optional["CfnRule.AppSyncParametersProperty"]:
+        '''Contains the GraphQL operation to be parsed and executed, if the event target is an AWS AppSync API.
+
+        :default: - None
+        '''
+        result = self._values.get("app_sync_parameters")
+        return typing.cast(typing.Optional["CfnRule.AppSyncParametersProperty"], result)
+
+    @builtins.property
+    def batch_parameters(self) -> typing.Optional["CfnRule.BatchParametersProperty"]:
+        '''Parameters used when the rule invokes Amazon AWS Batch Job/Queue.
+
+        :default: no parameters set
+        '''
+        result = self._values.get("batch_parameters")
+        return typing.cast(typing.Optional["CfnRule.BatchParametersProperty"], result)
+
+    @builtins.property
+    def dead_letter_config(self) -> typing.Optional["CfnRule.DeadLetterConfigProperty"]:
+        '''Contains information about a dead-letter queue configuration.
+
+        :default: no dead-letter queue set
+        '''
+        result = self._values.get("dead_letter_config")
+        return typing.cast(typing.Optional["CfnRule.DeadLetterConfigProperty"], result)
+
+    @builtins.property
+    def ecs_parameters(self) -> typing.Optional["CfnRule.EcsParametersProperty"]:
+        '''The Amazon ECS task definition and task count to use, if the event target is an Amazon ECS task.'''
+        result = self._values.get("ecs_parameters")
+        return typing.cast(typing.Optional["CfnRule.EcsParametersProperty"], result)
+
+    @builtins.property
+    def http_parameters(self) -> typing.Optional["CfnRule.HttpParametersProperty"]:
+        '''Contains the HTTP parameters to use when the target is a API Gateway REST endpoint or EventBridge API destination.
+
+        :default: - None
+        '''
+        result = self._values.get("http_parameters")
+        return typing.cast(typing.Optional["CfnRule.HttpParametersProperty"], result)
+
+    @builtins.property
+    def input(self) -> typing.Optional["RuleTargetInput"]:
+        '''What input to send to the event target.
+
+        :default: the entire event
+        '''
+        result = self._values.get("input")
+        return typing.cast(typing.Optional["RuleTargetInput"], result)
+
+    @builtins.property
+    def kinesis_parameters(
+        self,
+    ) -> typing.Optional["CfnRule.KinesisParametersProperty"]:
+        '''Settings that control shard assignment, when the target is a Kinesis stream.
+
+        If you don't include this parameter, eventId is used as the
+        partition key.
+        '''
+        result = self._values.get("kinesis_parameters")
+        return typing.cast(typing.Optional["CfnRule.KinesisParametersProperty"], result)
+
+    @builtins.property
+    def redshift_data_parameters(
+        self,
+    ) -> typing.Optional["CfnRule.RedshiftDataParametersProperty"]:
+        '''Parameters used when the rule invokes Amazon Redshift Queries.
+
+        :default: - no parameters set
+        '''
+        result = self._values.get("redshift_data_parameters")
+        return typing.cast(typing.Optional["CfnRule.RedshiftDataParametersProperty"], result)
+
+    @builtins.property
+    def retry_policy(self) -> typing.Optional["CfnRule.RetryPolicyProperty"]:
+        '''A RetryPolicy object that includes information about the retry policy settings.
+
+        :default: EventBridge default retry policy
+        '''
+        result = self._values.get("retry_policy")
+        return typing.cast(typing.Optional["CfnRule.RetryPolicyProperty"], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''Role to use to invoke this event target.'''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def run_command_parameters(
+        self,
+    ) -> typing.Optional["CfnRule.RunCommandParametersProperty"]:
+        '''Parameters used when the rule invokes Amazon EC2 Systems Manager Run Command.'''
+        result = self._values.get("run_command_parameters")
+        return typing.cast(typing.Optional["CfnRule.RunCommandParametersProperty"], result)
+
+    @builtins.property
+    def sqs_parameters(self) -> typing.Optional["CfnRule.SqsParametersProperty"]:
+        '''Parameters used when the FIFO sqs queue is used an event target by the rule.'''
+        result = self._values.get("sqs_parameters")
+        return typing.cast(typing.Optional["CfnRule.SqsParametersProperty"], result)
+
+    @builtins.property
+    def target_resource(self) -> typing.Optional[_constructs_77d1e7e8.IConstruct]:
+        '''The resource that is backing this target.
+
+        This is the resource that will actually have some action performed on it when used as a target
+        (for example, start a build for a CodeBuild project).
+        We need it to determine whether the rule belongs to a different account than the target -
+        if so, we generate a more complex setup,
+        including an additional stack containing the EventBusPolicy.
+
+        :default: the target is not backed by any resource
+
+        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html
+        '''
+        result = self._values.get("target_resource")
+        return typing.cast(typing.Optional[_constructs_77d1e7e8.IConstruct], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleTargetConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class RuleTargetInput(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_events.RuleTargetInput",
+):
+    '''The input to send to the event target.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_appsync as appsync
+        
+        
+        api = appsync.GraphqlApi(self, "api",
+            name="api",
+            definition=appsync.Definition.from_file("schema.graphql"),
+            authorization_config=appsync.AuthorizationConfig(
+                default_authorization=appsync.AuthorizationMode(authorization_type=appsync.AuthorizationType.IAM)
+            )
+        )
+        
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.rate(cdk.Duration.hours(1))
+        )
+        
+        rule.add_target(targets.AppSync(api,
+            graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
+            variables=events.RuleTargetInput.from_object({
+                "message": "hello world"
+            })
+        ))
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="fromEventPath")
+    @builtins.classmethod
+    def from_event_path(cls, path: builtins.str) -> "RuleTargetInput":
+        '''Take the event target input from a path in the event JSON.
+
+        :param path: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromEventPath", [path]))
+
+    @jsii.member(jsii_name="fromMultilineText")
+    @builtins.classmethod
+    def from_multiline_text(cls, text: builtins.str) -> "RuleTargetInput":
+        '''Pass text to the event target, splitting on newlines.
+
+        This is only useful when passing to a target that does not
+        take a single argument.
+
+        May contain strings returned by ``EventField.from()`` to substitute in parts
+        of the matched event.
+
+        :param text: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromMultilineText", [text]))
+
+    @jsii.member(jsii_name="fromObject")
+    @builtins.classmethod
+    def from_object(cls, obj: typing.Any) -> "RuleTargetInput":
+        '''Pass a JSON object to the event target.
+
+        May contain strings returned by ``EventField.from()`` to substitute in parts of the
+        matched event.
+
+        :param obj: -
+
+        :return: RuleTargetInput
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0)
+            check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
+        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
+
+    @jsii.member(jsii_name="fromText")
+    @builtins.classmethod
+    def from_text(cls, text: builtins.str) -> "RuleTargetInput":
+        '''Pass text to the event target.
+
+        May contain strings returned by ``EventField.from()`` to substitute in parts of the
+        matched event.
+
+        The Rule Target input value will be a single string: the string you pass
+        here.  Do not use this method to pass a complex value like a JSON object to
+        a Rule Target.  Use ``RuleTargetInput.fromObject()`` instead.
+
+        :param text: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(self, rule: IRule) -> "RuleTargetInputProperties":
+        '''Return the input properties for this input object.
+
+        :param rule: -
+        '''
+        ...
+
+
+class _RuleTargetInputProxy(RuleTargetInput):
+    @jsii.member(jsii_name="bind")
+    def bind(self, rule: IRule) -> "RuleTargetInputProperties":
+        '''Return the input properties for this input object.
+
+        :param rule: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+        return typing.cast("RuleTargetInputProperties", jsii.invoke(self, "bind", [rule]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, RuleTargetInput).__jsii_proxy_class__ = lambda : _RuleTargetInputProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.RuleTargetInputProperties",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input": "input",
+        "input_path": "inputPath",
+        "input_paths_map": "inputPathsMap",
+        "input_template": "inputTemplate",
+    },
+)
+class RuleTargetInputProperties:
+    def __init__(
+        self,
+        *,
+        input: typing.Optional[builtins.str] = None,
+        input_path: typing.Optional[builtins.str] = None,
+        input_paths_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        input_template: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''The input properties for an event target.
+
+        :param input: Literal input to the target service (must be valid JSON). Default: - input for the event target. If the input contains a paths map values wil be extracted from event and inserted into the ``inputTemplate``.
+        :param input_path: JsonPath to take input from the input event. Default: - None. The entire matched event is passed as input
+        :param input_paths_map: Paths map to extract values from event and insert into ``inputTemplate``. Default: - No values extracted from event.
+        :param input_template: Input template to insert paths map into. Default: - None.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            rule_target_input_properties = events.RuleTargetInputProperties(
+                input="input",
+                input_path="inputPath",
+                input_paths_map={
+                    "input_paths_map_key": "inputPathsMap"
+                },
+                input_template="inputTemplate"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93)
+            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+            check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
+            check_type(argname="argument input_paths_map", value=input_paths_map, expected_type=type_hints["input_paths_map"])
+            check_type(argname="argument input_template", value=input_template, expected_type=type_hints["input_template"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if input is not None:
+            self._values["input"] = input
+        if input_path is not None:
+            self._values["input_path"] = input_path
+        if input_paths_map is not None:
+            self._values["input_paths_map"] = input_paths_map
+        if input_template is not None:
+            self._values["input_template"] = input_template
+
+    @builtins.property
+    def input(self) -> typing.Optional[builtins.str]:
+        '''Literal input to the target service (must be valid JSON).
+
+        :default:
+
+        - input for the event target. If the input contains a paths map
+        values wil be extracted from event and inserted into the ``inputTemplate``.
+        '''
+        result = self._values.get("input")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_path(self) -> typing.Optional[builtins.str]:
+        '''JsonPath to take input from the input event.
+
+        :default: - None. The entire matched event is passed as input
+        '''
+        result = self._values.get("input_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_paths_map(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Paths map to extract values from event and insert into ``inputTemplate``.
+
+        :default: - No values extracted from event.
+        '''
+        result = self._values.get("input_paths_map")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def input_template(self) -> typing.Optional[builtins.str]:
+        '''Input template to insert paths map into.
+
+        :default: - None.
+        '''
+        result = self._values.get("input_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleTargetInputProperties(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class Schedule(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_events.Schedule",
+):
+    '''Schedule for scheduled event rules.
+
+    Note that rates cannot be defined in fractions of minutes.
+
+    :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_redshiftserverless as redshiftserverless
+        
+        # workgroup: redshiftserverless.CfnWorkgroup
+        
+        
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.rate(cdk.Duration.hours(1))
+        )
+        
+        dlq = sqs.Queue(self, "DeadLetterQueue")
+        
+        rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
+            database="dev",
+            dead_letter_queue=dlq,
+            sql=["SELECT * FROM foo", "SELECT * FROM baz"]
+        ))
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="cron")
+    @builtins.classmethod
+    def cron(
+        cls,
+        *,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+        year: typing.Optional[builtins.str] = None,
+    ) -> "Schedule":
+        '''Create a schedule from a set of cron fields.
+
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+        :param year: The year to run this rule at. Default: - Every year
+        '''
+        options = CronOptions(
+            day=day,
+            hour=hour,
+            minute=minute,
+            month=month,
+            week_day=week_day,
+            year=year,
+        )
+
+        return typing.cast("Schedule", jsii.sinvoke(cls, "cron", [options]))
+
+    @jsii.member(jsii_name="expression")
+    @builtins.classmethod
+    def expression(cls, expression: builtins.str) -> "Schedule":
+        '''Construct a schedule from a literal schedule expression.
+
+        :param expression: The expression to use. Must be in a format that EventBridge will recognize
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de)
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+        return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
+
+    @jsii.member(jsii_name="rate")
+    @builtins.classmethod
+    def rate(cls, duration: _Duration_4839e8c3) -> "Schedule":
+        '''Construct a schedule from an interval and a time unit.
+
+        Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
+
+        :param duration: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775)
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+        return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [duration]))
+
+    @builtins.property
+    @jsii.member(jsii_name="expressionString")
+    @abc.abstractmethod
+    def expression_string(self) -> builtins.str:
+        '''Retrieve the expression for this schedule.'''
+        ...
+
+
+class _ScheduleProxy(Schedule):
+    @builtins.property
+    @jsii.member(jsii_name="expressionString")
+    def expression_string(self) -> builtins.str:
+        '''Retrieve the expression for this schedule.'''
+        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Schedule).__jsii_proxy_class__ = lambda : _ScheduleProxy
+
+
+@jsii.implements(IApiDestination)
+class ApiDestination(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.ApiDestination",
+):
+    '''Define an EventBridge Api Destination.
+
+    :resource: AWS::Events::ApiDestination
+    :exampleMetadata: infused
+
+    Example::
+
+        connection = events.Connection(self, "Connection",
+            authorization=events.Authorization.api_key("x-api-key", SecretValue.secrets_manager("ApiSecretName")),
+            description="Connection with API Key x-api-key"
+        )
+        
+        destination = events.ApiDestination(self, "Destination",
+            connection=connection,
+            endpoint="https://example.com",
+            description="Calling example.com with API key x-api-key"
+        )
+        
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.rate(Duration.minutes(1)),
+            targets=[targets.ApiDestination(destination)]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        connection: IConnection,
+        endpoint: builtins.str,
+        api_destination_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        http_method: typing.Optional[HttpMethod] = None,
+        rate_limit_per_second: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param connection: The ARN of the connection to use for the API destination.
+        :param endpoint: The URL to the HTTP invocation endpoint for the API destination..
+        :param api_destination_name: The name for the API destination. Default: - A unique name will be generated
+        :param description: A description for the API destination. Default: - none
+        :param http_method: The method to use for the request to the HTTP invocation endpoint. Default: HttpMethod.POST
+        :param rate_limit_per_second: The maximum number of requests per second to send to the HTTP invocation endpoint. Default: - Not rate limited
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ApiDestinationProps(
+            connection=connection,
+            endpoint=endpoint,
+            api_destination_name=api_destination_name,
+            description=description,
+            http_method=http_method,
+            rate_limit_per_second=rate_limit_per_second,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromApiDestinationAttributes")
+    @builtins.classmethod
+    def from_api_destination_attributes(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        api_destination_arn: builtins.str,
+        connection: IConnection,
+        api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
+    ) -> "ApiDestination":
+        '''Create an Api Destination construct from an existing Api Destination ARN.
+
+        :param scope: The scope creating construct (usually ``this``).
+        :param id: The construct's id.
+        :param api_destination_arn: The ARN of the Api Destination.
+        :param connection: The Connection to associate with the Api Destination.
+        :param api_destination_arn_for_policy: The Amazon Resource Name (ARN) of an API destination in resource format. Default: undefined - Imported API destination does not have ARN in resource format
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ApiDestinationAttributes(
+            api_destination_arn=api_destination_arn,
+            connection=connection,
+            api_destination_arn_for_policy=api_destination_arn_for_policy,
+        )
+
+        return typing.cast("ApiDestination", jsii.sinvoke(cls, "fromApiDestinationAttributes", [scope, id, attrs]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArn")
+    def api_destination_arn(self) -> builtins.str:
+        '''The ARN of the Api Destination created.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "apiDestinationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationName")
+    def api_destination_name(self) -> builtins.str:
+        '''The Name of the Api Destination created.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "apiDestinationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connection")
+    def connection(self) -> IConnection:
+        '''The Connection to associate with Api Destination.'''
+        return typing.cast(IConnection, jsii.get(self, "connection"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format.
+
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.ArchiveProps",
+    jsii_struct_bases=[BaseArchiveProps],
+    name_mapping={
+        "event_pattern": "eventPattern",
+        "archive_name": "archiveName",
+        "description": "description",
+        "kms_key": "kmsKey",
+        "retention": "retention",
+        "source_event_bus": "sourceEventBus",
+    },
+)
+class ArchiveProps(BaseArchiveProps):
+    def __init__(
+        self,
+        *,
+        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
+        archive_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
+        retention: typing.Optional[_Duration_4839e8c3] = None,
+        source_event_bus: IEventBus,
+    ) -> None:
+        '''The event archive properties.
+
+        :param event_pattern: An event pattern to use to filter events sent to the archive.
+        :param archive_name: The name of the archive. Default: - Automatically generated
+        :param description: A description for the archive. Default: - none
+        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
+        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
+        :param source_event_bus: The event source associated with the archive.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_kms as kms
+            from aws_cdk.aws_events import Archive, EventBus
+            
+            # kms_key: kms.IKey
+            
+            
+            stack = Stack()
+            
+            event_bus = EventBus(stack, "Bus")
+            
+            archive = Archive(stack, "Archive",
+                kms_key=kms_key,
+                source_event_bus=event_bus,
+                event_pattern=events.EventPattern(
+                    source=["aws.ec2"]
+                )
+            )
+        '''
+        if isinstance(event_pattern, dict):
+            event_pattern = EventPattern(**event_pattern)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a)
+            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
+            check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
+            check_type(argname="argument source_event_bus", value=source_event_bus, expected_type=type_hints["source_event_bus"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_pattern": event_pattern,
+            "source_event_bus": source_event_bus,
+        }
+        if archive_name is not None:
+            self._values["archive_name"] = archive_name
+        if description is not None:
+            self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if retention is not None:
+            self._values["retention"] = retention
+
+    @builtins.property
+    def event_pattern(self) -> EventPattern:
+        '''An event pattern to use to filter events sent to the archive.'''
+        result = self._values.get("event_pattern")
+        assert result is not None, "Required property 'event_pattern' is missing"
+        return typing.cast(EventPattern, result)
+
+    @builtins.property
+    def archive_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the archive.
+
+        :default: - Automatically generated
+        '''
+        result = self._values.get("archive_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the archive.
+
+        :default: - none
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed key that encrypts this archive.
+
+        :default: - Use an AWS managed key
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    @builtins.property
+    def retention(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The number of days to retain events for.
+
+        Default value is 0. If set to 0, events are retained indefinitely.
+
+        :default: - Infinite
+        '''
+        result = self._values.get("retention")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def source_event_bus(self) -> IEventBus:
+        '''The event source associated with the archive.'''
+        result = self._values.get("source_event_bus")
+        assert result is not None, "Required property 'source_event_bus' is missing"
+        return typing.cast(IEventBus, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ArchiveProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApiDestinationRef)
+class CfnApiDestination(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.CfnApiDestination",
+):
+    '''Creates an API destination, which is an HTTP invocation endpoint configured as a target for events.
+
+    When using ApiDesinations with OAuth authentication we recommend these best practices:
+
+    - Create a secret in Secrets Manager with your OAuth credentials.
+    - Reference that secret in your CloudFormation template for ``AWS::Events::Connection`` using CloudFormation dynamic reference syntax. For more information, see `Secrets Manager secrets <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html#dynamic-references-secretsmanager>`_ .
+
+    When the Connection resource is created the secret will be passed to EventBridge and stored in the customer account using “Service Linked Secrets,” effectively creating two secrets. This will minimize the cost because the original secret is only accessed when a CloudFormation template is created or updated, not every time an event is sent to the ApiDestination. The secret stored in the customer account by EventBridge is the one used for each event sent to the ApiDestination and AWS is responsible for the fees.
+    .. epigraph::
+
+       The secret stored in the customer account by EventBridge can’t be updated directly, only when a CloudFormation template is updated.
+
+    For examples of CloudFormation templates that use secrets, see `Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#aws-resource-events-connection--examples>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-apidestination.html
+    :cloudformationResource: AWS::Events::ApiDestination
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_events as events
+        
+        cfn_api_destination = events.CfnApiDestination(self, "MyCfnApiDestination",
+            connection_arn="connectionArn",
+            http_method="httpMethod",
+            invocation_endpoint="invocationEndpoint",
+        
+            # the properties below are optional
+            description="description",
+            invocation_rate_limit_per_second=123,
+            name="name"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        connection_arn: builtins.str,
+        http_method: builtins.str,
+        invocation_endpoint: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        invocation_rate_limit_per_second: typing.Optional[jsii.Number] = None,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param connection_arn: The ARN of the connection to use for the API destination. The destination endpoint must support the authorization type specified for the connection.
+        :param http_method: The method to use for the request to the HTTP invocation endpoint.
+        :param invocation_endpoint: The URL to the HTTP invocation endpoint for the API destination.
+        :param description: A description for the API destination to create.
+        :param invocation_rate_limit_per_second: The maximum number of requests per second to send to the HTTP invocation endpoint.
+        :param name: The name for the API destination to create.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c7f09c3557e2395656d23b74c8de1fbe1e4a3b537284c9d270edc631fd5c381)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApiDestinationProps(
+            connection_arn=connection_arn,
+            http_method=http_method,
+            invocation_endpoint=invocation_endpoint,
+            description=description,
+            invocation_rate_limit_per_second=invocation_rate_limit_per_second,
+            name=name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__158c0bb8fa8e9ef1c2e58e89a44ebad609986b410e381f81aedd0308a9e35b28)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0f2e973aeeb184a33b784b368926fdb617424f826092c6e70ccf86a37581596)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationRef")
+    def api_destination_ref(self) -> ApiDestinationReference:
+        '''A reference to a ApiDestination resource.'''
+        return typing.cast(ApiDestinationReference, jsii.get(self, "apiDestinationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the API destination that was created by the request.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArnForPolicy")
+    def attr_arn_for_policy(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the ``Resource`` element of IAM permission policy statements.
+
+        For more information, see `Resource types defined by Amazon EventBridge <https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies>`_ in the *Service Authorization Reference* .
+
+        For example, the following resource defines an IAM policy that grants permission to update a specific API destination.
+
+        ``Resources: ExamplePolicy: Type: AWS::IAM::Policy Properties: PolicyName: ExamplePolicy PolicyDocument: Version: '2012-10-17' Statement: - Effect: Allow Action: - events:UpdateApiDestination Resource: - !GetAtt myApiDestination.ArnForPolicy``
+
+        :cloudformationAttribute: ArnForPolicy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArnForPolicy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionArn")
+    def connection_arn(self) -> builtins.str:
+        '''The ARN of the connection to use for the API destination.'''
+        return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
+
+    @connection_arn.setter
+    def connection_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9501e856d3f68b4ded9a308e792cdcecf0340171c8b9d14fd716a17af7518d9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="httpMethod")
+    def http_method(self) -> builtins.str:
+        '''The method to use for the request to the HTTP invocation endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "httpMethod"))
+
+    @http_method.setter
+    def http_method(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3dd44ad831630a84328af4ec169ba7d0d104f0da3e75ce7db348f157cef540c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="invocationEndpoint")
+    def invocation_endpoint(self) -> builtins.str:
+        '''The URL to the HTTP invocation endpoint for the API destination.'''
+        return typing.cast(builtins.str, jsii.get(self, "invocationEndpoint"))
+
+    @invocation_endpoint.setter
+    def invocation_endpoint(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7668deb1cc151c41fb734ca6f771eb305e7a0f4bf19d57321e46db09cd22a0f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "invocationEndpoint", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the API destination to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d76989d48f92cde7f07576f0a60e184723262c7effa5c3daff9008386921b88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="invocationRateLimitPerSecond")
+    def invocation_rate_limit_per_second(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of requests per second to send to the HTTP invocation endpoint.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "invocationRateLimitPerSecond"))
+
+    @invocation_rate_limit_per_second.setter
+    def invocation_rate_limit_per_second(
+        self,
+        value: typing.Optional[jsii.Number],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9158b78e5f7961eb499fbf284d15087f9205e259120ad3cdf7a14469525e5df2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "invocationRateLimitPerSecond", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the API destination to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5205bc5753f69d2aea87688685a5236a470f7cba4982bd2e636e55fe8d95121)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IArchiveRef)
+class CfnArchive(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.CfnArchive",
+):
+    '''Creates an archive of events with the specified settings.
+
+    When you create an archive, incoming events might not immediately start being sent to the archive. Allow a short period of time for changes to take effect. If you do not specify a pattern to filter events sent to the archive, all events are sent to the archive except replayed events. Replayed events are not sent to an archive.
+    .. epigraph::
+
+       If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well.
+
+       For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-archive.html
+    :cloudformationResource: AWS::Events::Archive
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_events as events
+        
+        # event_pattern: Any
+        
+        cfn_archive = events.CfnArchive(self, "MyCfnArchive",
+            source_arn="sourceArn",
+        
+            # the properties below are optional
+            archive_name="archiveName",
+            description="description",
+            event_pattern=event_pattern,
+            kms_key_identifier="kmsKeyIdentifier",
+            retention_days=123
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        source_arn: builtins.str,
+        archive_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Any = None,
+        kms_key_identifier: typing.Optional[builtins.str] = None,
+        retention_days: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param source_arn: The ARN of the event bus that sends events to the archive.
+        :param archive_name: The name for the archive to create.
+        :param description: A description for the archive.
+        :param event_pattern: An event pattern to use to filter events sent to the archive.
+        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the archive. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
+        :param retention_days: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db58d059f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnArchiveProps(
+            source_arn=source_arn,
+            archive_name=archive_name,
+            description=description,
+            event_pattern=event_pattern,
+            kms_key_identifier=kms_key_identifier,
+            retention_days=retention_days,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7da996869ac9a69e8a63a58883200e217a1913f5d321926f7ab5c4ebb3e56a6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b70dabfc4299a157456f9345f439a1627afc2b7ffb0bb20c33e1a1bc17baaac)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveRef")
+    def archive_ref(self) -> ArchiveReference:
+        '''A reference to a Archive resource.'''
+        return typing.cast(ArchiveReference, jsii.get(self, "archiveRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the archive created.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceArn")
+    def source_arn(self) -> builtins.str:
+        '''The ARN of the event bus that sends events to the archive.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceArn"))
+
+    @source_arn.setter
+    def source_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f400bdbd4fcd20b44476556f9ef5225de9092a59cb55cbedae0a7f07ba71e1a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="archiveName")
+    def archive_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the archive to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "archiveName"))
+
+    @archive_name.setter
+    def archive_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7757fdbaf1d2ce3f07d1aac83abcdb1f4659013282005e66b7d1b79b72459f87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "archiveName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the archive.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventPattern")
+    def event_pattern(self) -> typing.Any:
+        '''An event pattern to use to filter events sent to the archive.'''
+        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
+
+    @event_pattern.setter
+    def event_pattern(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyIdentifier")
+    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this archive.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyIdentifier"))
+
+    @kms_key_identifier.setter
+    def kms_key_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afc87131b030ea9e94a54d65380d8caa92af44402dd0a1c9ec3e6c55aa14bbad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionDays")
+    def retention_days(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain events for.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionDays"))
+
+    @retention_days.setter
+    def retention_days(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743453e352)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retentionDays", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IConnectionRef)
 class CfnConnection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1939,6 +7694,12 @@ class CfnConnection(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''A reference to a Connection resource.'''
+        return typing.cast(ConnectionReference, jsii.get(self, "connectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -2995,243 +8756,7 @@ class CfnConnection(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CfnConnectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authorization_type": "authorizationType",
-        "auth_parameters": "authParameters",
-        "description": "description",
-        "invocation_connectivity_parameters": "invocationConnectivityParameters",
-        "kms_key_identifier": "kmsKeyIdentifier",
-        "name": "name",
-    },
-)
-class CfnConnectionProps:
-    def __init__(
-        self,
-        *,
-        authorization_type: typing.Optional[builtins.str] = None,
-        auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnection``.
-
-        :param authorization_type: The type of authorization to use for the connection. .. epigraph:: OAUTH tokens are refreshed when a 401 or 407 response is returned.
-        :param auth_parameters: The authorization parameters to use to authorize with the endpoint. You must include only authorization parameters for the ``AuthorizationType`` you specify.
-        :param description: A description for the connection to create.
-        :param invocation_connectivity_parameters: For connections to private APIs, the parameters to use for invoking the API. For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
-        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        :param name: The name for the connection to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            cfn_connection_props = events.CfnConnectionProps(
-                authorization_type="authorizationType",
-                auth_parameters=events.CfnConnection.AuthParametersProperty(
-                    api_key_auth_parameters=events.CfnConnection.ApiKeyAuthParametersProperty(
-                        api_key_name="apiKeyName",
-                        api_key_value="apiKeyValue"
-                    ),
-                    basic_auth_parameters=events.CfnConnection.BasicAuthParametersProperty(
-                        password="password",
-                        username="username"
-                    ),
-                    connectivity_parameters=events.CfnConnection.ConnectivityParametersProperty(
-                        resource_parameters=events.CfnConnection.ResourceParametersProperty(
-                            resource_configuration_arn="resourceConfigurationArn",
-            
-                            # the properties below are optional
-                            resource_association_arn="resourceAssociationArn"
-                        )
-                    ),
-                    invocation_http_parameters=events.CfnConnection.ConnectionHttpParametersProperty(
-                        body_parameters=[events.CfnConnection.ParameterProperty(
-                            key="key",
-                            value="value",
-            
-                            # the properties below are optional
-                            is_value_secret=False
-                        )],
-                        header_parameters=[events.CfnConnection.ParameterProperty(
-                            key="key",
-                            value="value",
-            
-                            # the properties below are optional
-                            is_value_secret=False
-                        )],
-                        query_string_parameters=[events.CfnConnection.ParameterProperty(
-                            key="key",
-                            value="value",
-            
-                            # the properties below are optional
-                            is_value_secret=False
-                        )]
-                    ),
-                    o_auth_parameters=events.CfnConnection.OAuthParametersProperty(
-                        authorization_endpoint="authorizationEndpoint",
-                        client_parameters=events.CfnConnection.ClientParametersProperty(
-                            client_id="clientId",
-                            client_secret="clientSecret"
-                        ),
-                        http_method="httpMethod",
-            
-                        # the properties below are optional
-                        o_auth_http_parameters=events.CfnConnection.ConnectionHttpParametersProperty(
-                            body_parameters=[events.CfnConnection.ParameterProperty(
-                                key="key",
-                                value="value",
-            
-                                # the properties below are optional
-                                is_value_secret=False
-                            )],
-                            header_parameters=[events.CfnConnection.ParameterProperty(
-                                key="key",
-                                value="value",
-            
-                                # the properties below are optional
-                                is_value_secret=False
-                            )],
-                            query_string_parameters=[events.CfnConnection.ParameterProperty(
-                                key="key",
-                                value="value",
-            
-                                # the properties below are optional
-                                is_value_secret=False
-                            )]
-                        )
-                    )
-                ),
-                description="description",
-                invocation_connectivity_parameters=events.CfnConnection.InvocationConnectivityParametersProperty(
-                    resource_parameters=events.CfnConnection.ResourceParametersProperty(
-                        resource_configuration_arn="resourceConfigurationArn",
-            
-                        # the properties below are optional
-                        resource_association_arn="resourceAssociationArn"
-                    )
-                ),
-                kms_key_identifier="kmsKeyIdentifier",
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394)
-            check_type(argname="argument authorization_type", value=authorization_type, expected_type=type_hints["authorization_type"])
-            check_type(argname="argument auth_parameters", value=auth_parameters, expected_type=type_hints["auth_parameters"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument invocation_connectivity_parameters", value=invocation_connectivity_parameters, expected_type=type_hints["invocation_connectivity_parameters"])
-            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if authorization_type is not None:
-            self._values["authorization_type"] = authorization_type
-        if auth_parameters is not None:
-            self._values["auth_parameters"] = auth_parameters
-        if description is not None:
-            self._values["description"] = description
-        if invocation_connectivity_parameters is not None:
-            self._values["invocation_connectivity_parameters"] = invocation_connectivity_parameters
-        if kms_key_identifier is not None:
-            self._values["kms_key_identifier"] = kms_key_identifier
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def authorization_type(self) -> typing.Optional[builtins.str]:
-        '''The type of authorization to use for the connection.
-
-        .. epigraph::
-
-           OAUTH tokens are refreshed when a 401 or 407 response is returned.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-authorizationtype
-        '''
-        result = self._values.get("authorization_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def auth_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.AuthParametersProperty]]:
-        '''The authorization parameters to use to authorize with the endpoint.
-
-        You must include only authorization parameters for the ``AuthorizationType`` you specify.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-authparameters
-        '''
-        result = self._values.get("auth_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.AuthParametersProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the connection to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def invocation_connectivity_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.InvocationConnectivityParametersProperty]]:
-        '''For connections to private APIs, the parameters to use for invoking the API.
-
-        For more information, see `Connecting to private APIs <https://docs.aws.amazon.com/eventbridge/latest/userguide/connection-private.html>`_ in the **Amazon EventBridge User Guide** .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-invocationconnectivityparameters
-        '''
-        result = self._values.get("invocation_connectivity_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnection.InvocationConnectivityParametersProperty]], result)
-
-    @builtins.property
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt this connection.
-
-        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
-
-        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt the connection.
-
-        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-kmskeyidentifier
-        '''
-        result = self._values.get("kms_key_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name for the connection to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-connection.html#cfn-events-connection-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEndpointRef)
 class CfnEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3392,6 +8917,12 @@ class CfnEndpoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointRef")
+    def endpoint_ref(self) -> EndpointReference:
+        '''A reference to a Endpoint resource.'''
+        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventBuses")
@@ -3843,171 +9374,7 @@ class CfnEndpoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CfnEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_buses": "eventBuses",
-        "routing_config": "routingConfig",
-        "description": "description",
-        "name": "name",
-        "replication_config": "replicationConfig",
-        "role_arn": "roleArn",
-    },
-)
-class CfnEndpointProps:
-    def __init__(
-        self,
-        *,
-        event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        routing_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEndpoint``.
-
-        :param event_buses: The event buses being used by the endpoint. *Exactly* : ``2``
-        :param routing_config: The routing configuration of the endpoint.
-        :param description: A description for the endpoint.
-        :param name: The name of the endpoint.
-        :param replication_config: Whether event replication was enabled or disabled for this endpoint. The default state is ``ENABLED`` which means you must supply a ``RoleArn`` . If you don't have a ``RoleArn`` or you don't want event replication enabled, set the state to ``DISABLED`` .
-        :param role_arn: The ARN of the role used by event replication for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            cfn_endpoint_props = events.CfnEndpointProps(
-                event_buses=[events.CfnEndpoint.EndpointEventBusProperty(
-                    event_bus_arn="eventBusArn"
-                )],
-                routing_config=events.CfnEndpoint.RoutingConfigProperty(
-                    failover_config=events.CfnEndpoint.FailoverConfigProperty(
-                        primary=events.CfnEndpoint.PrimaryProperty(
-                            health_check="healthCheck"
-                        ),
-                        secondary=events.CfnEndpoint.SecondaryProperty(
-                            route="route"
-                        )
-                    )
-                ),
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                replication_config=events.CfnEndpoint.ReplicationConfigProperty(
-                    state="state"
-                ),
-                role_arn="roleArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144)
-            check_type(argname="argument event_buses", value=event_buses, expected_type=type_hints["event_buses"])
-            check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument replication_config", value=replication_config, expected_type=type_hints["replication_config"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_buses": event_buses,
-            "routing_config": routing_config,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if replication_config is not None:
-            self._values["replication_config"] = replication_config
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-
-    @builtins.property
-    def event_buses(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEndpoint.EndpointEventBusProperty]]]:
-        '''The event buses being used by the endpoint.
-
-        *Exactly* : ``2``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-eventbuses
-        '''
-        result = self._values.get("event_buses")
-        assert result is not None, "Required property 'event_buses' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEndpoint.EndpointEventBusProperty]]], result)
-
-    @builtins.property
-    def routing_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnEndpoint.RoutingConfigProperty]:
-        '''The routing configuration of the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-routingconfig
-        '''
-        result = self._values.get("routing_config")
-        assert result is not None, "Required property 'routing_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnEndpoint.RoutingConfigProperty], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.ReplicationConfigProperty]]:
-        '''Whether event replication was enabled or disabled for this endpoint.
-
-        The default state is ``ENABLED`` which means you must supply a ``RoleArn`` . If you don't have a ``RoleArn`` or you don't want event replication enabled, set the state to ``DISABLED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-replicationconfig
-        '''
-        result = self._values.get("replication_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEndpoint.ReplicationConfigProperty]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the role used by event replication for the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-endpoint.html#cfn-events-endpoint-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IEventBusRef, _ITaggableV2_4e6798f8)
 class CfnEventBus(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4163,6 +9530,12 @@ class CfnEventBus(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusRef")
+    def event_bus_ref(self) -> EventBusReference:
+        '''A reference to a EventBus resource.'''
+        return typing.cast(EventBusReference, jsii.get(self, "eventBusRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4410,7 +9783,7 @@ class CfnEventBus(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IEventBusPolicyRef)
 class CfnEventBusPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4535,6 +9908,12 @@ class CfnEventBusPolicy(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventBusPolicyRef")
+    def event_bus_policy_ref(self) -> EventBusPolicyReference:
+        '''A reference to a EventBusPolicy resource.'''
+        return typing.cast(EventBusPolicyReference, jsii.get(self, "eventBusPolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="statementId")
@@ -4715,386 +10094,7 @@ class CfnEventBusPolicy(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CfnEventBusPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "statement_id": "statementId",
-        "action": "action",
-        "condition": "condition",
-        "event_bus_name": "eventBusName",
-        "principal": "principal",
-        "statement": "statement",
-    },
-)
-class CfnEventBusPolicyProps:
-    def __init__(
-        self,
-        *,
-        statement_id: builtins.str,
-        action: typing.Optional[builtins.str] = None,
-        condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        event_bus_name: typing.Optional[builtins.str] = None,
-        principal: typing.Optional[builtins.str] = None,
-        statement: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventBusPolicy``.
-
-        :param statement_id: An identifier string for the external account that you are granting permissions to. If you later want to revoke the permission for this external account, specify this ``StatementId`` when you run `RemovePermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RemovePermission.html>`_ . .. epigraph:: Each ``StatementId`` must be unique.
-        :param action: The action that you are enabling the other account to perform.
-        :param condition: This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization. For more information about AWS Organizations, see `What Is AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html>`_ in the *AWS Organizations User Guide* . If you specify ``Condition`` with an AWS organization ID, and specify "*" as the value for ``Principal`` , you grant permission to all the accounts in the named organization. The ``Condition`` is a JSON string which must contain ``Type`` , ``Key`` , and ``Value`` fields.
-        :param event_bus_name: The name of the event bus associated with the rule. If you omit this, the default event bus is used.
-        :param principal: The 12-digit AWS account ID that you are permitting to put events to your default event bus. Specify "*" to permit any account to put events to your default event bus. If you specify "*" without specifying ``Condition`` , avoid creating rules that may match undesirable events. To create more secure rules, make sure that the event pattern for each rule contains an ``account`` field with a specific account ID from which to receive events. Rules with an account field do not match any events sent from other accounts.
-        :param statement: A JSON string that describes the permission policy statement. You can include a ``Policy`` parameter in the request instead of using the ``StatementId`` , ``Action`` , ``Principal`` , or ``Condition`` parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            # statement: Any
-            
-            cfn_event_bus_policy_props = events.CfnEventBusPolicyProps(
-                statement_id="statementId",
-            
-                # the properties below are optional
-                action="action",
-                condition=events.CfnEventBusPolicy.ConditionProperty(
-                    key="key",
-                    type="type",
-                    value="value"
-                ),
-                event_bus_name="eventBusName",
-                principal="principal",
-                statement=statement
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2)
-            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
-            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
-            check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
-            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "statement_id": statement_id,
-        }
-        if action is not None:
-            self._values["action"] = action
-        if condition is not None:
-            self._values["condition"] = condition
-        if event_bus_name is not None:
-            self._values["event_bus_name"] = event_bus_name
-        if principal is not None:
-            self._values["principal"] = principal
-        if statement is not None:
-            self._values["statement"] = statement
-
-    @builtins.property
-    def statement_id(self) -> builtins.str:
-        '''An identifier string for the external account that you are granting permissions to.
-
-        If you later want to revoke the permission for this external account, specify this ``StatementId`` when you run `RemovePermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_RemovePermission.html>`_ .
-        .. epigraph::
-
-           Each ``StatementId`` must be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-statementid
-        '''
-        result = self._values.get("statement_id")
-        assert result is not None, "Required property 'statement_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def action(self) -> typing.Optional[builtins.str]:
-        '''The action that you are enabling the other account to perform.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-action
-        '''
-        result = self._values.get("action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def condition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBusPolicy.ConditionProperty]]:
-        '''This parameter enables you to limit the permission to accounts that fulfill a certain condition, such as being a member of a certain AWS organization.
-
-        For more information about AWS Organizations, see `What Is AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_introduction.html>`_ in the *AWS Organizations User Guide* .
-
-        If you specify ``Condition`` with an AWS organization ID, and specify "*" as the value for ``Principal`` , you grant permission to all the accounts in the named organization.
-
-        The ``Condition`` is a JSON string which must contain ``Type`` , ``Key`` , and ``Value`` fields.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-condition
-        '''
-        result = self._values.get("condition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBusPolicy.ConditionProperty]], result)
-
-    @builtins.property
-    def event_bus_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the event bus associated with the rule.
-
-        If you omit this, the default event bus is used.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-eventbusname
-        '''
-        result = self._values.get("event_bus_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def principal(self) -> typing.Optional[builtins.str]:
-        '''The 12-digit AWS account ID that you are permitting to put events to your default event bus.
-
-        Specify "*" to permit any account to put events to your default event bus.
-
-        If you specify "*" without specifying ``Condition`` , avoid creating rules that may match undesirable events. To create more secure rules, make sure that the event pattern for each rule contains an ``account`` field with a specific account ID from which to receive events. Rules with an account field do not match any events sent from other accounts.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-principal
-        '''
-        result = self._values.get("principal")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def statement(self) -> typing.Any:
-        '''A JSON string that describes the permission policy statement.
-
-        You can include a ``Policy`` parameter in the request instead of using the ``StatementId`` , ``Action`` , ``Principal`` , or ``Condition`` parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbuspolicy.html#cfn-events-eventbuspolicy-statement
-        '''
-        result = self._values.get("statement")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventBusPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CfnEventBusProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "dead_letter_config": "deadLetterConfig",
-        "description": "description",
-        "event_source_name": "eventSourceName",
-        "kms_key_identifier": "kmsKeyIdentifier",
-        "log_config": "logConfig",
-        "policy": "policy",
-        "tags": "tags",
-    },
-)
-class CfnEventBusProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_source_name: typing.Optional[builtins.str] = None,
-        kms_key_identifier: typing.Optional[builtins.str] = None,
-        log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        policy: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventBus``.
-
-        :param name: The name of the new event bus. Custom event bus names can't contain the ``/`` character, but you can use the ``/`` character in partner event bus names. In addition, for partner event buses, the name must exactly match the name of the partner event source that this event bus is matched to. You can't use the name ``default`` for a custom event bus, as this name is already used for your account's default event bus.
-        :param dead_letter_config: Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ). For more information, see `Using dead-letter queues to process undelivered events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq>`_ in the *EventBridge User Guide* .
-        :param description: The event bus description.
-        :param event_source_name: If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
-        :param kms_key_identifier: The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus. The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN. If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus. For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* . .. epigraph:: Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if: - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption. - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled. To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well. For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
-        :param log_config: The logging configuration settings for the event bus. For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
-        :param policy: The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
-        :param tags: Tags to associate with the event bus.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            # policy: Any
-            
-            cfn_event_bus_props = events.CfnEventBusProps(
-                name="name",
-            
-                # the properties below are optional
-                dead_letter_config=events.CfnEventBus.DeadLetterConfigProperty(
-                    arn="arn"
-                ),
-                description="description",
-                event_source_name="eventSourceName",
-                kms_key_identifier="kmsKeyIdentifier",
-                log_config=events.CfnEventBus.LogConfigProperty(
-                    include_detail="includeDetail",
-                    level="level"
-                ),
-                policy=policy,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
-            check_type(argname="argument kms_key_identifier", value=kms_key_identifier, expected_type=type_hints["kms_key_identifier"])
-            check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if dead_letter_config is not None:
-            self._values["dead_letter_config"] = dead_letter_config
-        if description is not None:
-            self._values["description"] = description
-        if event_source_name is not None:
-            self._values["event_source_name"] = event_source_name
-        if kms_key_identifier is not None:
-            self._values["kms_key_identifier"] = kms_key_identifier
-        if log_config is not None:
-            self._values["log_config"] = log_config
-        if policy is not None:
-            self._values["policy"] = policy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the new event bus.
-
-        Custom event bus names can't contain the ``/`` character, but you can use the ``/`` character in partner event bus names. In addition, for partner event buses, the name must exactly match the name of the partner event source that this event bus is matched to.
-
-        You can't use the name ``default`` for a custom event bus, as this name is already used for your account's default event bus.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dead_letter_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.DeadLetterConfigProperty]]:
-        '''Configuration details of the Amazon SQS queue for EventBridge to use as a dead-letter queue (DLQ).
-
-        For more information, see `Using dead-letter queues to process undelivered events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq>`_ in the *EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-deadletterconfig
-        '''
-        result = self._values.get("dead_letter_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.DeadLetterConfigProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The event bus description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''If you are creating a partner event bus, this specifies the partner event source that the new event bus will be matched with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
-        '''
-        result = self._values.get("event_source_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the AWS KMS customer managed key for EventBridge to use, if you choose to use a customer managed key to encrypt events on this event bus.
-
-        The identifier can be the key Amazon Resource Name (ARN), KeyId, key alias, or key alias ARN.
-
-        If you do not specify a customer managed key identifier, EventBridge uses an AWS owned key to encrypt events on the event bus.
-
-        For more information, see `Identify and view keys <https://docs.aws.amazon.com/kms/latest/developerguide/viewing-keys.html>`_ in the *AWS Key Management Service Developer Guide* .
-        .. epigraph::
-
-           Schema discovery is not supported for event buses encrypted using a customer managed key. EventBridge returns an error if:
-
-           - You call ``[CreateDiscoverer](https://docs.aws.amazon.com/eventbridge/latest/schema-reference/v1-discoverers.html#CreateDiscoverer)`` on an event bus set to use a customer managed key for encryption.
-           - You call ``[UpdatedEventBus](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_UpdatedEventBus.html)`` to set a customer managed key on an event bus with schema discovery enabled.
-
-           To enable schema discovery on an event bus, choose to use an AWS owned key . For more information, see `Encrypting events <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html>`_ in the *Amazon EventBridge User Guide* . > If you have specified that EventBridge use a customer managed key for encrypting the source event bus, we strongly recommend you also specify a customer managed key for any archives for the event bus as well.
-
-           For more information, see `Encrypting archives <https://docs.aws.amazon.com/eventbridge/latest/userguide/encryption-archives.html>`_ in the *Amazon EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-kmskeyidentifier
-        '''
-        result = self._values.get("kms_key_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def log_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]]:
-        '''The logging configuration settings for the event bus.
-
-        For more information, see `Configuring logs for event buses <https://docs.aws.amazon.com/eb-event-bus-logs.html>`_ in the *EventBridge User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-logconfig
-        '''
-        result = self._values.get("log_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]], result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to associate with the event bus.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventBusProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IRuleRef, _ITaggableV2_4e6798f8)
 class CfnRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5363,6 +10363,12 @@ class CfnRule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleRef")
+    def rule_ref(self) -> RuleReference:
+        '''A reference to a Rule resource.'''
+        return typing.cast(RuleReference, jsii.get(self, "ruleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7956,4256 +12962,6 @@ class CfnRule(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CfnRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "event_bus_name": "eventBusName",
-        "event_pattern": "eventPattern",
-        "name": "name",
-        "role_arn": "roleArn",
-        "schedule_expression": "scheduleExpression",
-        "state": "state",
-        "tags": "tags",
-        "targets": "targets",
-    },
-)
-class CfnRuleProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        event_bus_name: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Any = None,
-        name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        schedule_expression: typing.Optional[builtins.str] = None,
-        state: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRule``.
-
-        :param description: The description of the rule.
-        :param event_bus_name: The name or ARN of the event bus associated with the rule. If you omit this, the default event bus is used.
-        :param event_pattern: The event pattern of the rule. For more information, see `Events and Event Patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html>`_ in the **Amazon EventBridge User Guide** .
-        :param name: The name of the rule.
-        :param role_arn: The Amazon Resource Name (ARN) of the role that is used for target invocation. If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
-        :param schedule_expression: The scheduling expression. For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
-        :param state: The state of the rule. Valid values include: - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule. - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail. - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail. Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** . This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
-        :param tags: Any tags assigned to the event rule.
-        :param targets: Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule. Targets are the resources that are invoked when a rule is triggered. The maximum number of entries per request is 10. .. epigraph:: Each rule can have up to five (5) targets associated with it at one time. For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** . Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are: - ``Amazon EBS CreateSnapshot API call`` - ``Amazon EC2 RebootInstances API call`` - ``Amazon EC2 StopInstances API call`` - ``Amazon EC2 TerminateInstances API call`` For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field. To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions: - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies. - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` . For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** . If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ . .. epigraph:: ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account. If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* . .. epigraph:: If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role. For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ . *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event: - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target). - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant. - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed). - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target. When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation. When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect. This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            # event_pattern: Any
-            
-            cfn_rule_props = events.CfnRuleProps(
-                description="description",
-                event_bus_name="eventBusName",
-                event_pattern=event_pattern,
-                name="name",
-                role_arn="roleArn",
-                schedule_expression="scheduleExpression",
-                state="state",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                targets=[events.CfnRule.TargetProperty(
-                    arn="arn",
-                    id="id",
-            
-                    # the properties below are optional
-                    app_sync_parameters=events.CfnRule.AppSyncParametersProperty(
-                        graph_ql_operation="graphQlOperation"
-                    ),
-                    batch_parameters=events.CfnRule.BatchParametersProperty(
-                        job_definition="jobDefinition",
-                        job_name="jobName",
-            
-                        # the properties below are optional
-                        array_properties=events.CfnRule.BatchArrayPropertiesProperty(
-                            size=123
-                        ),
-                        retry_strategy=events.CfnRule.BatchRetryStrategyProperty(
-                            attempts=123
-                        )
-                    ),
-                    dead_letter_config=events.CfnRule.DeadLetterConfigProperty(
-                        arn="arn"
-                    ),
-                    ecs_parameters=events.CfnRule.EcsParametersProperty(
-                        task_definition_arn="taskDefinitionArn",
-            
-                        # the properties below are optional
-                        capacity_provider_strategy=[events.CfnRule.CapacityProviderStrategyItemProperty(
-                            capacity_provider="capacityProvider",
-            
-                            # the properties below are optional
-                            base=123,
-                            weight=123
-                        )],
-                        enable_ecs_managed_tags=False,
-                        enable_execute_command=False,
-                        group="group",
-                        launch_type="launchType",
-                        network_configuration=events.CfnRule.NetworkConfigurationProperty(
-                            aws_vpc_configuration=events.CfnRule.AwsVpcConfigurationProperty(
-                                subnets=["subnets"],
-            
-                                # the properties below are optional
-                                assign_public_ip="assignPublicIp",
-                                security_groups=["securityGroups"]
-                            )
-                        ),
-                        placement_constraints=[events.CfnRule.PlacementConstraintProperty(
-                            expression="expression",
-                            type="type"
-                        )],
-                        placement_strategies=[events.CfnRule.PlacementStrategyProperty(
-                            field="field",
-                            type="type"
-                        )],
-                        platform_version="platformVersion",
-                        propagate_tags="propagateTags",
-                        reference_id="referenceId",
-                        tag_list=[CfnTag(
-                            key="key",
-                            value="value"
-                        )],
-                        task_count=123
-                    ),
-                    http_parameters=events.CfnRule.HttpParametersProperty(
-                        header_parameters={
-                            "header_parameters_key": "headerParameters"
-                        },
-                        path_parameter_values=["pathParameterValues"],
-                        query_string_parameters={
-                            "query_string_parameters_key": "queryStringParameters"
-                        }
-                    ),
-                    input="input",
-                    input_path="inputPath",
-                    input_transformer=events.CfnRule.InputTransformerProperty(
-                        input_template="inputTemplate",
-            
-                        # the properties below are optional
-                        input_paths_map={
-                            "input_paths_map_key": "inputPathsMap"
-                        }
-                    ),
-                    kinesis_parameters=events.CfnRule.KinesisParametersProperty(
-                        partition_key_path="partitionKeyPath"
-                    ),
-                    redshift_data_parameters=events.CfnRule.RedshiftDataParametersProperty(
-                        database="database",
-            
-                        # the properties below are optional
-                        db_user="dbUser",
-                        secret_manager_arn="secretManagerArn",
-                        sql="sql",
-                        sqls=["sqls"],
-                        statement_name="statementName",
-                        with_event=False
-                    ),
-                    retry_policy=events.CfnRule.RetryPolicyProperty(
-                        maximum_event_age_in_seconds=123,
-                        maximum_retry_attempts=123
-                    ),
-                    role_arn="roleArn",
-                    run_command_parameters=events.CfnRule.RunCommandParametersProperty(
-                        run_command_targets=[events.CfnRule.RunCommandTargetProperty(
-                            key="key",
-                            values=["values"]
-                        )]
-                    ),
-                    sage_maker_pipeline_parameters=events.CfnRule.SageMakerPipelineParametersProperty(
-                        pipeline_parameter_list=[events.CfnRule.SageMakerPipelineParameterProperty(
-                            name="name",
-                            value="value"
-                        )]
-                    ),
-                    sqs_parameters=events.CfnRule.SqsParametersProperty(
-                        message_group_id="messageGroupId"
-                    )
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
-            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if event_bus_name is not None:
-            self._values["event_bus_name"] = event_bus_name
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-        if name is not None:
-            self._values["name"] = name
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if schedule_expression is not None:
-            self._values["schedule_expression"] = schedule_expression
-        if state is not None:
-            self._values["state"] = state
-        if tags is not None:
-            self._values["tags"] = tags
-        if targets is not None:
-            self._values["targets"] = targets
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_bus_name(self) -> typing.Optional[builtins.str]:
-        '''The name or ARN of the event bus associated with the rule.
-
-        If you omit this, the default event bus is used.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-eventbusname
-        '''
-        result = self._values.get("event_bus_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Any:
-        '''The event pattern of the rule.
-
-        For more information, see `Events and Event Patterns <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html>`_ in the **Amazon EventBridge User Guide** .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-eventpattern
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the role that is used for target invocation.
-
-        If you're setting an event bus in another account as the target and that account granted permission to your account through an organization instead of directly by the account ID, you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure, instead of here in this parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule_expression(self) -> typing.Optional[builtins.str]:
-        '''The scheduling expression.
-
-        For example, "cron(0 20 * * ? *)", "rate(5 minutes)". For more information, see `Creating an Amazon EventBridge rule that runs on a schedule <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-scheduleexpression
-        '''
-        result = self._values.get("schedule_expression")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional[builtins.str]:
-        '''The state of the rule.
-
-        Valid values include:
-
-        - ``DISABLED`` : The rule is disabled. EventBridge does not match any events against the rule.
-        - ``ENABLED`` : The rule is enabled. EventBridge matches events against the rule, *except* for AWS management events delivered through CloudTrail.
-        - ``ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`` : The rule is enabled for all events, including AWS management events delivered through CloudTrail.
-
-        Management events provide visibility into management operations that are performed on resources in your AWS account. These are also known as control plane operations. For more information, see `Logging management events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html#logging-management-events>`_ in the *CloudTrail User Guide* , and `Filtering management events from AWS services <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-service-event.html#eb-service-event-cloudtrail>`_ in the **Amazon EventBridge User Guide** .
-
-        This value is only valid for rules on the `default <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is-how-it-works-concepts.html#eb-bus-concepts-buses>`_ event bus or `custom event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-event-bus.html>`_ . It does not apply to `partner event buses <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-saas.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-state
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Any tags assigned to the event rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRule.TargetProperty]]]]:
-        '''Adds the specified targets to the specified rule, or updates the targets if they are already associated with the rule.
-
-        Targets are the resources that are invoked when a rule is triggered.
-
-        The maximum number of entries per request is 10.
-        .. epigraph::
-
-           Each rule can have up to five (5) targets associated with it at one time.
-
-        For a list of services you can configure as targets for events, see `EventBridge targets <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-targets.html>`_ in the **Amazon EventBridge User Guide** .
-
-        Creating rules with built-in targets is supported only in the AWS Management Console . The built-in targets are:
-
-        - ``Amazon EBS CreateSnapshot API call``
-        - ``Amazon EC2 RebootInstances API call``
-        - ``Amazon EC2 StopInstances API call``
-        - ``Amazon EC2 TerminateInstances API call``
-
-        For some target types, ``PutTargets`` provides target-specific parameters. If the target is a Kinesis data stream, you can optionally specify which shard the event goes to by using the ``KinesisParameters`` argument. To invoke a command on multiple EC2 instances with one rule, you can use the ``RunCommandParameters`` field.
-
-        To be able to make API calls against the resources that you own, Amazon EventBridge needs the appropriate permissions:
-
-        - For AWS Lambda and Amazon SNS resources, EventBridge relies on resource-based policies.
-        - For EC2 instances, Kinesis Data Streams, AWS Step Functions state machines and API Gateway APIs, EventBridge relies on IAM roles that you specify in the ``RoleARN`` argument in ``PutTargets`` .
-
-        For more information, see `Authentication and Access Control <https://docs.aws.amazon.com/eventbridge/latest/userguide/auth-and-access-control-eventbridge.html>`_ in the **Amazon EventBridge User Guide** .
-
-        If another AWS account is in the same region and has granted you permission (using ``PutPermission`` ), you can send events to that account. Set that account's event bus as a target of the rules in your account. To send the matched events to the other account, specify that account's event bus as the ``Arn`` value when you run ``PutTargets`` . If your account sends events to another account, your account is charged for each sent event. Each event sent to another account is charged as a custom event. The account receiving the event is not charged. For more information, see `Amazon EventBridge Pricing <https://docs.aws.amazon.com/eventbridge/pricing/>`_ .
-        .. epigraph::
-
-           ``Input`` , ``InputPath`` , and ``InputTransformer`` are not available with ``PutTarget`` if the target is an event bus of a different AWS account.
-
-        If you are setting the event bus of another account as the target, and that account granted permission to your account through an organization instead of directly by the account ID, then you must specify a ``RoleArn`` with proper permissions in the ``Target`` structure. For more information, see `Sending and Receiving Events Between AWS Accounts <https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html>`_ in the *Amazon EventBridge User Guide* .
-        .. epigraph::
-
-           If you have an IAM role on a cross-account event bus target, a ``PutTargets`` call without a role on the same target (same ``Id`` and ``Arn`` ) will not remove the role.
-
-        For more information about enabling cross-account events, see `PutPermission <https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutPermission.html>`_ .
-
-        *Input* , *InputPath* , and *InputTransformer* are mutually exclusive and optional parameters of a target. When a rule is triggered due to a matched event:
-
-        - If none of the following arguments are specified for a target, then the entire event is passed to the target in JSON format (unless the target is Amazon EC2 Run Command or Amazon ECS task, in which case nothing from the event is passed to the target).
-        - If *Input* is specified in the form of valid JSON, then the matched event is overridden with this constant.
-        - If *InputPath* is specified in the form of JSONPath (for example, ``$.detail`` ), then only the part of the event specified in the path is passed to the target (for example, only the detail part of the event is passed).
-        - If *InputTransformer* is specified, then one or more specified JSONPaths are extracted from the event and used as values in a template that you specify as the input to the target.
-
-        When you specify ``InputPath`` or ``InputTransformer`` , you must use JSON dot notation, not bracket notation.
-
-        When you add targets to a rule and the associated rule triggers soon after, new or updated targets might not be immediately invoked. Allow a short period of time for changes to take effect.
-
-        This action can partially fail if too many requests are made at the same time. If that happens, ``FailedEntryCount`` is non-zero in the response and each entry in ``FailedEntries`` provides the ID of the failed target and the error code.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-rule.html#cfn-events-rule-targets
-        '''
-        result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRule.TargetProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.ConnectionAttributes",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connection_arn": "connectionArn",
-        "connection_name": "connectionName",
-        "connection_secret_arn": "connectionSecretArn",
-    },
-)
-class ConnectionAttributes:
-    def __init__(
-        self,
-        *,
-        connection_arn: builtins.str,
-        connection_name: builtins.str,
-        connection_secret_arn: builtins.str,
-    ) -> None:
-        '''Interface with properties necessary to import a reusable Connection.
-
-        :param connection_arn: The ARN of the connection created.
-        :param connection_name: The Name for the connection.
-        :param connection_secret_arn: The ARN for the secret created for the connection.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            connection_attributes = events.ConnectionAttributes(
-                connection_arn="connectionArn",
-                connection_name="connectionName",
-                connection_secret_arn="connectionSecretArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630)
-            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
-            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
-            check_type(argname="argument connection_secret_arn", value=connection_secret_arn, expected_type=type_hints["connection_secret_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connection_arn": connection_arn,
-            "connection_name": connection_name,
-            "connection_secret_arn": connection_secret_arn,
-        }
-
-    @builtins.property
-    def connection_arn(self) -> builtins.str:
-        '''The ARN of the connection created.'''
-        result = self._values.get("connection_arn")
-        assert result is not None, "Required property 'connection_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connection_name(self) -> builtins.str:
-        '''The Name for the connection.'''
-        result = self._values.get("connection_name")
-        assert result is not None, "Required property 'connection_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def connection_secret_arn(self) -> builtins.str:
-        '''The ARN for the secret created for the connection.'''
-        result = self._values.get("connection_secret_arn")
-        assert result is not None, "Required property 'connection_secret_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConnectionAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.ConnectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authorization": "authorization",
-        "body_parameters": "bodyParameters",
-        "connection_name": "connectionName",
-        "description": "description",
-        "header_parameters": "headerParameters",
-        "query_string_parameters": "queryStringParameters",
-    },
-)
-class ConnectionProps:
-    def __init__(
-        self,
-        *,
-        authorization: Authorization,
-        body_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
-        connection_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        header_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
-        query_string_parameters: typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]] = None,
-    ) -> None:
-        '''An API Destination Connection.
-
-        A connection defines the authorization type and credentials to use for authorization with an API destination HTTP endpoint.
-
-        :param authorization: The authorization type for the connection.
-        :param body_parameters: Additional string parameters to add to the invocation bodies. Default: - No additional parameters
-        :param connection_name: The name of the connection. Default: - A name is automatically generated
-        :param description: The name of the connection. Default: - none
-        :param header_parameters: Additional string parameters to add to the invocation headers. Default: - No additional parameters
-        :param query_string_parameters: Additional string parameters to add to the invocation query strings. Default: - No additional parameters
-
-        :exampleMetadata: infused
-
-        Example::
-
-            connection = events.Connection(self, "Connection",
-                authorization=events.Authorization.api_key("x-api-key", SecretValue.secrets_manager("ApiSecretName")),
-                description="Connection with API Key x-api-key"
-            )
-            
-            destination = events.ApiDestination(self, "Destination",
-                connection=connection,
-                endpoint="https://example.com",
-                description="Calling example.com with API key x-api-key"
-            )
-            
-            rule = events.Rule(self, "Rule",
-                schedule=events.Schedule.rate(Duration.minutes(1)),
-                targets=[targets.ApiDestination(destination)]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd)
-            check_type(argname="argument authorization", value=authorization, expected_type=type_hints["authorization"])
-            check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
-            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
-            check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authorization": authorization,
-        }
-        if body_parameters is not None:
-            self._values["body_parameters"] = body_parameters
-        if connection_name is not None:
-            self._values["connection_name"] = connection_name
-        if description is not None:
-            self._values["description"] = description
-        if header_parameters is not None:
-            self._values["header_parameters"] = header_parameters
-        if query_string_parameters is not None:
-            self._values["query_string_parameters"] = query_string_parameters
-
-    @builtins.property
-    def authorization(self) -> Authorization:
-        '''The authorization type for the connection.'''
-        result = self._values.get("authorization")
-        assert result is not None, "Required property 'authorization' is missing"
-        return typing.cast(Authorization, result)
-
-    @builtins.property
-    def body_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
-        '''Additional string parameters to add to the invocation bodies.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("body_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
-
-    @builtins.property
-    def connection_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the connection.
-
-        :default: - A name is automatically generated
-        '''
-        result = self._values.get("connection_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The name of the connection.
-
-        :default: - none
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def header_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
-        '''Additional string parameters to add to the invocation headers.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("header_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
-
-    @builtins.property
-    def query_string_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]]:
-        '''Additional string parameters to add to the invocation query strings.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("query_string_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "HttpParameter"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConnectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.CronOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "day": "day",
-        "hour": "hour",
-        "minute": "minute",
-        "month": "month",
-        "week_day": "weekDay",
-        "year": "year",
-    },
-)
-class CronOptions:
-    def __init__(
-        self,
-        *,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-        year: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Options to configure a cron expression.
-
-        All fields are strings so you can use complex expressions. Absence of
-        a field implies '*' or '?', whichever one is appropriate.
-
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-        :param year: The year to run this rule at. Default: - Every year
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html#cron-expressions
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_events as events
-            import aws_cdk.aws_events_targets as targets
-            
-            # fn: lambda.Function
-            
-            rule = events.Rule(self, "Schedule Rule",
-                schedule=events.Schedule.cron(minute="0", hour="4")
-            )
-            rule.add_target(targets.LambdaFunction(fn))
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de)
-            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
-            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
-            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
-            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
-            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
-            check_type(argname="argument year", value=year, expected_type=type_hints["year"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if day is not None:
-            self._values["day"] = day
-        if hour is not None:
-            self._values["hour"] = hour
-        if minute is not None:
-            self._values["minute"] = minute
-        if month is not None:
-            self._values["month"] = month
-        if week_day is not None:
-            self._values["week_day"] = week_day
-        if year is not None:
-            self._values["year"] = year
-
-    @builtins.property
-    def day(self) -> typing.Optional[builtins.str]:
-        '''The day of the month to run this rule at.
-
-        :default: - Every day of the month
-        '''
-        result = self._values.get("day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hour(self) -> typing.Optional[builtins.str]:
-        '''The hour to run this rule at.
-
-        :default: - Every hour
-        '''
-        result = self._values.get("hour")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def minute(self) -> typing.Optional[builtins.str]:
-        '''The minute to run this rule at.
-
-        :default: - Every minute
-        '''
-        result = self._values.get("minute")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def month(self) -> typing.Optional[builtins.str]:
-        '''The month to run this rule at.
-
-        :default: - Every month
-        '''
-        result = self._values.get("month")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def week_day(self) -> typing.Optional[builtins.str]:
-        '''The day of the week to run this rule at.
-
-        :default: - Any day of the week
-        '''
-        result = self._values.get("week_day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def year(self) -> typing.Optional[builtins.str]:
-        '''The year to run this rule at.
-
-        :default: - Every year
-        '''
-        result = self._values.get("year")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CronOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.EventBusAttributes",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_bus_arn": "eventBusArn",
-        "event_bus_name": "eventBusName",
-        "event_bus_policy": "eventBusPolicy",
-        "event_source_name": "eventSourceName",
-    },
-)
-class EventBusAttributes:
-    def __init__(
-        self,
-        *,
-        event_bus_arn: builtins.str,
-        event_bus_name: builtins.str,
-        event_bus_policy: builtins.str,
-        event_source_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Interface with properties necessary to import a reusable EventBus.
-
-        :param event_bus_arn: The ARN of this event bus resource.
-        :param event_bus_name: The physical ID of this event bus resource.
-        :param event_bus_policy: The JSON policy of this event bus resource.
-        :param event_source_name: The partner event source to associate with this event bus resource. Default: - no partner event source
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            event_bus_attributes = events.EventBusAttributes(
-                event_bus_arn="eventBusArn",
-                event_bus_name="eventBusName",
-                event_bus_policy="eventBusPolicy",
-            
-                # the properties below are optional
-                event_source_name="eventSourceName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda)
-            check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
-            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
-            check_type(argname="argument event_bus_policy", value=event_bus_policy, expected_type=type_hints["event_bus_policy"])
-            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_bus_arn": event_bus_arn,
-            "event_bus_name": event_bus_name,
-            "event_bus_policy": event_bus_policy,
-        }
-        if event_source_name is not None:
-            self._values["event_source_name"] = event_source_name
-
-    @builtins.property
-    def event_bus_arn(self) -> builtins.str:
-        '''The ARN of this event bus resource.
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
-        '''
-        result = self._values.get("event_bus_arn")
-        assert result is not None, "Required property 'event_bus_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_bus_name(self) -> builtins.str:
-        '''The physical ID of this event bus resource.
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
-        '''
-        result = self._values.get("event_bus_name")
-        assert result is not None, "Required property 'event_bus_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_bus_policy(self) -> builtins.str:
-        '''The JSON policy of this event bus resource.
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
-        '''
-        result = self._values.get("event_bus_policy")
-        assert result is not None, "Required property 'event_bus_policy' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''The partner event source to associate with this event bus resource.
-
-        :default: - no partner event source
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
-        '''
-        result = self._values.get("event_source_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventBusAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class EventBusPolicy(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.EventBusPolicy",
-):
-    '''The policy for an Event Bus.
-
-    Policies define the operations that are allowed on this resource.
-
-    You almost never need to define this construct directly.
-
-    All AWS resources that support resource policies have a method called
-    ``addToResourcePolicy()``, which will automatically create a new resource
-    policy if one doesn't exist yet, otherwise it will add to the existing
-    policy.
-
-    Prefer to use ``addToResourcePolicy()`` instead.
-
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_events as events
-        from aws_cdk import aws_iam as iam
-        
-        # event_bus: events.EventBus
-        # policy_statement: iam.PolicyStatement
-        
-        event_bus_policy = events.EventBusPolicy(self, "MyEventBusPolicy",
-            event_bus=event_bus,
-            statement=policy_statement,
-            statement_id="statementId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        event_bus: "IEventBus",
-        statement: _PolicyStatement_0fe33853,
-        statement_id: builtins.str,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param event_bus: The event bus to which the policy applies.
-        :param statement: An IAM Policy Statement to apply to the Event Bus.
-        :param statement_id: An identifier string for the external account that you are granting permissions to.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = EventBusPolicyProps(
-            event_bus=event_bus, statement=statement, statement_id=statement_id
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.EventBusPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_bus": "eventBus",
-        "statement": "statement",
-        "statement_id": "statementId",
-    },
-)
-class EventBusPolicyProps:
-    def __init__(
-        self,
-        *,
-        event_bus: "IEventBus",
-        statement: _PolicyStatement_0fe33853,
-        statement_id: builtins.str,
-    ) -> None:
-        '''Properties to associate Event Buses with a policy.
-
-        :param event_bus: The event bus to which the policy applies.
-        :param statement: An IAM Policy Statement to apply to the Event Bus.
-        :param statement_id: An identifier string for the external account that you are granting permissions to.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            from aws_cdk import aws_iam as iam
-            
-            # event_bus: events.EventBus
-            # policy_statement: iam.PolicyStatement
-            
-            event_bus_policy_props = events.EventBusPolicyProps(
-                event_bus=event_bus,
-                statement=policy_statement,
-                statement_id="statementId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da)
-            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
-            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-            check_type(argname="argument statement_id", value=statement_id, expected_type=type_hints["statement_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_bus": event_bus,
-            "statement": statement,
-            "statement_id": statement_id,
-        }
-
-    @builtins.property
-    def event_bus(self) -> "IEventBus":
-        '''The event bus to which the policy applies.'''
-        result = self._values.get("event_bus")
-        assert result is not None, "Required property 'event_bus' is missing"
-        return typing.cast("IEventBus", result)
-
-    @builtins.property
-    def statement(self) -> _PolicyStatement_0fe33853:
-        '''An IAM Policy Statement to apply to the Event Bus.'''
-        result = self._values.get("statement")
-        assert result is not None, "Required property 'statement' is missing"
-        return typing.cast(_PolicyStatement_0fe33853, result)
-
-    @builtins.property
-    def statement_id(self) -> builtins.str:
-        '''An identifier string for the external account that you are granting permissions to.'''
-        result = self._values.get("statement_id")
-        assert result is not None, "Required property 'statement_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventBusPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.EventBusProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dead_letter_queue": "deadLetterQueue",
-        "description": "description",
-        "event_bus_name": "eventBusName",
-        "event_source_name": "eventSourceName",
-        "kms_key": "kmsKey",
-    },
-)
-class EventBusProps:
-    def __init__(
-        self,
-        *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_bus_name: typing.Optional[builtins.str] = None,
-        event_source_name: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-    ) -> None:
-        '''Properties to define an event bus.
-
-        :param dead_letter_queue: Dead-letter queue for the event bus. Default: - no dead-letter queue
-        :param description: The event bus description. The description can be up to 512 characters long. Default: - no description
-        :param event_bus_name: The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this. Default: - automatically generated name
-        :param event_source_name: The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this. Default: - no partner event source
-        :param kms_key: The customer managed key that encrypt events on this event bus. Default: - Use an AWS managed key
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_events as events
-            
-            
-            my_event_bus = events.EventBus(self, "EventBus",
-                event_bus_name="MyEventBus1"
-            )
-            
-            tasks.EventBridgePutEvents(self, "Send an event to EventBridge",
-                entries=[tasks.EventBridgePutEventsEntry(
-                    detail=sfn.TaskInput.from_object({
-                        "Message": "Hello from Step Functions!"
-                    }),
-                    event_bus=my_event_bus,
-                    detail_type="MessageFromStepFunctions",
-                    source="step.functions"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743)
-            check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
-            check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if dead_letter_queue is not None:
-            self._values["dead_letter_queue"] = dead_letter_queue
-        if description is not None:
-            self._values["description"] = description
-        if event_bus_name is not None:
-            self._values["event_bus_name"] = event_bus_name
-        if event_source_name is not None:
-            self._values["event_source_name"] = event_source_name
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-
-    @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
-        '''Dead-letter queue for the event bus.
-
-        :default: - no dead-letter queue
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-event-delivery.html#eb-rule-dlq
-        '''
-        result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The event bus description.
-
-        The description can be up to 512 characters long.
-
-        :default: - no description
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_bus_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this.
-
-        :default: - automatically generated name
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
-        '''
-        result = self._values.get("event_bus_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this.
-
-        :default: - no partner event source
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
-        '''
-        result = self._values.get("event_source_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The customer managed key that encrypt events on this event bus.
-
-        :default: - Use an AWS managed key
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventBusProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.EventCommonOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cross_stack_scope": "crossStackScope",
-        "description": "description",
-        "event_pattern": "eventPattern",
-        "rule_name": "ruleName",
-    },
-)
-class EventCommonOptions:
-    def __init__(
-        self,
-        *,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union["EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Common options for Events.
-
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            import constructs as constructs
-            
-            # construct: constructs.Construct
-            # detail: Any
-            
-            event_common_options = events.EventCommonOptions(
-                cross_stack_scope=construct,
-                description="description",
-                event_pattern=events.EventPattern(
-                    account=["account"],
-                    detail={
-                        "detail_key": detail
-                    },
-                    detail_type=["detailType"],
-                    id=["id"],
-                    region=["region"],
-                    resources=["resources"],
-                    source=["source"],
-                    time=["time"],
-                    version=["version"]
-                ),
-                rule_name="ruleName"
-            )
-        '''
-        if isinstance(event_pattern, dict):
-            event_pattern = EventPattern(**event_pattern)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433)
-            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cross_stack_scope is not None:
-            self._values["cross_stack_scope"] = cross_stack_scope
-        if description is not None:
-            self._values["description"] = description
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-
-    @builtins.property
-    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
-        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
-
-        This helps dealing with cycles that often arise in these situations.
-
-        :default: - none (the main scope will be used, even for cross-stack Events)
-        '''
-        result = self._values.get("cross_stack_scope")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the rule's purpose.
-
-        :default: - No description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Optional["EventPattern"]:
-        '''Additional restrictions for the event to route to the specified target.
-
-        The method that generates the rule probably imposes some type of event
-        filtering. The filtering implied by what you pass here is added
-        on top of that filtering.
-
-        :default: - No additional filtering based on an event pattern.
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional["EventPattern"], result)
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the rule.
-
-        :default: AWS CloudFormation generates a unique physical ID.
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventCommonOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IResolvable_da3f097b)
-class EventField(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.EventField",
-):
-    '''Represents a field in the event pattern.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_logs as logs
-        # log_group: logs.LogGroup
-        # rule: events.Rule
-        
-        
-        rule.add_target(targets.CloudWatchLogGroup(log_group,
-            log_event=targets.LogGroupTargetInput.from_object_v2(
-                timestamp=events.EventField.from_path("$.time"),
-                message=events.EventField.from_path("$.detail-type")
-            )
-        ))
-    '''
-
-    @jsii.member(jsii_name="fromPath")
-    @builtins.classmethod
-    def from_path(cls, path: builtins.str) -> builtins.str:
-        '''Extract a custom JSON path from the event.
-
-        :param path: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7)
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "fromPath", [path]))
-
-    @jsii.member(jsii_name="resolve")
-    def resolve(self, _ctx: _IResolveContext_b2df1921) -> typing.Any:
-        '''Produce the Token's value at resolution time.
-
-        :param _ctx: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3)
-            check_type(argname="argument _ctx", value=_ctx, expected_type=type_hints["_ctx"])
-        return typing.cast(typing.Any, jsii.invoke(self, "resolve", [_ctx]))
-
-    @jsii.member(jsii_name="toJSON")
-    def to_json(self) -> builtins.str:
-        '''Convert the path to the field in the event pattern to JSON.'''
-        return typing.cast(builtins.str, jsii.invoke(self, "toJSON", []))
-
-    @jsii.member(jsii_name="toString")
-    def to_string(self) -> builtins.str:
-        '''Return a string representation of this resolvable object.
-
-        Returns a reversible string representation.
-        '''
-        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="account")
-    def account(cls) -> builtins.str:
-        '''Extract the account from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "account"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="detailType")
-    def detail_type(cls) -> builtins.str:
-        '''Extract the detail type from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "detailType"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="eventId")
-    def event_id(cls) -> builtins.str:
-        '''Extract the event ID from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "eventId"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="region")
-    def region(cls) -> builtins.str:
-        '''Extract the region from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "region"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="source")
-    def source(cls) -> builtins.str:
-        '''Extract the source from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "source"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="time")
-    def time(cls) -> builtins.str:
-        '''Extract the time from the event.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "time"))
-
-    @builtins.property
-    @jsii.member(jsii_name="creationStack")
-    def creation_stack(self) -> typing.List[builtins.str]:
-        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
-
-        This may return an array with a single informational element indicating how
-        to get this property populated, if it was skipped for performance reasons.
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "creationStack"))
-
-    @builtins.property
-    @jsii.member(jsii_name="displayHint")
-    def display_hint(self) -> builtins.str:
-        '''Human readable display hint about the event pattern.'''
-        return typing.cast(builtins.str, jsii.get(self, "displayHint"))
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> builtins.str:
-        '''the path to a field in the event pattern.'''
-        return typing.cast(builtins.str, jsii.get(self, "path"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.EventPattern",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account": "account",
-        "detail": "detail",
-        "detail_type": "detailType",
-        "id": "id",
-        "region": "region",
-        "resources": "resources",
-        "source": "source",
-        "time": "time",
-        "version": "version",
-    },
-)
-class EventPattern:
-    def __init__(
-        self,
-        *,
-        account: typing.Optional[typing.Sequence[builtins.str]] = None,
-        detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
-        id: typing.Optional[typing.Sequence[builtins.str]] = None,
-        region: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        time: typing.Optional[typing.Sequence[builtins.str]] = None,
-        version: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Events in Amazon CloudWatch Events are represented as JSON objects. For more information about JSON objects, see RFC 7159.
-
-        **Important**: this class can only be used with a ``Rule`` class. In particular,
-        do not use it with ``CfnRule`` class: your pattern will not be rendered
-        correctly. In a ``CfnRule`` class, write the pattern as you normally would when
-        directly writing CloudFormation.
-
-        Rules use event patterns to select events and route them to targets. A
-        pattern either matches an event or it doesn't. Event patterns are represented
-        as JSON objects with a structure that is similar to that of events.
-
-        It is important to remember the following about event pattern matching:
-
-        - For a pattern to match an event, the event must contain all the field names
-          listed in the pattern. The field names must appear in the event with the
-          same nesting structure.
-        - Other fields of the event not mentioned in the pattern are ignored;
-          effectively, there is a ``"*": "*"`` wildcard for fields not mentioned.
-        - The matching is exact (character-by-character), without case-folding or any
-          other string normalization.
-        - The values being matched follow JSON rules: Strings enclosed in quotes,
-          numbers, and the unquoted keywords true, false, and null.
-        - Number matching is at the string representation level. For example, 300,
-          300.0, and 3.0e2 are not considered equal.
-
-        For custom events, some optional properties are required. For more information, see
-        `Minimum information needed for a valid custom event <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-events-structure.html#eb-custom-event>`_.
-
-        :param account: The 12-digit number identifying an AWS account. Default: - No filtering on account
-        :param detail: A JSON object, whose content is at the discretion of the service originating the event. Default: - No filtering on detail
-        :param detail_type: Identifies, in combination with the source field, the fields and values that appear in the detail field. Represents the "detail-type" event field. Default: - No filtering on detail type
-        :param id: A unique value is generated for every event. This can be helpful in tracing events as they move through rules to targets, and are processed. Default: - No filtering on id
-        :param region: Identifies the AWS region where the event originated. Default: - No filtering on region
-        :param resources: This JSON array contains ARNs that identify resources that are involved in the event. Inclusion of these ARNs is at the discretion of the service. For example, Amazon EC2 instance state-changes include Amazon EC2 instance ARNs, Auto Scaling events include ARNs for both instances and Auto Scaling groups, but API calls with AWS CloudTrail do not include resource ARNs. Default: - No filtering on resource
-        :param source: Identifies the service that sourced the event. All events sourced from within AWS begin with "aws." Customer-generated events can have any value here, as long as it doesn't begin with "aws." We recommend the use of Java package-name style reverse domain-name strings. To find the correct value for source for an AWS service, see the table in AWS Service Namespaces. For example, the source value for Amazon CloudFront is aws.cloudfront. Default: - No filtering on source
-        :param time: The event timestamp, which can be specified by the service originating the event. If the event spans a time interval, the service might choose to report the start time, so this value can be noticeably before the time the event is actually received. Default: - No filtering on time
-        :param version: By default, this is set to 0 (zero) in all events. Default: - No filtering on version
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/CloudWatchEventsandEventPatterns.html
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_lambda as lambda_
-            
-            
-            fn = lambda_.Function(self, "MyFunc",
-                runtime=lambda_.Runtime.NODEJS_LATEST,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("exports.handler = handler.toString()")
-            )
-            
-            rule = events.Rule(self, "rule",
-                event_pattern=events.EventPattern(
-                    source=["aws.ec2"]
-                )
-            )
-            
-            queue = sqs.Queue(self, "Queue")
-            
-            rule.add_target(targets.LambdaFunction(fn,
-                dead_letter_queue=queue,  # Optional: add a dead letter queue
-                max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-                retry_attempts=2
-            ))
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944)
-            check_type(argname="argument account", value=account, expected_type=type_hints["account"])
-            check_type(argname="argument detail", value=detail, expected_type=type_hints["detail"])
-            check_type(argname="argument detail_type", value=detail_type, expected_type=type_hints["detail_type"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-            check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument time", value=time, expected_type=type_hints["time"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if account is not None:
-            self._values["account"] = account
-        if detail is not None:
-            self._values["detail"] = detail
-        if detail_type is not None:
-            self._values["detail_type"] = detail_type
-        if id is not None:
-            self._values["id"] = id
-        if region is not None:
-            self._values["region"] = region
-        if resources is not None:
-            self._values["resources"] = resources
-        if source is not None:
-            self._values["source"] = source
-        if time is not None:
-            self._values["time"] = time
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def account(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The 12-digit number identifying an AWS account.
-
-        :default: - No filtering on account
-        '''
-        result = self._values.get("account")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def detail(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
-        '''A JSON object, whose content is at the discretion of the service originating the event.
-
-        :default: - No filtering on detail
-        '''
-        result = self._values.get("detail")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
-
-    @builtins.property
-    def detail_type(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Identifies, in combination with the source field, the fields and values that appear in the detail field.
-
-        Represents the "detail-type" event field.
-
-        :default: - No filtering on detail type
-        '''
-        result = self._values.get("detail_type")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def id(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A unique value is generated for every event.
-
-        This can be helpful in
-        tracing events as they move through rules to targets, and are processed.
-
-        :default: - No filtering on id
-        '''
-        result = self._values.get("id")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def region(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Identifies the AWS region where the event originated.
-
-        :default: - No filtering on region
-        '''
-        result = self._values.get("region")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''This JSON array contains ARNs that identify resources that are involved in the event.
-
-        Inclusion of these ARNs is at the discretion of the
-        service.
-
-        For example, Amazon EC2 instance state-changes include Amazon EC2
-        instance ARNs, Auto Scaling events include ARNs for both instances and
-        Auto Scaling groups, but API calls with AWS CloudTrail do not include
-        resource ARNs.
-
-        :default: - No filtering on resource
-        '''
-        result = self._values.get("resources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def source(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Identifies the service that sourced the event.
-
-        All events sourced from
-        within AWS begin with "aws." Customer-generated events can have any value
-        here, as long as it doesn't begin with "aws." We recommend the use of
-        Java package-name style reverse domain-name strings.
-
-        To find the correct value for source for an AWS service, see the table in
-        AWS Service Namespaces. For example, the source value for Amazon
-        CloudFront is aws.cloudfront.
-
-        :default: - No filtering on source
-
-        :see: http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
-        '''
-        result = self._values.get("source")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def time(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The event timestamp, which can be specified by the service originating the event.
-
-        If the event spans a time interval, the service might choose
-        to report the start time, so this value can be noticeably before the time
-        the event is actually received.
-
-        :default: - No filtering on time
-        '''
-        result = self._values.get("time")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''By default, this is set to 0 (zero) in all events.
-
-        :default: - No filtering on version
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventPattern(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_events.HttpMethod")
-class HttpMethod(enum.Enum):
-    '''Supported HTTP operations.'''
-
-    POST = "POST"
-    '''POST.'''
-    GET = "GET"
-    '''GET.'''
-    HEAD = "HEAD"
-    '''HEAD.'''
-    OPTIONS = "OPTIONS"
-    '''OPTIONS.'''
-    PUT = "PUT"
-    '''PUT.'''
-    PATCH = "PATCH"
-    '''PATCH.'''
-    DELETE = "DELETE"
-    '''DELETE.'''
-
-
-class HttpParameter(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_events.HttpParameter",
-):
-    '''An additional HTTP parameter to send along with the OAuth request.
-
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk as cdk
-        from aws_cdk import aws_events as events
-        
-        # secret_value: cdk.SecretValue
-        
-        http_parameter = events.HttpParameter.from_secret(secret_value)
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="fromSecret")
-    @builtins.classmethod
-    def from_secret(cls, value: _SecretValue_3dd0ddae) -> "HttpParameter":
-        '''Make an OAuthParameter from a secret.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromSecret", [value]))
-
-    @jsii.member(jsii_name="fromString")
-    @builtins.classmethod
-    def from_string(cls, value: builtins.str) -> "HttpParameter":
-        '''Make an OAuthParameter from a string value.
-
-        The value is not treated as a secret.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast("HttpParameter", jsii.sinvoke(cls, "fromString", [value]))
-
-
-class _HttpParameterProxy(HttpParameter):
-    pass
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, HttpParameter).__jsii_proxy_class__ = lambda : _HttpParameterProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IApiDestination")
-class IApiDestination(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface for API Destinations.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArn")
-    def api_destination_arn(self) -> builtins.str:
-        '''The ARN of the Api Destination created.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationName")
-    def api_destination_name(self) -> builtins.str:
-        '''The Name of the Api Destination created.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArnForPolicy")
-    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
-
-        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
-        :attribute: true
-        '''
-        ...
-
-
-class _IApiDestinationProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface for API Destinations.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IApiDestination"
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArn")
-    def api_destination_arn(self) -> builtins.str:
-        '''The ARN of the Api Destination created.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "apiDestinationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationName")
-    def api_destination_name(self) -> builtins.str:
-        '''The Name of the Api Destination created.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "apiDestinationName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArnForPolicy")
-    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
-
-        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
-        :attribute: true
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApiDestination).__jsii_proxy_class__ = lambda : _IApiDestinationProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IConnection")
-class IConnection(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface for EventBus Connections.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionArn")
-    def connection_arn(self) -> builtins.str:
-        '''The ARN of the connection created.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionName")
-    def connection_name(self) -> builtins.str:
-        '''The Name for the connection.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionSecretArn")
-    def connection_secret_arn(self) -> builtins.str:
-        '''The ARN for the secret created for the connection.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IConnectionProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface for EventBus Connections.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IConnection"
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionArn")
-    def connection_arn(self) -> builtins.str:
-        '''The ARN of the connection created.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionName")
-    def connection_name(self) -> builtins.str:
-        '''The Name for the connection.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "connectionName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connectionSecretArn")
-    def connection_secret_arn(self) -> builtins.str:
-        '''The ARN for the secret created for the connection.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "connectionSecretArn"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IConnection).__jsii_proxy_class__ = lambda : _IConnectionProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IEventBus")
-class IEventBus(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface which all EventBus based classes MUST implement.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusArn")
-    def event_bus_arn(self) -> builtins.str:
-        '''The ARN of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusName")
-    def event_bus_name(self) -> builtins.str:
-        '''The physical ID of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusPolicy")
-    def event_bus_policy(self) -> builtins.str:
-        '''The JSON policy of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSourceName")
-    def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''The partner event source to associate with this event bus resource.
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
-        '''
-        ...
-
-    @jsii.member(jsii_name="archive")
-    def archive(
-        self,
-        id: builtins.str,
-        *,
-        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
-        archive_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-        retention: typing.Optional[_Duration_4839e8c3] = None,
-    ) -> Archive:
-        '''Create an EventBridge archive to send events to.
-
-        When you create an archive, incoming events might not immediately start being sent to the archive.
-        Allow a short period of time for changes to take effect.
-
-        :param id: -
-        :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param archive_name: The name of the archive. Default: - Automatically generated
-        :param description: A description for the archive. Default: - none
-        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
-        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantPutEventsTo")
-    def grant_put_events_to(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        sid: typing.Optional[builtins.str] = None,
-    ) -> _Grant_a7ae64f8:
-        '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
-
-        :param grantee: The principal (no-op if undefined).
-        :param sid: The Statement ID used if we need to add a trust policy on the event bus.
-        '''
-        ...
-
-
-class _IEventBusProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface which all EventBus based classes MUST implement.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IEventBus"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusArn")
-    def event_bus_arn(self) -> builtins.str:
-        '''The ARN of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Arn-fn::getatt
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "eventBusArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusName")
-    def event_bus_name(self) -> builtins.str:
-        '''The physical ID of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-name
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "eventBusName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="eventBusPolicy")
-    def event_bus_policy(self) -> builtins.str:
-        '''The JSON policy of this event bus resource.
-
-        :attribute: true
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#Policy-fn::getatt
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "eventBusPolicy"))
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSourceName")
-    def event_source_name(self) -> typing.Optional[builtins.str]:
-        '''The partner event source to associate with this event bus resource.
-
-        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-eventbus.html#cfn-events-eventbus-eventsourcename
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventSourceName"))
-
-    @jsii.member(jsii_name="archive")
-    def archive(
-        self,
-        id: builtins.str,
-        *,
-        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
-        archive_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-        retention: typing.Optional[_Duration_4839e8c3] = None,
-    ) -> Archive:
-        '''Create an EventBridge archive to send events to.
-
-        When you create an archive, incoming events might not immediately start being sent to the archive.
-        Allow a short period of time for changes to take effect.
-
-        :param id: -
-        :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param archive_name: The name of the archive. Default: - Automatically generated
-        :param description: A description for the archive. Default: - none
-        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
-        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = BaseArchiveProps(
-            event_pattern=event_pattern,
-            archive_name=archive_name,
-            description=description,
-            kms_key=kms_key,
-            retention=retention,
-        )
-
-        return typing.cast(Archive, jsii.invoke(self, "archive", [id, props]))
-
-    @jsii.member(jsii_name="grantPutEventsTo")
-    def grant_put_events_to(
-        self,
-        grantee: _IGrantable_71c4f5de,
-        sid: typing.Optional[builtins.str] = None,
-    ) -> _Grant_a7ae64f8:
-        '''Grants an IAM Principal to send custom events to the eventBus so that they can be matched to rules.
-
-        :param grantee: The principal (no-op if undefined).
-        :param sid: The Statement ID used if we need to add a trust policy on the event bus.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-            check_type(argname="argument sid", value=sid, expected_type=type_hints["sid"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantPutEventsTo", [grantee, sid]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventBus).__jsii_proxy_class__ = lambda : _IEventBusProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRule")
-class IRule(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Represents an EventBridge Rule.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleArn")
-    def rule_arn(self) -> builtins.str:
-        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleName")
-    def rule_name(self) -> builtins.str:
-        '''The name event rule.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IRuleProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Represents an EventBridge Rule.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IRule"
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleArn")
-    def rule_arn(self) -> builtins.str:
-        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "ruleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleName")
-    def rule_name(self) -> builtins.str:
-        '''The name event rule.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRule).__jsii_proxy_class__ = lambda : _IRuleProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_events.IRuleTarget")
-class IRuleTarget(typing_extensions.Protocol):
-    '''An abstract target for EventRules.'''
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        rule: IRule,
-        id: typing.Optional[builtins.str] = None,
-    ) -> "RuleTargetConfig":
-        '''Returns the rule target specification.
-
-        NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
-
-        :param rule: The EventBridge Rule that would trigger this target.
-        :param id: The id of the target that will be attached to the rule.
-        '''
-        ...
-
-
-class _IRuleTargetProxy:
-    '''An abstract target for EventRules.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events.IRuleTarget"
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        rule: IRule,
-        id: typing.Optional[builtins.str] = None,
-    ) -> "RuleTargetConfig":
-        '''Returns the rule target specification.
-
-        NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
-
-        :param rule: The EventBridge Rule that would trigger this target.
-        :param id: The id of the target that will be attached to the rule.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb)
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast("RuleTargetConfig", jsii.invoke(self, "bind", [rule, id]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRuleTarget).__jsii_proxy_class__ = lambda : _IRuleTargetProxy
-
-
-@jsii.implements(_IResolvable_da3f097b)
-class Match(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_events.Match"):
-    '''An event pattern matcher.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                detail={
-                    "object": {
-                        # Matchers may appear at any level
-                        "size": events.Match.greater_than(1024)
-                    },
-        
-                    # 'OR' condition
-                    "source-storage-class": events.Match.any_of(
-                        events.Match.prefix("GLACIER"),
-                        events.Match.exact_string("DEEP_ARCHIVE"))
-                },
-        
-                # If you prefer, you can use a low level array of strings, as directly consumed by EventBridge
-                source=["aws.s3"],
-        
-                region=events.Match.anything_but_prefix("us-gov")
-            )
-        )
-    '''
-
-    @jsii.member(jsii_name="allOf")
-    @builtins.classmethod
-    def all_of(cls, *matchers: typing.Any) -> typing.List[builtins.str]:
-        '''Matches an event if any of the provided matchers do.
-
-        Only numeric matchers are accepted.
-
-        :param matchers: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa)
-            check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "allOf", [*matchers]))
-
-    @jsii.member(jsii_name="anyOf")
-    @builtins.classmethod
-    def any_of(cls, *matchers: typing.Any) -> typing.List[builtins.str]:
-        '''Matches an event if any of the provided matchers does.
-
-        :param matchers: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae)
-            check_type(argname="argument matchers", value=matchers, expected_type=typing.Tuple[type_hints["matchers"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anyOf", [*matchers]))
-
-    @jsii.member(jsii_name="anythingBut")
-    @builtins.classmethod
-    def anything_but(cls, *values: typing.Any) -> typing.List[builtins.str]:
-        '''Matches anything except what's provided in the rule.
-
-        The list of provided values must contain
-        only strings or only numbers.
-
-        :param values: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6)
-            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingBut", [*values]))
-
-    @jsii.member(jsii_name="anythingButEqualsIgnoreCase")
-    @builtins.classmethod
-    def anything_but_equals_ignore_case(
-        cls,
-        *values: builtins.str,
-    ) -> typing.List[builtins.str]:
-        '''Matches any string that doesn't match with the given value regardless of character casing.
-
-        :param values: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7)
-            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButEqualsIgnoreCase", [*values]))
-
-    @jsii.member(jsii_name="anythingButPrefix")
-    @builtins.classmethod
-    def anything_but_prefix(cls, *values: builtins.str) -> typing.List[builtins.str]:
-        '''Matches any string that doesn't start with the given prefix.
-
-        :param values: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090)
-            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButPrefix", [*values]))
-
-    @jsii.member(jsii_name="anythingButSuffix")
-    @builtins.classmethod
-    def anything_but_suffix(cls, *values: builtins.str) -> typing.List[builtins.str]:
-        '''Matches any string that doesn't end with the given suffix.
-
-        :param values: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9)
-            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButSuffix", [*values]))
-
-    @jsii.member(jsii_name="anythingButWildcard")
-    @builtins.classmethod
-    def anything_but_wildcard(cls, *values: builtins.str) -> typing.List[builtins.str]:
-        '''Matches any string that doesn't match with the given wildcard pattern.
-
-        :param values: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01)
-            check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "anythingButWildcard", [*values]))
-
-    @jsii.member(jsii_name="cidr")
-    @builtins.classmethod
-    def cidr(cls, range: builtins.str) -> typing.List[builtins.str]:
-        '''Matches IPv4 and IPv6 network addresses using the Classless Inter-Domain Routing (CIDR) format.
-
-        :param range: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50)
-            check_type(argname="argument range", value=range, expected_type=type_hints["range"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "cidr", [range]))
-
-    @jsii.member(jsii_name="doesNotExist")
-    @builtins.classmethod
-    def does_not_exist(cls) -> typing.List[builtins.str]:
-        '''Matches when the field is absent from the JSON of the event.'''
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "doesNotExist", []))
-
-    @jsii.member(jsii_name="equal")
-    @builtins.classmethod
-    def equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
-        '''Matches numbers equal to the provided value.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equal", [value]))
-
-    @jsii.member(jsii_name="equalsIgnoreCase")
-    @builtins.classmethod
-    def equals_ignore_case(cls, value: builtins.str) -> typing.List[builtins.str]:
-        '''Matches a string, regardless of case, in the JSON of the event.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "equalsIgnoreCase", [value]))
-
-    @jsii.member(jsii_name="exactString")
-    @builtins.classmethod
-    def exact_string(cls, value: builtins.str) -> typing.List[builtins.str]:
-        '''Matches a string, exactly, in the JSON of the event.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "exactString", [value]))
-
-    @jsii.member(jsii_name="exists")
-    @builtins.classmethod
-    def exists(cls) -> typing.List[builtins.str]:
-        '''Matches when the field is present in the JSON of the event.'''
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "exists", []))
-
-    @jsii.member(jsii_name="greaterThan")
-    @builtins.classmethod
-    def greater_than(cls, value: jsii.Number) -> typing.List[builtins.str]:
-        '''Matches numbers greater than the provided value.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThan", [value]))
-
-    @jsii.member(jsii_name="greaterThanOrEqual")
-    @builtins.classmethod
-    def greater_than_or_equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
-        '''Matches numbers greater than, or equal to, the provided value.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "greaterThanOrEqual", [value]))
-
-    @jsii.member(jsii_name="interval")
-    @builtins.classmethod
-    def interval(
-        cls,
-        lower: jsii.Number,
-        upper: jsii.Number,
-    ) -> typing.List[builtins.str]:
-        '''Matches numbers inside a closed numeric interval. Equivalent to:.
-
-        Match.allOf(Match.greaterThanOrEqual(lower), Match.lessThanOrEqual(upper))
-
-        :param lower: Lower bound (inclusive).
-        :param upper: Upper bound (inclusive).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7)
-            check_type(argname="argument lower", value=lower, expected_type=type_hints["lower"])
-            check_type(argname="argument upper", value=upper, expected_type=type_hints["upper"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "interval", [lower, upper]))
-
-    @jsii.member(jsii_name="ipAddressRange")
-    @builtins.classmethod
-    def ip_address_range(cls, range: builtins.str) -> typing.List[builtins.str]:
-        '''Matches IPv4 and IPv6 network addresses using the Classless Inter-Domain Routing (CIDR) format.
-
-        Alias of ``cidr()``.
-
-        :param range: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc)
-            check_type(argname="argument range", value=range, expected_type=type_hints["range"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "ipAddressRange", [range]))
-
-    @jsii.member(jsii_name="lessThan")
-    @builtins.classmethod
-    def less_than(cls, value: jsii.Number) -> typing.List[builtins.str]:
-        '''Matches numbers less than the provided value.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThan", [value]))
-
-    @jsii.member(jsii_name="lessThanOrEqual")
-    @builtins.classmethod
-    def less_than_or_equal(cls, value: jsii.Number) -> typing.List[builtins.str]:
-        '''Matches numbers less than, or equal to, the provided value.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "lessThanOrEqual", [value]))
-
-    @jsii.member(jsii_name="nullValue")
-    @builtins.classmethod
-    def null_value(cls) -> typing.List[builtins.str]:
-        '''Matches a null value in the JSON of the event.'''
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "nullValue", []))
-
-    @jsii.member(jsii_name="prefix")
-    @builtins.classmethod
-    def prefix(cls, value: builtins.str) -> typing.List[builtins.str]:
-        '''Matches strings with the given prefix in the JSON of the event.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefix", [value]))
-
-    @jsii.member(jsii_name="prefixEqualsIgnoreCase")
-    @builtins.classmethod
-    def prefix_equals_ignore_case(
-        cls,
-        value: builtins.str,
-    ) -> typing.List[builtins.str]:
-        '''Matches strings with the given prefix in the JSON of the event regardless of the casing.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "prefixEqualsIgnoreCase", [value]))
-
-    @jsii.member(jsii_name="suffix")
-    @builtins.classmethod
-    def suffix(cls, value: builtins.str) -> typing.List[builtins.str]:
-        '''Matches strings with the given suffix in the JSON of the event.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffix", [value]))
-
-    @jsii.member(jsii_name="suffixEqualsIgnoreCase")
-    @builtins.classmethod
-    def suffix_equals_ignore_case(
-        cls,
-        value: builtins.str,
-    ) -> typing.List[builtins.str]:
-        '''Matches strings with the given suffix in the JSON of the event regardless of the casing.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "suffixEqualsIgnoreCase", [value]))
-
-    @jsii.member(jsii_name="wildcard")
-    @builtins.classmethod
-    def wildcard(cls, value: builtins.str) -> typing.List[builtins.str]:
-        '''Matches strings with the given wildcard pattern in the JSON of the event.
-
-        :param value: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "wildcard", [value]))
-
-    @jsii.member(jsii_name="asList")
-    def as_list(self) -> typing.List[builtins.str]:
-        '''A representation of this matcher as a list of strings.'''
-        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "asList", []))
-
-    @jsii.member(jsii_name="resolve")
-    def resolve(self, context: _IResolveContext_b2df1921) -> typing.Any:
-        '''Produce the Token's value at resolution time.
-
-        :param context: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840)
-            check_type(argname="argument context", value=context, expected_type=type_hints["context"])
-        return typing.cast(typing.Any, jsii.invoke(self, "resolve", [context]))
-
-    @jsii.member(jsii_name="toString")
-    def to_string(self) -> builtins.str:
-        '''Return a string representation of this resolvable object.
-
-        Returns a reversible string representation.
-        '''
-        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
-
-    @builtins.property
-    @jsii.member(jsii_name="creationStack")
-    def creation_stack(self) -> typing.List[builtins.str]:
-        '''The creation stack of this resolvable which will be appended to errors thrown during resolution.
-
-        This may return an array with a single informational element indicating how
-        to get this property populated, if it was skipped for performance reasons.
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "creationStack"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.OAuthAuthorizationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "authorization_endpoint": "authorizationEndpoint",
-        "client_id": "clientId",
-        "client_secret": "clientSecret",
-        "http_method": "httpMethod",
-        "body_parameters": "bodyParameters",
-        "header_parameters": "headerParameters",
-        "query_string_parameters": "queryStringParameters",
-    },
-)
-class OAuthAuthorizationProps:
-    def __init__(
-        self,
-        *,
-        authorization_endpoint: builtins.str,
-        client_id: builtins.str,
-        client_secret: _SecretValue_3dd0ddae,
-        http_method: HttpMethod,
-        body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-        header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-        query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-    ) -> None:
-        '''Properties for ``Authorization.oauth()``.
-
-        :param authorization_endpoint: The URL to the authorization endpoint.
-        :param client_id: The client ID to use for OAuth authorization for the connection.
-        :param client_secret: The client secret associated with the client ID to use for OAuth authorization for the connection.
-        :param http_method: The method to use for the authorization request. (Can only choose POST, GET or PUT).
-        :param body_parameters: Additional string parameters to add to the OAuth request body. Default: - No additional parameters
-        :param header_parameters: Additional string parameters to add to the OAuth request header. Default: - No additional parameters
-        :param query_string_parameters: Additional string parameters to add to the OAuth request query string. Default: - No additional parameters
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_events as events
-            
-            # http_parameter: events.HttpParameter
-            # secret_value: cdk.SecretValue
-            
-            o_auth_authorization_props = events.OAuthAuthorizationProps(
-                authorization_endpoint="authorizationEndpoint",
-                client_id="clientId",
-                client_secret=secret_value,
-                http_method=events.HttpMethod.POST,
-            
-                # the properties below are optional
-                body_parameters={
-                    "body_parameters_key": http_parameter
-                },
-                header_parameters={
-                    "header_parameters_key": http_parameter
-                },
-                query_string_parameters={
-                    "query_string_parameters_key": http_parameter
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4)
-            check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
-            check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
-            check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
-            check_type(argname="argument http_method", value=http_method, expected_type=type_hints["http_method"])
-            check_type(argname="argument body_parameters", value=body_parameters, expected_type=type_hints["body_parameters"])
-            check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
-            check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "authorization_endpoint": authorization_endpoint,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "http_method": http_method,
-        }
-        if body_parameters is not None:
-            self._values["body_parameters"] = body_parameters
-        if header_parameters is not None:
-            self._values["header_parameters"] = header_parameters
-        if query_string_parameters is not None:
-            self._values["query_string_parameters"] = query_string_parameters
-
-    @builtins.property
-    def authorization_endpoint(self) -> builtins.str:
-        '''The URL to the authorization endpoint.'''
-        result = self._values.get("authorization_endpoint")
-        assert result is not None, "Required property 'authorization_endpoint' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_id(self) -> builtins.str:
-        '''The client ID to use for OAuth authorization for the connection.'''
-        result = self._values.get("client_id")
-        assert result is not None, "Required property 'client_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_secret(self) -> _SecretValue_3dd0ddae:
-        '''The client secret associated with the client ID to use for OAuth authorization for the connection.'''
-        result = self._values.get("client_secret")
-        assert result is not None, "Required property 'client_secret' is missing"
-        return typing.cast(_SecretValue_3dd0ddae, result)
-
-    @builtins.property
-    def http_method(self) -> HttpMethod:
-        '''The method to use for the authorization request.
-
-        (Can only choose POST, GET or PUT).
-        '''
-        result = self._values.get("http_method")
-        assert result is not None, "Required property 'http_method' is missing"
-        return typing.cast(HttpMethod, result)
-
-    @builtins.property
-    def body_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
-        '''Additional string parameters to add to the OAuth request body.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("body_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
-
-    @builtins.property
-    def header_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
-        '''Additional string parameters to add to the OAuth request header.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("header_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
-
-    @builtins.property
-    def query_string_parameters(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, HttpParameter]]:
-        '''Additional string parameters to add to the OAuth request query string.
-
-        :default: - No additional parameters
-        '''
-        result = self._values.get("query_string_parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, HttpParameter]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OAuthAuthorizationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.OnEventOptions",
-    jsii_struct_bases=[EventCommonOptions],
-    name_mapping={
-        "cross_stack_scope": "crossStackScope",
-        "description": "description",
-        "event_pattern": "eventPattern",
-        "rule_name": "ruleName",
-        "target": "target",
-    },
-)
-class OnEventOptions(EventCommonOptions):
-    def __init__(
-        self,
-        *,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-        target: typing.Optional[IRuleTarget] = None,
-    ) -> None:
-        '''Standard set of options for ``onXxx`` event handlers on construct.
-
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # Lambda function containing logic that evaluates compliance with the rule.
-            eval_compliance_fn = lambda_.Function(self, "CustomFunction",
-                code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
-                handler="index.handler",
-                runtime=lambda_.Runtime.NODEJS_18_X
-            )
-            
-            # A custom rule that runs on configuration changes of EC2 instances
-            custom_rule = config.CustomRule(self, "Custom",
-                configuration_changes=True,
-                lambda_function=eval_compliance_fn,
-                rule_scope=config.RuleScope.from_resource(config.ResourceType.EC2_INSTANCE)
-            )
-            
-            # A rule to detect stack drifts
-            drift_rule = config.CloudFormationStackDriftDetectionCheck(self, "Drift")
-            
-            # Topic to which compliance notification events will be published
-            compliance_topic = sns.Topic(self, "ComplianceTopic")
-            
-            # Send notification on compliance change events
-            drift_rule.on_compliance_change("ComplianceChange",
-                target=targets.SnsTopic(compliance_topic)
-            )
-        '''
-        if isinstance(event_pattern, dict):
-            event_pattern = EventPattern(**event_pattern)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24)
-            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cross_stack_scope is not None:
-            self._values["cross_stack_scope"] = cross_stack_scope
-        if description is not None:
-            self._values["description"] = description
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-        if target is not None:
-            self._values["target"] = target
-
-    @builtins.property
-    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
-        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
-
-        This helps dealing with cycles that often arise in these situations.
-
-        :default: - none (the main scope will be used, even for cross-stack Events)
-        '''
-        result = self._values.get("cross_stack_scope")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the rule's purpose.
-
-        :default: - No description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Optional[EventPattern]:
-        '''Additional restrictions for the event to route to the specified target.
-
-        The method that generates the rule probably imposes some type of event
-        filtering. The filtering implied by what you pass here is added
-        on top of that filtering.
-
-        :default: - No additional filtering based on an event pattern.
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional[EventPattern], result)
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the rule.
-
-        :default: AWS CloudFormation generates a unique physical ID.
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def target(self) -> typing.Optional[IRuleTarget]:
-        '''The target to register for the event.
-
-        :default: - No target is added to the rule. Use ``addTarget()`` to add a target.
-        '''
-        result = self._values.get("target")
-        return typing.cast(typing.Optional[IRuleTarget], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OnEventOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(IRule)
-class Rule(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.Rule",
-):
-    '''Defines an EventBridge Rule in this stack.
-
-    :resource: AWS::Events::Rule
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_lambda as lambda_
-        
-        
-        fn = lambda_.Function(self, "MyFunc",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
-        )
-        
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                source=["aws.ec2"]
-            )
-        )
-        
-        queue = sqs.Queue(self, "Queue")
-        
-        rule.add_target(targets.LambdaFunction(fn,
-            dead_letter_queue=queue,  # Optional: add a dead letter queue
-            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-            retry_attempts=2
-        ))
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[IEventBus] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        schedule: typing.Optional["Schedule"] = None,
-        targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param enabled: Indicates whether the rule is enabled. Default: true
-        :param event_bus: The event bus to associate with this rule. Default: - The default event bus.
-        :param role: The role that is used for target invocation. Must be assumable by principal ``events.amazonaws.com``. Default: - No role associated
-        :param schedule: The schedule or rate (frequency) that determines when EventBridge runs the rule. You must specify this property, the ``eventPattern`` property, or both. For more information, see Schedule Expression Syntax for Rules in the Amazon EventBridge User Guide. Default: - None.
-        :param targets: Targets to invoke when this rule matches an event. Input will be the full matched event. If you wish to specify custom target input, use ``addTarget(target[, inputOptions])``. Default: - No targets.
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = RuleProps(
-            enabled=enabled,
-            event_bus=event_bus,
-            role=role,
-            schedule=schedule,
-            targets=targets,
-            cross_stack_scope=cross_stack_scope,
-            description=description,
-            event_pattern=event_pattern,
-            rule_name=rule_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromEventRuleArn")
-    @builtins.classmethod
-    def from_event_rule_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        event_rule_arn: builtins.str,
-    ) -> IRule:
-        '''Import an existing EventBridge Rule provided an ARN.
-
-        :param scope: The parent creating construct (usually ``this``).
-        :param id: The construct's name.
-        :param event_rule_arn: Event Rule ARN (i.e. arn:aws:events:::rule/MyScheduledRule).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument event_rule_arn", value=event_rule_arn, expected_type=type_hints["event_rule_arn"])
-        return typing.cast(IRule, jsii.sinvoke(cls, "fromEventRuleArn", [scope, id, event_rule_arn]))
-
-    @jsii.member(jsii_name="addEventPattern")
-    def add_event_pattern(
-        self,
-        *,
-        account: typing.Optional[typing.Sequence[builtins.str]] = None,
-        detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
-        id: typing.Optional[typing.Sequence[builtins.str]] = None,
-        region: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        time: typing.Optional[typing.Sequence[builtins.str]] = None,
-        version: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Adds an event pattern filter to this rule.
-
-        If a pattern was already specified,
-        these values are merged into the existing pattern.
-
-        For example, if the rule already contains the pattern:
-
-        {
-        "resources": [ "r1" ],
-        "detail": {
-        "hello": [ 1 ]
-        }
-        }
-
-        And ``addEventPattern`` is called with the pattern:
-
-        {
-        "resources": [ "r2" ],
-        "detail": {
-        "foo": [ "bar" ]
-        }
-        }
-
-        The resulting event pattern will be:
-
-        {
-        "resources": [ "r1", "r2" ],
-        "detail": {
-        "hello": [ 1 ],
-        "foo": [ "bar" ]
-        }
-        }
-
-        :param account: The 12-digit number identifying an AWS account. Default: - No filtering on account
-        :param detail: A JSON object, whose content is at the discretion of the service originating the event. Default: - No filtering on detail
-        :param detail_type: Identifies, in combination with the source field, the fields and values that appear in the detail field. Represents the "detail-type" event field. Default: - No filtering on detail type
-        :param id: A unique value is generated for every event. This can be helpful in tracing events as they move through rules to targets, and are processed. Default: - No filtering on id
-        :param region: Identifies the AWS region where the event originated. Default: - No filtering on region
-        :param resources: This JSON array contains ARNs that identify resources that are involved in the event. Inclusion of these ARNs is at the discretion of the service. For example, Amazon EC2 instance state-changes include Amazon EC2 instance ARNs, Auto Scaling events include ARNs for both instances and Auto Scaling groups, but API calls with AWS CloudTrail do not include resource ARNs. Default: - No filtering on resource
-        :param source: Identifies the service that sourced the event. All events sourced from within AWS begin with "aws." Customer-generated events can have any value here, as long as it doesn't begin with "aws." We recommend the use of Java package-name style reverse domain-name strings. To find the correct value for source for an AWS service, see the table in AWS Service Namespaces. For example, the source value for Amazon CloudFront is aws.cloudfront. Default: - No filtering on source
-        :param time: The event timestamp, which can be specified by the service originating the event. If the event spans a time interval, the service might choose to report the start time, so this value can be noticeably before the time the event is actually received. Default: - No filtering on time
-        :param version: By default, this is set to 0 (zero) in all events. Default: - No filtering on version
-        '''
-        event_pattern = EventPattern(
-            account=account,
-            detail=detail,
-            detail_type=detail_type,
-            id=id,
-            region=region,
-            resources=resources,
-            source=source,
-            time=time,
-            version=version,
-        )
-
-        return typing.cast(None, jsii.invoke(self, "addEventPattern", [event_pattern]))
-
-    @jsii.member(jsii_name="addTarget")
-    def add_target(self, target: typing.Optional[IRuleTarget] = None) -> None:
-        '''Adds a target to the rule. The abstract class RuleTarget can be extended to define new targets.
-
-        No-op if target is undefined.
-
-        :param target: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3)
-            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
-        return typing.cast(None, jsii.invoke(self, "addTarget", [target]))
-
-    @jsii.member(jsii_name="validateRule")
-    def _validate_rule(self) -> typing.List[builtins.str]:
-        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateRule", []))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleArn")
-    def rule_arn(self) -> builtins.str:
-        '''The value of the event rule Amazon Resource Name (ARN), such as arn:aws:events:us-east-2:123456789012:rule/example.'''
-        return typing.cast(builtins.str, jsii.get(self, "ruleArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleName")
-    def rule_name(self) -> builtins.str:
-        '''The name event rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "ruleName"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.RuleProps",
-    jsii_struct_bases=[EventCommonOptions],
-    name_mapping={
-        "cross_stack_scope": "crossStackScope",
-        "description": "description",
-        "event_pattern": "eventPattern",
-        "rule_name": "ruleName",
-        "enabled": "enabled",
-        "event_bus": "eventBus",
-        "role": "role",
-        "schedule": "schedule",
-        "targets": "targets",
-    },
-)
-class RuleProps(EventCommonOptions):
-    def __init__(
-        self,
-        *,
-        cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-        description: typing.Optional[builtins.str] = None,
-        event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-        rule_name: typing.Optional[builtins.str] = None,
-        enabled: typing.Optional[builtins.bool] = None,
-        event_bus: typing.Optional[IEventBus] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        schedule: typing.Optional["Schedule"] = None,
-        targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
-    ) -> None:
-        '''Properties for defining an EventBridge Rule.
-
-        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
-        :param description: A description of the rule's purpose. Default: - No description
-        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
-        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
-        :param enabled: Indicates whether the rule is enabled. Default: true
-        :param event_bus: The event bus to associate with this rule. Default: - The default event bus.
-        :param role: The role that is used for target invocation. Must be assumable by principal ``events.amazonaws.com``. Default: - No role associated
-        :param schedule: The schedule or rate (frequency) that determines when EventBridge runs the rule. You must specify this property, the ``eventPattern`` property, or both. For more information, see Schedule Expression Syntax for Rules in the Amazon EventBridge User Guide. Default: - None.
-        :param targets: Targets to invoke when this rule matches an event. Input will be the full matched event. If you wish to specify custom target input, use ``addTarget(target[, inputOptions])``. Default: - No targets.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_redshiftserverless as redshiftserverless
-            
-            # workgroup: redshiftserverless.CfnWorkgroup
-            
-            
-            rule = events.Rule(self, "Rule",
-                schedule=events.Schedule.rate(cdk.Duration.hours(1))
-            )
-            
-            dlq = sqs.Queue(self, "DeadLetterQueue")
-            
-            rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
-                database="dev",
-                dead_letter_queue=dlq,
-                sql=["SELECT * FROM foo", "SELECT * FROM baz"]
-            ))
-        '''
-        if isinstance(event_pattern, dict):
-            event_pattern = EventPattern(**event_pattern)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830)
-            check_type(argname="argument cross_stack_scope", value=cross_stack_scope, expected_type=type_hints["cross_stack_scope"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if cross_stack_scope is not None:
-            self._values["cross_stack_scope"] = cross_stack_scope
-        if description is not None:
-            self._values["description"] = description
-        if event_pattern is not None:
-            self._values["event_pattern"] = event_pattern
-        if rule_name is not None:
-            self._values["rule_name"] = rule_name
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if event_bus is not None:
-            self._values["event_bus"] = event_bus
-        if role is not None:
-            self._values["role"] = role
-        if schedule is not None:
-            self._values["schedule"] = schedule
-        if targets is not None:
-            self._values["targets"] = targets
-
-    @builtins.property
-    def cross_stack_scope(self) -> typing.Optional[_constructs_77d1e7e8.Construct]:
-        '''The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region).
-
-        This helps dealing with cycles that often arise in these situations.
-
-        :default: - none (the main scope will be used, even for cross-stack Events)
-        '''
-        result = self._values.get("cross_stack_scope")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.Construct], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the rule's purpose.
-
-        :default: - No description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_pattern(self) -> typing.Optional[EventPattern]:
-        '''Additional restrictions for the event to route to the specified target.
-
-        The method that generates the rule probably imposes some type of event
-        filtering. The filtering implied by what you pass here is added
-        on top of that filtering.
-
-        :default: - No additional filtering based on an event pattern.
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-and-event-patterns.html
-        '''
-        result = self._values.get("event_pattern")
-        return typing.cast(typing.Optional[EventPattern], result)
-
-    @builtins.property
-    def rule_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the rule.
-
-        :default: AWS CloudFormation generates a unique physical ID.
-        '''
-        result = self._values.get("rule_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enabled(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the rule is enabled.
-
-        :default: true
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def event_bus(self) -> typing.Optional[IEventBus]:
-        '''The event bus to associate with this rule.
-
-        :default: - The default event bus.
-        '''
-        result = self._values.get("event_bus")
-        return typing.cast(typing.Optional[IEventBus], result)
-
-    @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
-        '''The role that is used for target invocation.
-
-        Must be assumable by principal ``events.amazonaws.com``.
-
-        :default: - No role associated
-        '''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
-
-    @builtins.property
-    def schedule(self) -> typing.Optional["Schedule"]:
-        '''The schedule or rate (frequency) that determines when EventBridge runs the rule.
-
-        You must specify this property, the ``eventPattern`` property, or both.
-
-        For more information, see Schedule Expression Syntax for
-        Rules in the Amazon EventBridge User Guide.
-
-        :default: - None.
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html
-        '''
-        result = self._values.get("schedule")
-        return typing.cast(typing.Optional["Schedule"], result)
-
-    @builtins.property
-    def targets(self) -> typing.Optional[typing.List[IRuleTarget]]:
-        '''Targets to invoke when this rule matches an event.
-
-        Input will be the full matched event. If you wish to specify custom
-        target input, use ``addTarget(target[, inputOptions])``.
-
-        :default: - No targets.
-        '''
-        result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.List[IRuleTarget]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.RuleTargetConfig",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arn": "arn",
-        "app_sync_parameters": "appSyncParameters",
-        "batch_parameters": "batchParameters",
-        "dead_letter_config": "deadLetterConfig",
-        "ecs_parameters": "ecsParameters",
-        "http_parameters": "httpParameters",
-        "input": "input",
-        "kinesis_parameters": "kinesisParameters",
-        "redshift_data_parameters": "redshiftDataParameters",
-        "retry_policy": "retryPolicy",
-        "role": "role",
-        "run_command_parameters": "runCommandParameters",
-        "sqs_parameters": "sqsParameters",
-        "target_resource": "targetResource",
-    },
-)
-class RuleTargetConfig:
-    def __init__(
-        self,
-        *,
-        arn: builtins.str,
-        app_sync_parameters: typing.Optional[typing.Union[CfnRule.AppSyncParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        batch_parameters: typing.Optional[typing.Union[CfnRule.BatchParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_config: typing.Optional[typing.Union[CfnRule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        ecs_parameters: typing.Optional[typing.Union[CfnRule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        http_parameters: typing.Optional[typing.Union[CfnRule.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        input: typing.Optional["RuleTargetInput"] = None,
-        kinesis_parameters: typing.Optional[typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        redshift_data_parameters: typing.Optional[typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        retry_policy: typing.Optional[typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        run_command_parameters: typing.Optional[typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        sqs_parameters: typing.Optional[typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-        target_resource: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
-    ) -> None:
-        '''Properties for an event rule target.
-
-        :param arn: The Amazon Resource Name (ARN) of the target.
-        :param app_sync_parameters: Contains the GraphQL operation to be parsed and executed, if the event target is an AWS AppSync API. Default: - None
-        :param batch_parameters: Parameters used when the rule invokes Amazon AWS Batch Job/Queue. Default: no parameters set
-        :param dead_letter_config: Contains information about a dead-letter queue configuration. Default: no dead-letter queue set
-        :param ecs_parameters: The Amazon ECS task definition and task count to use, if the event target is an Amazon ECS task.
-        :param http_parameters: Contains the HTTP parameters to use when the target is a API Gateway REST endpoint or EventBridge API destination. Default: - None
-        :param input: What input to send to the event target. Default: the entire event
-        :param kinesis_parameters: Settings that control shard assignment, when the target is a Kinesis stream. If you don't include this parameter, eventId is used as the partition key.
-        :param redshift_data_parameters: Parameters used when the rule invokes Amazon Redshift Queries. Default: - no parameters set
-        :param retry_policy: A RetryPolicy object that includes information about the retry policy settings. Default: EventBridge default retry policy
-        :param role: Role to use to invoke this event target.
-        :param run_command_parameters: Parameters used when the rule invokes Amazon EC2 Systems Manager Run Command.
-        :param sqs_parameters: Parameters used when the FIFO sqs queue is used an event target by the rule.
-        :param target_resource: The resource that is backing this target. This is the resource that will actually have some action performed on it when used as a target (for example, start a build for a CodeBuild project). We need it to determine whether the rule belongs to a different account than the target - if so, we generate a more complex setup, including an additional stack containing the EventBusPolicy. Default: the target is not backed by any resource
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            from aws_cdk import aws_iam as iam
-            import constructs as constructs
-            
-            # construct: constructs.Construct
-            # role: iam.Role
-            # rule_target_input: events.RuleTargetInput
-            
-            rule_target_config = events.RuleTargetConfig(
-                arn="arn",
-            
-                # the properties below are optional
-                app_sync_parameters=events.CfnRule.AppSyncParametersProperty(
-                    graph_ql_operation="graphQlOperation"
-                ),
-                batch_parameters=events.CfnRule.BatchParametersProperty(
-                    job_definition="jobDefinition",
-                    job_name="jobName",
-            
-                    # the properties below are optional
-                    array_properties=events.CfnRule.BatchArrayPropertiesProperty(
-                        size=123
-                    ),
-                    retry_strategy=events.CfnRule.BatchRetryStrategyProperty(
-                        attempts=123
-                    )
-                ),
-                dead_letter_config=events.CfnRule.DeadLetterConfigProperty(
-                    arn="arn"
-                ),
-                ecs_parameters=events.CfnRule.EcsParametersProperty(
-                    task_definition_arn="taskDefinitionArn",
-            
-                    # the properties below are optional
-                    capacity_provider_strategy=[events.CfnRule.CapacityProviderStrategyItemProperty(
-                        capacity_provider="capacityProvider",
-            
-                        # the properties below are optional
-                        base=123,
-                        weight=123
-                    )],
-                    enable_ecs_managed_tags=False,
-                    enable_execute_command=False,
-                    group="group",
-                    launch_type="launchType",
-                    network_configuration=events.CfnRule.NetworkConfigurationProperty(
-                        aws_vpc_configuration=events.CfnRule.AwsVpcConfigurationProperty(
-                            subnets=["subnets"],
-            
-                            # the properties below are optional
-                            assign_public_ip="assignPublicIp",
-                            security_groups=["securityGroups"]
-                        )
-                    ),
-                    placement_constraints=[events.CfnRule.PlacementConstraintProperty(
-                        expression="expression",
-                        type="type"
-                    )],
-                    placement_strategies=[events.CfnRule.PlacementStrategyProperty(
-                        field="field",
-                        type="type"
-                    )],
-                    platform_version="platformVersion",
-                    propagate_tags="propagateTags",
-                    reference_id="referenceId",
-                    tag_list=[CfnTag(
-                        key="key",
-                        value="value"
-                    )],
-                    task_count=123
-                ),
-                http_parameters=events.CfnRule.HttpParametersProperty(
-                    header_parameters={
-                        "header_parameters_key": "headerParameters"
-                    },
-                    path_parameter_values=["pathParameterValues"],
-                    query_string_parameters={
-                        "query_string_parameters_key": "queryStringParameters"
-                    }
-                ),
-                input=rule_target_input,
-                kinesis_parameters=events.CfnRule.KinesisParametersProperty(
-                    partition_key_path="partitionKeyPath"
-                ),
-                redshift_data_parameters=events.CfnRule.RedshiftDataParametersProperty(
-                    database="database",
-            
-                    # the properties below are optional
-                    db_user="dbUser",
-                    secret_manager_arn="secretManagerArn",
-                    sql="sql",
-                    sqls=["sqls"],
-                    statement_name="statementName",
-                    with_event=False
-                ),
-                retry_policy=events.CfnRule.RetryPolicyProperty(
-                    maximum_event_age_in_seconds=123,
-                    maximum_retry_attempts=123
-                ),
-                role=role,
-                run_command_parameters=events.CfnRule.RunCommandParametersProperty(
-                    run_command_targets=[events.CfnRule.RunCommandTargetProperty(
-                        key="key",
-                        values=["values"]
-                    )]
-                ),
-                sqs_parameters=events.CfnRule.SqsParametersProperty(
-                    message_group_id="messageGroupId"
-                ),
-                target_resource=construct
-            )
-        '''
-        if isinstance(app_sync_parameters, dict):
-            app_sync_parameters = CfnRule.AppSyncParametersProperty(**app_sync_parameters)
-        if isinstance(batch_parameters, dict):
-            batch_parameters = CfnRule.BatchParametersProperty(**batch_parameters)
-        if isinstance(dead_letter_config, dict):
-            dead_letter_config = CfnRule.DeadLetterConfigProperty(**dead_letter_config)
-        if isinstance(ecs_parameters, dict):
-            ecs_parameters = CfnRule.EcsParametersProperty(**ecs_parameters)
-        if isinstance(http_parameters, dict):
-            http_parameters = CfnRule.HttpParametersProperty(**http_parameters)
-        if isinstance(kinesis_parameters, dict):
-            kinesis_parameters = CfnRule.KinesisParametersProperty(**kinesis_parameters)
-        if isinstance(redshift_data_parameters, dict):
-            redshift_data_parameters = CfnRule.RedshiftDataParametersProperty(**redshift_data_parameters)
-        if isinstance(retry_policy, dict):
-            retry_policy = CfnRule.RetryPolicyProperty(**retry_policy)
-        if isinstance(run_command_parameters, dict):
-            run_command_parameters = CfnRule.RunCommandParametersProperty(**run_command_parameters)
-        if isinstance(sqs_parameters, dict):
-            sqs_parameters = CfnRule.SqsParametersProperty(**sqs_parameters)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab)
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-            check_type(argname="argument app_sync_parameters", value=app_sync_parameters, expected_type=type_hints["app_sync_parameters"])
-            check_type(argname="argument batch_parameters", value=batch_parameters, expected_type=type_hints["batch_parameters"])
-            check_type(argname="argument dead_letter_config", value=dead_letter_config, expected_type=type_hints["dead_letter_config"])
-            check_type(argname="argument ecs_parameters", value=ecs_parameters, expected_type=type_hints["ecs_parameters"])
-            check_type(argname="argument http_parameters", value=http_parameters, expected_type=type_hints["http_parameters"])
-            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
-            check_type(argname="argument kinesis_parameters", value=kinesis_parameters, expected_type=type_hints["kinesis_parameters"])
-            check_type(argname="argument redshift_data_parameters", value=redshift_data_parameters, expected_type=type_hints["redshift_data_parameters"])
-            check_type(argname="argument retry_policy", value=retry_policy, expected_type=type_hints["retry_policy"])
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-            check_type(argname="argument run_command_parameters", value=run_command_parameters, expected_type=type_hints["run_command_parameters"])
-            check_type(argname="argument sqs_parameters", value=sqs_parameters, expected_type=type_hints["sqs_parameters"])
-            check_type(argname="argument target_resource", value=target_resource, expected_type=type_hints["target_resource"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "arn": arn,
-        }
-        if app_sync_parameters is not None:
-            self._values["app_sync_parameters"] = app_sync_parameters
-        if batch_parameters is not None:
-            self._values["batch_parameters"] = batch_parameters
-        if dead_letter_config is not None:
-            self._values["dead_letter_config"] = dead_letter_config
-        if ecs_parameters is not None:
-            self._values["ecs_parameters"] = ecs_parameters
-        if http_parameters is not None:
-            self._values["http_parameters"] = http_parameters
-        if input is not None:
-            self._values["input"] = input
-        if kinesis_parameters is not None:
-            self._values["kinesis_parameters"] = kinesis_parameters
-        if redshift_data_parameters is not None:
-            self._values["redshift_data_parameters"] = redshift_data_parameters
-        if retry_policy is not None:
-            self._values["retry_policy"] = retry_policy
-        if role is not None:
-            self._values["role"] = role
-        if run_command_parameters is not None:
-            self._values["run_command_parameters"] = run_command_parameters
-        if sqs_parameters is not None:
-            self._values["sqs_parameters"] = sqs_parameters
-        if target_resource is not None:
-            self._values["target_resource"] = target_resource
-
-    @builtins.property
-    def arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the target.'''
-        result = self._values.get("arn")
-        assert result is not None, "Required property 'arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def app_sync_parameters(self) -> typing.Optional[CfnRule.AppSyncParametersProperty]:
-        '''Contains the GraphQL operation to be parsed and executed, if the event target is an AWS AppSync API.
-
-        :default: - None
-        '''
-        result = self._values.get("app_sync_parameters")
-        return typing.cast(typing.Optional[CfnRule.AppSyncParametersProperty], result)
-
-    @builtins.property
-    def batch_parameters(self) -> typing.Optional[CfnRule.BatchParametersProperty]:
-        '''Parameters used when the rule invokes Amazon AWS Batch Job/Queue.
-
-        :default: no parameters set
-        '''
-        result = self._values.get("batch_parameters")
-        return typing.cast(typing.Optional[CfnRule.BatchParametersProperty], result)
-
-    @builtins.property
-    def dead_letter_config(self) -> typing.Optional[CfnRule.DeadLetterConfigProperty]:
-        '''Contains information about a dead-letter queue configuration.
-
-        :default: no dead-letter queue set
-        '''
-        result = self._values.get("dead_letter_config")
-        return typing.cast(typing.Optional[CfnRule.DeadLetterConfigProperty], result)
-
-    @builtins.property
-    def ecs_parameters(self) -> typing.Optional[CfnRule.EcsParametersProperty]:
-        '''The Amazon ECS task definition and task count to use, if the event target is an Amazon ECS task.'''
-        result = self._values.get("ecs_parameters")
-        return typing.cast(typing.Optional[CfnRule.EcsParametersProperty], result)
-
-    @builtins.property
-    def http_parameters(self) -> typing.Optional[CfnRule.HttpParametersProperty]:
-        '''Contains the HTTP parameters to use when the target is a API Gateway REST endpoint or EventBridge API destination.
-
-        :default: - None
-        '''
-        result = self._values.get("http_parameters")
-        return typing.cast(typing.Optional[CfnRule.HttpParametersProperty], result)
-
-    @builtins.property
-    def input(self) -> typing.Optional["RuleTargetInput"]:
-        '''What input to send to the event target.
-
-        :default: the entire event
-        '''
-        result = self._values.get("input")
-        return typing.cast(typing.Optional["RuleTargetInput"], result)
-
-    @builtins.property
-    def kinesis_parameters(self) -> typing.Optional[CfnRule.KinesisParametersProperty]:
-        '''Settings that control shard assignment, when the target is a Kinesis stream.
-
-        If you don't include this parameter, eventId is used as the
-        partition key.
-        '''
-        result = self._values.get("kinesis_parameters")
-        return typing.cast(typing.Optional[CfnRule.KinesisParametersProperty], result)
-
-    @builtins.property
-    def redshift_data_parameters(
-        self,
-    ) -> typing.Optional[CfnRule.RedshiftDataParametersProperty]:
-        '''Parameters used when the rule invokes Amazon Redshift Queries.
-
-        :default: - no parameters set
-        '''
-        result = self._values.get("redshift_data_parameters")
-        return typing.cast(typing.Optional[CfnRule.RedshiftDataParametersProperty], result)
-
-    @builtins.property
-    def retry_policy(self) -> typing.Optional[CfnRule.RetryPolicyProperty]:
-        '''A RetryPolicy object that includes information about the retry policy settings.
-
-        :default: EventBridge default retry policy
-        '''
-        result = self._values.get("retry_policy")
-        return typing.cast(typing.Optional[CfnRule.RetryPolicyProperty], result)
-
-    @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
-        '''Role to use to invoke this event target.'''
-        result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
-
-    @builtins.property
-    def run_command_parameters(
-        self,
-    ) -> typing.Optional[CfnRule.RunCommandParametersProperty]:
-        '''Parameters used when the rule invokes Amazon EC2 Systems Manager Run Command.'''
-        result = self._values.get("run_command_parameters")
-        return typing.cast(typing.Optional[CfnRule.RunCommandParametersProperty], result)
-
-    @builtins.property
-    def sqs_parameters(self) -> typing.Optional[CfnRule.SqsParametersProperty]:
-        '''Parameters used when the FIFO sqs queue is used an event target by the rule.'''
-        result = self._values.get("sqs_parameters")
-        return typing.cast(typing.Optional[CfnRule.SqsParametersProperty], result)
-
-    @builtins.property
-    def target_resource(self) -> typing.Optional[_constructs_77d1e7e8.IConstruct]:
-        '''The resource that is backing this target.
-
-        This is the resource that will actually have some action performed on it when used as a target
-        (for example, start a build for a CodeBuild project).
-        We need it to determine whether the rule belongs to a different account than the target -
-        if so, we generate a more complex setup,
-        including an additional stack containing the EventBusPolicy.
-
-        :default: the target is not backed by any resource
-
-        :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eventbridge-cross-account-event-delivery.html
-        '''
-        result = self._values.get("target_resource")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.IConstruct], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleTargetConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class RuleTargetInput(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_events.RuleTargetInput",
-):
-    '''The input to send to the event target.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_appsync as appsync
-        
-        
-        api = appsync.GraphqlApi(self, "api",
-            name="api",
-            definition=appsync.Definition.from_file("schema.graphql"),
-            authorization_config=appsync.AuthorizationConfig(
-                default_authorization=appsync.AuthorizationMode(authorization_type=appsync.AuthorizationType.IAM)
-            )
-        )
-        
-        rule = events.Rule(self, "Rule",
-            schedule=events.Schedule.rate(cdk.Duration.hours(1))
-        )
-        
-        rule.add_target(targets.AppSync(api,
-            graph_qLOperation="mutation Publish($message: String!){ publish(message: $message) { message } }",
-            variables=events.RuleTargetInput.from_object({
-                "message": "hello world"
-            })
-        ))
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="fromEventPath")
-    @builtins.classmethod
-    def from_event_path(cls, path: builtins.str) -> "RuleTargetInput":
-        '''Take the event target input from a path in the event JSON.
-
-        :param path: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023)
-            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
-        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromEventPath", [path]))
-
-    @jsii.member(jsii_name="fromMultilineText")
-    @builtins.classmethod
-    def from_multiline_text(cls, text: builtins.str) -> "RuleTargetInput":
-        '''Pass text to the event target, splitting on newlines.
-
-        This is only useful when passing to a target that does not
-        take a single argument.
-
-        May contain strings returned by ``EventField.from()`` to substitute in parts
-        of the matched event.
-
-        :param text: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a)
-            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
-        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromMultilineText", [text]))
-
-    @jsii.member(jsii_name="fromObject")
-    @builtins.classmethod
-    def from_object(cls, obj: typing.Any) -> "RuleTargetInput":
-        '''Pass a JSON object to the event target.
-
-        May contain strings returned by ``EventField.from()`` to substitute in parts of the
-        matched event.
-
-        :param obj: -
-
-        :return: RuleTargetInput
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0)
-            check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
-        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromObject", [obj]))
-
-    @jsii.member(jsii_name="fromText")
-    @builtins.classmethod
-    def from_text(cls, text: builtins.str) -> "RuleTargetInput":
-        '''Pass text to the event target.
-
-        May contain strings returned by ``EventField.from()`` to substitute in parts of the
-        matched event.
-
-        The Rule Target input value will be a single string: the string you pass
-        here.  Do not use this method to pass a complex value like a JSON object to
-        a Rule Target.  Use ``RuleTargetInput.fromObject()`` instead.
-
-        :param text: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a)
-            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
-        return typing.cast("RuleTargetInput", jsii.sinvoke(cls, "fromText", [text]))
-
-    @jsii.member(jsii_name="bind")
-    @abc.abstractmethod
-    def bind(self, rule: IRule) -> "RuleTargetInputProperties":
-        '''Return the input properties for this input object.
-
-        :param rule: -
-        '''
-        ...
-
-
-class _RuleTargetInputProxy(RuleTargetInput):
-    @jsii.member(jsii_name="bind")
-    def bind(self, rule: IRule) -> "RuleTargetInputProperties":
-        '''Return the input properties for this input object.
-
-        :param rule: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6)
-            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast("RuleTargetInputProperties", jsii.invoke(self, "bind", [rule]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, RuleTargetInput).__jsii_proxy_class__ = lambda : _RuleTargetInputProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.RuleTargetInputProperties",
-    jsii_struct_bases=[],
-    name_mapping={
-        "input": "input",
-        "input_path": "inputPath",
-        "input_paths_map": "inputPathsMap",
-        "input_template": "inputTemplate",
-    },
-)
-class RuleTargetInputProperties:
-    def __init__(
-        self,
-        *,
-        input: typing.Optional[builtins.str] = None,
-        input_path: typing.Optional[builtins.str] = None,
-        input_paths_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        input_template: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''The input properties for an event target.
-
-        :param input: Literal input to the target service (must be valid JSON). Default: - input for the event target. If the input contains a paths map values wil be extracted from event and inserted into the ``inputTemplate``.
-        :param input_path: JsonPath to take input from the input event. Default: - None. The entire matched event is passed as input
-        :param input_paths_map: Paths map to extract values from event and insert into ``inputTemplate``. Default: - No values extracted from event.
-        :param input_template: Input template to insert paths map into. Default: - None.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_events as events
-            
-            rule_target_input_properties = events.RuleTargetInputProperties(
-                input="input",
-                input_path="inputPath",
-                input_paths_map={
-                    "input_paths_map_key": "inputPathsMap"
-                },
-                input_template="inputTemplate"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93)
-            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
-            check_type(argname="argument input_path", value=input_path, expected_type=type_hints["input_path"])
-            check_type(argname="argument input_paths_map", value=input_paths_map, expected_type=type_hints["input_paths_map"])
-            check_type(argname="argument input_template", value=input_template, expected_type=type_hints["input_template"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if input is not None:
-            self._values["input"] = input
-        if input_path is not None:
-            self._values["input_path"] = input_path
-        if input_paths_map is not None:
-            self._values["input_paths_map"] = input_paths_map
-        if input_template is not None:
-            self._values["input_template"] = input_template
-
-    @builtins.property
-    def input(self) -> typing.Optional[builtins.str]:
-        '''Literal input to the target service (must be valid JSON).
-
-        :default:
-
-        - input for the event target. If the input contains a paths map
-        values wil be extracted from event and inserted into the ``inputTemplate``.
-        '''
-        result = self._values.get("input")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_path(self) -> typing.Optional[builtins.str]:
-        '''JsonPath to take input from the input event.
-
-        :default: - None. The entire matched event is passed as input
-        '''
-        result = self._values.get("input_path")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def input_paths_map(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Paths map to extract values from event and insert into ``inputTemplate``.
-
-        :default: - No values extracted from event.
-        '''
-        result = self._values.get("input_paths_map")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def input_template(self) -> typing.Optional[builtins.str]:
-        '''Input template to insert paths map into.
-
-        :default: - None.
-        '''
-        result = self._values.get("input_template")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleTargetInputProperties(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class Schedule(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_events.Schedule",
-):
-    '''Schedule for scheduled event rules.
-
-    Note that rates cannot be defined in fractions of minutes.
-
-    :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/scheduled-events.html
-    :exampleMetadata: infused
-
-    Example::
-
-        import aws_cdk.aws_redshiftserverless as redshiftserverless
-        
-        # workgroup: redshiftserverless.CfnWorkgroup
-        
-        
-        rule = events.Rule(self, "Rule",
-            schedule=events.Schedule.rate(cdk.Duration.hours(1))
-        )
-        
-        dlq = sqs.Queue(self, "DeadLetterQueue")
-        
-        rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
-            database="dev",
-            dead_letter_queue=dlq,
-            sql=["SELECT * FROM foo", "SELECT * FROM baz"]
-        ))
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="cron")
-    @builtins.classmethod
-    def cron(
-        cls,
-        *,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-        year: typing.Optional[builtins.str] = None,
-    ) -> "Schedule":
-        '''Create a schedule from a set of cron fields.
-
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-        :param year: The year to run this rule at. Default: - Every year
-        '''
-        options = CronOptions(
-            day=day,
-            hour=hour,
-            minute=minute,
-            month=month,
-            week_day=week_day,
-            year=year,
-        )
-
-        return typing.cast("Schedule", jsii.sinvoke(cls, "cron", [options]))
-
-    @jsii.member(jsii_name="expression")
-    @builtins.classmethod
-    def expression(cls, expression: builtins.str) -> "Schedule":
-        '''Construct a schedule from a literal schedule expression.
-
-        :param expression: The expression to use. Must be in a format that EventBridge will recognize
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de)
-            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-        return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
-
-    @jsii.member(jsii_name="rate")
-    @builtins.classmethod
-    def rate(cls, duration: _Duration_4839e8c3) -> "Schedule":
-        '''Construct a schedule from an interval and a time unit.
-
-        Rates may be defined with any unit of time, but when converted into minutes, the duration must be a positive whole number of minutes.
-
-        :param duration: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775)
-            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-        return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [duration]))
-
-    @builtins.property
-    @jsii.member(jsii_name="expressionString")
-    @abc.abstractmethod
-    def expression_string(self) -> builtins.str:
-        '''Retrieve the expression for this schedule.'''
-        ...
-
-
-class _ScheduleProxy(Schedule):
-    @builtins.property
-    @jsii.member(jsii_name="expressionString")
-    def expression_string(self) -> builtins.str:
-        '''Retrieve the expression for this schedule.'''
-        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, Schedule).__jsii_proxy_class__ = lambda : _ScheduleProxy
-
-
-@jsii.implements(IApiDestination)
-class ApiDestination(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_events.ApiDestination",
-):
-    '''Define an EventBridge Api Destination.
-
-    :resource: AWS::Events::ApiDestination
-    :exampleMetadata: infused
-
-    Example::
-
-        connection = events.Connection(self, "Connection",
-            authorization=events.Authorization.api_key("x-api-key", SecretValue.secrets_manager("ApiSecretName")),
-            description="Connection with API Key x-api-key"
-        )
-        
-        destination = events.ApiDestination(self, "Destination",
-            connection=connection,
-            endpoint="https://example.com",
-            description="Calling example.com with API key x-api-key"
-        )
-        
-        rule = events.Rule(self, "Rule",
-            schedule=events.Schedule.rate(Duration.minutes(1)),
-            targets=[targets.ApiDestination(destination)]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        connection: IConnection,
-        endpoint: builtins.str,
-        api_destination_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        http_method: typing.Optional[HttpMethod] = None,
-        rate_limit_per_second: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param connection: The ARN of the connection to use for the API destination.
-        :param endpoint: The URL to the HTTP invocation endpoint for the API destination..
-        :param api_destination_name: The name for the API destination. Default: - A unique name will be generated
-        :param description: A description for the API destination. Default: - none
-        :param http_method: The method to use for the request to the HTTP invocation endpoint. Default: HttpMethod.POST
-        :param rate_limit_per_second: The maximum number of requests per second to send to the HTTP invocation endpoint. Default: - Not rate limited
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ApiDestinationProps(
-            connection=connection,
-            endpoint=endpoint,
-            api_destination_name=api_destination_name,
-            description=description,
-            http_method=http_method,
-            rate_limit_per_second=rate_limit_per_second,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromApiDestinationAttributes")
-    @builtins.classmethod
-    def from_api_destination_attributes(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        api_destination_arn: builtins.str,
-        connection: IConnection,
-        api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
-    ) -> "ApiDestination":
-        '''Create an Api Destination construct from an existing Api Destination ARN.
-
-        :param scope: The scope creating construct (usually ``this``).
-        :param id: The construct's id.
-        :param api_destination_arn: The ARN of the Api Destination.
-        :param connection: The Connection to associate with the Api Destination.
-        :param api_destination_arn_for_policy: The Amazon Resource Name (ARN) of an API destination in resource format. Default: undefined - Imported API destination does not have ARN in resource format
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        attrs = ApiDestinationAttributes(
-            api_destination_arn=api_destination_arn,
-            connection=connection,
-            api_destination_arn_for_policy=api_destination_arn_for_policy,
-        )
-
-        return typing.cast("ApiDestination", jsii.sinvoke(cls, "fromApiDestinationAttributes", [scope, id, attrs]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArn")
-    def api_destination_arn(self) -> builtins.str:
-        '''The ARN of the Api Destination created.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "apiDestinationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationName")
-    def api_destination_name(self) -> builtins.str:
-        '''The Name of the Api Destination created.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "apiDestinationName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="connection")
-    def connection(self) -> IConnection:
-        '''The Connection to associate with Api Destination.'''
-        return typing.cast(IConnection, jsii.get(self, "connection"))
-
-    @builtins.property
-    @jsii.member(jsii_name="apiDestinationArnForPolicy")
-    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an API destination in resource format.
-
-        :attribute: true
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_events.ArchiveProps",
-    jsii_struct_bases=[BaseArchiveProps],
-    name_mapping={
-        "event_pattern": "eventPattern",
-        "archive_name": "archiveName",
-        "description": "description",
-        "kms_key": "kmsKey",
-        "retention": "retention",
-        "source_event_bus": "sourceEventBus",
-    },
-)
-class ArchiveProps(BaseArchiveProps):
-    def __init__(
-        self,
-        *,
-        event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
-        archive_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        kms_key: typing.Optional[_IKey_5f11635f] = None,
-        retention: typing.Optional[_Duration_4839e8c3] = None,
-        source_event_bus: IEventBus,
-    ) -> None:
-        '''The event archive properties.
-
-        :param event_pattern: An event pattern to use to filter events sent to the archive.
-        :param archive_name: The name of the archive. Default: - Automatically generated
-        :param description: A description for the archive. Default: - none
-        :param kms_key: The customer managed key that encrypts this archive. Default: - Use an AWS managed key
-        :param retention: The number of days to retain events for. Default value is 0. If set to 0, events are retained indefinitely. Default: - Infinite
-        :param source_event_bus: The event source associated with the archive.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_kms as kms
-            from aws_cdk.aws_events import Archive, EventBus
-            
-            # kms_key: kms.IKey
-            
-            
-            stack = Stack()
-            
-            event_bus = EventBus(stack, "Bus")
-            
-            archive = Archive(stack, "Archive",
-                kms_key=kms_key,
-                source_event_bus=event_bus,
-                event_pattern=events.EventPattern(
-                    source=["aws.ec2"]
-                )
-            )
-        '''
-        if isinstance(event_pattern, dict):
-            event_pattern = EventPattern(**event_pattern)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a)
-            check_type(argname="argument event_pattern", value=event_pattern, expected_type=type_hints["event_pattern"])
-            check_type(argname="argument archive_name", value=archive_name, expected_type=type_hints["archive_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-            check_type(argname="argument retention", value=retention, expected_type=type_hints["retention"])
-            check_type(argname="argument source_event_bus", value=source_event_bus, expected_type=type_hints["source_event_bus"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_pattern": event_pattern,
-            "source_event_bus": source_event_bus,
-        }
-        if archive_name is not None:
-            self._values["archive_name"] = archive_name
-        if description is not None:
-            self._values["description"] = description
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-        if retention is not None:
-            self._values["retention"] = retention
-
-    @builtins.property
-    def event_pattern(self) -> EventPattern:
-        '''An event pattern to use to filter events sent to the archive.'''
-        result = self._values.get("event_pattern")
-        assert result is not None, "Required property 'event_pattern' is missing"
-        return typing.cast(EventPattern, result)
-
-    @builtins.property
-    def archive_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the archive.
-
-        :default: - Automatically generated
-        '''
-        result = self._values.get("archive_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the archive.
-
-        :default: - none
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The customer managed key that encrypts this archive.
-
-        :default: - Use an AWS managed key
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    @builtins.property
-    def retention(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The number of days to retain events for.
-
-        Default value is 0. If set to 0, events are retained indefinitely.
-
-        :default: - Infinite
-        '''
-        result = self._values.get("retention")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
-
-    @builtins.property
-    def source_event_bus(self) -> IEventBus:
-        '''The event source associated with the archive.'''
-        result = self._values.get("source_event_bus")
-        assert result is not None, "Required property 'source_event_bus' is missing"
-        return typing.cast(IEventBus, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ArchiveProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(IConnection)
 class Connection(
     _Resource_45bc6135,
@@ -12611,8 +13367,10 @@ __all__ = [
     "ApiDestination",
     "ApiDestinationAttributes",
     "ApiDestinationProps",
+    "ApiDestinationReference",
     "Archive",
     "ArchiveProps",
+    "ArchiveReference",
     "Authorization",
     "BaseArchiveProps",
     "CfnApiDestination",
@@ -12632,27 +13390,39 @@ __all__ = [
     "Connection",
     "ConnectionAttributes",
     "ConnectionProps",
+    "ConnectionReference",
     "CronOptions",
+    "EndpointReference",
     "EventBus",
     "EventBusAttributes",
     "EventBusPolicy",
     "EventBusPolicyProps",
+    "EventBusPolicyReference",
     "EventBusProps",
+    "EventBusReference",
     "EventCommonOptions",
     "EventField",
     "EventPattern",
     "HttpMethod",
     "HttpParameter",
     "IApiDestination",
+    "IApiDestinationRef",
+    "IArchiveRef",
     "IConnection",
+    "IConnectionRef",
+    "IEndpointRef",
     "IEventBus",
+    "IEventBusPolicyRef",
+    "IEventBusRef",
     "IRule",
+    "IRuleRef",
     "IRuleTarget",
     "Match",
     "OAuthAuthorizationProps",
     "OnEventOptions",
     "Rule",
     "RuleProps",
+    "RuleReference",
     "RuleTargetConfig",
     "RuleTargetInput",
     "RuleTargetInputProperties",
@@ -12682,6 +13452,14 @@ def _typecheckingstub__ce93e81ddac7a0ebc3fe6cf2783ea61dde8338f099332864ff087db25
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__45a1502f2e1740cf2ec9d78b56b9fb346c73d07f9b42f0d9390d5db39e914177(
+    *,
+    api_destination_arn: builtins.str,
+    api_destination_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996beb9c94e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12692,6 +13470,14 @@ def _typecheckingstub__3d354e4791ce999debd366401bf6abece64fe39da3a499dafa6b3996b
     description: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16f817695a043b6ae331eb081db1fea6cce66f91d1cf9f77974fee4bbdb33dc8(
+    *,
+    archive_arn: builtins.str,
+    archive_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12717,6 +13503,600 @@ def _typecheckingstub__74aa160eedb5cb0d834ff82193fc6747b652d04f044891f2ad16f69e1
     description: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[_IKey_5f11635f] = None,
     retention: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e7d825d7eeb86aa2b5e2143acb08acce01195746d86ae81d1b165bac0bc8135(
+    *,
+    connection_arn: builtins.str,
+    http_method: builtins.str,
+    invocation_endpoint: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    invocation_rate_limit_per_second: typing.Optional[jsii.Number] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8d605e2ff54dddadf4166fbd47f7e65ae554a5e5f40fa2fffd0d8af83ab1a27(
+    *,
+    source_arn: builtins.str,
+    archive_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Any = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    retention_days: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394(
+    *,
+    authorization_type: typing.Optional[builtins.str] = None,
+    auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144(
+    *,
+    event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    routing_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2(
+    *,
+    statement_id: builtins.str,
+    action: typing.Optional[builtins.str] = None,
+    condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    event_bus_name: typing.Optional[builtins.str] = None,
+    principal: typing.Optional[builtins.str] = None,
+    statement: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9(
+    *,
+    name: builtins.str,
+    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_source_name: typing.Optional[builtins.str] = None,
+    kms_key_identifier: typing.Optional[builtins.str] = None,
+    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policy: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    event_bus_name: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Any = None,
+    name: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    schedule_expression: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630(
+    *,
+    connection_arn: builtins.str,
+    connection_name: builtins.str,
+    connection_secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd(
+    *,
+    authorization: Authorization,
+    body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+    connection_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+    query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b166a4c913a01320ea9ff2aa92f37262edeccaf678d74f91c6e93e16c0fbb49b(
+    *,
+    connection_arn: builtins.str,
+    connection_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de(
+    *,
+    day: typing.Optional[builtins.str] = None,
+    hour: typing.Optional[builtins.str] = None,
+    minute: typing.Optional[builtins.str] = None,
+    month: typing.Optional[builtins.str] = None,
+    week_day: typing.Optional[builtins.str] = None,
+    year: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21f67896991a2f803f6d04c0946310bae2ab48a0817895aa3ed6ccf99ceb2711(
+    *,
+    endpoint_arn: builtins.str,
+    endpoint_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda(
+    *,
+    event_bus_arn: builtins.str,
+    event_bus_name: builtins.str,
+    event_bus_policy: builtins.str,
+    event_source_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    event_bus: IEventBus,
+    statement: _PolicyStatement_0fe33853,
+    statement_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da(
+    *,
+    event_bus: IEventBus,
+    statement: _PolicyStatement_0fe33853,
+    statement_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19c9d9c8efa21ce278b518a9e2bdc78537f74146fda2a922ca6a3e076ab6e91f(
+    *,
+    event_bus_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743(
+    *,
+    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_bus_name: typing.Optional[builtins.str] = None,
+    event_source_name: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c9e03e2bd4d59494f9e5d58ff91c201aadc288d3b7e93a322ea7b919505bd45(
+    *,
+    event_bus_arn: builtins.str,
+    event_bus_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433(
+    *,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7(
+    path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3(
+    _ctx: _IResolveContext_b2df1921,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944(
+    *,
+    account: typing.Optional[typing.Sequence[builtins.str]] = None,
+    detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
+    id: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source: typing.Optional[typing.Sequence[builtins.str]] = None,
+    time: typing.Optional[typing.Sequence[builtins.str]] = None,
+    version: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749(
+    value: _SecretValue_3dd0ddae,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20(
+    id: builtins.str,
+    *,
+    event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
+    archive_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    retention: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f(
+    grantee: _IGrantable_71c4f5de,
+    sid: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb(
+    rule: IRule,
+    id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa(
+    *matchers: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae(
+    *matchers: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6(
+    *values: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7(
+    *values: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090(
+    *values: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9(
+    *values: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01(
+    *values: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50(
+    range: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7(
+    lower: jsii.Number,
+    upper: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc(
+    range: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840(
+    context: _IResolveContext_b2df1921,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4(
+    *,
+    authorization_endpoint: builtins.str,
+    client_id: builtins.str,
+    client_secret: _SecretValue_3dd0ddae,
+    http_method: HttpMethod,
+    body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+    header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+    query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24(
+    *,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+    target: typing.Optional[IRuleTarget] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    event_bus: typing.Optional[IEventBus] = None,
+    role: typing.Optional[_IRoleRef_613dafc2] = None,
+    schedule: typing.Optional[Schedule] = None,
+    targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    event_rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3(
+    target: typing.Optional[IRuleTarget] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830(
+    *,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    event_bus: typing.Optional[IEventBus] = None,
+    role: typing.Optional[_IRoleRef_613dafc2] = None,
+    schedule: typing.Optional[Schedule] = None,
+    targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02d984139bcc7485b917d72df2611830e1ead92012cb7bc3e20c2baaf30c90ac(
+    *,
+    rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab(
+    *,
+    arn: builtins.str,
+    app_sync_parameters: typing.Optional[typing.Union[CfnRule.AppSyncParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    batch_parameters: typing.Optional[typing.Union[CfnRule.BatchParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    dead_letter_config: typing.Optional[typing.Union[CfnRule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    ecs_parameters: typing.Optional[typing.Union[CfnRule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    http_parameters: typing.Optional[typing.Union[CfnRule.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    input: typing.Optional[RuleTargetInput] = None,
+    kinesis_parameters: typing.Optional[typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    redshift_data_parameters: typing.Optional[typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    retry_policy: typing.Optional[typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    run_command_parameters: typing.Optional[typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    sqs_parameters: typing.Optional[typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    target_resource: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023(
+    path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a(
+    text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0(
+    obj: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a(
+    text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6(
+    rule: IRule,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93(
+    *,
+    input: typing.Optional[builtins.str] = None,
+    input_path: typing.Optional[builtins.str] = None,
+    input_paths_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    input_template: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de(
+    expression: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775(
+    duration: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    connection: IConnection,
+    endpoint: builtins.str,
+    api_destination_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    http_method: typing.Optional[HttpMethod] = None,
+    rate_limit_per_second: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    api_destination_arn: builtins.str,
+    connection: IConnection,
+    api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a(
+    *,
+    event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
+    archive_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
+    retention: typing.Optional[_Duration_4839e8c3] = None,
+    source_event_bus: IEventBus,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12783,18 +14163,6 @@ def _typecheckingstub__b5205bc5753f69d2aea87688685a5236a470f7cba4982bd2e636e55fe
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3e7d825d7eeb86aa2b5e2143acb08acce01195746d86ae81d1b165bac0bc8135(
-    *,
-    connection_arn: builtins.str,
-    http_method: builtins.str,
-    invocation_endpoint: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    invocation_rate_limit_per_second: typing.Optional[jsii.Number] = None,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a963410c1802040879d7bcae9506f4438510f71eb6934c222d9c998db58d059f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12853,18 +14221,6 @@ def _typecheckingstub__afc87131b030ea9e94a54d65380d8caa92af44402dd0a1c9ec3e6c55a
 
 def _typecheckingstub__229cf18aa238d335d766c6c1400f98e797e1cf2caf404b1270a8fb743453e352(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f8d605e2ff54dddadf4166fbd47f7e65ae554a5e5f40fa2fffd0d8af83ab1a27(
-    *,
-    source_arn: builtins.str,
-    archive_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Any = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    retention_days: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13016,18 +14372,6 @@ def _typecheckingstub__143ae1a5978f064d9c3d0cf9135ec11575d46a15edec3f754457cec0c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2b32e6c6e8c1c2772bb604474216b07683c108c349058e240d272750b95ff394(
-    *,
-    authorization_type: typing.Optional[builtins.str] = None,
-    auth_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.AuthParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    invocation_connectivity_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.InvocationConnectivityParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__66aefb2196270463c6a9f2eea0dcb5bb280d90c63f36870b21785e675d41792b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -13129,18 +14473,6 @@ def _typecheckingstub__bb920c43205382c47b384a4f5a95790c721c305fbce0e81779b6196d4
 def _typecheckingstub__10ed22a75ce918facd2cde1e3af59f0911c13aa279839f3d5a348cfb7b819433(
     *,
     route: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__23b766f7f44a4b810fdd81553ba45b5eb24bd7af18bf6b82a2ba111b662ae144(
-    *,
-    event_buses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.EndpointEventBusProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    routing_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RoutingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    replication_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ReplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13303,32 +14635,6 @@ def _typecheckingstub__3e41a269da2fb6be79dba262c14fe9cd63999eb75c8619f894174c0e0
     key: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
     value: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__43619a723736073ccd156eb5b7283900de3d8a1d8a66a15f291419f5b23aedd2(
-    *,
-    statement_id: builtins.str,
-    action: typing.Optional[builtins.str] = None,
-    condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBusPolicy.ConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    event_bus_name: typing.Optional[builtins.str] = None,
-    principal: typing.Optional[builtins.str] = None,
-    statement: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc11103c69a9(
-    *,
-    name: builtins.str,
-    dead_letter_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_source_name: typing.Optional[builtins.str] = None,
-    kms_key_identifier: typing.Optional[builtins.str] = None,
-    log_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    policy: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13624,488 +14930,6 @@ def _typecheckingstub__0bb173839da3c22730cab96567bb586361722029ca0fab74f2c0ebd9e
     run_command_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sage_maker_pipeline_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.SageMakerPipelineParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sqs_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ba0cfcfcd9cab75c7bd4b5ffa2348687b001ab869ed65280a51c734b6b8cebf(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    event_bus_name: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Any = None,
-    name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    schedule_expression: typing.Optional[builtins.str] = None,
-    state: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6b4ba400a769e206ef54142d1eb3e48ed09835bd6e71b6f7c9d1e03cc506630(
-    *,
-    connection_arn: builtins.str,
-    connection_name: builtins.str,
-    connection_secret_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2d0bd83b4031e1a5b40bf3b22ce279f9e64ef582aee971346da742f0413a9bd(
-    *,
-    authorization: Authorization,
-    body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-    connection_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-    query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dcba379dcc1656e676dd8b69999c737796b1b49cdcad0c2bcfe60964f8e9d9de(
-    *,
-    day: typing.Optional[builtins.str] = None,
-    hour: typing.Optional[builtins.str] = None,
-    minute: typing.Optional[builtins.str] = None,
-    month: typing.Optional[builtins.str] = None,
-    week_day: typing.Optional[builtins.str] = None,
-    year: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c3085d54e4409b80cc204254043c3355f775f156584926a7ed5a790331f05dda(
-    *,
-    event_bus_arn: builtins.str,
-    event_bus_name: builtins.str,
-    event_bus_policy: builtins.str,
-    event_source_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6a24877f6e22e8f254d5c253b894d6a11a370cac3b7f8e088232def9526ac7d1(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    event_bus: IEventBus,
-    statement: _PolicyStatement_0fe33853,
-    statement_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__30683f3da3ccc9235ea663f165631b4ac57c807c1878517c5051bcd7821047da(
-    *,
-    event_bus: IEventBus,
-    statement: _PolicyStatement_0fe33853,
-    statement_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743(
-    *,
-    dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_bus_name: typing.Optional[builtins.str] = None,
-    event_source_name: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a8be5e75942922f268dedad96e725a21c11b1a9f65db87656e3e710d5eb30433(
-    *,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c976d59c5fa60867eced9810d162552f54cdf2ffae370ca0e5cb8b1b8653df7(
-    path: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2691faefda384b34155f7fab30bca792193c9b4505a667f4e442f5f4a38dfee3(
-    _ctx: _IResolveContext_b2df1921,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944(
-    *,
-    account: typing.Optional[typing.Sequence[builtins.str]] = None,
-    detail: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    detail_type: typing.Optional[typing.Sequence[builtins.str]] = None,
-    id: typing.Optional[typing.Sequence[builtins.str]] = None,
-    region: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source: typing.Optional[typing.Sequence[builtins.str]] = None,
-    time: typing.Optional[typing.Sequence[builtins.str]] = None,
-    version: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e291dff2be3467be0da3e3173fb8a3f7bb6a9a0ce8d14f1da5dddae23792b749(
-    value: _SecretValue_3dd0ddae,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9442f403d2e8bc58cbb045846882436dd3c36b00c4e36879be82389e27c43bb5(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1ed58495b96f0f8ed0dfb0c65e8400413d45c5c1f372215e535272012cd4ae20(
-    id: builtins.str,
-    *,
-    event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
-    archive_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff626481f(
-    grantee: _IGrantable_71c4f5de,
-    sid: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb(
-    rule: IRule,
-    id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__40e12e6e33c3e0969083091ee3865292a66ff488c5232a973beb73ef6c62c5fa(
-    *matchers: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba639dc7927d49a7d8d721fb9af07541b8082414d5cb2d1800659cc46de3cfae(
-    *matchers: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c03b7fd2dad2208076a4fa00f2b2d3dde00f843ea555467499547d57059b65a6(
-    *values: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87fbd8c11fa07b1a240b0c387448e08fd168224745c50688f5989d8834838ff7(
-    *values: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d5f95f896639ff63a2da2110c71261568560a151040067894df2404133cae090(
-    *values: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5ad66dfa3c11834aae618ac46c2877fc37f4f61d99a2a50bf7ea7c5c365000b9(
-    *values: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ad0fda65667feadf011538300f534504901c891f913cbff997a1a994f3c29c01(
-    *values: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26161990cebadc23eefcce08c85808f61c5d20709cd5c48d54c739e2c125cd50(
-    range: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__36a4b8e5f8755dc603ba7634bab0c76c6670a5c9aaf0547b073f36e9b81fcc89(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf5cf9ea43aa246afd0193b8ea1e299d3df7d5ce597b742ab71695bf1d859758(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b48e8fe3f73528194c45d27433ffb835fc7d84c5d46109ae24c92ca544a673e(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d17876f0f7d762f17b8c14fc900e106a5297319e4d45c4c34c84388be98d868(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c9fe1ef5b78a3d24d9c425c743998b66bb6a73d22d1498055b99d104d9c28833(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c18a9819082766a25c75462e86769d52615c7451881b4056a15f1e38d0548e7(
-    lower: jsii.Number,
-    upper: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d6d088b03afae74643e62d8722b1a4baadfc5cbb57cdb735fc56e22559e8efc(
-    range: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07fd27224768940abbe1eca665850f8285820663ab3471f4c7be8a35cb7eb904(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f6273d3543eed382131ae9acfce70630ea1f8f2ee18ac6e484a80ddf3e29f386(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4fec16335087d1463f92a7c3c6f5fc3f285f57f1896b3e5d70621d5bb0212586(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d9a63cd71a9cd85ecfb404982d3c5b33a46641bb37679a52809950abee9a9cf(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d93fd447565d2e2e5ebc3599f70b6ee7e8b45b80fc66472bf6c2e5eed324bdd2(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7fc1909f51a6990b36361f9634b6e27f10e6631c28d4b5b841a2b70ad6e01ad(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fa570eda583ad53276d25915a5375d0b0a74cd067558b5802e08a4caada4d8d2(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1504ba1eafa1e778437f72f0fcbc5a411326c68bb5dfdfcf71ebd9c58dc85840(
-    context: _IResolveContext_b2df1921,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c08f518e31ed98b7262cca663f15dde333cca52971767c54bd207027129009d4(
-    *,
-    authorization_endpoint: builtins.str,
-    client_id: builtins.str,
-    client_secret: _SecretValue_3dd0ddae,
-    http_method: HttpMethod,
-    body_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-    header_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-    query_string_parameters: typing.Optional[typing.Mapping[builtins.str, HttpParameter]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf9b6ced8be8735f7010777fb1f97c93a176e529dc37cde48af353318aba0e24(
-    *,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-    target: typing.Optional[IRuleTarget] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__15ada85ef5f1cb4f0237eff6253e200138049f1bebbea7163294d28f9e3d2ac4(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[IEventBus] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    schedule: typing.Optional[Schedule] = None,
-    targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4fc64d328feb8a4fe2a0235d17ea75eb77e4d0e7c7af7d8202b274cc719c549e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    event_rule_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__74c6013873b4715394d91be05fbd4849b32fc8f47bec4655728279b1e8bba8e3(
-    target: typing.Optional[IRuleTarget] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26677a946da4037892c1c589c005b7536d8ffed632ca92c5c52a92586eff7830(
-    *,
-    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
-    description: typing.Optional[builtins.str] = None,
-    event_pattern: typing.Optional[typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
-    rule_name: typing.Optional[builtins.str] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    event_bus: typing.Optional[IEventBus] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    schedule: typing.Optional[Schedule] = None,
-    targets: typing.Optional[typing.Sequence[IRuleTarget]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__10b46a391417178d3d06a5360e56af2bf314e68a1662e39855324f1244482eab(
-    *,
-    arn: builtins.str,
-    app_sync_parameters: typing.Optional[typing.Union[CfnRule.AppSyncParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    batch_parameters: typing.Optional[typing.Union[CfnRule.BatchParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    dead_letter_config: typing.Optional[typing.Union[CfnRule.DeadLetterConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    ecs_parameters: typing.Optional[typing.Union[CfnRule.EcsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    http_parameters: typing.Optional[typing.Union[CfnRule.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    input: typing.Optional[RuleTargetInput] = None,
-    kinesis_parameters: typing.Optional[typing.Union[CfnRule.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    redshift_data_parameters: typing.Optional[typing.Union[CfnRule.RedshiftDataParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    retry_policy: typing.Optional[typing.Union[CfnRule.RetryPolicyProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    role: typing.Optional[_IRole_235f5d8e] = None,
-    run_command_parameters: typing.Optional[typing.Union[CfnRule.RunCommandParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    sqs_parameters: typing.Optional[typing.Union[CfnRule.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]] = None,
-    target_resource: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4eb6b3476cab56d053bc370d59f4fe7338708bc302f2d5c0012c4506c3c6b023(
-    path: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3dc2da4b561bee12c6b944d51edb44f48a4ec59206ff01aa81b89363a492b81a(
-    text: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8091475ef36fdd615b50f3492db20e93a218f280b559ea557d766f61df68f0d0(
-    obj: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__05328d14dd500c7543f34d114d767ff9dcf0aee068923e6100cb3d38f6796d7a(
-    text: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__554a6befa684166f7830738df013ecfd45ccc95505b8b0c19659656cbf45fba6(
-    rule: IRule,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__307af7696a3ada143e331c0f2bbd476465db7c8e09961d5530731d2bbeffdf93(
-    *,
-    input: typing.Optional[builtins.str] = None,
-    input_path: typing.Optional[builtins.str] = None,
-    input_paths_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    input_template: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79ef4f3263fa2d6b28ef2d584883cdb4672c575c618375d42b6c1b37112d28de(
-    expression: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3c825629cedb0f83025904ee61cdd1177aa6cb1c10bb9c59e502ad6a1dee7775(
-    duration: _Duration_4839e8c3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1aa3407b00276436e9ed372bbdc08c6dfd1419e8730d4851ceddeade84098248(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    connection: IConnection,
-    endpoint: builtins.str,
-    api_destination_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    http_method: typing.Optional[HttpMethod] = None,
-    rate_limit_per_second: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    api_destination_arn: builtins.str,
-    connection: IConnection,
-    api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e9e21c5f043688b8d785343f3fca5b1c769d309ab6d381af52c9421aebc588a(
-    *,
-    event_pattern: typing.Union[EventPattern, typing.Dict[builtins.str, typing.Any]],
-    archive_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    kms_key: typing.Optional[_IKey_5f11635f] = None,
-    retention: typing.Optional[_Duration_4839e8c3] = None,
-    source_event_bus: IEventBus,
 ) -> None:
     """Type checking stubs"""
     pass

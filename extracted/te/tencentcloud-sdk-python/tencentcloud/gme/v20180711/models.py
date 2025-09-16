@@ -19,7 +19,7 @@ from tencentcloud.common.abstract_model import AbstractModel
 
 
 class AgeDetectTask(AbstractModel):
-    """年龄语音识别子任务
+    r"""年龄语音识别子任务
 
     """
 
@@ -35,7 +35,7 @@ class AgeDetectTask(AbstractModel):
 
     @property
     def DataId(self):
-        """数据唯一ID
+        r"""数据唯一ID
         :rtype: str
         """
         return self._DataId
@@ -46,7 +46,7 @@ class AgeDetectTask(AbstractModel):
 
     @property
     def Url(self):
-        """数据文件的url，为 urlencode 编码,音频文件格式支持的类型：.wav、.m4a、.amr、.mp3、.aac、.wma、.ogg
+        r"""数据文件的url，为 urlencode 编码,音频文件格式支持的类型：.wav、.m4a、.amr、.mp3、.aac、.wma、.ogg
         :rtype: str
         """
         return self._Url
@@ -70,7 +70,7 @@ class AgeDetectTask(AbstractModel):
 
 
 class AgeDetectTaskResult(AbstractModel):
-    """年龄语音任务结果
+    r"""年龄语音任务结果
 
     """
 
@@ -92,7 +92,7 @@ class AgeDetectTaskResult(AbstractModel):
 
     @property
     def DataId(self):
-        """数据唯一ID
+        r"""数据唯一ID
         :rtype: str
         """
         return self._DataId
@@ -103,7 +103,7 @@ class AgeDetectTaskResult(AbstractModel):
 
     @property
     def Url(self):
-        """数据文件的url
+        r"""数据文件的url
         :rtype: str
         """
         return self._Url
@@ -114,7 +114,7 @@ class AgeDetectTaskResult(AbstractModel):
 
     @property
     def Status(self):
-        """任务状态，0: 已创建，1:运行中，2:正常结束，3:异常结束，4:运行超时
+        r"""任务状态，0: 已创建，1:运行中，2:正常结束，3:异常结束，4:运行超时
         :rtype: int
         """
         return self._Status
@@ -125,7 +125,7 @@ class AgeDetectTaskResult(AbstractModel):
 
     @property
     def Age(self):
-        """任务结果：0: 成年，1:未成年，100:未知
+        r"""任务结果：0: 成年，1:未成年，100:未知
         :rtype: int
         """
         return self._Age
@@ -150,8 +150,346 @@ class AgeDetectTaskResult(AbstractModel):
         
 
 
+class AgentConfig(AbstractModel):
+    r"""机器人参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UserId: 机器人的UserId，用于进房发起任务。【注意】这个UserId不能与当前房间内的主播观众UserId重复。如果一个房间发起多个任务时，机器人的UserId也不能相互重复，否则会中断前一个任务。需要保证机器人UserId在房间内唯一。
+        :type UserId: str
+        :param _UserSig: 机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码。
+        :type UserSig: str
+        :param _TargetUserId: 机器人拉流的UserId, 填写后，机器人会拉取该UserId的流进行实时处理
+        :type TargetUserId: str
+        :param _MaxIdleTime: 房间内超过MaxIdleTime 没有推流，后台自动关闭任务，默认值是60s。
+        :type MaxIdleTime: int
+        :param _WelcomeMessage: 机器人的欢迎语
+        :type WelcomeMessage: str
+        :param _InterruptMode: 智能打断模式，默认为0，0表示服务端自动打断，1表示服务端不打断，由端上发送打断信令进行打断
+        :type InterruptMode: int
+        :param _InterruptSpeechDuration: InterruptMode为0时使用，单位为毫秒，默认为500ms。表示服务端检测到持续InterruptSpeechDuration毫秒的人声则进行打断。
+        :type InterruptSpeechDuration: int
+        :param _TurnDetectionMode: 控制新一轮对话的触发方式，默认为0。
+- 0表示当服务端语音识别检测出的完整一句话后，自动触发一轮新的对话。
+- 1表示客户端在收到字幕消息后，自行决定是否手动发送聊天信令触发一轮新的对话。
+        :type TurnDetectionMode: int
+        :param _FilterOneWord: 是否过滤掉用户只说了一个字的句子，true表示过滤，false表示不过滤，默认值为true
+        :type FilterOneWord: bool
+        :param _WelcomeMessagePriority: 欢迎消息优先级，0默认，1高优，高优不能被打断。
+        :type WelcomeMessagePriority: int
+        :param _FilterBracketsContent: 用于过滤LLM返回内容，不播放括号中的内容。
+1：中文括号（）
+2：英文括号()
+3：中文方括号【】
+4：英文方括号[]
+5：英文花括号{}
+默认值为空，表示不进行过滤。
+        :type FilterBracketsContent: int
+        :param _AmbientSound: 环境音设置	
+        :type AmbientSound: :class:`tencentcloud.gme.v20180711.models.AmbientSound`
+        :param _VoicePrint: 声纹配置	
+        :type VoicePrint: :class:`tencentcloud.gme.v20180711.models.VoicePrint`
+        :param _InitLLMMessage: 与WelcomeMessage参数互斥，当该参数有值时，WelcomeMessage将失效。\n在对话开始后把该消息送到大模型来获取欢迎语。	
+        :type InitLLMMessage: str
+        :param _TurnDetection: 语义断句检测	
+        :type TurnDetection: :class:`tencentcloud.gme.v20180711.models.TurnDetection`
+        :param _SubtitleMode: 机器人字幕显示模式。 - 0表示尽快显示，不会和音频播放进行同步。此时字幕全量下发，后面的字幕会包含前面的字幕。 - 1表示句子级别的实时显示，会和音频播放进行同步，只有当前句子对应的音频播放完后，下一条字幕才会下发。此时字幕增量下发，端上需要把前后的字幕进行拼接才是完整字幕。	
+        :type SubtitleMode: int
+        """
+        self._UserId = None
+        self._UserSig = None
+        self._TargetUserId = None
+        self._MaxIdleTime = None
+        self._WelcomeMessage = None
+        self._InterruptMode = None
+        self._InterruptSpeechDuration = None
+        self._TurnDetectionMode = None
+        self._FilterOneWord = None
+        self._WelcomeMessagePriority = None
+        self._FilterBracketsContent = None
+        self._AmbientSound = None
+        self._VoicePrint = None
+        self._InitLLMMessage = None
+        self._TurnDetection = None
+        self._SubtitleMode = None
+
+    @property
+    def UserId(self):
+        r"""机器人的UserId，用于进房发起任务。【注意】这个UserId不能与当前房间内的主播观众UserId重复。如果一个房间发起多个任务时，机器人的UserId也不能相互重复，否则会中断前一个任务。需要保证机器人UserId在房间内唯一。
+        :rtype: str
+        """
+        return self._UserId
+
+    @UserId.setter
+    def UserId(self, UserId):
+        self._UserId = UserId
+
+    @property
+    def UserSig(self):
+        r"""机器人UserId对应的校验签名，即UserId和UserSig相当于机器人进房的登录密码。
+        :rtype: str
+        """
+        return self._UserSig
+
+    @UserSig.setter
+    def UserSig(self, UserSig):
+        self._UserSig = UserSig
+
+    @property
+    def TargetUserId(self):
+        r"""机器人拉流的UserId, 填写后，机器人会拉取该UserId的流进行实时处理
+        :rtype: str
+        """
+        return self._TargetUserId
+
+    @TargetUserId.setter
+    def TargetUserId(self, TargetUserId):
+        self._TargetUserId = TargetUserId
+
+    @property
+    def MaxIdleTime(self):
+        r"""房间内超过MaxIdleTime 没有推流，后台自动关闭任务，默认值是60s。
+        :rtype: int
+        """
+        return self._MaxIdleTime
+
+    @MaxIdleTime.setter
+    def MaxIdleTime(self, MaxIdleTime):
+        self._MaxIdleTime = MaxIdleTime
+
+    @property
+    def WelcomeMessage(self):
+        r"""机器人的欢迎语
+        :rtype: str
+        """
+        return self._WelcomeMessage
+
+    @WelcomeMessage.setter
+    def WelcomeMessage(self, WelcomeMessage):
+        self._WelcomeMessage = WelcomeMessage
+
+    @property
+    def InterruptMode(self):
+        r"""智能打断模式，默认为0，0表示服务端自动打断，1表示服务端不打断，由端上发送打断信令进行打断
+        :rtype: int
+        """
+        return self._InterruptMode
+
+    @InterruptMode.setter
+    def InterruptMode(self, InterruptMode):
+        self._InterruptMode = InterruptMode
+
+    @property
+    def InterruptSpeechDuration(self):
+        r"""InterruptMode为0时使用，单位为毫秒，默认为500ms。表示服务端检测到持续InterruptSpeechDuration毫秒的人声则进行打断。
+        :rtype: int
+        """
+        return self._InterruptSpeechDuration
+
+    @InterruptSpeechDuration.setter
+    def InterruptSpeechDuration(self, InterruptSpeechDuration):
+        self._InterruptSpeechDuration = InterruptSpeechDuration
+
+    @property
+    def TurnDetectionMode(self):
+        r"""控制新一轮对话的触发方式，默认为0。
+- 0表示当服务端语音识别检测出的完整一句话后，自动触发一轮新的对话。
+- 1表示客户端在收到字幕消息后，自行决定是否手动发送聊天信令触发一轮新的对话。
+        :rtype: int
+        """
+        return self._TurnDetectionMode
+
+    @TurnDetectionMode.setter
+    def TurnDetectionMode(self, TurnDetectionMode):
+        self._TurnDetectionMode = TurnDetectionMode
+
+    @property
+    def FilterOneWord(self):
+        r"""是否过滤掉用户只说了一个字的句子，true表示过滤，false表示不过滤，默认值为true
+        :rtype: bool
+        """
+        return self._FilterOneWord
+
+    @FilterOneWord.setter
+    def FilterOneWord(self, FilterOneWord):
+        self._FilterOneWord = FilterOneWord
+
+    @property
+    def WelcomeMessagePriority(self):
+        r"""欢迎消息优先级，0默认，1高优，高优不能被打断。
+        :rtype: int
+        """
+        return self._WelcomeMessagePriority
+
+    @WelcomeMessagePriority.setter
+    def WelcomeMessagePriority(self, WelcomeMessagePriority):
+        self._WelcomeMessagePriority = WelcomeMessagePriority
+
+    @property
+    def FilterBracketsContent(self):
+        r"""用于过滤LLM返回内容，不播放括号中的内容。
+1：中文括号（）
+2：英文括号()
+3：中文方括号【】
+4：英文方括号[]
+5：英文花括号{}
+默认值为空，表示不进行过滤。
+        :rtype: int
+        """
+        return self._FilterBracketsContent
+
+    @FilterBracketsContent.setter
+    def FilterBracketsContent(self, FilterBracketsContent):
+        self._FilterBracketsContent = FilterBracketsContent
+
+    @property
+    def AmbientSound(self):
+        r"""环境音设置	
+        :rtype: :class:`tencentcloud.gme.v20180711.models.AmbientSound`
+        """
+        return self._AmbientSound
+
+    @AmbientSound.setter
+    def AmbientSound(self, AmbientSound):
+        self._AmbientSound = AmbientSound
+
+    @property
+    def VoicePrint(self):
+        r"""声纹配置	
+        :rtype: :class:`tencentcloud.gme.v20180711.models.VoicePrint`
+        """
+        return self._VoicePrint
+
+    @VoicePrint.setter
+    def VoicePrint(self, VoicePrint):
+        self._VoicePrint = VoicePrint
+
+    @property
+    def InitLLMMessage(self):
+        r"""与WelcomeMessage参数互斥，当该参数有值时，WelcomeMessage将失效。\n在对话开始后把该消息送到大模型来获取欢迎语。	
+        :rtype: str
+        """
+        return self._InitLLMMessage
+
+    @InitLLMMessage.setter
+    def InitLLMMessage(self, InitLLMMessage):
+        self._InitLLMMessage = InitLLMMessage
+
+    @property
+    def TurnDetection(self):
+        r"""语义断句检测	
+        :rtype: :class:`tencentcloud.gme.v20180711.models.TurnDetection`
+        """
+        return self._TurnDetection
+
+    @TurnDetection.setter
+    def TurnDetection(self, TurnDetection):
+        self._TurnDetection = TurnDetection
+
+    @property
+    def SubtitleMode(self):
+        r"""机器人字幕显示模式。 - 0表示尽快显示，不会和音频播放进行同步。此时字幕全量下发，后面的字幕会包含前面的字幕。 - 1表示句子级别的实时显示，会和音频播放进行同步，只有当前句子对应的音频播放完后，下一条字幕才会下发。此时字幕增量下发，端上需要把前后的字幕进行拼接才是完整字幕。	
+        :rtype: int
+        """
+        return self._SubtitleMode
+
+    @SubtitleMode.setter
+    def SubtitleMode(self, SubtitleMode):
+        self._SubtitleMode = SubtitleMode
+
+
+    def _deserialize(self, params):
+        self._UserId = params.get("UserId")
+        self._UserSig = params.get("UserSig")
+        self._TargetUserId = params.get("TargetUserId")
+        self._MaxIdleTime = params.get("MaxIdleTime")
+        self._WelcomeMessage = params.get("WelcomeMessage")
+        self._InterruptMode = params.get("InterruptMode")
+        self._InterruptSpeechDuration = params.get("InterruptSpeechDuration")
+        self._TurnDetectionMode = params.get("TurnDetectionMode")
+        self._FilterOneWord = params.get("FilterOneWord")
+        self._WelcomeMessagePriority = params.get("WelcomeMessagePriority")
+        self._FilterBracketsContent = params.get("FilterBracketsContent")
+        if params.get("AmbientSound") is not None:
+            self._AmbientSound = AmbientSound()
+            self._AmbientSound._deserialize(params.get("AmbientSound"))
+        if params.get("VoicePrint") is not None:
+            self._VoicePrint = VoicePrint()
+            self._VoicePrint._deserialize(params.get("VoicePrint"))
+        self._InitLLMMessage = params.get("InitLLMMessage")
+        if params.get("TurnDetection") is not None:
+            self._TurnDetection = TurnDetection()
+            self._TurnDetection._deserialize(params.get("TurnDetection"))
+        self._SubtitleMode = params.get("SubtitleMode")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AmbientSound(AbstractModel):
+    r"""背景音设置，将在通话中添加环境音效，使体验更加逼真。目前支持以下选项：
+    coffee_shops: 咖啡店氛围，背景中有人聊天。
+    busy_office: 客服中心
+    street_traffic: 户外街道
+    evening_mountain: 户外山林
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Scene: 环境场景选择
+        :type Scene: str
+        :param _Volume: 控制环境音的音量。取值的范围是 [0,2]。值越低，环境音越小；值越高，环境音越响亮。如果未设置，则使用默认值 1。
+        :type Volume: float
+        """
+        self._Scene = None
+        self._Volume = None
+
+    @property
+    def Scene(self):
+        r"""环境场景选择
+        :rtype: str
+        """
+        return self._Scene
+
+    @Scene.setter
+    def Scene(self, Scene):
+        self._Scene = Scene
+
+    @property
+    def Volume(self):
+        r"""控制环境音的音量。取值的范围是 [0,2]。值越低，环境音越小；值越高，环境音越响亮。如果未设置，则使用默认值 1。
+        :rtype: float
+        """
+        return self._Volume
+
+    @Volume.setter
+    def Volume(self, Volume):
+        self._Volume = Volume
+
+
+    def _deserialize(self, params):
+        self._Scene = params.get("Scene")
+        self._Volume = params.get("Volume")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AppStatisticsItem(AbstractModel):
-    """应用用量统计数据
+    r"""应用用量统计数据
 
     """
 
@@ -185,7 +523,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def RealtimeSpeechStatisticsItem(self):
-        """实时语音统计数据
+        r"""实时语音统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.RealTimeSpeechStatisticsItem`
         """
         return self._RealtimeSpeechStatisticsItem
@@ -196,7 +534,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def VoiceMessageStatisticsItem(self):
-        """语音消息统计数据
+        r"""语音消息统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceMessageStatisticsItem`
         """
         return self._VoiceMessageStatisticsItem
@@ -207,7 +545,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def VoiceFilterStatisticsItem(self):
-        """语音过滤统计数据
+        r"""语音过滤统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceFilterStatisticsItem`
         """
         return self._VoiceFilterStatisticsItem
@@ -218,7 +556,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def Date(self):
-        """统计时间
+        r"""统计时间
         :rtype: str
         """
         return self._Date
@@ -229,7 +567,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def AudioTextStatisticsItem(self):
-        """录音转文本用量统计数据
+        r"""录音转文本用量统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.AudioTextStatisticsItem`
         """
         return self._AudioTextStatisticsItem
@@ -240,7 +578,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def StreamTextStatisticsItem(self):
-        """流式转文本用量数据
+        r"""流式转文本用量数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.StreamTextStatisticsItem`
         """
         return self._StreamTextStatisticsItem
@@ -251,7 +589,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def OverseaTextStatisticsItem(self):
-        """海外转文本用量数据
+        r"""海外转文本用量数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.OverseaTextStatisticsItem`
         """
         return self._OverseaTextStatisticsItem
@@ -262,7 +600,7 @@ class AppStatisticsItem(AbstractModel):
 
     @property
     def RealtimeTextStatisticsItem(self):
-        """实时语音转文本用量数据
+        r"""实时语音转文本用量数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.RealtimeTextStatisticsItem`
         """
         return self._RealtimeTextStatisticsItem
@@ -306,7 +644,7 @@ class AppStatisticsItem(AbstractModel):
 
 
 class ApplicationDataStatistics(AbstractModel):
-    """应用统计数据
+    r"""应用统计数据
 
     """
 
@@ -367,7 +705,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -378,7 +716,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DauDataNum(self):
-        """Dau统计项数目
+        r"""Dau统计项数目
         :rtype: int
         """
         return self._DauDataNum
@@ -389,7 +727,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DauDataMainland(self):
-        """大陆地区Dau统计数据，单位人
+        r"""大陆地区Dau统计数据，单位人
         :rtype: list of StatisticsItem
         """
         return self._DauDataMainland
@@ -400,7 +738,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DauDataOversea(self):
-        """海外地区Dau统计数据，单位人
+        r"""海外地区Dau统计数据，单位人
         :rtype: list of StatisticsItem
         """
         return self._DauDataOversea
@@ -411,7 +749,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DauDataSum(self):
-        """大陆和海外地区Dau统计数据汇总，单位人
+        r"""大陆和海外地区Dau统计数据汇总，单位人
         :rtype: list of StatisticsItem
         """
         return self._DauDataSum
@@ -422,7 +760,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DurationDataNum(self):
-        """实时语音时长统计项数目
+        r"""实时语音时长统计项数目
         :rtype: int
         """
         return self._DurationDataNum
@@ -433,7 +771,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DurationDataMainland(self):
-        """大陆地区实时语音时长统计数据，单位分钟
+        r"""大陆地区实时语音时长统计数据，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._DurationDataMainland
@@ -444,7 +782,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DurationDataOversea(self):
-        """海外地区实时语音时长统计数据，单位分钟
+        r"""海外地区实时语音时长统计数据，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._DurationDataOversea
@@ -455,7 +793,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def DurationDataSum(self):
-        """大陆和海外地区实时语音时长统计数据汇总，单位分钟
+        r"""大陆和海外地区实时语音时长统计数据汇总，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._DurationDataSum
@@ -466,7 +804,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def PcuDataNum(self):
-        """Pcu统计项数目
+        r"""Pcu统计项数目
         :rtype: int
         """
         return self._PcuDataNum
@@ -477,7 +815,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def PcuDataMainland(self):
-        """大陆地区Pcu统计数据，单位人
+        r"""大陆地区Pcu统计数据，单位人
         :rtype: list of StatisticsItem
         """
         return self._PcuDataMainland
@@ -488,7 +826,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def PcuDataOversea(self):
-        """海外地区Pcu统计数据，单位人
+        r"""海外地区Pcu统计数据，单位人
         :rtype: list of StatisticsItem
         """
         return self._PcuDataOversea
@@ -499,7 +837,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def PcuDataSum(self):
-        """大陆和海外地区Pcu统计数据汇总，单位人
+        r"""大陆和海外地区Pcu统计数据汇总，单位人
         :rtype: list of StatisticsItem
         """
         return self._PcuDataSum
@@ -510,7 +848,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def MiniGameDataNum(self):
-        """小游戏时长统计项数目
+        r"""小游戏时长统计项数目
         :rtype: int
         """
         return self._MiniGameDataNum
@@ -521,7 +859,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def MiniGameDataMainland(self):
-        """大陆地区小游戏时长统计数据，单位分钟
+        r"""大陆地区小游戏时长统计数据，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._MiniGameDataMainland
@@ -532,7 +870,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def MiniGameDataOversea(self):
-        """海外地区小游戏时长统计数据，单位分钟
+        r"""海外地区小游戏时长统计数据，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._MiniGameDataOversea
@@ -543,7 +881,7 @@ class ApplicationDataStatistics(AbstractModel):
 
     @property
     def MiniGameDataSum(self):
-        """大陆和海外地区小游戏时长统计数据汇总，单位分钟
+        r"""大陆和海外地区小游戏时长统计数据汇总，单位分钟
         :rtype: list of StatisticsItem
         """
         return self._MiniGameDataSum
@@ -642,7 +980,7 @@ class ApplicationDataStatistics(AbstractModel):
 
 
 class ApplicationList(AbstractModel):
-    """获取应用列表返回
+    r"""获取应用列表返回
 
     """
 
@@ -673,7 +1011,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def ServiceConf(self):
-        """服务开关状态
+        r"""服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.ServiceStatus`
         """
         return self._ServiceConf
@@ -684,7 +1022,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID(AppID)
+        r"""应用ID(AppID)
         :rtype: int
         """
         return self._BizId
@@ -695,7 +1033,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def AppName(self):
-        """应用名称
+        r"""应用名称
         :rtype: str
         """
         return self._AppName
@@ -706,7 +1044,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def ProjectId(self):
-        """项目ID，默认为0
+        r"""项目ID，默认为0
         :rtype: int
         """
         return self._ProjectId
@@ -717,7 +1055,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def AppStatus(self):
-        """应用状态，返回0表示正常，1表示关闭，2表示欠费停服，3表示欠费回收
+        r"""应用状态，返回0表示正常，1表示关闭，2表示欠费停服，3表示欠费回收
         :rtype: int
         """
         return self._AppStatus
@@ -728,7 +1066,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def CreateTime(self):
-        """创建时间，Unix时间戳格式
+        r"""创建时间，Unix时间戳格式
         :rtype: int
         """
         return self._CreateTime
@@ -739,7 +1077,7 @@ class ApplicationList(AbstractModel):
 
     @property
     def AppType(self):
-        """应用类型，无需关注此数值
+        r"""应用类型，无需关注此数值
         :rtype: int
         """
         return self._AppType
@@ -770,7 +1108,7 @@ class ApplicationList(AbstractModel):
 
 
 class AsrConf(AbstractModel):
-    """语音转文本配置数据
+    r"""语音转文本配置数据
 
     """
 
@@ -783,7 +1121,7 @@ class AsrConf(AbstractModel):
 
     @property
     def Status(self):
-        """语音转文本服务开关，取值：open/close
+        r"""语音转文本服务开关，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -806,7 +1144,7 @@ class AsrConf(AbstractModel):
 
 
 class AudioTextStatisticsItem(AbstractModel):
-    """录音转文本用量统计数据
+    r"""录音转文本用量统计数据
 
     """
 
@@ -819,7 +1157,7 @@ class AudioTextStatisticsItem(AbstractModel):
 
     @property
     def Data(self):
-        """统计值，单位：秒
+        r"""统计值，单位：秒
         :rtype: float
         """
         return self._Data
@@ -841,8 +1179,121 @@ class AudioTextStatisticsItem(AbstractModel):
         
 
 
+class ControlAIConversationRequest(AbstractModel):
+    r"""ControlAIConversation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 任务唯一标识
+        :type TaskId: str
+        :param _Command: 控制命令，目前支持命令如下：- ServerPushText，服务端发送文本给AI机器人，AI机器人会播报该文本. - InvokeLLM，服务端发送文本给大模型，触发对话
+        :type Command: str
+        :param _ServerPushText: 服务端发送播报文本命令，当Command为ServerPushText时必填
+        :type ServerPushText: :class:`tencentcloud.gme.v20180711.models.ServerPushText`
+        :param _InvokeLLM: 服务端发送命令主动请求大模型,当Command为InvokeLLM时会把content请求到大模型,头部增加X-Invoke-LLM="1"
+        :type InvokeLLM: :class:`tencentcloud.gme.v20180711.models.InvokeLLM`
+        """
+        self._TaskId = None
+        self._Command = None
+        self._ServerPushText = None
+        self._InvokeLLM = None
+
+    @property
+    def TaskId(self):
+        r"""任务唯一标识
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Command(self):
+        r"""控制命令，目前支持命令如下：- ServerPushText，服务端发送文本给AI机器人，AI机器人会播报该文本. - InvokeLLM，服务端发送文本给大模型，触发对话
+        :rtype: str
+        """
+        return self._Command
+
+    @Command.setter
+    def Command(self, Command):
+        self._Command = Command
+
+    @property
+    def ServerPushText(self):
+        r"""服务端发送播报文本命令，当Command为ServerPushText时必填
+        :rtype: :class:`tencentcloud.gme.v20180711.models.ServerPushText`
+        """
+        return self._ServerPushText
+
+    @ServerPushText.setter
+    def ServerPushText(self, ServerPushText):
+        self._ServerPushText = ServerPushText
+
+    @property
+    def InvokeLLM(self):
+        r"""服务端发送命令主动请求大模型,当Command为InvokeLLM时会把content请求到大模型,头部增加X-Invoke-LLM="1"
+        :rtype: :class:`tencentcloud.gme.v20180711.models.InvokeLLM`
+        """
+        return self._InvokeLLM
+
+    @InvokeLLM.setter
+    def InvokeLLM(self, InvokeLLM):
+        self._InvokeLLM = InvokeLLM
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Command = params.get("Command")
+        if params.get("ServerPushText") is not None:
+            self._ServerPushText = ServerPushText()
+            self._ServerPushText._deserialize(params.get("ServerPushText"))
+        if params.get("InvokeLLM") is not None:
+            self._InvokeLLM = InvokeLLM()
+            self._InvokeLLM._deserialize(params.get("InvokeLLM"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ControlAIConversationResponse(AbstractModel):
+    r"""ControlAIConversation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class CreateAgeDetectTaskRequest(AbstractModel):
-    """CreateAgeDetectTask请求参数结构体
+    r"""CreateAgeDetectTask请求参数结构体
 
     """
 
@@ -863,7 +1314,7 @@ class CreateAgeDetectTaskRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用id
+        r"""应用id
         :rtype: int
         """
         return self._BizId
@@ -874,7 +1325,7 @@ class CreateAgeDetectTaskRequest(AbstractModel):
 
     @property
     def Tasks(self):
-        """语音检测子任务列表，列表最多支持100个检测子任务。结构体中包含：
+        r"""语音检测子任务列表，列表最多支持100个检测子任务。结构体中包含：
 <li>DataId：数据的唯一ID</li>
 <li>Url：数据文件的url，为 urlencode 编码，流式则为拉流地址</li>
         :rtype: list of AgeDetectTask
@@ -887,7 +1338,7 @@ class CreateAgeDetectTaskRequest(AbstractModel):
 
     @property
     def Callback(self):
-        """任务结束时gme后台会自动触发回调
+        r"""任务结束时gme后台会自动触发回调
         :rtype: str
         """
         return self._Callback
@@ -917,7 +1368,7 @@ class CreateAgeDetectTaskRequest(AbstractModel):
 
 
 class CreateAgeDetectTaskResponse(AbstractModel):
-    """CreateAgeDetectTask返回参数结构体
+    r"""CreateAgeDetectTask返回参数结构体
 
     """
 
@@ -933,7 +1384,7 @@ class CreateAgeDetectTaskResponse(AbstractModel):
 
     @property
     def TaskId(self):
-        """本次任务提交后唯一id，用于获取任务运行结果
+        r"""本次任务提交后唯一id，用于获取任务运行结果
         :rtype: str
         """
         return self._TaskId
@@ -944,7 +1395,7 @@ class CreateAgeDetectTaskResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -960,7 +1411,7 @@ class CreateAgeDetectTaskResponse(AbstractModel):
 
 
 class CreateAppRequest(AbstractModel):
-    """CreateApp请求参数结构体
+    r"""CreateApp请求参数结构体
 
     """
 
@@ -999,7 +1450,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def AppName(self):
-        """应用名称
+        r"""应用名称
         :rtype: str
         """
         return self._AppName
@@ -1010,7 +1461,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def ProjectId(self):
-        """腾讯云项目ID，默认为0，表示默认项目
+        r"""腾讯云项目ID，默认为0，表示默认项目
         :rtype: int
         """
         return self._ProjectId
@@ -1021,7 +1472,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def EngineList(self):
-        """需要支持的引擎列表，默认全选。
+        r"""需要支持的引擎列表，默认全选。
 取值：android/ios/unity/cocos/unreal/windows
         :rtype: list of str
         """
@@ -1033,7 +1484,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def RegionList(self):
-        """服务区域列表，默认全选。
+        r"""服务区域列表，默认全选。
 取值：mainland-大陆地区，hmt-港澳台，sea-东南亚，na-北美，eu-欧洲，jpkr-日韩亚太，sa-南美，oc-澳洲，me-中东
         :rtype: list of str
         """
@@ -1045,7 +1496,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def RealtimeSpeechConf(self):
-        """实时语音服务配置数据
+        r"""实时语音服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.RealtimeSpeechConf`
         """
         return self._RealtimeSpeechConf
@@ -1056,7 +1507,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def VoiceMessageConf(self):
-        """语音消息服务配置数据
+        r"""语音消息服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceMessageConf`
         """
         return self._VoiceMessageConf
@@ -1067,7 +1518,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def VoiceFilterConf(self):
-        """语音分析服务配置数据
+        r"""语音分析服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceFilterConf`
         """
         return self._VoiceFilterConf
@@ -1078,7 +1529,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def AsrConf(self):
-        """语音转文本配置数据
+        r"""语音转文本配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.AsrConf`
         """
         return self._AsrConf
@@ -1089,7 +1540,7 @@ class CreateAppRequest(AbstractModel):
 
     @property
     def Tags(self):
-        """需要添加的标签列表
+        r"""需要添加的标签列表
         :rtype: list of Tag
         """
         return self._Tags
@@ -1133,7 +1584,7 @@ class CreateAppRequest(AbstractModel):
 
 
 class CreateAppResp(AbstractModel):
-    """CreateApp的输出参数
+    r"""CreateApp的输出参数
 
     """
 
@@ -1170,7 +1621,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID，由后台自动生成。
+        r"""应用ID，由后台自动生成。
         :rtype: int
         """
         return self._BizId
@@ -1181,7 +1632,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def AppName(self):
-        """应用名称，透传输入参数的AppName
+        r"""应用名称，透传输入参数的AppName
         :rtype: str
         """
         return self._AppName
@@ -1192,7 +1643,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def ProjectId(self):
-        """项目ID，透传输入的ProjectId
+        r"""项目ID，透传输入的ProjectId
         :rtype: int
         """
         return self._ProjectId
@@ -1203,7 +1654,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def SecretKey(self):
-        """应用密钥，GME SDK初始化时使用
+        r"""应用密钥，GME SDK初始化时使用
         :rtype: str
         """
         return self._SecretKey
@@ -1214,7 +1665,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def CreateTime(self):
-        """服务创建时间戳
+        r"""服务创建时间戳
         :rtype: int
         """
         return self._CreateTime
@@ -1225,7 +1676,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def RealtimeSpeechConf(self):
-        """实时语音服务配置数据
+        r"""实时语音服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.RealtimeSpeechConf`
         """
         return self._RealtimeSpeechConf
@@ -1236,7 +1687,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def VoiceMessageConf(self):
-        """语音消息服务配置数据
+        r"""语音消息服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceMessageConf`
         """
         return self._VoiceMessageConf
@@ -1247,7 +1698,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def VoiceFilterConf(self):
-        """语音分析服务配置数据
+        r"""语音分析服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.VoiceFilterConf`
         """
         return self._VoiceFilterConf
@@ -1258,7 +1709,7 @@ class CreateAppResp(AbstractModel):
 
     @property
     def AsrConf(self):
-        """语音转文本服务配置数据
+        r"""语音转文本服务配置数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.AsrConf`
         """
         return self._AsrConf
@@ -1297,7 +1748,7 @@ class CreateAppResp(AbstractModel):
 
 
 class CreateAppResponse(AbstractModel):
-    """CreateApp返回参数结构体
+    r"""CreateApp返回参数结构体
 
     """
 
@@ -1313,7 +1764,7 @@ class CreateAppResponse(AbstractModel):
 
     @property
     def Data(self):
-        """创建应用返回数据
+        r"""创建应用返回数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.CreateAppResp`
         """
         return self._Data
@@ -1324,7 +1775,7 @@ class CreateAppResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1342,7 +1793,7 @@ class CreateAppResponse(AbstractModel):
 
 
 class CreateCustomizationRequest(AbstractModel):
-    """CreateCustomization请求参数结构体
+    r"""CreateCustomization请求参数结构体
 
     """
 
@@ -1361,7 +1812,7 @@ class CreateCustomizationRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -1372,7 +1823,7 @@ class CreateCustomizationRequest(AbstractModel):
 
     @property
     def TextUrl(self):
-        """文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
+        r"""文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
         :rtype: str
         """
         return self._TextUrl
@@ -1383,7 +1834,7 @@ class CreateCustomizationRequest(AbstractModel):
 
     @property
     def ModelName(self):
-        """模型名称，名称长度不超过36，默认为BizId。
+        r"""模型名称，名称长度不超过36，默认为BizId。
         :rtype: str
         """
         return self._ModelName
@@ -1408,7 +1859,7 @@ class CreateCustomizationRequest(AbstractModel):
 
 
 class CreateCustomizationResponse(AbstractModel):
-    """CreateCustomization返回参数结构体
+    r"""CreateCustomization返回参数结构体
 
     """
 
@@ -1424,7 +1875,7 @@ class CreateCustomizationResponse(AbstractModel):
 
     @property
     def ModelId(self):
-        """模型ID
+        r"""模型ID
         :rtype: str
         """
         return self._ModelId
@@ -1435,7 +1886,7 @@ class CreateCustomizationResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1451,7 +1902,7 @@ class CreateCustomizationResponse(AbstractModel):
 
 
 class CreateScanUserRequest(AbstractModel):
-    """CreateScanUser请求参数结构体
+    r"""CreateScanUser请求参数结构体
 
     """
 
@@ -1462,8 +1913,7 @@ class CreateScanUserRequest(AbstractModel):
         :param _UserId: 需要新增送检的用户号。示例：1234
 (若UserId不填，则UserIdString必填；两者选其一；两者都填以UserIdString为准)
         :type UserId: int
-        :param _UserIdString: 需要新增送检的用户号。示例："1234"
-(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
+        :param _UserIdString: 需要新增送检的用户号，长度不超过1024字符。示例："1234"(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
         :type UserIdString: str
         :param _ExpirationTime: 当前用户送检过期时间，单位：秒。
 若参数不为0，则在过期时间之后，用户不会被送检。
@@ -1477,7 +1927,7 @@ class CreateScanUserRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID，登录控制台 - 服务管理创建应用得到的AppID
+        r"""应用ID，登录控制台 - 服务管理创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -1488,7 +1938,7 @@ class CreateScanUserRequest(AbstractModel):
 
     @property
     def UserId(self):
-        """需要新增送检的用户号。示例：1234
+        r"""需要新增送检的用户号。示例：1234
 (若UserId不填，则UserIdString必填；两者选其一；两者都填以UserIdString为准)
         :rtype: int
         """
@@ -1500,8 +1950,7 @@ class CreateScanUserRequest(AbstractModel):
 
     @property
     def UserIdString(self):
-        """需要新增送检的用户号。示例："1234"
-(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
+        r"""需要新增送检的用户号，长度不超过1024字符。示例："1234"(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
         :rtype: str
         """
         return self._UserIdString
@@ -1512,7 +1961,7 @@ class CreateScanUserRequest(AbstractModel):
 
     @property
     def ExpirationTime(self):
-        """当前用户送检过期时间，单位：秒。
+        r"""当前用户送检过期时间，单位：秒。
 若参数不为0，则在过期时间之后，用户不会被送检。
 若参数为0，则送检配置不会自动失效。 
         :rtype: int
@@ -1540,7 +1989,7 @@ class CreateScanUserRequest(AbstractModel):
 
 
 class CreateScanUserResponse(AbstractModel):
-    """CreateScanUser返回参数结构体
+    r"""CreateScanUser返回参数结构体
 
     """
 
@@ -1556,7 +2005,7 @@ class CreateScanUserResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回结果码
+        r"""返回结果码
         :rtype: int
         """
         return self._ErrorCode
@@ -1567,7 +2016,7 @@ class CreateScanUserResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1583,7 +2032,7 @@ class CreateScanUserResponse(AbstractModel):
 
 
 class CustomizationConfigs(AbstractModel):
-    """语音消息转文本热句模型配置
+    r"""语音消息转文本热句模型配置
 
     """
 
@@ -1611,7 +2060,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -1622,7 +2071,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def ModelId(self):
-        """模型ID
+        r"""模型ID
         :rtype: str
         """
         return self._ModelId
@@ -1633,7 +2082,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def ModelState(self):
-        """模型状态，-1下线状态，1上线状态, 0训练中, -2训练失败, 3上线中, 4下线中
+        r"""模型状态，-1下线状态，1上线状态, 0训练中, -2训练失败, 3上线中, 4下线中
         :rtype: int
         """
         return self._ModelState
@@ -1644,7 +2093,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def ModelName(self):
-        """模型名称
+        r"""模型名称
         :rtype: str
         """
         return self._ModelName
@@ -1655,7 +2104,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def TextUrl(self):
-        """文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
+        r"""文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
         :rtype: str
         """
         return self._TextUrl
@@ -1666,7 +2115,7 @@ class CustomizationConfigs(AbstractModel):
 
     @property
     def UpdateTime(self):
-        """更新时间，11位时间戳
+        r"""更新时间，11位时间戳
         :rtype: int
         """
         return self._UpdateTime
@@ -1694,7 +2143,7 @@ class CustomizationConfigs(AbstractModel):
 
 
 class DeleteCustomizationRequest(AbstractModel):
-    """DeleteCustomization请求参数结构体
+    r"""DeleteCustomization请求参数结构体
 
     """
 
@@ -1710,7 +2159,7 @@ class DeleteCustomizationRequest(AbstractModel):
 
     @property
     def ModelId(self):
-        """删除的模型ID
+        r"""删除的模型ID
         :rtype: str
         """
         return self._ModelId
@@ -1721,7 +2170,7 @@ class DeleteCustomizationRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -1745,7 +2194,7 @@ class DeleteCustomizationRequest(AbstractModel):
 
 
 class DeleteCustomizationResponse(AbstractModel):
-    """DeleteCustomization返回参数结构体
+    r"""DeleteCustomization返回参数结构体
 
     """
 
@@ -1761,7 +2210,7 @@ class DeleteCustomizationResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回值。0为成功，非0为失败。
+        r"""返回值。0为成功，非0为失败。
         :rtype: int
         """
         return self._ErrorCode
@@ -1772,7 +2221,7 @@ class DeleteCustomizationResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1788,7 +2237,7 @@ class DeleteCustomizationResponse(AbstractModel):
 
 
 class DeleteResult(AbstractModel):
-    """剔除房间操作结果
+    r"""剔除房间操作结果
 
     """
 
@@ -1804,7 +2253,7 @@ class DeleteResult(AbstractModel):
 
     @property
     def Code(self):
-        """错误码，0-剔除成功 其他-剔除失败
+        r"""错误码，0-剔除成功 其他-剔除失败
         :rtype: int
         """
         return self._Code
@@ -1815,7 +2264,7 @@ class DeleteResult(AbstractModel):
 
     @property
     def ErrorMsg(self):
-        """错误描述
+        r"""错误描述
         :rtype: str
         """
         return self._ErrorMsg
@@ -1839,7 +2288,7 @@ class DeleteResult(AbstractModel):
 
 
 class DeleteRoomMemberRequest(AbstractModel):
-    """DeleteRoomMember请求参数结构体
+    r"""DeleteRoomMember请求参数结构体
 
     """
 
@@ -1864,7 +2313,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
     @property
     def RoomId(self):
-        """要操作的房间id
+        r"""要操作的房间id
         :rtype: str
         """
         return self._RoomId
@@ -1875,7 +2324,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
     @property
     def DeleteType(self):
-        """剔除类型 1-删除房间 2-剔除用户
+        r"""剔除类型 1-删除房间 2-剔除用户
         :rtype: int
         """
         return self._DeleteType
@@ -1886,7 +2335,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用id
+        r"""应用id
         :rtype: int
         """
         return self._BizId
@@ -1897,7 +2346,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
     @property
     def Uids(self):
-        """要剔除的用户列表（整型）
+        r"""要剔除的用户列表（整型）
         :rtype: list of str
         """
         return self._Uids
@@ -1908,7 +2357,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
     @property
     def StrUids(self):
-        """要剔除的用户列表（字符串类型）
+        r"""要剔除的用户列表（字符串类型）
         :rtype: list of str
         """
         return self._StrUids
@@ -1935,7 +2384,7 @@ class DeleteRoomMemberRequest(AbstractModel):
 
 
 class DeleteRoomMemberResponse(AbstractModel):
-    """DeleteRoomMember返回参数结构体
+    r"""DeleteRoomMember返回参数结构体
 
     """
 
@@ -1951,7 +2400,7 @@ class DeleteRoomMemberResponse(AbstractModel):
 
     @property
     def DeleteResult(self):
-        """剔除房间或成员的操作结果
+        r"""剔除房间或成员的操作结果
         :rtype: :class:`tencentcloud.gme.v20180711.models.DeleteResult`
         """
         return self._DeleteResult
@@ -1962,7 +2411,7 @@ class DeleteRoomMemberResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -1980,7 +2429,7 @@ class DeleteRoomMemberResponse(AbstractModel):
 
 
 class DeleteScanUserRequest(AbstractModel):
-    """DeleteScanUser请求参数结构体
+    r"""DeleteScanUser请求参数结构体
 
     """
 
@@ -1991,8 +2440,7 @@ class DeleteScanUserRequest(AbstractModel):
         :param _UserId: 需要删除送检的用户号。示例：1234
 (若UserId不填，则UserIdString必填；两者选其一；两者都填以UserIdString为准)
         :type UserId: int
-        :param _UserIdString: 需要删除送检的用户号。示例："1234"
-(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
+        :param _UserIdString: 需要删除送检的用户号，长度不超过1024字符。示例："1234"(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
         :type UserIdString: str
         """
         self._BizId = None
@@ -2001,7 +2449,7 @@ class DeleteScanUserRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID，登录控制台 - 服务管理创建应用得到的AppID
+        r"""应用ID，登录控制台 - 服务管理创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -2012,7 +2460,7 @@ class DeleteScanUserRequest(AbstractModel):
 
     @property
     def UserId(self):
-        """需要删除送检的用户号。示例：1234
+        r"""需要删除送检的用户号。示例：1234
 (若UserId不填，则UserIdString必填；两者选其一；两者都填以UserIdString为准)
         :rtype: int
         """
@@ -2024,8 +2472,7 @@ class DeleteScanUserRequest(AbstractModel):
 
     @property
     def UserIdString(self):
-        """需要删除送检的用户号。示例："1234"
-(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
+        r"""需要删除送检的用户号，长度不超过1024字符。示例："1234"(若UserIdString不填，则UserId必填；两者选其一；两者都填以UserIdString为准)
         :rtype: str
         """
         return self._UserIdString
@@ -2050,7 +2497,7 @@ class DeleteScanUserRequest(AbstractModel):
 
 
 class DeleteScanUserResponse(AbstractModel):
-    """DeleteScanUser返回参数结构体
+    r"""DeleteScanUser返回参数结构体
 
     """
 
@@ -2066,7 +2513,7 @@ class DeleteScanUserResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回结果码
+        r"""返回结果码
         :rtype: int
         """
         return self._ErrorCode
@@ -2077,7 +2524,7 @@ class DeleteScanUserResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2092,8 +2539,211 @@ class DeleteScanUserResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteVoicePrintRequest(AbstractModel):
+    r"""DeleteVoicePrint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VoicePrintId: 声纹信息ID
+        :type VoicePrintId: str
+        """
+        self._VoicePrintId = None
+
+    @property
+    def VoicePrintId(self):
+        r"""声纹信息ID
+        :rtype: str
+        """
+        return self._VoicePrintId
+
+    @VoicePrintId.setter
+    def VoicePrintId(self, VoicePrintId):
+        self._VoicePrintId = VoicePrintId
+
+
+    def _deserialize(self, params):
+        self._VoicePrintId = params.get("VoicePrintId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteVoicePrintResponse(AbstractModel):
+    r"""DeleteVoicePrint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAIConversationRequest(AbstractModel):
+    r"""DescribeAIConversation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: GME的SdkAppId，和开启转录任务的房间使用的SdkAppId相同。
+        :type SdkAppId: int
+        :param _TaskId: 唯一标识一次任务。
+        :type TaskId: str
+        """
+        self._SdkAppId = None
+        self._TaskId = None
+
+    @property
+    def SdkAppId(self):
+        r"""GME的SdkAppId，和开启转录任务的房间使用的SdkAppId相同。
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def TaskId(self):
+        r"""唯一标识一次任务。
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._TaskId = params.get("TaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAIConversationResponse(AbstractModel):
+    r"""DescribeAIConversation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StartTime: 任务开始时间。
+        :type StartTime: str
+        :param _Status: 任务状态。有4个值：1、Idle表示任务未开始2、Preparing表示任务准备中3、InProgress表示任务正在运行4、Stopped表示任务已停止，正在清理资源中
+        :type Status: str
+        :param _TaskId: 唯一标识一次任务。
+        :type TaskId: str
+        :param _SessionId: 开启对话任务时填写的SessionId，如果没写则不返回。
+        :type SessionId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._StartTime = None
+        self._Status = None
+        self._TaskId = None
+        self._SessionId = None
+        self._RequestId = None
+
+    @property
+    def StartTime(self):
+        r"""任务开始时间。
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def Status(self):
+        r"""任务状态。有4个值：1、Idle表示任务未开始2、Preparing表示任务准备中3、InProgress表示任务正在运行4、Stopped表示任务已停止，正在清理资源中
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def TaskId(self):
+        r"""唯一标识一次任务。
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def SessionId(self):
+        r"""开启对话任务时填写的SessionId，如果没写则不返回。
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._StartTime = params.get("StartTime")
+        self._Status = params.get("Status")
+        self._TaskId = params.get("TaskId")
+        self._SessionId = params.get("SessionId")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeAgeDetectTaskRequest(AbstractModel):
-    """DescribeAgeDetectTask请求参数结构体
+    r"""DescribeAgeDetectTask请求参数结构体
 
     """
 
@@ -2109,7 +2759,7 @@ class DescribeAgeDetectTaskRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用id
+        r"""应用id
         :rtype: int
         """
         return self._BizId
@@ -2120,7 +2770,7 @@ class DescribeAgeDetectTaskRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        """[创建年龄语音识别任务](https://cloud.tencent.com/document/product/607/60620)时返回的taskid
+        r"""[创建年龄语音识别任务](https://cloud.tencent.com/document/product/607/60620)时返回的taskid
         :rtype: str
         """
         return self._TaskId
@@ -2144,7 +2794,7 @@ class DescribeAgeDetectTaskRequest(AbstractModel):
 
 
 class DescribeAgeDetectTaskResponse(AbstractModel):
-    """DescribeAgeDetectTask返回参数结构体
+    r"""DescribeAgeDetectTask返回参数结构体
 
     """
 
@@ -2167,7 +2817,7 @@ Age ：子任务完成后的结果，0:成年人，1:未成年人，100:未知�
 
     @property
     def TaskId(self):
-        """任务ID
+        r"""任务ID
         :rtype: str
         """
         return self._TaskId
@@ -2178,7 +2828,7 @@ Age ：子任务完成后的结果，0:成年人，1:未成年人，100:未知�
 
     @property
     def Results(self):
-        """语音检测返回。Results 字段是 JSON 数组，每一个元素包含：
+        r"""语音检测返回。Results 字段是 JSON 数组，每一个元素包含：
 DataId： 请求中对应的 DataId。
 Url ：该请求中对应的 Url。
 Status ：子任务状态，0:已创建，1:运行中，2:已完成，3:任务异常，4:任务超时。
@@ -2193,7 +2843,7 @@ Age ：子任务完成后的结果，0:成年人，1:未成年人，100:未知�
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2215,7 +2865,7 @@ Age ：子任务完成后的结果，0:成年人，1:未成年人，100:未知�
 
 
 class DescribeAppStatisticsRequest(AbstractModel):
-    """DescribeAppStatistics请求参数结构体
+    r"""DescribeAppStatistics请求参数结构体
 
     """
 
@@ -2237,7 +2887,7 @@ class DescribeAppStatisticsRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """GME应用ID
+        r"""GME应用ID
         :rtype: int
         """
         return self._BizId
@@ -2248,7 +2898,7 @@ class DescribeAppStatisticsRequest(AbstractModel):
 
     @property
     def StartDate(self):
-        """数据开始时间，东八区时间，格式: 年-月-日，如: 2018-07-13
+        r"""数据开始时间，东八区时间，格式: 年-月-日，如: 2018-07-13
         :rtype: str
         """
         return self._StartDate
@@ -2259,7 +2909,7 @@ class DescribeAppStatisticsRequest(AbstractModel):
 
     @property
     def EndDate(self):
-        """数据结束时间，东八区时间，格式: 年-月-日，如: 2018-07-13
+        r"""数据结束时间，东八区时间，格式: 年-月-日，如: 2018-07-13
         :rtype: str
         """
         return self._EndDate
@@ -2270,7 +2920,7 @@ class DescribeAppStatisticsRequest(AbstractModel):
 
     @property
     def Services(self):
-        """要查询的服务列表，取值：RealTimeSpeech/VoiceMessage/VoiceFilter/SpeechToText
+        r"""要查询的服务列表，取值：RealTimeSpeech/VoiceMessage/VoiceFilter/SpeechToText
         :rtype: list of str
         """
         return self._Services
@@ -2296,7 +2946,7 @@ class DescribeAppStatisticsRequest(AbstractModel):
 
 
 class DescribeAppStatisticsResp(AbstractModel):
-    """获取应用用量统计数据输出参数
+    r"""获取应用用量统计数据输出参数
 
     """
 
@@ -2309,7 +2959,7 @@ class DescribeAppStatisticsResp(AbstractModel):
 
     @property
     def AppStatistics(self):
-        """应用用量统计数据
+        r"""应用用量统计数据
         :rtype: list of AppStatisticsItem
         """
         return self._AppStatistics
@@ -2337,7 +2987,7 @@ class DescribeAppStatisticsResp(AbstractModel):
 
 
 class DescribeAppStatisticsResponse(AbstractModel):
-    """DescribeAppStatistics返回参数结构体
+    r"""DescribeAppStatistics返回参数结构体
 
     """
 
@@ -2353,7 +3003,7 @@ class DescribeAppStatisticsResponse(AbstractModel):
 
     @property
     def Data(self):
-        """应用用量统计数据
+        r"""应用用量统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.DescribeAppStatisticsResp`
         """
         return self._Data
@@ -2364,7 +3014,7 @@ class DescribeAppStatisticsResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2382,7 +3032,7 @@ class DescribeAppStatisticsResponse(AbstractModel):
 
 
 class DescribeApplicationDataRequest(AbstractModel):
-    """DescribeApplicationData请求参数结构体
+    r"""DescribeApplicationData请求参数结构体
 
     """
 
@@ -2401,7 +3051,7 @@ class DescribeApplicationDataRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -2412,7 +3062,7 @@ class DescribeApplicationDataRequest(AbstractModel):
 
     @property
     def StartDate(self):
-        """数据开始时间，格式为 年-月-日，如: 2018-07-13
+        r"""数据开始时间，格式为 年-月-日，如: 2018-07-13
         :rtype: str
         """
         return self._StartDate
@@ -2423,7 +3073,7 @@ class DescribeApplicationDataRequest(AbstractModel):
 
     @property
     def EndDate(self):
-        """数据结束时间，格式为 年-月-日，如: 2018-07-13
+        r"""数据结束时间，格式为 年-月-日，如: 2018-07-13
         :rtype: str
         """
         return self._EndDate
@@ -2448,7 +3098,7 @@ class DescribeApplicationDataRequest(AbstractModel):
 
 
 class DescribeApplicationDataResponse(AbstractModel):
-    """DescribeApplicationData返回参数结构体
+    r"""DescribeApplicationData返回参数结构体
 
     """
 
@@ -2464,7 +3114,7 @@ class DescribeApplicationDataResponse(AbstractModel):
 
     @property
     def Data(self):
-        """应用统计数据
+        r"""应用统计数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.ApplicationDataStatistics`
         """
         return self._Data
@@ -2475,7 +3125,7 @@ class DescribeApplicationDataResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2493,7 +3143,7 @@ class DescribeApplicationDataResponse(AbstractModel):
 
 
 class DescribeApplicationListRequest(AbstractModel):
-    """DescribeApplicationList请求参数结构体
+    r"""DescribeApplicationList请求参数结构体
 
     """
 
@@ -2521,7 +3171,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def ProjectId(self):
-        """项目ID，0表示默认项目，-1表示所有项目，如果需要查找具体项目下的应用列表，请填入具体项目ID，项目ID在项目管理中查看 https://console.cloud.tencent.com/project
+        r"""项目ID，0表示默认项目，-1表示所有项目，如果需要查找具体项目下的应用列表，请填入具体项目ID，项目ID在项目管理中查看 https://console.cloud.tencent.com/project
         :rtype: int
         """
         return self._ProjectId
@@ -2532,7 +3182,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def PageNo(self):
-        """页码ID，0表示第一页，以此后推。默认填0
+        r"""页码ID，0表示第一页，以此后推。默认填0
         :rtype: int
         """
         return self._PageNo
@@ -2543,7 +3193,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def PageSize(self):
-        """每页展示应用数量。默认填200
+        r"""每页展示应用数量。默认填200
         :rtype: int
         """
         return self._PageSize
@@ -2554,7 +3204,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def SearchText(self):
-        """所查找应用名称的关键字，支持模糊匹配查找。空串表示查询所有应用
+        r"""所查找应用名称的关键字，支持模糊匹配查找。空串表示查询所有应用
         :rtype: str
         """
         return self._SearchText
@@ -2565,7 +3215,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def TagSet(self):
-        """标签列表
+        r"""标签列表
         :rtype: list of Tag
         """
         return self._TagSet
@@ -2576,7 +3226,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
     @property
     def Filters(self):
-        """查找过滤关键字列表
+        r"""查找过滤关键字列表
         :rtype: list of Filter
         """
         return self._Filters
@@ -2614,7 +3264,7 @@ class DescribeApplicationListRequest(AbstractModel):
 
 
 class DescribeApplicationListResponse(AbstractModel):
-    """DescribeApplicationList返回参数结构体
+    r"""DescribeApplicationList返回参数结构体
 
     """
 
@@ -2633,7 +3283,7 @@ class DescribeApplicationListResponse(AbstractModel):
 
     @property
     def ApplicationList(self):
-        """获取应用列表返回
+        r"""获取应用列表返回
         :rtype: list of ApplicationList
         """
         return self._ApplicationList
@@ -2644,7 +3294,7 @@ class DescribeApplicationListResponse(AbstractModel):
 
     @property
     def Total(self):
-        """应用总数
+        r"""应用总数
         :rtype: int
         """
         return self._Total
@@ -2655,7 +3305,7 @@ class DescribeApplicationListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2677,7 +3327,7 @@ class DescribeApplicationListResponse(AbstractModel):
 
 
 class DescribeRealtimeScanConfigRequest(AbstractModel):
-    """DescribeRealtimeScanConfig请求参数结构体
+    r"""DescribeRealtimeScanConfig请求参数结构体
 
     """
 
@@ -2690,7 +3340,7 @@ class DescribeRealtimeScanConfigRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -2713,7 +3363,7 @@ class DescribeRealtimeScanConfigRequest(AbstractModel):
 
 
 class DescribeRealtimeScanConfigResponse(AbstractModel):
-    """DescribeRealtimeScanConfig返回参数结构体
+    r"""DescribeRealtimeScanConfig返回参数结构体
 
     """
 
@@ -2749,7 +3399,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回结果码，0正常，非0失败
+        r"""返回结果码，0正常，非0失败
         :rtype: int
         """
         return self._ErrorCode
@@ -2760,7 +3410,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -2771,7 +3421,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def AuditType(self):
-        """送检类型，0: 全量送审，1: 自定义送审
+        r"""送检类型，0: 全量送审，1: 自定义送审
         :rtype: int
         """
         return self._AuditType
@@ -2782,7 +3432,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def UserIdRegex(self):
-        """用户号正则表达式。
+        r"""用户号正则表达式。
 符合此正则表达式规则的用户号将被送检。示例：^6.*（表示所有以6开头的用户号将被送检）
         :rtype: list of str
         """
@@ -2794,7 +3444,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def RoomIdRegex(self):
-        """房间号正则表达式。
+        r"""房间号正则表达式。
 符合此正则表达式规则的房间号将被送检。示例：^6.*（表示所有以6开头的房间号将被送检）
         :rtype: list of str
         """
@@ -2806,7 +3456,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def UserIdString(self):
-        """用户号字符串，逗号分隔，示例："0001,0002,0003"
+        r"""用户号字符串，逗号分隔，示例："0001,0002,0003"
         :rtype: str
         """
         return self._UserIdString
@@ -2817,7 +3467,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def RoomIdString(self):
-        """房间号字符串，逗号分隔，示例："0001,0002,0003"
+        r"""房间号字符串，逗号分隔，示例："0001,0002,0003"
         :rtype: str
         """
         return self._RoomIdString
@@ -2828,7 +3478,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2850,7 +3500,7 @@ class DescribeRealtimeScanConfigResponse(AbstractModel):
 
 
 class DescribeRecordInfoRequest(AbstractModel):
-    """DescribeRecordInfo请求参数结构体
+    r"""DescribeRecordInfo请求参数结构体
 
     """
 
@@ -2866,7 +3516,7 @@ class DescribeRecordInfoRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        """进行中的任务taskid（StartRecord接口返回）。
+        r"""进行中的任务taskid（StartRecord接口返回）。
         :rtype: int
         """
         return self._TaskId
@@ -2877,7 +3527,7 @@ class DescribeRecordInfoRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -2901,7 +3551,7 @@ class DescribeRecordInfoRequest(AbstractModel):
 
 
 class DescribeRecordInfoResponse(AbstractModel):
-    """DescribeRecordInfo返回参数结构体
+    r"""DescribeRecordInfo返回参数结构体
 
     """
 
@@ -2923,7 +3573,7 @@ class DescribeRecordInfoResponse(AbstractModel):
 
     @property
     def RecordInfo(self):
-        """录制信息。
+        r"""录制信息。
         :rtype: list of RecordInfo
         """
         return self._RecordInfo
@@ -2934,7 +3584,7 @@ class DescribeRecordInfoResponse(AbstractModel):
 
     @property
     def RecordMode(self):
-        """录制类型：1代表单流 2代表混流 3代表单流和混流。
+        r"""录制类型：1代表单流 2代表混流 3代表单流和混流。
         :rtype: int
         """
         return self._RecordMode
@@ -2945,7 +3595,7 @@ class DescribeRecordInfoResponse(AbstractModel):
 
     @property
     def RoomId(self):
-        """房间ID。
+        r"""房间ID。
         :rtype: str
         """
         return self._RoomId
@@ -2956,7 +3606,7 @@ class DescribeRecordInfoResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -2979,7 +3629,7 @@ class DescribeRecordInfoResponse(AbstractModel):
 
 
 class DescribeRoomInfoRequest(AbstractModel):
-    """DescribeRoomInfo请求参数结构体
+    r"""DescribeRoomInfo请求参数结构体
 
     """
 
@@ -2998,7 +3648,7 @@ class DescribeRoomInfoRequest(AbstractModel):
 
     @property
     def SdkAppId(self):
-        """应用ID，登录[控制台 - 服务管理](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
+        r"""应用ID，登录[控制台 - 服务管理](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
         :rtype: int
         """
         return self._SdkAppId
@@ -3009,7 +3659,7 @@ class DescribeRoomInfoRequest(AbstractModel):
 
     @property
     def RoomIds(self):
-        """房间号列表，最大不能超过10个（RoomIds、StrRoomIds必须填一个）
+        r"""房间号列表，最大不能超过10个（RoomIds、StrRoomIds必须填一个）
         :rtype: list of int non-negative
         """
         return self._RoomIds
@@ -3020,7 +3670,7 @@ class DescribeRoomInfoRequest(AbstractModel):
 
     @property
     def StrRoomIds(self):
-        """字符串类型房间号列表，最大不能超过10个（RoomIds、StrRoomIds必须填一个）
+        r"""字符串类型房间号列表，最大不能超过10个（RoomIds、StrRoomIds必须填一个）
         :rtype: list of str
         """
         return self._StrRoomIds
@@ -3045,7 +3695,7 @@ class DescribeRoomInfoRequest(AbstractModel):
 
 
 class DescribeRoomInfoResponse(AbstractModel):
-    """DescribeRoomInfo返回参数结构体
+    r"""DescribeRoomInfo返回参数结构体
 
     """
 
@@ -3064,7 +3714,7 @@ class DescribeRoomInfoResponse(AbstractModel):
 
     @property
     def Result(self):
-        """操作结果, 0成功, 非0失败
+        r"""操作结果, 0成功, 非0失败
         :rtype: int
         """
         return self._Result
@@ -3075,7 +3725,7 @@ class DescribeRoomInfoResponse(AbstractModel):
 
     @property
     def RoomUsers(self):
-        """房间用户信息
+        r"""房间用户信息
         :rtype: list of RoomUser
         """
         return self._RoomUsers
@@ -3086,7 +3736,7 @@ class DescribeRoomInfoResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3108,7 +3758,7 @@ class DescribeRoomInfoResponse(AbstractModel):
 
 
 class DescribeScanResult(AbstractModel):
-    """语音检测结果返回
+    r"""语音检测结果返回
 
     """
 
@@ -3160,7 +3810,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Code(self):
-        """业务返回码
+        r"""业务返回码
         :rtype: int
         """
         return self._Code
@@ -3171,7 +3821,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def DataId(self):
-        """数据唯一 ID
+        r"""数据唯一 ID
         :rtype: str
         """
         return self._DataId
@@ -3182,7 +3832,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def ScanFinishTime(self):
-        """检测完成的时间戳
+        r"""检测完成的时间戳
         :rtype: int
         """
         return self._ScanFinishTime
@@ -3193,7 +3843,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def HitFlag(self):
-        """是否违规
+        r"""是否违规
         :rtype: bool
         """
         return self._HitFlag
@@ -3204,7 +3854,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Live(self):
-        """是否为流
+        r"""是否为流
         :rtype: bool
         """
         return self._Live
@@ -3215,7 +3865,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Msg(self):
-        """业务返回描述
+        r"""业务返回描述
         :rtype: str
         """
         return self._Msg
@@ -3226,7 +3876,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def ScanPiece(self):
-        """检测结果，Code 为 0 时返回
+        r"""检测结果，Code 为 0 时返回
         :rtype: list of ScanPiece
         """
         return self._ScanPiece
@@ -3237,7 +3887,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def ScanStartTime(self):
-        """提交检测的时间戳
+        r"""提交检测的时间戳
         :rtype: int
         """
         return self._ScanStartTime
@@ -3248,7 +3898,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Scenes(self):
-        """语音检测场景，对应请求时的 Scene
+        r"""语音检测场景，对应请求时的 Scene
         :rtype: list of str
         """
         return self._Scenes
@@ -3259,7 +3909,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def TaskId(self):
-        """语音检测任务 ID，由后台分配
+        r"""语音检测任务 ID，由后台分配
         :rtype: str
         """
         return self._TaskId
@@ -3270,7 +3920,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Url(self):
-        """文件或接流地址
+        r"""文件或接流地址
         :rtype: str
         """
         return self._Url
@@ -3281,7 +3931,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def Status(self):
-        """检测任务执行结果状态，分别为：
+        r"""检测任务执行结果状态，分别为：
 <li>Start: 任务开始</li>
 <li>Success: 成功结束</li>
 <li>Error: 异常</li>
@@ -3295,7 +3945,7 @@ class DescribeScanResult(AbstractModel):
 
     @property
     def BizId(self):
-        """提交检测的应用 ID
+        r"""提交检测的应用 ID
         :rtype: int
         """
         return self._BizId
@@ -3335,7 +3985,7 @@ class DescribeScanResult(AbstractModel):
 
 
 class DescribeScanResultListRequest(AbstractModel):
-    """DescribeScanResultList请求参数结构体
+    r"""DescribeScanResultList请求参数结构体
 
     """
 
@@ -3354,7 +4004,7 @@ class DescribeScanResultListRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录[控制台](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
+        r"""应用 ID，登录[控制台](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -3365,7 +4015,7 @@ class DescribeScanResultListRequest(AbstractModel):
 
     @property
     def TaskIdList(self):
-        """查询的任务 ID 列表，任务 ID 列表最多支持 100 个。
+        r"""查询的任务 ID 列表，任务 ID 列表最多支持 100 个。
         :rtype: list of str
         """
         return self._TaskIdList
@@ -3376,7 +4026,7 @@ class DescribeScanResultListRequest(AbstractModel):
 
     @property
     def Limit(self):
-        """任务返回结果数量，默认10，上限500。大文件任务忽略此参数，返回全量结果
+        r"""任务返回结果数量，默认10，上限500。大文件任务忽略此参数，返回全量结果
         :rtype: int
         """
         return self._Limit
@@ -3401,7 +4051,7 @@ class DescribeScanResultListRequest(AbstractModel):
 
 
 class DescribeScanResultListResponse(AbstractModel):
-    """DescribeScanResultList返回参数结构体
+    r"""DescribeScanResultList返回参数结构体
 
     """
 
@@ -3417,7 +4067,7 @@ class DescribeScanResultListResponse(AbstractModel):
 
     @property
     def Data(self):
-        """要查询的语音检测任务的结果
+        r"""要查询的语音检测任务的结果
         :rtype: list of DescribeScanResult
         """
         return self._Data
@@ -3428,7 +4078,7 @@ class DescribeScanResultListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3449,7 +4099,7 @@ class DescribeScanResultListResponse(AbstractModel):
 
 
 class DescribeTaskInfoRequest(AbstractModel):
-    """DescribeTaskInfo请求参数结构体
+    r"""DescribeTaskInfo请求参数结构体
 
     """
 
@@ -3465,7 +4115,7 @@ class DescribeTaskInfoRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -3476,7 +4126,7 @@ class DescribeTaskInfoRequest(AbstractModel):
 
     @property
     def RoomId(self):
-        """房间ID。
+        r"""房间ID。
         :rtype: str
         """
         return self._RoomId
@@ -3500,7 +4150,7 @@ class DescribeTaskInfoRequest(AbstractModel):
 
 
 class DescribeTaskInfoResponse(AbstractModel):
-    """DescribeTaskInfo返回参数结构体
+    r"""DescribeTaskInfo返回参数结构体
 
     """
 
@@ -3522,7 +4172,7 @@ class DescribeTaskInfoResponse(AbstractModel):
 
     @property
     def TaskId(self):
-        """进行中的任务taskid（StartRecord接口返回）。
+        r"""进行中的任务taskid（StartRecord接口返回）。
         :rtype: int
         """
         return self._TaskId
@@ -3533,7 +4183,7 @@ class DescribeTaskInfoResponse(AbstractModel):
 
     @property
     def RecordMode(self):
-        """录制类型：1代表单流 2代表混流 3代表单流和混流。
+        r"""录制类型：1代表单流 2代表混流 3代表单流和混流。
         :rtype: int
         """
         return self._RecordMode
@@ -3544,7 +4194,7 @@ class DescribeTaskInfoResponse(AbstractModel):
 
     @property
     def SubscribeRecordUserIds(self):
-        """指定订阅流白名单或者黑名单。
+        r"""指定订阅流白名单或者黑名单。
         :rtype: :class:`tencentcloud.gme.v20180711.models.SubscribeRecordUserIds`
         """
         return self._SubscribeRecordUserIds
@@ -3555,7 +4205,7 @@ class DescribeTaskInfoResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3575,7 +4225,7 @@ class DescribeTaskInfoResponse(AbstractModel):
 
 
 class DescribeUserInAndOutTimeRequest(AbstractModel):
-    """DescribeUserInAndOutTime请求参数结构体
+    r"""DescribeUserInAndOutTime请求参数结构体
 
     """
 
@@ -3600,7 +4250,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -3611,7 +4261,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
     @property
     def RoomId(self):
-        """房间ID
+        r"""房间ID
         :rtype: int
         """
         return self._RoomId
@@ -3622,7 +4272,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
     @property
     def UserId(self):
-        """用户ID
+        r"""用户ID
         :rtype: int
         """
         return self._UserId
@@ -3633,7 +4283,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
     @property
     def UserIdStr(self):
-        """字符串类型用户ID
+        r"""字符串类型用户ID
         :rtype: str
         """
         return self._UserIdStr
@@ -3644,7 +4294,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
     @property
     def RoomIdStr(self):
-        """字符串类型房间ID
+        r"""字符串类型房间ID
         :rtype: str
         """
         return self._RoomIdStr
@@ -3671,7 +4321,7 @@ class DescribeUserInAndOutTimeRequest(AbstractModel):
 
 
 class DescribeUserInAndOutTimeResponse(AbstractModel):
-    """DescribeUserInAndOutTime返回参数结构体
+    r"""DescribeUserInAndOutTime返回参数结构体
 
     """
 
@@ -3690,7 +4340,7 @@ class DescribeUserInAndOutTimeResponse(AbstractModel):
 
     @property
     def InOutList(self):
-        """用户在房间得进出时间列表
+        r"""用户在房间得进出时间列表
         :rtype: list of InOutTimeInfo
         """
         return self._InOutList
@@ -3701,7 +4351,7 @@ class DescribeUserInAndOutTimeResponse(AbstractModel):
 
     @property
     def Duration(self):
-        """用户在房间中总时长
+        r"""用户在房间中总时长
         :rtype: int
         """
         return self._Duration
@@ -3712,7 +4362,7 @@ class DescribeUserInAndOutTimeResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3733,8 +4383,152 @@ class DescribeUserInAndOutTimeResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeVoicePrintRequest(AbstractModel):
+    r"""DescribeVoicePrint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DescribeMode: 查询方式，0表示查询特定VoicePrintId，1表示分页查询
+        :type DescribeMode: int
+        :param _VoicePrintIdList: 声纹ID
+        :type VoicePrintIdList: list of str
+        :param _PageIndex: 当前页码,从1开始,DescribeMode为1时填写
+        :type PageIndex: int
+        :param _PageSize: 每页条数 最少20,DescribeMode为1时填写
+        :type PageSize: int
+        """
+        self._DescribeMode = None
+        self._VoicePrintIdList = None
+        self._PageIndex = None
+        self._PageSize = None
+
+    @property
+    def DescribeMode(self):
+        r"""查询方式，0表示查询特定VoicePrintId，1表示分页查询
+        :rtype: int
+        """
+        return self._DescribeMode
+
+    @DescribeMode.setter
+    def DescribeMode(self, DescribeMode):
+        self._DescribeMode = DescribeMode
+
+    @property
+    def VoicePrintIdList(self):
+        r"""声纹ID
+        :rtype: list of str
+        """
+        return self._VoicePrintIdList
+
+    @VoicePrintIdList.setter
+    def VoicePrintIdList(self, VoicePrintIdList):
+        self._VoicePrintIdList = VoicePrintIdList
+
+    @property
+    def PageIndex(self):
+        r"""当前页码,从1开始,DescribeMode为1时填写
+        :rtype: int
+        """
+        return self._PageIndex
+
+    @PageIndex.setter
+    def PageIndex(self, PageIndex):
+        self._PageIndex = PageIndex
+
+    @property
+    def PageSize(self):
+        r"""每页条数 最少20,DescribeMode为1时填写
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+
+    def _deserialize(self, params):
+        self._DescribeMode = params.get("DescribeMode")
+        self._VoicePrintIdList = params.get("VoicePrintIdList")
+        self._PageIndex = params.get("PageIndex")
+        self._PageSize = params.get("PageSize")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeVoicePrintResponse(AbstractModel):
+    r"""DescribeVoicePrint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 总的条数
+        :type TotalCount: int
+        :param _Data: 声纹信息
+        :type Data: list of VoicePrintInfo
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._Data = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""总的条数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def Data(self):
+        r"""声纹信息
+        :rtype: list of VoicePrintInfo
+        """
+        return self._Data
+
+    @Data.setter
+    def Data(self, Data):
+        self._Data = Data
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("Data") is not None:
+            self._Data = []
+            for item in params.get("Data"):
+                obj = VoicePrintInfo()
+                obj._deserialize(item)
+                self._Data.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class Filter(AbstractModel):
-    """查找过滤
+    r"""查找过滤
 
     """
 
@@ -3750,7 +4544,7 @@ class Filter(AbstractModel):
 
     @property
     def Name(self):
-        """要过滤的字段名, 比如"AppName"
+        r"""要过滤的字段名, 比如"AppName"
         :rtype: str
         """
         return self._Name
@@ -3761,7 +4555,7 @@ class Filter(AbstractModel):
 
     @property
     def Values(self):
-        """多个关键字
+        r"""多个关键字
         :rtype: list of str
         """
         return self._Values
@@ -3785,7 +4579,7 @@ class Filter(AbstractModel):
 
 
 class GetCustomizationListRequest(AbstractModel):
-    """GetCustomizationList请求参数结构体
+    r"""GetCustomizationList请求参数结构体
 
     """
 
@@ -3798,7 +4592,7 @@ class GetCustomizationListRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -3821,7 +4615,7 @@ class GetCustomizationListRequest(AbstractModel):
 
 
 class GetCustomizationListResponse(AbstractModel):
-    """GetCustomizationList返回参数结构体
+    r"""GetCustomizationList返回参数结构体
 
     """
 
@@ -3837,7 +4631,7 @@ class GetCustomizationListResponse(AbstractModel):
 
     @property
     def CustomizationConfigs(self):
-        """语音消息转文本热句模型配置
+        r"""语音消息转文本热句模型配置
         :rtype: list of CustomizationConfigs
         """
         return self._CustomizationConfigs
@@ -3848,7 +4642,7 @@ class GetCustomizationListResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -3869,7 +4663,7 @@ class GetCustomizationListResponse(AbstractModel):
 
 
 class InOutTimeInfo(AbstractModel):
-    """房间内的事件
+    r"""房间内的事件
 
     """
 
@@ -3885,7 +4679,7 @@ class InOutTimeInfo(AbstractModel):
 
     @property
     def StartTime(self):
-        """进入房间时间
+        r"""进入房间时间
         :rtype: int
         """
         return self._StartTime
@@ -3896,7 +4690,7 @@ class InOutTimeInfo(AbstractModel):
 
     @property
     def EndTime(self):
-        """退出房间时间
+        r"""退出房间时间
         :rtype: int
         """
         return self._EndTime
@@ -3919,8 +4713,59 @@ class InOutTimeInfo(AbstractModel):
         
 
 
+class InvokeLLM(AbstractModel):
+    r"""调用服务端主动发起请求到LLM
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Content: 请求LLM的内容
+        :type Content: str
+        :param _Interrupt: 是否允许该文本打断机器人说话
+        :type Interrupt: bool
+        """
+        self._Content = None
+        self._Interrupt = None
+
+    @property
+    def Content(self):
+        r"""请求LLM的内容
+        :rtype: str
+        """
+        return self._Content
+
+    @Content.setter
+    def Content(self, Content):
+        self._Content = Content
+
+    @property
+    def Interrupt(self):
+        r"""是否允许该文本打断机器人说话
+        :rtype: bool
+        """
+        return self._Interrupt
+
+    @Interrupt.setter
+    def Interrupt(self, Interrupt):
+        self._Interrupt = Interrupt
+
+
+    def _deserialize(self, params):
+        self._Content = params.get("Content")
+        self._Interrupt = params.get("Interrupt")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ModifyAppStatusRequest(AbstractModel):
-    """ModifyAppStatus请求参数结构体
+    r"""ModifyAppStatus请求参数结构体
 
     """
 
@@ -3936,7 +4781,7 @@ class ModifyAppStatusRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID，创建应用后由后台生成并返回。
+        r"""应用ID，创建应用后由后台生成并返回。
         :rtype: int
         """
         return self._BizId
@@ -3947,7 +4792,7 @@ class ModifyAppStatusRequest(AbstractModel):
 
     @property
     def Status(self):
-        """应用状态，取值：open/close
+        r"""应用状态，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -3971,7 +4816,7 @@ class ModifyAppStatusRequest(AbstractModel):
 
 
 class ModifyAppStatusResp(AbstractModel):
-    """ModifyAppStatus接口输出参数
+    r"""ModifyAppStatus接口输出参数
 
     """
 
@@ -3987,7 +4832,7 @@ class ModifyAppStatusResp(AbstractModel):
 
     @property
     def BizId(self):
-        """GME应用ID
+        r"""GME应用ID
         :rtype: int
         """
         return self._BizId
@@ -3998,7 +4843,7 @@ class ModifyAppStatusResp(AbstractModel):
 
     @property
     def Status(self):
-        """应用状态，取值：open/close
+        r"""应用状态，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -4022,7 +4867,7 @@ class ModifyAppStatusResp(AbstractModel):
 
 
 class ModifyAppStatusResponse(AbstractModel):
-    """ModifyAppStatus返回参数结构体
+    r"""ModifyAppStatus返回参数结构体
 
     """
 
@@ -4038,7 +4883,7 @@ class ModifyAppStatusResponse(AbstractModel):
 
     @property
     def Data(self):
-        """修改应用开关状态返回数据
+        r"""修改应用开关状态返回数据
         :rtype: :class:`tencentcloud.gme.v20180711.models.ModifyAppStatusResp`
         """
         return self._Data
@@ -4049,7 +4894,7 @@ class ModifyAppStatusResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4067,7 +4912,7 @@ class ModifyAppStatusResponse(AbstractModel):
 
 
 class ModifyCustomizationRequest(AbstractModel):
-    """ModifyCustomization请求参数结构体
+    r"""ModifyCustomization请求参数结构体
 
     """
 
@@ -4086,7 +4931,7 @@ class ModifyCustomizationRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -4097,7 +4942,7 @@ class ModifyCustomizationRequest(AbstractModel):
 
     @property
     def TextUrl(self):
-        """文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
+        r"""文本文件的下载地址，服务会从该地址下载文件，目前仅支持腾讯云cos
         :rtype: str
         """
         return self._TextUrl
@@ -4108,7 +4953,7 @@ class ModifyCustomizationRequest(AbstractModel):
 
     @property
     def ModelId(self):
-        """修改的模型ID
+        r"""修改的模型ID
         :rtype: str
         """
         return self._ModelId
@@ -4133,7 +4978,7 @@ class ModifyCustomizationRequest(AbstractModel):
 
 
 class ModifyCustomizationResponse(AbstractModel):
-    """ModifyCustomization返回参数结构体
+    r"""ModifyCustomization返回参数结构体
 
     """
 
@@ -4152,7 +4997,7 @@ class ModifyCustomizationResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回值。0为成功，非0为失败。
+        r"""返回值。0为成功，非0为失败。
         :rtype: int
         """
         return self._ErrorCode
@@ -4163,7 +5008,7 @@ class ModifyCustomizationResponse(AbstractModel):
 
     @property
     def ModelId(self):
-        """模型ID
+        r"""模型ID
         :rtype: str
         """
         return self._ModelId
@@ -4174,7 +5019,7 @@ class ModifyCustomizationResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4191,7 +5036,7 @@ class ModifyCustomizationResponse(AbstractModel):
 
 
 class ModifyCustomizationStateRequest(AbstractModel):
-    """ModifyCustomizationState请求参数结构体
+    r"""ModifyCustomizationState请求参数结构体
 
     """
 
@@ -4210,7 +5055,7 @@ class ModifyCustomizationStateRequest(AbstractModel):
 
     @property
     def ModelId(self):
-        """模型ID
+        r"""模型ID
         :rtype: str
         """
         return self._ModelId
@@ -4221,7 +5066,7 @@ class ModifyCustomizationStateRequest(AbstractModel):
 
     @property
     def ToState(self):
-        """想要变换的模型状态，-1代表下线，1代表上线
+        r"""想要变换的模型状态，-1代表下线，1代表上线
         :rtype: int
         """
         return self._ToState
@@ -4232,7 +5077,7 @@ class ModifyCustomizationStateRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用 ID，登录控制台创建应用得到的AppID
+        r"""应用 ID，登录控制台创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -4257,7 +5102,7 @@ class ModifyCustomizationStateRequest(AbstractModel):
 
 
 class ModifyCustomizationStateResponse(AbstractModel):
-    """ModifyCustomizationState返回参数结构体
+    r"""ModifyCustomizationState返回参数结构体
 
     """
 
@@ -4276,7 +5121,7 @@ class ModifyCustomizationStateResponse(AbstractModel):
 
     @property
     def ModelId(self):
-        """模型ID
+        r"""模型ID
         :rtype: str
         """
         return self._ModelId
@@ -4287,7 +5132,7 @@ class ModifyCustomizationStateResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回值。0为成功，非0为失败。
+        r"""返回值。0为成功，非0为失败。
         :rtype: int
         """
         return self._ErrorCode
@@ -4298,7 +5143,7 @@ class ModifyCustomizationStateResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4315,7 +5160,7 @@ class ModifyCustomizationStateResponse(AbstractModel):
 
 
 class ModifyRecordInfoRequest(AbstractModel):
-    """ModifyRecordInfo请求参数结构体
+    r"""ModifyRecordInfo请求参数结构体
 
     """
 
@@ -4337,7 +5182,7 @@ class ModifyRecordInfoRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        """进行中的任务taskid（StartRecord接口返回）。
+        r"""进行中的任务taskid（StartRecord接口返回）。
         :rtype: int
         """
         return self._TaskId
@@ -4348,7 +5193,7 @@ class ModifyRecordInfoRequest(AbstractModel):
 
     @property
     def RecordMode(self):
-        """录制类型：1代表单流 2代表混流 3代表单流和混流。
+        r"""录制类型：1代表单流 2代表混流 3代表单流和混流。
         :rtype: int
         """
         return self._RecordMode
@@ -4359,7 +5204,7 @@ class ModifyRecordInfoRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -4370,7 +5215,7 @@ class ModifyRecordInfoRequest(AbstractModel):
 
     @property
     def SubscribeRecordUserIds(self):
-        """指定订阅流白名单或者黑名单。
+        r"""指定订阅流白名单或者黑名单。
         :rtype: :class:`tencentcloud.gme.v20180711.models.SubscribeRecordUserIds`
         """
         return self._SubscribeRecordUserIds
@@ -4398,7 +5243,7 @@ class ModifyRecordInfoRequest(AbstractModel):
 
 
 class ModifyRecordInfoResponse(AbstractModel):
-    """ModifyRecordInfo返回参数结构体
+    r"""ModifyRecordInfo返回参数结构体
 
     """
 
@@ -4411,7 +5256,7 @@ class ModifyRecordInfoResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4426,7 +5271,7 @@ class ModifyRecordInfoResponse(AbstractModel):
 
 
 class ModifyUserMicStatusRequest(AbstractModel):
-    """ModifyUserMicStatus请求参数结构体
+    r"""ModifyUserMicStatus请求参数结构体
 
     """
 
@@ -4445,7 +5290,7 @@ class ModifyUserMicStatusRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """来自 [腾讯云控制台](https://console.cloud.tencent.com/gamegme) 的 GME 服务提供的 AppID，获取请参考 [语音服务开通指引](https://cloud.tencent.com/document/product/607/10782#.E9.87.8D.E7.82.B9.E5.8F.82.E6.95.B0)。
+        r"""来自 [腾讯云控制台](https://console.cloud.tencent.com/gamegme) 的 GME 服务提供的 AppID，获取请参考 [语音服务开通指引](https://cloud.tencent.com/document/product/607/10782#.E9.87.8D.E7.82.B9.E5.8F.82.E6.95.B0)。
         :rtype: int
         """
         return self._BizId
@@ -4456,7 +5301,7 @@ class ModifyUserMicStatusRequest(AbstractModel):
 
     @property
     def RoomId(self):
-        """实时语音房间号。
+        r"""实时语音房间号。
         :rtype: str
         """
         return self._RoomId
@@ -4467,7 +5312,7 @@ class ModifyUserMicStatusRequest(AbstractModel):
 
     @property
     def Users(self):
-        """需要操作的房间内用户以及该用户的目标麦克风状态。
+        r"""需要操作的房间内用户以及该用户的目标麦克风状态。
         :rtype: list of UserMicStatus
         """
         return self._Users
@@ -4497,7 +5342,7 @@ class ModifyUserMicStatusRequest(AbstractModel):
 
 
 class ModifyUserMicStatusResponse(AbstractModel):
-    """ModifyUserMicStatus返回参数结构体
+    r"""ModifyUserMicStatus返回参数结构体
 
     """
 
@@ -4516,7 +5361,7 @@ class ModifyUserMicStatusResponse(AbstractModel):
 
     @property
     def Result(self):
-        """返回结果：0为成功，非0为失败。
+        r"""返回结果：0为成功，非0为失败。
         :rtype: int
         """
         return self._Result
@@ -4527,7 +5372,7 @@ class ModifyUserMicStatusResponse(AbstractModel):
 
     @property
     def ErrMsg(self):
-        """错误信息。
+        r"""错误信息。
         :rtype: str
         """
         return self._ErrMsg
@@ -4538,7 +5383,7 @@ class ModifyUserMicStatusResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -4555,7 +5400,7 @@ class ModifyUserMicStatusResponse(AbstractModel):
 
 
 class OverseaTextStatisticsItem(AbstractModel):
-    """海外转文本用量数据
+    r"""海外转文本用量数据
 
     """
 
@@ -4568,7 +5413,7 @@ class OverseaTextStatisticsItem(AbstractModel):
 
     @property
     def Data(self):
-        """统计值，单位：秒
+        r"""统计值，单位：秒
         :rtype: float
         """
         return self._Data
@@ -4591,7 +5436,7 @@ class OverseaTextStatisticsItem(AbstractModel):
 
 
 class RealTimeSpeechStatisticsItem(AbstractModel):
-    """实时语音用量统计数据
+    r"""实时语音用量统计数据
 
     """
 
@@ -4619,7 +5464,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def MainLandDau(self):
-        """大陆地区DAU
+        r"""大陆地区DAU
         :rtype: int
         """
         return self._MainLandDau
@@ -4630,7 +5475,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def MainLandPcu(self):
-        """大陆地区PCU
+        r"""大陆地区PCU
         :rtype: int
         """
         return self._MainLandPcu
@@ -4641,7 +5486,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def MainLandDuration(self):
-        """大陆地区总使用时长，单位为min
+        r"""大陆地区总使用时长，单位为min
         :rtype: int
         """
         return self._MainLandDuration
@@ -4652,7 +5497,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def OverseaDau(self):
-        """海外地区DAU
+        r"""海外地区DAU
         :rtype: int
         """
         return self._OverseaDau
@@ -4663,7 +5508,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def OverseaPcu(self):
-        """海外地区PCU
+        r"""海外地区PCU
         :rtype: int
         """
         return self._OverseaPcu
@@ -4674,7 +5519,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
     @property
     def OverseaDuration(self):
-        """海外地区总使用时长，单位为min
+        r"""海外地区总使用时长，单位为min
         :rtype: int
         """
         return self._OverseaDuration
@@ -4702,7 +5547,7 @@ class RealTimeSpeechStatisticsItem(AbstractModel):
 
 
 class RealtimeSpeechConf(AbstractModel):
-    """实时语音配置数据
+    r"""实时语音配置数据
 
     """
 
@@ -4718,7 +5563,7 @@ class RealtimeSpeechConf(AbstractModel):
 
     @property
     def Status(self):
-        """实时语音服务开关，取值：open/close
+        r"""实时语音服务开关，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -4729,7 +5574,7 @@ class RealtimeSpeechConf(AbstractModel):
 
     @property
     def Quality(self):
-        """实时语音音质类型，取值：high-高音质 ordinary-普通音质
+        r"""实时语音音质类型，取值：high-高音质 ordinary-普通音质
         :rtype: str
         """
         return self._Quality
@@ -4753,7 +5598,7 @@ class RealtimeSpeechConf(AbstractModel):
 
 
 class RealtimeTextStatisticsItem(AbstractModel):
-    """实时语音转文本用量数据
+    r"""实时语音转文本用量数据
 
     """
 
@@ -4766,7 +5611,7 @@ class RealtimeTextStatisticsItem(AbstractModel):
 
     @property
     def Data(self):
-        """统计值，单位：秒
+        r"""统计值，单位：秒
         :rtype: float
         """
         return self._Data
@@ -4789,7 +5634,7 @@ class RealtimeTextStatisticsItem(AbstractModel):
 
 
 class RecordInfo(AbstractModel):
-    """房间内录制信息。
+    r"""房间内录制信息。
     注意：此字段可能返回 null，表示取不到有效值。
 
     """
@@ -4812,7 +5657,7 @@ class RecordInfo(AbstractModel):
 
     @property
     def UserId(self):
-        """用户ID（当混流模式时，取值为0）。
+        r"""用户ID（当混流模式时，取值为0）。
         :rtype: str
         """
         return self._UserId
@@ -4823,7 +5668,7 @@ class RecordInfo(AbstractModel):
 
     @property
     def FileName(self):
-        """录制文件名。
+        r"""录制文件名。
         :rtype: str
         """
         return self._FileName
@@ -4834,7 +5679,7 @@ class RecordInfo(AbstractModel):
 
     @property
     def RecordBeginTime(self):
-        """录制开始时间（unix时间戳如：1234567868）。
+        r"""录制开始时间（unix时间戳如：1234567868）。
         :rtype: int
         """
         return self._RecordBeginTime
@@ -4845,7 +5690,7 @@ class RecordInfo(AbstractModel):
 
     @property
     def RecordStatus(self):
-        """录制状态：2代表正在录制  10代表等待转码  11代表正在转码  12正在上传  13代表上传完成  14代表通知用户完成。
+        r"""录制状态：2代表正在录制  10代表等待转码  11代表正在转码  12正在上传  13代表上传完成  14代表通知用户完成。
         :rtype: int
         """
         return self._RecordStatus
@@ -4870,8 +5715,147 @@ class RecordInfo(AbstractModel):
         
 
 
+class RegisterVoicePrintRequest(AbstractModel):
+    r"""RegisterVoicePrint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Audio: 整个wav音频文件的base64字符串,其中wav文件限定为16k采样率, 16bit位深, 单声道, 4到18秒音频时长,有效音频不小于3秒(不能有太多静音段), 编码数据大小不超过2M, 为了识别准确率，建议音频长度为8秒
+        :type Audio: str
+        :param _ReqTimestamp: 毫秒时间戳
+        :type ReqTimestamp: int
+        :param _AudioFormat: 音频格式,目前只支持0,代表wav
+        :type AudioFormat: int
+        :param _AudioName: 音频名称,长度不要超过32
+        :type AudioName: str
+        :param _AudioMetaInfo: 和声纹绑定的MetaInfo，长度最大不超过512
+        :type AudioMetaInfo: str
+        """
+        self._Audio = None
+        self._ReqTimestamp = None
+        self._AudioFormat = None
+        self._AudioName = None
+        self._AudioMetaInfo = None
+
+    @property
+    def Audio(self):
+        r"""整个wav音频文件的base64字符串,其中wav文件限定为16k采样率, 16bit位深, 单声道, 4到18秒音频时长,有效音频不小于3秒(不能有太多静音段), 编码数据大小不超过2M, 为了识别准确率，建议音频长度为8秒
+        :rtype: str
+        """
+        return self._Audio
+
+    @Audio.setter
+    def Audio(self, Audio):
+        self._Audio = Audio
+
+    @property
+    def ReqTimestamp(self):
+        r"""毫秒时间戳
+        :rtype: int
+        """
+        return self._ReqTimestamp
+
+    @ReqTimestamp.setter
+    def ReqTimestamp(self, ReqTimestamp):
+        self._ReqTimestamp = ReqTimestamp
+
+    @property
+    def AudioFormat(self):
+        r"""音频格式,目前只支持0,代表wav
+        :rtype: int
+        """
+        return self._AudioFormat
+
+    @AudioFormat.setter
+    def AudioFormat(self, AudioFormat):
+        self._AudioFormat = AudioFormat
+
+    @property
+    def AudioName(self):
+        r"""音频名称,长度不要超过32
+        :rtype: str
+        """
+        return self._AudioName
+
+    @AudioName.setter
+    def AudioName(self, AudioName):
+        self._AudioName = AudioName
+
+    @property
+    def AudioMetaInfo(self):
+        r"""和声纹绑定的MetaInfo，长度最大不超过512
+        :rtype: str
+        """
+        return self._AudioMetaInfo
+
+    @AudioMetaInfo.setter
+    def AudioMetaInfo(self, AudioMetaInfo):
+        self._AudioMetaInfo = AudioMetaInfo
+
+
+    def _deserialize(self, params):
+        self._Audio = params.get("Audio")
+        self._ReqTimestamp = params.get("ReqTimestamp")
+        self._AudioFormat = params.get("AudioFormat")
+        self._AudioName = params.get("AudioName")
+        self._AudioMetaInfo = params.get("AudioMetaInfo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RegisterVoicePrintResponse(AbstractModel):
+    r"""RegisterVoicePrint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VoicePrintId: 声纹信息ID
+        :type VoicePrintId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._VoicePrintId = None
+        self._RequestId = None
+
+    @property
+    def VoicePrintId(self):
+        r"""声纹信息ID
+        :rtype: str
+        """
+        return self._VoicePrintId
+
+    @VoicePrintId.setter
+    def VoicePrintId(self, VoicePrintId):
+        self._VoicePrintId = VoicePrintId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._VoicePrintId = params.get("VoicePrintId")
+        self._RequestId = params.get("RequestId")
+
+
 class RoomUser(AbstractModel):
-    """房间内用户信息
+    r"""房间内用户信息
 
     """
 
@@ -4893,7 +5877,7 @@ class RoomUser(AbstractModel):
 
     @property
     def RoomId(self):
-        """房间id
+        r"""房间id
         :rtype: int
         """
         return self._RoomId
@@ -4904,7 +5888,7 @@ class RoomUser(AbstractModel):
 
     @property
     def Uins(self):
-        """房间里用户uin列表
+        r"""房间里用户uin列表
         :rtype: list of int non-negative
         """
         return self._Uins
@@ -4915,7 +5899,7 @@ class RoomUser(AbstractModel):
 
     @property
     def StrRoomId(self):
-        """字符串房间id
+        r"""字符串房间id
         :rtype: str
         """
         return self._StrRoomId
@@ -4926,7 +5910,7 @@ class RoomUser(AbstractModel):
 
     @property
     def StrUins(self):
-        """房间里用户字符串uin列表
+        r"""房间里用户字符串uin列表
         :rtype: list of str
         """
         return self._StrUins
@@ -4951,8 +5935,207 @@ class RoomUser(AbstractModel):
         
 
 
+class STTConfig(AbstractModel):
+    r"""语音转文字参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Language: 
+语音转文字支持识别的语言，默认是"zh" 中文
+
+可通过购买「AI智能识别时长包」解锁或领取包月套餐体验版解锁不同语言. 
+
+语音转文本不同套餐版本支持的语言如下：
+
+**基础版**：
+- "zh": 中文（简体）
+- "zh-TW": 中文（繁体）
+- "en": 英语
+
+**标准版：**
+- "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
+- "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+- "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
+- "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+
+**高级版：**
+- "zh-dialect": 中国方言
+- "zh-yue": 中国粤语
+- "vi": 越南语
+- "ja": 日语
+- "ko": 韩语
+- "id": 印度尼西亚语
+- "th": 泰语
+- "pt": 葡萄牙语
+- "tr": 土耳其语
+- "ar": 阿拉伯语
+- "es": 西班牙语
+- "hi": 印地语
+- "fr": 法语
+- "ms": 马来语
+- "fil": 菲律宾语
+- "de": 德语
+- "it": 意大利语
+- "ru": 俄语
+- "sv": 瑞典语
+- "da": 丹麦语
+- "no": 挪威语
+
+**注意：**
+如果缺少满足您需求的语言，请联系我们技术人员。
+        :type Language: str
+        :param _AlternativeLanguage: **发起模糊识别为高级版能力,默认按照高级版收费,仅支持填写基础版和高级版语言.**
+注意：不支持填写"zh-dialect"
+        :type AlternativeLanguage: list of str
+        :param _CustomParam: 自定义参数，联系后台使用
+
+        :type CustomParam: str
+        :param _VadSilenceTime: 语音识别vad的时间，范围为240-2000，默认为1000，单位为ms。更小的值会让语音识别分句更快。
+        :type VadSilenceTime: int
+        :param _HotWordList: 热词表：该参数用于提升识别准确率。 单个热词限制："热词|权重"，单个热词不超过30个字符（最多10个汉字），权重[1-11]或者100，如：“腾讯云|5” 或 “ASR|11”； 热词表限制：多个热词用英文逗号分割，最多支持128个热词，如：“腾讯云|10,语音识别|5,ASR|11”；
+        :type HotWordList: str
+        :param _VadLevel: vad的远场人声抑制能力（不会对asr识别效果造成影响），范围为[0, 3]，默认为0。推荐设置为2，有较好的远场人声抑制能力。	
+        :type VadLevel: int
+        """
+        self._Language = None
+        self._AlternativeLanguage = None
+        self._CustomParam = None
+        self._VadSilenceTime = None
+        self._HotWordList = None
+        self._VadLevel = None
+
+    @property
+    def Language(self):
+        r"""
+语音转文字支持识别的语言，默认是"zh" 中文
+
+可通过购买「AI智能识别时长包」解锁或领取包月套餐体验版解锁不同语言. 
+
+语音转文本不同套餐版本支持的语言如下：
+
+**基础版**：
+- "zh": 中文（简体）
+- "zh-TW": 中文（繁体）
+- "en": 英语
+
+**标准版：**
+- "8k_zh_large": 普方大模型引擎. 当前模型同时支持中文等语言的识别，模型参数量极大，语言模型性能增强，针对电话音频中各类场景、各类中文方言的识别准确率极大提升.
+- "16k_zh_large": 普方英大模型引擎. 当前模型同时支持中文、英文、多种中文方言等语言的识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+- "16k_multi_lang": 多语种大模型引擎. 当前模型同时支持英语、日语、韩语、阿拉伯语、菲律宾语、法语、印地语、印尼语、马来语、葡萄牙语、西班牙语、泰语、土耳其语、越南语、德语的识别，可实现15个语种的自动识别(句子/段落级别).
+- "16k_zh_en": 中英大模型引擎. 当前模型同时支持中文、英语识别，模型参数量极大，语言模型性能增强，针对噪声大、回音大、人声小、人声远等低质量音频的识别准确率极大提升.
+
+**高级版：**
+- "zh-dialect": 中国方言
+- "zh-yue": 中国粤语
+- "vi": 越南语
+- "ja": 日语
+- "ko": 韩语
+- "id": 印度尼西亚语
+- "th": 泰语
+- "pt": 葡萄牙语
+- "tr": 土耳其语
+- "ar": 阿拉伯语
+- "es": 西班牙语
+- "hi": 印地语
+- "fr": 法语
+- "ms": 马来语
+- "fil": 菲律宾语
+- "de": 德语
+- "it": 意大利语
+- "ru": 俄语
+- "sv": 瑞典语
+- "da": 丹麦语
+- "no": 挪威语
+
+**注意：**
+如果缺少满足您需求的语言，请联系我们技术人员。
+        :rtype: str
+        """
+        return self._Language
+
+    @Language.setter
+    def Language(self, Language):
+        self._Language = Language
+
+    @property
+    def AlternativeLanguage(self):
+        r"""**发起模糊识别为高级版能力,默认按照高级版收费,仅支持填写基础版和高级版语言.**
+注意：不支持填写"zh-dialect"
+        :rtype: list of str
+        """
+        return self._AlternativeLanguage
+
+    @AlternativeLanguage.setter
+    def AlternativeLanguage(self, AlternativeLanguage):
+        self._AlternativeLanguage = AlternativeLanguage
+
+    @property
+    def CustomParam(self):
+        r"""自定义参数，联系后台使用
+
+        :rtype: str
+        """
+        return self._CustomParam
+
+    @CustomParam.setter
+    def CustomParam(self, CustomParam):
+        self._CustomParam = CustomParam
+
+    @property
+    def VadSilenceTime(self):
+        r"""语音识别vad的时间，范围为240-2000，默认为1000，单位为ms。更小的值会让语音识别分句更快。
+        :rtype: int
+        """
+        return self._VadSilenceTime
+
+    @VadSilenceTime.setter
+    def VadSilenceTime(self, VadSilenceTime):
+        self._VadSilenceTime = VadSilenceTime
+
+    @property
+    def HotWordList(self):
+        r"""热词表：该参数用于提升识别准确率。 单个热词限制："热词|权重"，单个热词不超过30个字符（最多10个汉字），权重[1-11]或者100，如：“腾讯云|5” 或 “ASR|11”； 热词表限制：多个热词用英文逗号分割，最多支持128个热词，如：“腾讯云|10,语音识别|5,ASR|11”；
+        :rtype: str
+        """
+        return self._HotWordList
+
+    @HotWordList.setter
+    def HotWordList(self, HotWordList):
+        self._HotWordList = HotWordList
+
+    @property
+    def VadLevel(self):
+        r"""vad的远场人声抑制能力（不会对asr识别效果造成影响），范围为[0, 3]，默认为0。推荐设置为2，有较好的远场人声抑制能力。	
+        :rtype: int
+        """
+        return self._VadLevel
+
+    @VadLevel.setter
+    def VadLevel(self, VadLevel):
+        self._VadLevel = VadLevel
+
+
+    def _deserialize(self, params):
+        self._Language = params.get("Language")
+        self._AlternativeLanguage = params.get("AlternativeLanguage")
+        self._CustomParam = params.get("CustomParam")
+        self._VadSilenceTime = params.get("VadSilenceTime")
+        self._HotWordList = params.get("HotWordList")
+        self._VadLevel = params.get("VadLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ScanDetail(AbstractModel):
-    """语音检测详情
+    r"""语音检测详情
 
     """
 
@@ -4977,7 +6160,7 @@ class ScanDetail(AbstractModel):
 
     @property
     def Label(self):
-        """违规场景，参照<a href="https://cloud.tencent.com/document/product/607/37622#Label_Value">Label</a>定义
+        r"""违规场景，参照<a href="https://cloud.tencent.com/document/product/607/37622#Label_Value">Label</a>定义
         :rtype: str
         """
         return self._Label
@@ -4988,7 +6171,7 @@ class ScanDetail(AbstractModel):
 
     @property
     def Rate(self):
-        """该场景下概率[0.00,100.00],分值越大违规概率越高
+        r"""该场景下概率[0.00,100.00],分值越大违规概率越高
         :rtype: str
         """
         return self._Rate
@@ -4999,7 +6182,7 @@ class ScanDetail(AbstractModel):
 
     @property
     def KeyWord(self):
-        """违规关键字
+        r"""违规关键字
         :rtype: str
         """
         return self._KeyWord
@@ -5010,7 +6193,7 @@ class ScanDetail(AbstractModel):
 
     @property
     def StartTime(self):
-        """关键字在音频的开始时间，从0开始的偏移量，单位为毫秒，Label=moan时有效
+        r"""关键字在音频的开始时间，从0开始的偏移量，单位为毫秒，Label=moan时有效
         :rtype: int
         """
         return self._StartTime
@@ -5021,7 +6204,7 @@ class ScanDetail(AbstractModel):
 
     @property
     def EndTime(self):
-        """关键字在音频的结束时间，从0开始的偏移量,，单位为毫秒，Label=moan时有效
+        r"""关键字在音频的结束时间，从0开始的偏移量,，单位为毫秒，Label=moan时有效
         :rtype: int
         """
         return self._EndTime
@@ -5048,7 +6231,7 @@ class ScanDetail(AbstractModel):
 
 
 class ScanPiece(AbstractModel):
-    """语音检测结果，Code 为 0 时返回
+    r"""语音检测结果，Code 为 0 时返回
 
     """
 
@@ -5088,7 +6271,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def DumpUrl(self):
-        """流检测时返回，音频转存地址，保留30min
+        r"""流检测时返回，音频转存地址，保留30min
         :rtype: str
         """
         return self._DumpUrl
@@ -5099,7 +6282,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def HitFlag(self):
-        """是否违规
+        r"""是否违规
         :rtype: bool
         """
         return self._HitFlag
@@ -5110,7 +6293,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def MainType(self):
-        """违规主要类型
+        r"""违规主要类型
         :rtype: str
         """
         return self._MainType
@@ -5121,7 +6304,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def ScanDetail(self):
-        """语音检测详情
+        r"""语音检测详情
         :rtype: list of ScanDetail
         """
         return self._ScanDetail
@@ -5132,7 +6315,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def RoomId(self):
-        """gme实时语音房间ID，透传任务传入时的RoomId
+        r"""gme实时语音房间ID，透传任务传入时的RoomId
         :rtype: str
         """
         return self._RoomId
@@ -5143,7 +6326,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def OpenId(self):
-        """gme实时语音用户ID，透传任务传入时的OpenId
+        r"""gme实时语音用户ID，透传任务传入时的OpenId
         :rtype: str
         """
         return self._OpenId
@@ -5154,7 +6337,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def Info(self):
-        """备注
+        r"""备注
         :rtype: str
         """
         return self._Info
@@ -5165,7 +6348,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def Offset(self):
-        """流检测时分片在流中的偏移时间，单位毫秒
+        r"""流检测时分片在流中的偏移时间，单位毫秒
         :rtype: int
         """
         return self._Offset
@@ -5176,7 +6359,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def Duration(self):
-        """流检测时分片时长
+        r"""流检测时分片时长
         :rtype: int
         """
         return self._Duration
@@ -5187,7 +6370,7 @@ class ScanPiece(AbstractModel):
 
     @property
     def PieceStartTime(self):
-        """分片开始检测时间
+        r"""分片开始检测时间
         :rtype: int
         """
         return self._PieceStartTime
@@ -5224,7 +6407,7 @@ class ScanPiece(AbstractModel):
 
 
 class ScanVoiceRequest(AbstractModel):
-    """ScanVoice请求参数结构体
+    r"""ScanVoice请求参数结构体
 
     """
 
@@ -5254,7 +6437,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID，登录[控制台 - 服务管理](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
+        r"""应用ID，登录[控制台 - 服务管理](https://console.cloud.tencent.com/gamegme)创建应用得到的AppID
         :rtype: int
         """
         return self._BizId
@@ -5265,7 +6448,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def Scenes(self):
-        """语音检测场景，参数值目前要求为 default。 预留场景设置： 谩骂、色情、广告、违禁等场景，<a href="#Label_Value">具体取值见上述 Label 说明。</a>
+        r"""语音检测场景，参数值目前要求为 default。 预留场景设置： 谩骂、色情、广告、违禁等场景，<a href="#Label_Value">具体取值见上述 Label 说明。</a>
         :rtype: list of str
         """
         return self._Scenes
@@ -5276,7 +6459,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def Live(self):
-        """是否为直播流。值为 false 时表示普通语音文件检测；为 true 时表示语音流检测。
+        r"""是否为直播流。值为 false 时表示普通语音文件检测；为 true 时表示语音流检测。
         :rtype: bool
         """
         return self._Live
@@ -5287,7 +6470,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def Tasks(self):
-        """语音检测任务列表，列表最多支持100个检测任务。结构体中包含：
+        r"""语音检测任务列表，列表最多支持100个检测任务。结构体中包含：
 <li>DataId：数据的唯一ID</li>
 <li>Url：数据文件的url，为 urlencode 编码，流式则为拉流地址</li>
         :rtype: list of Task
@@ -5300,7 +6483,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def Callback(self):
-        """异步检测结果回调地址，具体见上述<a href="#Callback_Declare">回调相关说明</a>。（说明：该字段为空时，必须通过接口(查询语音检测结果)获取检测结果）。
+        r"""异步检测结果回调地址，具体见上述<a href="#Callback_Declare">回调相关说明</a>。（说明：该字段为空时，必须通过接口(查询语音检测结果)获取检测结果）。
         :rtype: str
         """
         return self._Callback
@@ -5311,7 +6494,7 @@ class ScanVoiceRequest(AbstractModel):
 
     @property
     def Lang(self):
-        """语种，不传默认中文
+        r"""语种，不传默认中文
         :rtype: str
         """
         return self._Lang
@@ -5344,7 +6527,7 @@ class ScanVoiceRequest(AbstractModel):
 
 
 class ScanVoiceResponse(AbstractModel):
-    """ScanVoice返回参数结构体
+    r"""ScanVoice返回参数结构体
 
     """
 
@@ -5361,7 +6544,7 @@ class ScanVoiceResponse(AbstractModel):
 
     @property
     def Data(self):
-        """语音检测返回。Data 字段是 JSON 数组，每一个元素包含：<li>DataId： 请求中对应的 DataId。</li>
+        r"""语音检测返回。Data 字段是 JSON 数组，每一个元素包含：<li>DataId： 请求中对应的 DataId。</li>
 <li>TaskID ：该检测任务的 ID，用于轮询语音检测结果。</li>
         :rtype: list of ScanVoiceResult
         """
@@ -5373,7 +6556,7 @@ class ScanVoiceResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -5394,7 +6577,7 @@ class ScanVoiceResponse(AbstractModel):
 
 
 class ScanVoiceResult(AbstractModel):
-    """语音检测返回结果
+    r"""语音检测返回结果
 
     """
 
@@ -5410,7 +6593,7 @@ class ScanVoiceResult(AbstractModel):
 
     @property
     def DataId(self):
-        """数据ID
+        r"""数据ID
         :rtype: str
         """
         return self._DataId
@@ -5421,7 +6604,7 @@ class ScanVoiceResult(AbstractModel):
 
     @property
     def TaskId(self):
-        """任务ID
+        r"""任务ID
         :rtype: str
         """
         return self._TaskId
@@ -5445,7 +6628,7 @@ class ScanVoiceResult(AbstractModel):
 
 
 class SceneInfo(AbstractModel):
-    """SceneInfo场景信息
+    r"""SceneInfo场景信息
     'RealTime','实时语音分析',
     'VoiceMessage','语音消息',
     'GMECloudApi':'GME云API接口'
@@ -5469,7 +6652,7 @@ class SceneInfo(AbstractModel):
 
     @property
     def SceneId(self):
-        """'RealTime','实时语音分析',
+        r"""'RealTime','实时语音分析',
 'VoiceMessage','语音消息',
 'GMECloudApi':'GME云API接口'
         :rtype: str
@@ -5482,7 +6665,7 @@ class SceneInfo(AbstractModel):
 
     @property
     def Status(self):
-        """开关状态，true开启/false关闭
+        r"""开关状态，true开启/false关闭
         :rtype: bool
         """
         return self._Status
@@ -5493,7 +6676,7 @@ class SceneInfo(AbstractModel):
 
     @property
     def CallbackUrl(self):
-        """用户回调地址
+        r"""用户回调地址
         :rtype: str
         """
         return self._CallbackUrl
@@ -5517,8 +6700,141 @@ class SceneInfo(AbstractModel):
         
 
 
+class ServerPushText(AbstractModel):
+    r"""服务端控制AI对话机器人播报指定文本
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Text: 服务端推送播报文本
+        :type Text: str
+        :param _Interrupt: 是否允许该文本打断机器人说话
+        :type Interrupt: bool
+        :param _StopAfterPlay: 播报完文本后，是否自动关闭对话任务
+        :type StopAfterPlay: bool
+        :param _Audio: 服务端推送播报音频
+    格式说明：音频必须为单声道，采样率必须跟对应TTS的采样率保持一致，编码为Base64字符串。
+    输入规则：当提供Audio字段时，将不接受Text字段的输入。系统将直接播放Audio字段中的音频内容。
+        :type Audio: str
+        :param _DropMode: 默认为0，仅在Interrupt为false时有效
+- 0表示当前有交互发生时，会丢弃Interrupt为false的消息
+- 1表示当前有交互发生时，不会丢弃Interrupt为false的消息，而是缓存下来，等待当前交互结束后，再去处理
+
+注意：DropMode为1时，允许缓存多个消息，如果后续出现了打断，缓存的消息会被清空
+        :type DropMode: int
+        :param _Priority: ServerPushText消息的优先级，0表示可被打断，1表示不会被打断。**目前仅支持传入0，如果需要传入1，请提工单联系我们添加权限。**
+注意：在接收到Priority=1的消息后，后续其他任何消息都会被忽略（包括Priority=1的消息），直到Priority=1的消息处理结束。该字段可与Interrupt、DropMode字段配合使用。
+例子：
+- Priority=1、Interrupt=true，会打断现有交互，立刻播报，播报过程中不会被打断
+- Priority=1、Interrupt=false、DropMode=1，会等待当前交互结束，再进行播报，播报过程中不会被打断
+
+        :type Priority: int
+        """
+        self._Text = None
+        self._Interrupt = None
+        self._StopAfterPlay = None
+        self._Audio = None
+        self._DropMode = None
+        self._Priority = None
+
+    @property
+    def Text(self):
+        r"""服务端推送播报文本
+        :rtype: str
+        """
+        return self._Text
+
+    @Text.setter
+    def Text(self, Text):
+        self._Text = Text
+
+    @property
+    def Interrupt(self):
+        r"""是否允许该文本打断机器人说话
+        :rtype: bool
+        """
+        return self._Interrupt
+
+    @Interrupt.setter
+    def Interrupt(self, Interrupt):
+        self._Interrupt = Interrupt
+
+    @property
+    def StopAfterPlay(self):
+        r"""播报完文本后，是否自动关闭对话任务
+        :rtype: bool
+        """
+        return self._StopAfterPlay
+
+    @StopAfterPlay.setter
+    def StopAfterPlay(self, StopAfterPlay):
+        self._StopAfterPlay = StopAfterPlay
+
+    @property
+    def Audio(self):
+        r"""服务端推送播报音频
+    格式说明：音频必须为单声道，采样率必须跟对应TTS的采样率保持一致，编码为Base64字符串。
+    输入规则：当提供Audio字段时，将不接受Text字段的输入。系统将直接播放Audio字段中的音频内容。
+        :rtype: str
+        """
+        return self._Audio
+
+    @Audio.setter
+    def Audio(self, Audio):
+        self._Audio = Audio
+
+    @property
+    def DropMode(self):
+        r"""默认为0，仅在Interrupt为false时有效
+- 0表示当前有交互发生时，会丢弃Interrupt为false的消息
+- 1表示当前有交互发生时，不会丢弃Interrupt为false的消息，而是缓存下来，等待当前交互结束后，再去处理
+
+注意：DropMode为1时，允许缓存多个消息，如果后续出现了打断，缓存的消息会被清空
+        :rtype: int
+        """
+        return self._DropMode
+
+    @DropMode.setter
+    def DropMode(self, DropMode):
+        self._DropMode = DropMode
+
+    @property
+    def Priority(self):
+        r"""ServerPushText消息的优先级，0表示可被打断，1表示不会被打断。**目前仅支持传入0，如果需要传入1，请提工单联系我们添加权限。**
+注意：在接收到Priority=1的消息后，后续其他任何消息都会被忽略（包括Priority=1的消息），直到Priority=1的消息处理结束。该字段可与Interrupt、DropMode字段配合使用。
+例子：
+- Priority=1、Interrupt=true，会打断现有交互，立刻播报，播报过程中不会被打断
+- Priority=1、Interrupt=false、DropMode=1，会等待当前交互结束，再进行播报，播报过程中不会被打断
+
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+
+    def _deserialize(self, params):
+        self._Text = params.get("Text")
+        self._Interrupt = params.get("Interrupt")
+        self._StopAfterPlay = params.get("StopAfterPlay")
+        self._Audio = params.get("Audio")
+        self._DropMode = params.get("DropMode")
+        self._Priority = params.get("Priority")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ServiceStatus(AbstractModel):
-    """服务开关状态
+    r"""服务开关状态
 
     """
 
@@ -5546,7 +6862,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def RealTimeSpeech(self):
-        """实时语音服务开关状态
+        r"""实时语音服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._RealTimeSpeech
@@ -5557,7 +6873,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def VoiceMessage(self):
-        """语音消息服务开关状态
+        r"""语音消息服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._VoiceMessage
@@ -5568,7 +6884,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def Porn(self):
-        """语音内容安全服务开关状态
+        r"""语音内容安全服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._Porn
@@ -5579,7 +6895,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def Live(self):
-        """语音录制服务开关状态
+        r"""语音录制服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._Live
@@ -5590,7 +6906,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def RealTimeAsr(self):
-        """语音转文本服务开关状态
+        r"""语音转文本服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._RealTimeAsr
@@ -5601,7 +6917,7 @@ class ServiceStatus(AbstractModel):
 
     @property
     def TextTranslate(self):
-        """文本翻译服务开关状态
+        r"""文本翻译服务开关状态
         :rtype: :class:`tencentcloud.gme.v20180711.models.StatusInfo`
         """
         return self._TextTranslate
@@ -5640,8 +6956,200 @@ class ServiceStatus(AbstractModel):
         
 
 
+class StartAIConversationRequest(AbstractModel):
+    r"""StartAIConversation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SdkAppId: GME的SdkAppId和开启转录任务的房间使用的SdkAppId相同。
+        :type SdkAppId: int
+        :param _RoomId: GME的RoomId表示开启对话任务的房间号。
+        :type RoomId: str
+        :param _AgentConfig: 机器人参数
+        :type AgentConfig: :class:`tencentcloud.gme.v20180711.models.AgentConfig`
+        :param _STTConfig: 语音识别配置。
+        :type STTConfig: :class:`tencentcloud.gme.v20180711.models.STTConfig`
+        :param _LLMConfig: LLM配置。需符合openai规范，为JSON字符串，示例如下：
+<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
+
+        :type LLMConfig: str
+        :param _TTSConfig:                                         "description": "TTS配置，为JSON字符串，腾讯云TTS示例如下： <pre>{ <br> &emsp; \"AppId\": 您的应用ID, // Integer 必填<br> &emsp; \"TTSType\": \"TTS类型\", // String TTS类型, 固定为\"tencent\"<br> &emsp; \"SecretId\": \"您的密钥ID\", // String 必填<br> &emsp; \"SecretKey\":  \"您的密钥Key\", // String 必填<br> &emsp; \"VoiceType\": 101001, // Integer  必填，音色 ID，包括标准音色与精品音色，精品音色拟真度更高，价格不同于标准音色。<br> &emsp; \"Speed\": 1.25, // Integer 非必填，语速，范围：[-2，6]，分别对应不同语速： -2: 代表0.6倍 -1: 代表0.8倍 0: 代表1.0倍（默认） 1: 代表1.2倍 2: 代表1.5倍  6: 代表2.5倍  如果需要更细化的语速，可以保留小数点后 2 位，例如0.5/1.25/2.81等。 参数值与实际语速转换\"Volume\": 5, // Integer 非必填，音量大小，范围：[0，10]，分别对应11个等级的音量，默认值为0，代表正常音量。<br> &emsp; \"EmotionCategory\":  \"angry\", // String 非必填 控制合成音频的情感，仅支持多情感音色使用。取值: neutral(中性)、sad(悲伤)、happy(高兴)、angry(生气)、fear(恐惧)、news(新闻)、story(故事)、radio(广播)、poetry(诗歌)、call(客服)、sajiao(撒娇)、disgusted(厌恶)、amaze(震惊)、peaceful(平静)、exciting(兴奋)、aojiao(傲娇)、jieshuo(解说)。<br> &emsp; \"EmotionIntensity\":  150 // Integer 非必填 控制合成音频情感程度，取值范围为 [50,200]，默认为 100；只有 EmotionCategory 不为空时生效。<br> &emsp; }</pre>",
+        :type TTSConfig: str
+        :param _AvatarConfig: 数字人配置，为JSON字符串。**数字人配置需要提工单加白后才能使用**
+        :type AvatarConfig: str
+        :param _ExperimentalParams: 实验性参数,联系后台使用
+        :type ExperimentalParams: str
+        """
+        self._SdkAppId = None
+        self._RoomId = None
+        self._AgentConfig = None
+        self._STTConfig = None
+        self._LLMConfig = None
+        self._TTSConfig = None
+        self._AvatarConfig = None
+        self._ExperimentalParams = None
+
+    @property
+    def SdkAppId(self):
+        r"""GME的SdkAppId和开启转录任务的房间使用的SdkAppId相同。
+        :rtype: int
+        """
+        return self._SdkAppId
+
+    @SdkAppId.setter
+    def SdkAppId(self, SdkAppId):
+        self._SdkAppId = SdkAppId
+
+    @property
+    def RoomId(self):
+        r"""GME的RoomId表示开启对话任务的房间号。
+        :rtype: str
+        """
+        return self._RoomId
+
+    @RoomId.setter
+    def RoomId(self, RoomId):
+        self._RoomId = RoomId
+
+    @property
+    def AgentConfig(self):
+        r"""机器人参数
+        :rtype: :class:`tencentcloud.gme.v20180711.models.AgentConfig`
+        """
+        return self._AgentConfig
+
+    @AgentConfig.setter
+    def AgentConfig(self, AgentConfig):
+        self._AgentConfig = AgentConfig
+
+    @property
+    def STTConfig(self):
+        r"""语音识别配置。
+        :rtype: :class:`tencentcloud.gme.v20180711.models.STTConfig`
+        """
+        return self._STTConfig
+
+    @STTConfig.setter
+    def STTConfig(self, STTConfig):
+        self._STTConfig = STTConfig
+
+    @property
+    def LLMConfig(self):
+        r"""LLM配置。需符合openai规范，为JSON字符串，示例如下：
+<pre> { <br> &emsp;  "LLMType": "大模型类型",  // String 必填，如："openai" <br> &emsp;  "Model": "您的模型名称", // String 必填，指定使用的模型<br>    "APIKey": "您的LLM API密钥", // String 必填 <br> &emsp;  "APIUrl": "https://api.xxx.com/chat/completions", // String 必填，LLM API访问的URL<br> &emsp;  "Streaming": true // Boolean 非必填，指定是否使用流式传输<br> &emsp;} </pre>
+
+        :rtype: str
+        """
+        return self._LLMConfig
+
+    @LLMConfig.setter
+    def LLMConfig(self, LLMConfig):
+        self._LLMConfig = LLMConfig
+
+    @property
+    def TTSConfig(self):
+        r"""                                        "description": "TTS配置，为JSON字符串，腾讯云TTS示例如下： <pre>{ <br> &emsp; \"AppId\": 您的应用ID, // Integer 必填<br> &emsp; \"TTSType\": \"TTS类型\", // String TTS类型, 固定为\"tencent\"<br> &emsp; \"SecretId\": \"您的密钥ID\", // String 必填<br> &emsp; \"SecretKey\":  \"您的密钥Key\", // String 必填<br> &emsp; \"VoiceType\": 101001, // Integer  必填，音色 ID，包括标准音色与精品音色，精品音色拟真度更高，价格不同于标准音色。<br> &emsp; \"Speed\": 1.25, // Integer 非必填，语速，范围：[-2，6]，分别对应不同语速： -2: 代表0.6倍 -1: 代表0.8倍 0: 代表1.0倍（默认） 1: 代表1.2倍 2: 代表1.5倍  6: 代表2.5倍  如果需要更细化的语速，可以保留小数点后 2 位，例如0.5/1.25/2.81等。 参数值与实际语速转换\"Volume\": 5, // Integer 非必填，音量大小，范围：[0，10]，分别对应11个等级的音量，默认值为0，代表正常音量。<br> &emsp; \"EmotionCategory\":  \"angry\", // String 非必填 控制合成音频的情感，仅支持多情感音色使用。取值: neutral(中性)、sad(悲伤)、happy(高兴)、angry(生气)、fear(恐惧)、news(新闻)、story(故事)、radio(广播)、poetry(诗歌)、call(客服)、sajiao(撒娇)、disgusted(厌恶)、amaze(震惊)、peaceful(平静)、exciting(兴奋)、aojiao(傲娇)、jieshuo(解说)。<br> &emsp; \"EmotionIntensity\":  150 // Integer 非必填 控制合成音频情感程度，取值范围为 [50,200]，默认为 100；只有 EmotionCategory 不为空时生效。<br> &emsp; }</pre>",
+        :rtype: str
+        """
+        return self._TTSConfig
+
+    @TTSConfig.setter
+    def TTSConfig(self, TTSConfig):
+        self._TTSConfig = TTSConfig
+
+    @property
+    def AvatarConfig(self):
+        r"""数字人配置，为JSON字符串。**数字人配置需要提工单加白后才能使用**
+        :rtype: str
+        """
+        return self._AvatarConfig
+
+    @AvatarConfig.setter
+    def AvatarConfig(self, AvatarConfig):
+        self._AvatarConfig = AvatarConfig
+
+    @property
+    def ExperimentalParams(self):
+        r"""实验性参数,联系后台使用
+        :rtype: str
+        """
+        return self._ExperimentalParams
+
+    @ExperimentalParams.setter
+    def ExperimentalParams(self, ExperimentalParams):
+        self._ExperimentalParams = ExperimentalParams
+
+
+    def _deserialize(self, params):
+        self._SdkAppId = params.get("SdkAppId")
+        self._RoomId = params.get("RoomId")
+        if params.get("AgentConfig") is not None:
+            self._AgentConfig = AgentConfig()
+            self._AgentConfig._deserialize(params.get("AgentConfig"))
+        if params.get("STTConfig") is not None:
+            self._STTConfig = STTConfig()
+            self._STTConfig._deserialize(params.get("STTConfig"))
+        self._LLMConfig = params.get("LLMConfig")
+        self._TTSConfig = params.get("TTSConfig")
+        self._AvatarConfig = params.get("AvatarConfig")
+        self._ExperimentalParams = params.get("ExperimentalParams")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StartAIConversationResponse(AbstractModel):
+    r"""StartAIConversation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 用于唯一标识对话任务。
+        :type TaskId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""用于唯一标识对话任务。
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
 class StartRecordRequest(AbstractModel):
-    """StartRecord请求参数结构体
+    r"""StartRecord请求参数结构体
 
     """
 
@@ -5663,7 +7171,7 @@ class StartRecordRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -5674,7 +7182,7 @@ class StartRecordRequest(AbstractModel):
 
     @property
     def RoomId(self):
-        """房间ID。
+        r"""房间ID。
         :rtype: str
         """
         return self._RoomId
@@ -5685,7 +7193,7 @@ class StartRecordRequest(AbstractModel):
 
     @property
     def RecordMode(self):
-        """录制类型：1代表单流 2代表混流 3代表单流和混流。
+        r"""录制类型：1代表单流 2代表混流 3代表单流和混流。
         :rtype: int
         """
         return self._RecordMode
@@ -5696,7 +7204,7 @@ class StartRecordRequest(AbstractModel):
 
     @property
     def SubscribeRecordUserIds(self):
-        """指定订阅流白名单或者黑名单（不传默认订阅房间内所有音频流）。
+        r"""指定订阅流白名单或者黑名单（不传默认订阅房间内所有音频流）。
         :rtype: :class:`tencentcloud.gme.v20180711.models.SubscribeRecordUserIds`
         """
         return self._SubscribeRecordUserIds
@@ -5724,7 +7232,7 @@ class StartRecordRequest(AbstractModel):
 
 
 class StartRecordResponse(AbstractModel):
-    """StartRecord返回参数结构体
+    r"""StartRecord返回参数结构体
 
     """
 
@@ -5740,7 +7248,7 @@ class StartRecordResponse(AbstractModel):
 
     @property
     def TaskId(self):
-        """任务taskid。
+        r"""任务taskid。
         :rtype: int
         """
         return self._TaskId
@@ -5751,7 +7259,7 @@ class StartRecordResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -5767,7 +7275,7 @@ class StartRecordResponse(AbstractModel):
 
 
 class StatisticsItem(AbstractModel):
-    """用量数据单元
+    r"""用量数据单元
 
     """
 
@@ -5783,7 +7291,7 @@ class StatisticsItem(AbstractModel):
 
     @property
     def StatDate(self):
-        """日期，格式为年-月-日，如2018-07-13
+        r"""日期，格式为年-月-日，如2018-07-13
         :rtype: str
         """
         return self._StatDate
@@ -5794,7 +7302,7 @@ class StatisticsItem(AbstractModel):
 
     @property
     def Data(self):
-        """统计值
+        r"""统计值
         :rtype: int
         """
         return self._Data
@@ -5818,7 +7326,7 @@ class StatisticsItem(AbstractModel):
 
 
 class StatusInfo(AbstractModel):
-    """服务开关状态
+    r"""服务开关状态
 
     """
 
@@ -5831,7 +7339,7 @@ class StatusInfo(AbstractModel):
 
     @property
     def Status(self):
-        """服务开关状态， 0-正常，1-关闭
+        r"""服务开关状态， 0-正常，1-关闭
         :rtype: int
         """
         return self._Status
@@ -5853,8 +7361,72 @@ class StatusInfo(AbstractModel):
         
 
 
+class StopAIConversationRequest(AbstractModel):
+    r"""StopAIConversation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 唯一标识任务。
+        :type TaskId: str
+        """
+        self._TaskId = None
+
+    @property
+    def TaskId(self):
+        r"""唯一标识任务。
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StopAIConversationResponse(AbstractModel):
+    r"""StopAIConversation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class StopRecordRequest(AbstractModel):
-    """StopRecord请求参数结构体
+    r"""StopRecord请求参数结构体
 
     """
 
@@ -5870,7 +7442,7 @@ class StopRecordRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        """任务ID。
+        r"""任务ID。
         :rtype: int
         """
         return self._TaskId
@@ -5881,7 +7453,7 @@ class StopRecordRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID。
+        r"""应用ID。
         :rtype: int
         """
         return self._BizId
@@ -5905,7 +7477,7 @@ class StopRecordRequest(AbstractModel):
 
 
 class StopRecordResponse(AbstractModel):
-    """StopRecord返回参数结构体
+    r"""StopRecord返回参数结构体
 
     """
 
@@ -5918,7 +7490,7 @@ class StopRecordResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -5933,7 +7505,7 @@ class StopRecordResponse(AbstractModel):
 
 
 class StreamTextStatisticsItem(AbstractModel):
-    """流式转文本用量数据
+    r"""流式转文本用量数据
 
     """
 
@@ -5946,7 +7518,7 @@ class StreamTextStatisticsItem(AbstractModel):
 
     @property
     def Data(self):
-        """统计值，单位：秒
+        r"""统计值，单位：秒
         :rtype: float
         """
         return self._Data
@@ -5969,7 +7541,7 @@ class StreamTextStatisticsItem(AbstractModel):
 
 
 class SubscribeRecordUserIds(AbstractModel):
-    """指定订阅流白名单或者黑名单。
+    r"""指定订阅流白名单或者黑名单。
 
     """
 
@@ -5987,7 +7559,7 @@ class SubscribeRecordUserIds(AbstractModel):
 
     @property
     def UnSubscribeUserIds(self):
-        """订阅音频流黑名单，指定不订阅哪几个UserId的音频流，例如["1", "2", "3"], 代表不订阅UserId 1，2，3的音频流。默认不填订阅房间内所有音频流，订阅列表用户数不超过20。
+        r"""订阅音频流黑名单，指定不订阅哪几个UserId的音频流，例如["1", "2", "3"], 代表不订阅UserId 1，2，3的音频流。默认不填订阅房间内所有音频流，订阅列表用户数不超过20。
 注意：只能同时设置UnSubscribeAudioUserIds、SubscribeAudioUserIds 其中1个参数
         :rtype: list of str
         """
@@ -5999,7 +7571,7 @@ class SubscribeRecordUserIds(AbstractModel):
 
     @property
     def SubscribeUserIds(self):
-        """订阅音频流白名单，指定订阅哪几个UserId的音频流，例如["1", "2", "3"], 代表订阅UserId 1，2，3的音频流。默认不填订阅房间内所有音频流，订阅列表用户数不超过20。
+        r"""订阅音频流白名单，指定订阅哪几个UserId的音频流，例如["1", "2", "3"], 代表订阅UserId 1，2，3的音频流。默认不填订阅房间内所有音频流，订阅列表用户数不超过20。
 注意：只能同时设置UnSubscribeAudioUserIds、SubscribeAudioUserIds 其中1个参数。
         :rtype: list of str
         """
@@ -6024,7 +7596,7 @@ class SubscribeRecordUserIds(AbstractModel):
 
 
 class Tag(AbstractModel):
-    """标签列表
+    r"""标签列表
 
     """
 
@@ -6040,7 +7612,7 @@ class Tag(AbstractModel):
 
     @property
     def TagKey(self):
-        """标签键
+        r"""标签键
         :rtype: str
         """
         return self._TagKey
@@ -6051,7 +7623,7 @@ class Tag(AbstractModel):
 
     @property
     def TagValue(self):
-        """标签值
+        r"""标签值
         :rtype: str
         """
         return self._TagValue
@@ -6075,7 +7647,7 @@ class Tag(AbstractModel):
 
 
 class Task(AbstractModel):
-    """语音检测任务列表
+    r"""语音检测任务列表
 
     """
 
@@ -6097,7 +7669,7 @@ class Task(AbstractModel):
 
     @property
     def DataId(self):
-        """数据的唯一ID
+        r"""数据的唯一ID
         :rtype: str
         """
         return self._DataId
@@ -6108,7 +7680,7 @@ class Task(AbstractModel):
 
     @property
     def Url(self):
-        """数据文件的url，为 urlencode 编码，流式则为拉流地址
+        r"""数据文件的url，为 urlencode 编码，流式则为拉流地址
         :rtype: str
         """
         return self._Url
@@ -6119,7 +7691,7 @@ class Task(AbstractModel):
 
     @property
     def RoomId(self):
-        """gme实时语音房间ID，通过gme实时语音进行语音分析时输入
+        r"""gme实时语音房间ID，通过gme实时语音进行语音分析时输入
         :rtype: str
         """
         return self._RoomId
@@ -6130,7 +7702,7 @@ class Task(AbstractModel):
 
     @property
     def OpenId(self):
-        """gme实时语音用户ID，通过gme实时语音进行语音分析时输入
+        r"""gme实时语音用户ID，通过gme实时语音进行语音分析时输入
         :rtype: str
         """
         return self._OpenId
@@ -6155,8 +7727,217 @@ class Task(AbstractModel):
         
 
 
+class TurnDetection(AbstractModel):
+    r"""断句配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SemanticEagerness: TurnDetectionMode为3时生效，语义断句的灵敏程度
+
+
+功能简介：根据用户所说的话来判断其已完成发言来分割音频
+
+
+可选: "low" | "medium" | "high" | "auto"
+
+
+auto 是默认值，与 medium 相同。
+low 将让用户有足够的时间说话。
+high 将尽快对音频进行分块。
+
+
+如果您希望模型在对话模式下更频繁地响应，可以将 SemanticEagerness 设置为 high
+如果您希望在用户停顿时，AI能够等待片刻，可以将 SemanticEagerness 设置为 low
+无论什么模式，最终都会分割送个大模型进行回复
+
+        :type SemanticEagerness: str
+        """
+        self._SemanticEagerness = None
+
+    @property
+    def SemanticEagerness(self):
+        r"""TurnDetectionMode为3时生效，语义断句的灵敏程度
+
+
+功能简介：根据用户所说的话来判断其已完成发言来分割音频
+
+
+可选: "low" | "medium" | "high" | "auto"
+
+
+auto 是默认值，与 medium 相同。
+low 将让用户有足够的时间说话。
+high 将尽快对音频进行分块。
+
+
+如果您希望模型在对话模式下更频繁地响应，可以将 SemanticEagerness 设置为 high
+如果您希望在用户停顿时，AI能够等待片刻，可以将 SemanticEagerness 设置为 low
+无论什么模式，最终都会分割送个大模型进行回复
+
+        :rtype: str
+        """
+        return self._SemanticEagerness
+
+    @SemanticEagerness.setter
+    def SemanticEagerness(self, SemanticEagerness):
+        self._SemanticEagerness = SemanticEagerness
+
+
+    def _deserialize(self, params):
+        self._SemanticEagerness = params.get("SemanticEagerness")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAIConversationRequest(AbstractModel):
+    r"""UpdateAIConversation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 唯一标识一个任务
+        :type TaskId: str
+        :param _WelcomeMessage: 不填写则不进行更新，机器人的欢迎语
+        :type WelcomeMessage: str
+        :param _InterruptMode: 不填写则不进行更新。智能打断模式，0表示服务端自动打断，1表示服务端不打断，由端上发送打断信令进行打断
+        :type InterruptMode: int
+        :param _InterruptSpeechDuration: 不填写则不进行更新。InterruptMode为0时使用，单位为毫秒，默认为500ms。表示服务端检测到持续InterruptSpeechDuration毫秒的人声则进行打断
+        :type InterruptSpeechDuration: int
+        :param _LLMConfig: 不填写则不进行更新，LLM配置，详情见StartAIConversation接口
+        :type LLMConfig: str
+        :param _TTSConfig: 不填写则不进行更新，TTS配置，详情见StartAIConversation接口
+        :type TTSConfig: str
+        """
+        self._TaskId = None
+        self._WelcomeMessage = None
+        self._InterruptMode = None
+        self._InterruptSpeechDuration = None
+        self._LLMConfig = None
+        self._TTSConfig = None
+
+    @property
+    def TaskId(self):
+        r"""唯一标识一个任务
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def WelcomeMessage(self):
+        r"""不填写则不进行更新，机器人的欢迎语
+        :rtype: str
+        """
+        return self._WelcomeMessage
+
+    @WelcomeMessage.setter
+    def WelcomeMessage(self, WelcomeMessage):
+        self._WelcomeMessage = WelcomeMessage
+
+    @property
+    def InterruptMode(self):
+        r"""不填写则不进行更新。智能打断模式，0表示服务端自动打断，1表示服务端不打断，由端上发送打断信令进行打断
+        :rtype: int
+        """
+        return self._InterruptMode
+
+    @InterruptMode.setter
+    def InterruptMode(self, InterruptMode):
+        self._InterruptMode = InterruptMode
+
+    @property
+    def InterruptSpeechDuration(self):
+        r"""不填写则不进行更新。InterruptMode为0时使用，单位为毫秒，默认为500ms。表示服务端检测到持续InterruptSpeechDuration毫秒的人声则进行打断
+        :rtype: int
+        """
+        return self._InterruptSpeechDuration
+
+    @InterruptSpeechDuration.setter
+    def InterruptSpeechDuration(self, InterruptSpeechDuration):
+        self._InterruptSpeechDuration = InterruptSpeechDuration
+
+    @property
+    def LLMConfig(self):
+        r"""不填写则不进行更新，LLM配置，详情见StartAIConversation接口
+        :rtype: str
+        """
+        return self._LLMConfig
+
+    @LLMConfig.setter
+    def LLMConfig(self, LLMConfig):
+        self._LLMConfig = LLMConfig
+
+    @property
+    def TTSConfig(self):
+        r"""不填写则不进行更新，TTS配置，详情见StartAIConversation接口
+        :rtype: str
+        """
+        return self._TTSConfig
+
+    @TTSConfig.setter
+    def TTSConfig(self, TTSConfig):
+        self._TTSConfig = TTSConfig
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._WelcomeMessage = params.get("WelcomeMessage")
+        self._InterruptMode = params.get("InterruptMode")
+        self._InterruptSpeechDuration = params.get("InterruptSpeechDuration")
+        self._LLMConfig = params.get("LLMConfig")
+        self._TTSConfig = params.get("TTSConfig")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateAIConversationResponse(AbstractModel):
+    r"""UpdateAIConversation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class UpdateScanRoomsRequest(AbstractModel):
-    """UpdateScanRooms请求参数结构体
+    r"""UpdateScanRooms请求参数结构体
 
     """
 
@@ -6164,9 +7945,9 @@ class UpdateScanRoomsRequest(AbstractModel):
         r"""
         :param _BizId: 应用ID
         :type BizId: int
-        :param _RoomIdString: 需要送检的所有房间号。多个房间号之间用","分隔。示例："0001,0002,0003"
+        :param _RoomIdString: 需要送检的所有房间号。多个房间号之间用","分隔，长度不超过1024字符。示例："0001,0002,0003"
         :type RoomIdString: str
-        :param _RoomIdRegex: 符合此正则表达式规则的房间号将被送检。示例：^6.*（表示所有以6开头的房间号将被送检）
+        :param _RoomIdRegex: 符合此正则表达式规则的房间号将被送检，最大不能超过10个。示例：^6.*（表示所有以6开头的房间号将被送检）
         :type RoomIdRegex: list of str
         """
         self._BizId = None
@@ -6175,7 +7956,7 @@ class UpdateScanRoomsRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -6186,7 +7967,7 @@ class UpdateScanRoomsRequest(AbstractModel):
 
     @property
     def RoomIdString(self):
-        """需要送检的所有房间号。多个房间号之间用","分隔。示例："0001,0002,0003"
+        r"""需要送检的所有房间号。多个房间号之间用","分隔，长度不超过1024字符。示例："0001,0002,0003"
         :rtype: str
         """
         return self._RoomIdString
@@ -6197,7 +7978,7 @@ class UpdateScanRoomsRequest(AbstractModel):
 
     @property
     def RoomIdRegex(self):
-        """符合此正则表达式规则的房间号将被送检。示例：^6.*（表示所有以6开头的房间号将被送检）
+        r"""符合此正则表达式规则的房间号将被送检，最大不能超过10个。示例：^6.*（表示所有以6开头的房间号将被送检）
         :rtype: list of str
         """
         return self._RoomIdRegex
@@ -6222,7 +8003,7 @@ class UpdateScanRoomsRequest(AbstractModel):
 
 
 class UpdateScanRoomsResponse(AbstractModel):
-    """UpdateScanRooms返回参数结构体
+    r"""UpdateScanRooms返回参数结构体
 
     """
 
@@ -6238,7 +8019,7 @@ class UpdateScanRoomsResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回结果码
+        r"""返回结果码
         :rtype: int
         """
         return self._ErrorCode
@@ -6249,7 +8030,7 @@ class UpdateScanRoomsResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -6265,7 +8046,7 @@ class UpdateScanRoomsResponse(AbstractModel):
 
 
 class UpdateScanUsersRequest(AbstractModel):
-    """UpdateScanUsers请求参数结构体
+    r"""UpdateScanUsers请求参数结构体
 
     """
 
@@ -6273,9 +8054,9 @@ class UpdateScanUsersRequest(AbstractModel):
         r"""
         :param _BizId: 应用ID
         :type BizId: int
-        :param _UserIdString: 需要送检的所有用户号。多个用户号之间用","分隔。示例："0001,0002,0003"
+        :param _UserIdString: 需要送检的所有用户号。多个用户号之间用","分隔，长度不超过1024字符。示例："0001,0002,0003"
         :type UserIdString: str
-        :param _UserIdRegex: 符合此正则表达式规则的用户号将被送检。示例：["^6.*"] 表示所有以6开头的用户号将被送检
+        :param _UserIdRegex: 符合此正则表达式规则的用户号将被送检，最大不能超过10个。示例：["^6.*"] 表示所有以6开头的用户号将被送检
         :type UserIdRegex: list of str
         """
         self._BizId = None
@@ -6284,7 +8065,7 @@ class UpdateScanUsersRequest(AbstractModel):
 
     @property
     def BizId(self):
-        """应用ID
+        r"""应用ID
         :rtype: int
         """
         return self._BizId
@@ -6295,7 +8076,7 @@ class UpdateScanUsersRequest(AbstractModel):
 
     @property
     def UserIdString(self):
-        """需要送检的所有用户号。多个用户号之间用","分隔。示例："0001,0002,0003"
+        r"""需要送检的所有用户号。多个用户号之间用","分隔，长度不超过1024字符。示例："0001,0002,0003"
         :rtype: str
         """
         return self._UserIdString
@@ -6306,7 +8087,7 @@ class UpdateScanUsersRequest(AbstractModel):
 
     @property
     def UserIdRegex(self):
-        """符合此正则表达式规则的用户号将被送检。示例：["^6.*"] 表示所有以6开头的用户号将被送检
+        r"""符合此正则表达式规则的用户号将被送检，最大不能超过10个。示例：["^6.*"] 表示所有以6开头的用户号将被送检
         :rtype: list of str
         """
         return self._UserIdRegex
@@ -6331,7 +8112,7 @@ class UpdateScanUsersRequest(AbstractModel):
 
 
 class UpdateScanUsersResponse(AbstractModel):
-    """UpdateScanUsers返回参数结构体
+    r"""UpdateScanUsers返回参数结构体
 
     """
 
@@ -6347,7 +8128,7 @@ class UpdateScanUsersResponse(AbstractModel):
 
     @property
     def ErrorCode(self):
-        """返回结果码
+        r"""返回结果码
         :rtype: int
         """
         return self._ErrorCode
@@ -6358,7 +8139,7 @@ class UpdateScanUsersResponse(AbstractModel):
 
     @property
     def RequestId(self):
-        """唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
         """
         return self._RequestId
@@ -6373,8 +8154,132 @@ class UpdateScanUsersResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class UpdateVoicePrintRequest(AbstractModel):
+    r"""UpdateVoicePrint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VoicePrintId: 声纹信息ID
+        :type VoicePrintId: str
+        :param _ReqTimestamp: 毫秒时间戳
+        :type ReqTimestamp: int
+        :param _AudioFormat: 音频格式,目前只支持0,代表wav
+        :type AudioFormat: int
+        :param _Audio: 整个wav音频文件的base64字符串,其中wav文件限定为16k采样率, 16bit位深, 单声道, 8到18秒音频时长,有效音频不小于6秒(不能有太多静音段),编码数据大小不超过2M
+        :type Audio: str
+        :param _AudioMetaInfo: 和声纹绑定的MetaInfo，长度最大不超过512
+        :type AudioMetaInfo: str
+        """
+        self._VoicePrintId = None
+        self._ReqTimestamp = None
+        self._AudioFormat = None
+        self._Audio = None
+        self._AudioMetaInfo = None
+
+    @property
+    def VoicePrintId(self):
+        r"""声纹信息ID
+        :rtype: str
+        """
+        return self._VoicePrintId
+
+    @VoicePrintId.setter
+    def VoicePrintId(self, VoicePrintId):
+        self._VoicePrintId = VoicePrintId
+
+    @property
+    def ReqTimestamp(self):
+        r"""毫秒时间戳
+        :rtype: int
+        """
+        return self._ReqTimestamp
+
+    @ReqTimestamp.setter
+    def ReqTimestamp(self, ReqTimestamp):
+        self._ReqTimestamp = ReqTimestamp
+
+    @property
+    def AudioFormat(self):
+        r"""音频格式,目前只支持0,代表wav
+        :rtype: int
+        """
+        return self._AudioFormat
+
+    @AudioFormat.setter
+    def AudioFormat(self, AudioFormat):
+        self._AudioFormat = AudioFormat
+
+    @property
+    def Audio(self):
+        r"""整个wav音频文件的base64字符串,其中wav文件限定为16k采样率, 16bit位深, 单声道, 8到18秒音频时长,有效音频不小于6秒(不能有太多静音段),编码数据大小不超过2M
+        :rtype: str
+        """
+        return self._Audio
+
+    @Audio.setter
+    def Audio(self, Audio):
+        self._Audio = Audio
+
+    @property
+    def AudioMetaInfo(self):
+        r"""和声纹绑定的MetaInfo，长度最大不超过512
+        :rtype: str
+        """
+        return self._AudioMetaInfo
+
+    @AudioMetaInfo.setter
+    def AudioMetaInfo(self, AudioMetaInfo):
+        self._AudioMetaInfo = AudioMetaInfo
+
+
+    def _deserialize(self, params):
+        self._VoicePrintId = params.get("VoicePrintId")
+        self._ReqTimestamp = params.get("ReqTimestamp")
+        self._AudioFormat = params.get("AudioFormat")
+        self._Audio = params.get("Audio")
+        self._AudioMetaInfo = params.get("AudioMetaInfo")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateVoicePrintResponse(AbstractModel):
+    r"""UpdateVoicePrint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class UserMicStatus(AbstractModel):
-    """用户麦克风状态
+    r"""用户麦克风状态
 
     """
 
@@ -6393,7 +8298,7 @@ class UserMicStatus(AbstractModel):
 
     @property
     def EnableMic(self):
-        """开麦状态。1表示关闭麦克风，2表示打开麦克风。
+        r"""开麦状态。1表示关闭麦克风，2表示打开麦克风。
         :rtype: int
         """
         return self._EnableMic
@@ -6404,7 +8309,7 @@ class UserMicStatus(AbstractModel):
 
     @property
     def Uid(self):
-        """客户端用于标识用户的Openid。（Uid、StrUid必须填一个，优先处理StrUid。）
+        r"""客户端用于标识用户的Openid。（Uid、StrUid必须填一个，优先处理StrUid。）
         :rtype: int
         """
         return self._Uid
@@ -6415,7 +8320,7 @@ class UserMicStatus(AbstractModel):
 
     @property
     def StrUid(self):
-        """客户端用于标识字符串型用户的Openid。（Uid、StrUid必须填一个，优先处理StrUid。）
+        r"""客户端用于标识字符串型用户的Openid。（Uid、StrUid必须填一个，优先处理StrUid。）
         :rtype: str
         """
         return self._StrUid
@@ -6440,7 +8345,7 @@ class UserMicStatus(AbstractModel):
 
 
 class VoiceFilterConf(AbstractModel):
-    """语音过滤服务配置数据
+    r"""语音过滤服务配置数据
 
     """
 
@@ -6456,7 +8361,7 @@ class VoiceFilterConf(AbstractModel):
 
     @property
     def Status(self):
-        """语音过滤服务开关，取值：open/close
+        r"""语音过滤服务开关，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -6467,7 +8372,7 @@ class VoiceFilterConf(AbstractModel):
 
     @property
     def SceneInfos(self):
-        """场景配置信息，如开关状态，回调地址。
+        r"""场景配置信息，如开关状态，回调地址。
         :rtype: list of SceneInfo
         """
         return self._SceneInfos
@@ -6496,7 +8401,7 @@ class VoiceFilterConf(AbstractModel):
 
 
 class VoiceFilterStatisticsItem(AbstractModel):
-    """语音过滤用量统计数据
+    r"""语音过滤用量统计数据
 
     """
 
@@ -6509,7 +8414,7 @@ class VoiceFilterStatisticsItem(AbstractModel):
 
     @property
     def Duration(self):
-        """语音过滤总时长，单位为min
+        r"""语音过滤总时长，单位为min
         :rtype: int
         """
         return self._Duration
@@ -6532,7 +8437,7 @@ class VoiceFilterStatisticsItem(AbstractModel):
 
 
 class VoiceMessageConf(AbstractModel):
-    """离线语音服务配置数据
+    r"""离线语音服务配置数据
 
     """
 
@@ -6548,7 +8453,7 @@ class VoiceMessageConf(AbstractModel):
 
     @property
     def Status(self):
-        """离线语音服务开关，取值：open/close
+        r"""离线语音服务开关，取值：open/close
         :rtype: str
         """
         return self._Status
@@ -6559,7 +8464,7 @@ class VoiceMessageConf(AbstractModel):
 
     @property
     def Language(self):
-        """离线语音支持语种，取值： all-全部，cnen-中英文。默认为中英文
+        r"""离线语音支持语种，取值： all-全部，cnen-中英文。默认为中英文
         :rtype: str
         """
         return self._Language
@@ -6583,7 +8488,7 @@ class VoiceMessageConf(AbstractModel):
 
 
 class VoiceMessageStatisticsItem(AbstractModel):
-    """语音消息用量统计信息
+    r"""语音消息用量统计信息
 
     """
 
@@ -6596,7 +8501,7 @@ class VoiceMessageStatisticsItem(AbstractModel):
 
     @property
     def Dau(self):
-        """离线语音DAU
+        r"""离线语音DAU
         :rtype: int
         """
         return self._Dau
@@ -6608,6 +8513,198 @@ class VoiceMessageStatisticsItem(AbstractModel):
 
     def _deserialize(self, params):
         self._Dau = params.get("Dau")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VoicePrint(AbstractModel):
+    r"""声纹配置参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Mode: 默认为0，表示不启用声纹。1表示启用声纹，此时需要填写voiceprint id。
+        :type Mode: int
+        :param _IdList: VoicePrint Mode为1时需要填写，目前仅支持填写一个声纹id
+        :type IdList: list of str
+        """
+        self._Mode = None
+        self._IdList = None
+
+    @property
+    def Mode(self):
+        r"""默认为0，表示不启用声纹。1表示启用声纹，此时需要填写voiceprint id。
+        :rtype: int
+        """
+        return self._Mode
+
+    @Mode.setter
+    def Mode(self, Mode):
+        self._Mode = Mode
+
+    @property
+    def IdList(self):
+        r"""VoicePrint Mode为1时需要填写，目前仅支持填写一个声纹id
+        :rtype: list of str
+        """
+        return self._IdList
+
+    @IdList.setter
+    def IdList(self, IdList):
+        self._IdList = IdList
+
+
+    def _deserialize(self, params):
+        self._Mode = params.get("Mode")
+        self._IdList = params.get("IdList")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VoicePrintInfo(AbstractModel):
+    r"""声纹查询数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VoicePrintId: 声纹ID
+        :type VoicePrintId: str
+        :param _AppId: 应用id
+        :type AppId: int
+        :param _VoicePrintMetaInfo: 和声纹绑定的MetaInfo
+        :type VoicePrintMetaInfo: str
+        :param _CreateTime: 创建时间
+        :type CreateTime: str
+        :param _UpdateTime: 更新时间
+        :type UpdateTime: str
+        :param _AudioFormat: 音频格式,当前只有0(代表wav)
+        :type AudioFormat: int
+        :param _AudioName: 音频名称
+        :type AudioName: str
+        :param _ReqTimestamp: 请求毫秒时间戳
+        :type ReqTimestamp: int
+        """
+        self._VoicePrintId = None
+        self._AppId = None
+        self._VoicePrintMetaInfo = None
+        self._CreateTime = None
+        self._UpdateTime = None
+        self._AudioFormat = None
+        self._AudioName = None
+        self._ReqTimestamp = None
+
+    @property
+    def VoicePrintId(self):
+        r"""声纹ID
+        :rtype: str
+        """
+        return self._VoicePrintId
+
+    @VoicePrintId.setter
+    def VoicePrintId(self, VoicePrintId):
+        self._VoicePrintId = VoicePrintId
+
+    @property
+    def AppId(self):
+        r"""应用id
+        :rtype: int
+        """
+        return self._AppId
+
+    @AppId.setter
+    def AppId(self, AppId):
+        self._AppId = AppId
+
+    @property
+    def VoicePrintMetaInfo(self):
+        r"""和声纹绑定的MetaInfo
+        :rtype: str
+        """
+        return self._VoicePrintMetaInfo
+
+    @VoicePrintMetaInfo.setter
+    def VoicePrintMetaInfo(self, VoicePrintMetaInfo):
+        self._VoicePrintMetaInfo = VoicePrintMetaInfo
+
+    @property
+    def CreateTime(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""更新时间
+        :rtype: str
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+    @property
+    def AudioFormat(self):
+        r"""音频格式,当前只有0(代表wav)
+        :rtype: int
+        """
+        return self._AudioFormat
+
+    @AudioFormat.setter
+    def AudioFormat(self, AudioFormat):
+        self._AudioFormat = AudioFormat
+
+    @property
+    def AudioName(self):
+        r"""音频名称
+        :rtype: str
+        """
+        return self._AudioName
+
+    @AudioName.setter
+    def AudioName(self, AudioName):
+        self._AudioName = AudioName
+
+    @property
+    def ReqTimestamp(self):
+        r"""请求毫秒时间戳
+        :rtype: int
+        """
+        return self._ReqTimestamp
+
+    @ReqTimestamp.setter
+    def ReqTimestamp(self, ReqTimestamp):
+        self._ReqTimestamp = ReqTimestamp
+
+
+    def _deserialize(self, params):
+        self._VoicePrintId = params.get("VoicePrintId")
+        self._AppId = params.get("AppId")
+        self._VoicePrintMetaInfo = params.get("VoicePrintMetaInfo")
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
+        self._AudioFormat = params.get("AudioFormat")
+        self._AudioName = params.get("AudioName")
+        self._ReqTimestamp = params.get("ReqTimestamp")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

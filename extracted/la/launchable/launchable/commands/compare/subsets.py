@@ -47,4 +47,4 @@ def subsets(file_before, file_after):
         (before, after, f"{diff:+}" if isinstance(diff, int) else diff, test)
         for before, after, diff, test in rows
     ]
-    click.echo(tabulate(tabular_data, headers=headers, tablefmt="github"))
+    click.echo_via_pager(tabulate(tabular_data, headers=headers, tablefmt="github"))

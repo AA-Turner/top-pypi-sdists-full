@@ -168,6 +168,32 @@ canary = synthetics.Canary(self, "MyCanary",
 )
 ```
 
+### Browser Type Configuration
+
+You can configure which browsers your canary uses for testing by specifying the `browserConfigs` property. This allows you to test your application across different browsers to ensure compatibility.
+
+Available browser types:
+
+* `BrowserType.CHROME` - Google Chrome browser
+* `BrowserType.FIREFOX` - Mozilla Firefox browser
+
+You can specify up to 2 browser configurations. When multiple browsers are configured, the canary will run tests on each browser sequentially.
+
+```python
+canary = synthetics.Canary(self, "MyCanary",
+    schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+    test=synthetics.Test.custom(
+        code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+        handler="index.handler"
+    ),
+    runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+    browser_configs=[synthetics.BrowserType.CHROME, synthetics.BrowserType.FIREFOX
+    ]
+)
+```
+
+> **Note:** Firefox support is available for Node.js runtimes (Puppeteer and Playwright) but not for Python Selenium runtimes. When using Firefox, ensure your runtime version supports it.
+
 ### Deleting underlying resources on canary deletion
 
 When you delete a lambda, the following underlying resources are isolated in your AWS account:
@@ -475,9 +501,10 @@ from ..aws_ec2 import (
     SubnetSelection as _SubnetSelection_e57d76df,
 )
 from ..aws_iam import IGrantable as _IGrantable_71c4f5de, IRole as _IRole_235f5d8e
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKey as _IKey_5f11635f, IKeyRef as _IKeyRef_1e82344b
 from ..aws_s3 import (
     IBucket as _IBucket_42e086fd,
+    IBucketRef as _IBucketRef_fb8fe266,
     LifecycleRule as _LifecycleRule_bb74e6ff,
     Location as _Location_0948fa7f,
 )
@@ -596,6 +623,32 @@ class ArtifactsEncryptionMode(enum.Enum):
     '''Server-side encryption (SSE) with an AWS KMS customer managed key.'''
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.BrowserType")
+class BrowserType(enum.Enum):
+    '''Browser types supported by CloudWatch Synthetics Canary.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_9_1,
+            browser_configs=[synthetics.BrowserType.CHROME, synthetics.BrowserType.FIREFOX
+            ]
+        )
+    '''
+
+    CHROME = "CHROME"
+    '''Google Chrome browser.'''
+    FIREFOX = "FIREFOX"
+    '''Mozilla Firefox browser.'''
+
+
 @jsii.implements(_IConnectable_10015a05)
 class Canary(
     _Resource_45bc6135,
@@ -631,6 +684,7 @@ class Canary(
         artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
         artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
         artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
+        browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
@@ -660,6 +714,7 @@ class Canary(
         :param artifact_s3_kms_key: The KMS key used to encrypt canary artifacts. Default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
         :param artifacts_bucket_lifecycle_rules: Lifecycle rules for the generated canary artifact bucket. Has no effect if a bucket is passed to ``artifactsBucketLocation``. If you pass a bucket to ``artifactsBucketLocation``, you can add lifecycle rules to the bucket itself. Default: - no rules applied to the generated bucket.
         :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
+        :param browser_configs: Browser configurations for the canary. Specifies which browser(s) to use for running the canary tests. You can specify up to 2 browser configurations. Firefox is supported with Node.js Puppeteer and Playwright runtimes, but not with Python Selenium runtimes. Default: undefined - AWS CloudWatch default is using only Chrome browser
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
@@ -691,6 +746,7 @@ class Canary(
             artifact_s3_kms_key=artifact_s3_kms_key,
             artifacts_bucket_lifecycle_rules=artifacts_bucket_lifecycle_rules,
             artifacts_bucket_location=artifacts_bucket_location,
+            browser_configs=browser_configs,
             canary_name=canary_name,
             cleanup=cleanup,
             dry_run_and_update=dry_run_and_update,
@@ -934,6 +990,7 @@ class Canary(
         "artifact_s3_kms_key": "artifactS3KmsKey",
         "artifacts_bucket_lifecycle_rules": "artifactsBucketLifecycleRules",
         "artifacts_bucket_location": "artifactsBucketLocation",
+        "browser_configs": "browserConfigs",
         "canary_name": "canaryName",
         "cleanup": "cleanup",
         "dry_run_and_update": "dryRunAndUpdate",
@@ -965,6 +1022,7 @@ class CanaryProps:
         artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
         artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
         artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
+        browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
@@ -993,6 +1051,7 @@ class CanaryProps:
         :param artifact_s3_kms_key: The KMS key used to encrypt canary artifacts. Default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
         :param artifacts_bucket_lifecycle_rules: Lifecycle rules for the generated canary artifact bucket. Has no effect if a bucket is passed to ``artifactsBucketLocation``. If you pass a bucket to ``artifactsBucketLocation``, you can add lifecycle rules to the bucket itself. Default: - no rules applied to the generated bucket.
         :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
+        :param browser_configs: Browser configurations for the canary. Specifies which browser(s) to use for running the canary tests. You can specify up to 2 browser configurations. Firefox is supported with Node.js Puppeteer and Playwright runtimes, but not with Python Selenium runtimes. Default: undefined - AWS CloudWatch default is using only Chrome browser
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
@@ -1039,6 +1098,7 @@ class CanaryProps:
             check_type(argname="argument artifact_s3_kms_key", value=artifact_s3_kms_key, expected_type=type_hints["artifact_s3_kms_key"])
             check_type(argname="argument artifacts_bucket_lifecycle_rules", value=artifacts_bucket_lifecycle_rules, expected_type=type_hints["artifacts_bucket_lifecycle_rules"])
             check_type(argname="argument artifacts_bucket_location", value=artifacts_bucket_location, expected_type=type_hints["artifacts_bucket_location"])
+            check_type(argname="argument browser_configs", value=browser_configs, expected_type=type_hints["browser_configs"])
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
             check_type(argname="argument cleanup", value=cleanup, expected_type=type_hints["cleanup"])
             check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
@@ -1071,6 +1131,8 @@ class CanaryProps:
             self._values["artifacts_bucket_lifecycle_rules"] = artifacts_bucket_lifecycle_rules
         if artifacts_bucket_location is not None:
             self._values["artifacts_bucket_location"] = artifacts_bucket_location
+        if browser_configs is not None:
+            self._values["browser_configs"] = browser_configs
         if canary_name is not None:
             self._values["canary_name"] = canary_name
         if cleanup is not None:
@@ -1191,6 +1253,23 @@ class CanaryProps:
         '''
         result = self._values.get("artifacts_bucket_location")
         return typing.cast(typing.Optional[ArtifactsBucketLocation], result)
+
+    @builtins.property
+    def browser_configs(self) -> typing.Optional[typing.List[BrowserType]]:
+        '''Browser configurations for the canary.
+
+        Specifies which browser(s) to use for running the canary tests.
+        You can specify up to 2 browser configurations.
+
+        Firefox is supported with Node.js Puppeteer and Playwright runtimes,
+        but not with Python Selenium runtimes.
+
+        :default: undefined - AWS CloudWatch default is using only Chrome browser
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html
+        '''
+        result = self._values.get("browser_configs")
+        return typing.cast(typing.Optional[typing.List[BrowserType]], result)
 
     @builtins.property
     def canary_name(self) -> typing.Optional[builtins.str]:
@@ -1442,7 +1521,2210 @@ class CanaryProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CanaryReference",
+    jsii_struct_bases=[],
+    name_mapping={"canary_name": "canaryName"},
+)
+class CanaryReference:
+    def __init__(self, *, canary_name: builtins.str) -> None:
+        '''A reference to a Canary resource.
+
+        :param canary_name: The Name of the Canary resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_synthetics as synthetics
+            
+            canary_reference = synthetics.CanaryReference(
+                canary_name="canaryName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9010a572d449865253b0fb9c46ad46fa1b6341ec7d7876cd7b3f5fe9271b9f04)
+            check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "canary_name": canary_name,
+        }
+
+    @builtins.property
+    def canary_name(self) -> builtins.str:
+        '''The Name of the Canary resource.'''
+        result = self._values.get("canary_name")
+        assert result is not None, "Required property 'canary_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CanaryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CfnCanaryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "artifact_s3_location": "artifactS3Location",
+        "code": "code",
+        "execution_role_arn": "executionRoleArn",
+        "name": "name",
+        "runtime_version": "runtimeVersion",
+        "schedule": "schedule",
+        "artifact_config": "artifactConfig",
+        "browser_configs": "browserConfigs",
+        "delete_lambda_resources_on_canary_deletion": "deleteLambdaResourcesOnCanaryDeletion",
+        "dry_run_and_update": "dryRunAndUpdate",
+        "failure_retention_period": "failureRetentionPeriod",
+        "provisioned_resource_cleanup": "provisionedResourceCleanup",
+        "resources_to_replicate_tags": "resourcesToReplicateTags",
+        "run_config": "runConfig",
+        "start_canary_after_creation": "startCanaryAfterCreation",
+        "success_retention_period": "successRetentionPeriod",
+        "tags": "tags",
+        "visual_reference": "visualReference",
+        "visual_references": "visualReferences",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnCanaryProps:
+    def __init__(
+        self,
+        *,
+        artifact_s3_location: builtins.str,
+        code: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        runtime_version: builtins.str,
+        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        failure_retention_period: typing.Optional[jsii.Number] = None,
+        provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+        resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+        run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        success_retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCanary``.
+
+        :param artifact_s3_location: The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary. Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
+        :param code: Use this structure to input your script code for the canary. This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
+        :param execution_role_arn: The ARN of the IAM role to be used to run the canary. This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions: - ``s3:PutObject`` - ``s3:GetBucketLocation`` - ``s3:ListAllMyBuckets`` - ``cloudwatch:PutMetricData`` - ``logs:CreateLogGroup`` - ``logs:CreateLogStream`` - ``logs:PutLogEvents``
+        :param name: The name for this canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
+        :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
+        :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
+        :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
+        :param browser_configs: A structure that specifies the browser type to use for a canary run. CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers. .. epigraph:: If not specified, ``browserConfigs`` defaults to Chrome.
+        :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
+        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
+        :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
+        :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
+        :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
+        :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
+        :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param tags: The list of key-value pairs that are associated with the canary.
+        :param visual_reference: 
+        :param visual_references: A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on. Visual references are used for visual monitoring comparisons. ``syn-nodejs-puppeteer-11.0`` and above, and ``syn-nodejs-playwright-3.0`` and above, only supports ``visualReferences`` . ``visualReference`` field is not supported. Versions older than ``syn-nodejs-puppeteer-11.0`` supports both ``visualReference`` and ``visualReferences`` for backward compatibility. It is recommended to use ``visualReferences`` for consistency and future compatibility.
+        :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_synthetics as synthetics
+            
+            cfn_canary_props = synthetics.CfnCanaryProps(
+                artifact_s3_location="artifactS3Location",
+                code=synthetics.CfnCanary.CodeProperty(
+                    handler="handler",
+            
+                    # the properties below are optional
+                    dependencies=[synthetics.CfnCanary.DependencyProperty(
+                        reference="reference",
+            
+                        # the properties below are optional
+                        type="type"
+                    )],
+                    s3_bucket="s3Bucket",
+                    s3_key="s3Key",
+                    s3_object_version="s3ObjectVersion",
+                    script="script",
+                    source_location_arn="sourceLocationArn"
+                ),
+                execution_role_arn="executionRoleArn",
+                name="name",
+                runtime_version="runtimeVersion",
+                schedule=synthetics.CfnCanary.ScheduleProperty(
+                    expression="expression",
+            
+                    # the properties below are optional
+                    duration_in_seconds="durationInSeconds",
+                    retry_config=synthetics.CfnCanary.RetryConfigProperty(
+                        max_retries=123
+                    )
+                ),
+            
+                # the properties below are optional
+                artifact_config=synthetics.CfnCanary.ArtifactConfigProperty(
+                    s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
+                        encryption_mode="encryptionMode",
+                        kms_key_arn="kmsKeyArn"
+                    )
+                ),
+                browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
+                    browser_type="browserType"
+                )],
+                delete_lambda_resources_on_canary_deletion=False,
+                dry_run_and_update=False,
+                failure_retention_period=123,
+                provisioned_resource_cleanup="provisionedResourceCleanup",
+                resources_to_replicate_tags=["resourcesToReplicateTags"],
+                run_config=synthetics.CfnCanary.RunConfigProperty(
+                    active_tracing=False,
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    ephemeral_storage=123,
+                    memory_in_mb=123,
+                    timeout_in_seconds=123
+                ),
+                start_canary_after_creation=False,
+                success_retention_period=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                visual_reference=synthetics.CfnCanary.VisualReferenceProperty(
+                    base_canary_run_id="baseCanaryRunId",
+            
+                    # the properties below are optional
+                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                        screenshot_name="screenshotName",
+            
+                        # the properties below are optional
+                        ignore_coordinates=["ignoreCoordinates"]
+                    )],
+                    browser_type="browserType"
+                ),
+                visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
+                    base_canary_run_id="baseCanaryRunId",
+            
+                    # the properties below are optional
+                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                        screenshot_name="screenshotName",
+            
+                        # the properties below are optional
+                        ignore_coordinates=["ignoreCoordinates"]
+                    )],
+                    browser_type="browserType"
+                )],
+                vpc_config=synthetics.CfnCanary.VPCConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+            
+                    # the properties below are optional
+                    ipv6_allowed_for_dual_stack=False,
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423)
+            check_type(argname="argument artifact_s3_location", value=artifact_s3_location, expected_type=type_hints["artifact_s3_location"])
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument runtime_version", value=runtime_version, expected_type=type_hints["runtime_version"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument artifact_config", value=artifact_config, expected_type=type_hints["artifact_config"])
+            check_type(argname="argument browser_configs", value=browser_configs, expected_type=type_hints["browser_configs"])
+            check_type(argname="argument delete_lambda_resources_on_canary_deletion", value=delete_lambda_resources_on_canary_deletion, expected_type=type_hints["delete_lambda_resources_on_canary_deletion"])
+            check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
+            check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
+            check_type(argname="argument provisioned_resource_cleanup", value=provisioned_resource_cleanup, expected_type=type_hints["provisioned_resource_cleanup"])
+            check_type(argname="argument resources_to_replicate_tags", value=resources_to_replicate_tags, expected_type=type_hints["resources_to_replicate_tags"])
+            check_type(argname="argument run_config", value=run_config, expected_type=type_hints["run_config"])
+            check_type(argname="argument start_canary_after_creation", value=start_canary_after_creation, expected_type=type_hints["start_canary_after_creation"])
+            check_type(argname="argument success_retention_period", value=success_retention_period, expected_type=type_hints["success_retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument visual_reference", value=visual_reference, expected_type=type_hints["visual_reference"])
+            check_type(argname="argument visual_references", value=visual_references, expected_type=type_hints["visual_references"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "artifact_s3_location": artifact_s3_location,
+            "code": code,
+            "execution_role_arn": execution_role_arn,
+            "name": name,
+            "runtime_version": runtime_version,
+            "schedule": schedule,
+        }
+        if artifact_config is not None:
+            self._values["artifact_config"] = artifact_config
+        if browser_configs is not None:
+            self._values["browser_configs"] = browser_configs
+        if delete_lambda_resources_on_canary_deletion is not None:
+            self._values["delete_lambda_resources_on_canary_deletion"] = delete_lambda_resources_on_canary_deletion
+        if dry_run_and_update is not None:
+            self._values["dry_run_and_update"] = dry_run_and_update
+        if failure_retention_period is not None:
+            self._values["failure_retention_period"] = failure_retention_period
+        if provisioned_resource_cleanup is not None:
+            self._values["provisioned_resource_cleanup"] = provisioned_resource_cleanup
+        if resources_to_replicate_tags is not None:
+            self._values["resources_to_replicate_tags"] = resources_to_replicate_tags
+        if run_config is not None:
+            self._values["run_config"] = run_config
+        if start_canary_after_creation is not None:
+            self._values["start_canary_after_creation"] = start_canary_after_creation
+        if success_retention_period is not None:
+            self._values["success_retention_period"] = success_retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+        if visual_reference is not None:
+            self._values["visual_reference"] = visual_reference
+        if visual_references is not None:
+            self._values["visual_references"] = visual_references
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def artifact_s3_location(self) -> builtins.str:
+        '''The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary.
+
+        Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifacts3location
+        '''
+        result = self._values.get("artifact_s3_location")
+        assert result is not None, "Required property 'artifact_s3_location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def code(self) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"]:
+        '''Use this structure to input your script code for the canary.
+
+        This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-code
+        '''
+        result = self._values.get("code")
+        assert result is not None, "Required property 'code' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role to be used to run the canary.
+
+        This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions:
+
+        - ``s3:PutObject``
+        - ``s3:GetBucketLocation``
+        - ``s3:ListAllMyBuckets``
+        - ``cloudwatch:PutMetricData``
+        - ``logs:CreateLogGroup``
+        - ``logs:CreateLogStream``
+        - ``logs:PutLogEvents``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        assert result is not None, "Required property 'execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for this canary.
+
+        Be sure to give it a descriptive name that distinguishes it from other canaries in your account.
+
+        Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def runtime_version(self) -> builtins.str:
+        '''Specifies the runtime version to use for the canary.
+
+        For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runtimeversion
+        '''
+        result = self._values.get("runtime_version")
+        assert result is not None, "Required property 'runtime_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"]:
+        '''A structure that contains information about how often the canary is to run, and when these runs are to stop.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-schedule
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"], result)
+
+    @builtins.property
+    def artifact_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]]:
+        '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifactconfig
+        '''
+        result = self._values.get("artifact_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]], result)
+
+    @builtins.property
+    def browser_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]]:
+        '''A structure that specifies the browser type to use for a canary run.
+
+        CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers.
+        .. epigraph::
+
+           If not specified, ``browserConfigs`` defaults to Chrome.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-browserconfigs
+        '''
+        result = self._values.get("browser_configs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]], result)
+
+    @builtins.property
+    def delete_lambda_resources_on_canary_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
+
+        Default is False
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-deletelambdaresourcesoncanarydeletion
+        :stability: deprecated
+        '''
+        result = self._values.get("delete_lambda_resources_on_canary_deletion")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def dry_run_and_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specifies whether to perform a dry run before updating the canary.
+
+        If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason.
+
+        If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` .
+
+        For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-dryrunandupdate
+        '''
+        result = self._values.get("dry_run_and_update")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def failure_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain data about failed runs of this canary.
+
+        If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days.
+
+        This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-failureretentionperiod
+        '''
+        result = self._values.get("failure_retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.
+
+        If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted.
+
+        If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-provisionedresourcecleanup
+        '''
+        result = self._values.get("provisioned_resource_cleanup")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resources_to_replicate_tags(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` .
+
+        If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-resourcestoreplicatetags
+        '''
+        result = self._values.get("resources_to_replicate_tags")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def run_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]]:
+        '''A structure that contains input information for a canary run.
+
+        If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runconfig
+        '''
+        result = self._values.get("run_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]], result)
+
+    @builtins.property
+    def start_canary_after_creation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Specify TRUE to have the canary start making runs immediately after it is created.
+
+        A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-startcanaryaftercreation
+        '''
+        result = self._values.get("start_canary_after_creation")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def success_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain data about successful runs of this canary.
+
+        If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days.
+
+        This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-successretentionperiod
+        '''
+        result = self._values.get("success_retention_period")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The list of key-value pairs that are associated with the canary.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def visual_reference(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreference
+        :stability: deprecated
+        '''
+        result = self._values.get("visual_reference")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]], result)
+
+    @builtins.property
+    def visual_references(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]]:
+        '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.
+
+        Visual references are used for visual monitoring comparisons.
+
+        ``syn-nodejs-puppeteer-11.0`` and above, and ``syn-nodejs-playwright-3.0`` and above, only supports ``visualReferences`` . ``visualReference`` field is not supported.
+
+        Versions older than ``syn-nodejs-puppeteer-11.0`` supports both ``visualReference`` and ``visualReferences`` for backward compatibility. It is recommended to use ``visualReferences`` for consistency and future compatibility.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreferences
+        '''
+        result = self._values.get("visual_references")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]]:
+        '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
+
+        For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCanaryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CfnGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "resource_arns": "resourceArns", "tags": "tags"},
+)
+class CfnGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGroup``.
+
+        :param name: A name for the group. It can include any Unicode characters. The names for all groups in your account, across all Regions, must be unique.
+        :param resource_arns: The ARNs of the canaries that you want to associate with this group.
+        :param tags: The list of key-value pairs that are associated with the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_synthetics as synthetics
+            
+            cfn_group_props = synthetics.CfnGroupProps(
+                name="name",
+            
+                # the properties below are optional
+                resource_arns=["resourceArns"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if resource_arns is not None:
+            self._values["resource_arns"] = resource_arns
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A name for the group. It can include any Unicode characters.
+
+        The names for all groups in your account, across all Regions, must be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the canaries that you want to associate with this group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-resourcearns
+        '''
+        result = self._values.get("resource_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The list of key-value pairs that are associated with the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.Cleanup")
+class Cleanup(enum.Enum):
+    '''Different ways to clean up underlying Canary resources when the Canary is deleted.'''
+
+    NOTHING = "NOTHING"
+    '''Clean up nothing.
+
+    The user is responsible for cleaning up
+    all resources left behind by the Canary.
+    '''
+    LAMBDA = "LAMBDA"
+    '''Clean up the underlying Lambda function only.
+
+    The user is
+    responsible for cleaning up all other resources left behind
+    by the Canary.
+    '''
+
+
+class Code(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_synthetics.Code",
+):
+    '''The code the canary should execute.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="fromAsset")
+    @builtins.classmethod
+    def from_asset(
+        cls,
+        asset_path: builtins.str,
+        *,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    ) -> "AssetCode":
+        '''Specify code from a local path.
+
+        Path must include the folder structure ``nodejs/node_modules/myCanaryFilename.js``.
+
+        :param asset_path: Either a directory or a .zip file.
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+
+        :return: ``AssetCode`` associated with the specified path.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff)
+            check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
+        options = _AssetOptions_2aa69621(
+            deploy_time=deploy_time,
+            display_name=display_name,
+            readers=readers,
+            source_kms_key=source_kms_key,
+            asset_hash=asset_hash,
+            asset_hash_type=asset_hash_type,
+            bundling=bundling,
+            exclude=exclude,
+            follow_symlinks=follow_symlinks,
+            ignore_mode=ignore_mode,
+        )
+
+        return typing.cast("AssetCode", jsii.sinvoke(cls, "fromAsset", [asset_path, options]))
+
+    @jsii.member(jsii_name="fromBucket")
+    @builtins.classmethod
+    def from_bucket(
+        cls,
+        bucket: _IBucketRef_fb8fe266,
+        key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> "S3Code":
+        '''Specify code from an s3 bucket.
+
+        The object in the s3 bucket must be a .zip file that contains
+        the structure ``nodejs/node_modules/myCanaryFilename.js``.
+
+        :param bucket: The S3 bucket.
+        :param key: The object key.
+        :param object_version: Optional S3 object version.
+
+        :return: ``S3Code`` associated with the specified S3 object.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+        return typing.cast("S3Code", jsii.sinvoke(cls, "fromBucket", [bucket, key, object_version]))
+
+    @jsii.member(jsii_name="fromInline")
+    @builtins.classmethod
+    def from_inline(cls, code: builtins.str) -> "InlineCode":
+        '''Specify code inline.
+
+        :param code: The actual handler code (limited to 5MB).
+
+        :return: ``InlineCode`` with inline code.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab)
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+        return typing.cast("InlineCode", jsii.sinvoke(cls, "fromInline", [code]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        handler: builtins.str,
+        family: "RuntimeFamily",
+        runtime_name: typing.Optional[builtins.str] = None,
+    ) -> "CodeConfig":
+        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
+
+        :param scope: The binding scope. Don't be smart about trying to down-cast or assume it's initialized. You may just use it as a construct scope.
+        :param handler: -
+        :param family: -
+        :param runtime_name: -
+
+        :return: a bound ``CodeConfig``.
+        '''
+        ...
+
+
+class _CodeProxy(Code):
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        handler: builtins.str,
+        family: "RuntimeFamily",
+        runtime_name: typing.Optional[builtins.str] = None,
+    ) -> "CodeConfig":
+        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
+
+        :param scope: The binding scope. Don't be smart about trying to down-cast or assume it's initialized. You may just use it as a construct scope.
+        :param handler: -
+        :param family: -
+        :param runtime_name: -
+
+        :return: a bound ``CodeConfig``.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Code).__jsii_proxy_class__ = lambda : _CodeProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CodeConfig",
+    jsii_struct_bases=[],
+    name_mapping={"inline_code": "inlineCode", "s3_location": "s3Location"},
+)
+class CodeConfig:
+    def __init__(
+        self,
+        *,
+        inline_code: typing.Optional[builtins.str] = None,
+        s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Configuration of the code class.
+
+        :param inline_code: Inline code (mutually exclusive with ``s3Location``). Default: - none
+        :param s3_location: The location of the code in S3 (mutually exclusive with ``inlineCode``). Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_synthetics as synthetics
+            
+            code_config = synthetics.CodeConfig(
+                inline_code="inlineCode",
+                s3_location=Location(
+                    bucket_name="bucketName",
+                    object_key="objectKey",
+            
+                    # the properties below are optional
+                    object_version="objectVersion"
+                )
+            )
+        '''
+        if isinstance(s3_location, dict):
+            s3_location = _Location_0948fa7f(**s3_location)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e)
+            check_type(argname="argument inline_code", value=inline_code, expected_type=type_hints["inline_code"])
+            check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if inline_code is not None:
+            self._values["inline_code"] = inline_code
+        if s3_location is not None:
+            self._values["s3_location"] = s3_location
+
+    @builtins.property
+    def inline_code(self) -> typing.Optional[builtins.str]:
+        '''Inline code (mutually exclusive with ``s3Location``).
+
+        :default: - none
+        '''
+        result = self._values.get("inline_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_location(self) -> typing.Optional[_Location_0948fa7f]:
+        '''The location of the code in S3 (mutually exclusive with ``inlineCode``).
+
+        :default: - none
+        '''
+        result = self._values.get("s3_location")
+        return typing.cast(typing.Optional[_Location_0948fa7f], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CodeConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CronOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "day": "day",
+        "hour": "hour",
+        "minute": "minute",
+        "month": "month",
+        "week_day": "weekDay",
+    },
+)
+class CronOptions:
+    def __init__(
+        self,
+        *,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Options to configure a cron expression.
+
+        All fields are strings so you can use complex expressions. Absence of
+        a field implies '*' or '?', whichever one is appropriate.
+
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html
+        :exampleMetadata: infused
+
+        Example::
+
+            schedule = synthetics.Schedule.cron(
+                hour="0,8,16"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d)
+            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
+            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
+            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
+            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
+            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if day is not None:
+            self._values["day"] = day
+        if hour is not None:
+            self._values["hour"] = hour
+        if minute is not None:
+            self._values["minute"] = minute
+        if month is not None:
+            self._values["month"] = month
+        if week_day is not None:
+            self._values["week_day"] = week_day
+
+    @builtins.property
+    def day(self) -> typing.Optional[builtins.str]:
+        '''The day of the month to run this rule at.
+
+        :default: - Every day of the month
+        '''
+        result = self._values.get("day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hour(self) -> typing.Optional[builtins.str]:
+        '''The hour to run this rule at.
+
+        :default: - Every hour
+        '''
+        result = self._values.get("hour")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def minute(self) -> typing.Optional[builtins.str]:
+        '''The minute to run this rule at.
+
+        :default: - Every minute
+        '''
+        result = self._values.get("minute")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def month(self) -> typing.Optional[builtins.str]:
+        '''The month to run this rule at.
+
+        :default: - Every month
+        '''
+        result = self._values.get("month")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def week_day(self) -> typing.Optional[builtins.str]:
+        '''The day of the week to run this rule at.
+
+        :default: - Any day of the week
+        '''
+        result = self._values.get("week_day")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CronOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.CustomTestOptions",
+    jsii_struct_bases=[],
+    name_mapping={"code": "code", "handler": "handler"},
+)
+class CustomTestOptions:
+    def __init__(self, *, code: Code, handler: builtins.str) -> None:
+        '''Properties for specifying a test.
+
+        :param code: The code of the canary script.
+        :param handler: The handler for the code. Must end with ``.handler``.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            canary = synthetics.Canary(self, "MyCanary",
+                schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+                test=synthetics.Test.custom(
+                    code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                    handler="index.handler"
+                ),
+                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d)
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "code": code,
+            "handler": handler,
+        }
+
+    @builtins.property
+    def code(self) -> Code:
+        '''The code of the canary script.'''
+        result = self._values.get("code")
+        assert result is not None, "Required property 'code' is missing"
+        return typing.cast(Code, result)
+
+    @builtins.property
+    def handler(self) -> builtins.str:
+        '''The handler for the code.
+
+        Must end with ``.handler``.
+        '''
+        result = self._values.get("handler")
+        assert result is not None, "Required property 'handler' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomTestOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_synthetics.GroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_name": "groupName"},
+)
+class GroupReference:
+    def __init__(self, *, group_name: builtins.str) -> None:
+        '''A reference to a Group resource.
+
+        :param group_name: The Name of the Group resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_synthetics as synthetics
+            
+            group_reference = synthetics.GroupReference(
+                group_name="groupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73164cd8a0bb9ee7a5efdacdcef416de8ebe14cac7d826ecaabe6a40db15e0d8)
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_name": group_name,
+        }
+
+    @builtins.property
+    def group_name(self) -> builtins.str:
+        '''The Name of the Group resource.'''
+        result = self._values.get("group_name")
+        assert result is not None, "Required property 'group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.ICanaryRef")
+class ICanaryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Canary.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryRef")
+    def canary_ref(self) -> CanaryReference:
+        '''(experimental) A reference to a Canary resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICanaryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Canary.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.ICanaryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryRef")
+    def canary_ref(self) -> CanaryReference:
+        '''(experimental) A reference to a Canary resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CanaryReference, jsii.get(self, "canaryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICanaryRef).__jsii_proxy_class__ = lambda : _ICanaryRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.IGroupRef")
+class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.IGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
+
+
+class InlineCode(
+    Code,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.InlineCode",
+):
+    '''Canary code from an inline string.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_synthetics as synthetics
+        
+        inline_code = synthetics.InlineCode("code")
+    '''
+
+    def __init__(self, code: builtins.str) -> None:
+        '''
+        :param code: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2)
+            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+        jsii.create(self.__class__, self, [code])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        handler: builtins.str,
+        _family: "RuntimeFamily",
+        _runtime_name: typing.Optional[builtins.str] = None,
+    ) -> CodeConfig:
+        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
+
+        :param scope: -
+        :param handler: -
+        :param _family: -
+        :param _runtime_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
+            check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
+        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, _family, _runtime_name]))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.ResourceToReplicateTags")
+class ResourceToReplicateTags(enum.Enum):
+    '''Resources that tags applied to a canary should be replicated to.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+        )
+    '''
+
+    LAMBDA_FUNCTION = "LAMBDA_FUNCTION"
+    '''Replicate canary tags to the Lambda function.
+
+    When specified, CloudWatch Synthetics will keep the tags of the canary
+    and the Lambda function synchronized. Any future changes made to the
+    canary's tags will also be applied to the function.
+    '''
+
+
+class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Runtime"):
+    '''Runtime options for a canary.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+        )
+    '''
+
+    def __init__(self, name: builtins.str, family: "RuntimeFamily") -> None:
+        '''
+        :param name: The name of the runtime version.
+        :param family: The Lambda runtime family.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+        jsii.create(self.__class__, self, [name, family])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_1_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_1_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-1.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.45 - Chromium version 126.0.6478.126.
+
+        New Features:
+
+        - **PlayWright support** You can write canary scripts by using the Playwright automation framework. You can bring your existing Playwright scripts to run as canaries, and enhance them with AWS monitoring capabilities.
+        - **CloudWatch Logs integration** You can query and filter for logs through the CloudWatch Synthetics console. Each log message contains unique canaryRunId, making it easy to search for logs for a particular canary run.
+        - **Metrics and canary artifacts** You can monitor canary run pass rate through CloudWatch metrics, and configure alarms to alert you when canaries detect issues.
+        - **Screenshots and steps association** You can capture screenshots using native Playwright functionality to visualize the stages of a canary script on each run. Screenshots are automatically associated with canary steps, and are uploaded to Amazon S3 buckets.
+        - **Multiple tabs** You can create canaries that open multiple browser tabs, and access screenshots from each tab. You can create multi-tab and multi-step user workflows in Synthetics.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-1.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_2_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_2_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.49.1 - Chromium version 131.0.6778.264.
+
+        New Features:
+
+        - The mismatch between total duration and sum of timings for a given request in HAR file is fixed.
+        - Supports dry runs for the canary which allows for adhoc executions or performing a safe canary update.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-2.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_3_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_3_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.53.0 - Chromium version 138.0.7204.168.
+
+        New Features:
+
+        - Multi-browser support – You can now run your nodejs puppeteer canaries in either Firefox or Chrome
+        - Support for visual monitoring
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-3.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_3_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_10_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_10_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-10.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 24.2.0 - Chromium version 131.0.6778.264.
+
+        New Features:
+
+        - **Bug fixes**: The bug related to closing the browser that took excessively long is fixed.
+        - **Dry run**: Supports dry runs for the canary which allows for adhoc executions or performing a safe canary update.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-10.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_10_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_11_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_11_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-11.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 24.15.0 - Chromium version 138.0.7204.168.
+
+        New Features:
+
+        - **Multi-browser support**: You can now run Node.js Puppeteer canaries in either Firefox or Chrome
+        - **Simplified packaging**: Package scripts directly under root without using the Node.js/node_modules directory structure
+        - **Screenshot integration**: Capture screenshots using native Puppeteer functions to visualize canary script stages. Synthetics automatically associates screenshots with canary steps and uploads them to Amazon S3
+        - **Enhanced log querying**: Query and filter logs through the CloudWatch Insights console. Each log message includes a unique canaryRunId for easier searching
+        - **Configuration file support**: Define and update Synthetics settings using a synthetics.json file. This separation of configuration from script logic improves maintenance and reusability
+        - **Multiple tabs support**: Create canaries that open multiple browser tabs and access screenshots from each tab. Build multi-tab and multi-step user workflows in Synthetics
+        - **Security fixes**
+        - **Visual monitoring bug fixes**
+        - **Added support for structured JSON logging with configurable log levels**: Logs are now emitted in JSON format to enable easier parsing and querying in CloudWatch. Log level is configurable (for example, DEBUG, INFO, TRACE) through environment variables allowing users to control verbosity based on their needs
+        - **Support for ES syntax**
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-11.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_11_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_5")
+    def SYNTHETICS_NODEJS_PUPPETEER_3_5(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-3.5`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
+
+        New features:
+
+        - **Updated dependencies**: The only new features in this runtime are the updated dependencies.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.5
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_6")
+    def SYNTHETICS_NODEJS_PUPPETEER_3_6(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-3.6`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.6
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_6"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_7")
+    def SYNTHETICS_NODEJS_PUPPETEER_3_7(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-3.7`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
+
+        New Features:
+
+        - **Logging enhancement**: The canary will upload logs to Amazon S3 even if it times out or crashes.
+        - **Lambda layer size reduced**: The size of the Lambda layer used for canaries is reduced by 34%.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.7
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_8")
+    def SYNTHETICS_NODEJS_PUPPETEER_3_8(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-3.8`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 10.1.0 - Chromium version 92.0.4512.
+
+        New Features:
+
+        - **Profile cleanup**: Chromium profiles are now cleaned up after each canary run.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.8
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_9")
+    def SYNTHETICS_NODEJS_PUPPETEER_3_9(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-3.9`` includes the following:.
+
+        - Lambda runtime Node.js 14.x
+        - Puppeteer-core version 5.5.0
+        - Chromium version 92.0.4512
+
+        New Features:
+
+        - **Dependency upgrades**: Upgrades some third-party dependency packages.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.9
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_9"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_4_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_4_0(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-4.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
+
+        New Features:
+
+        - **Dependency upgrades**: The Node.js dependency is updated to 16.x.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-4.0
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_4_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_5_0(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-5.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Dependency upgrade**: The Puppeteer-core version is updated to 19.7.0. The Chromium version is upgraded to 111.0.5563.146.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.0
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_1")
+    def SYNTHETICS_NODEJS_PUPPETEER_5_1(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-5.1`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        Bug fixes:
+
+        - **Bug fix**: This runtime fixes a bug in ``syn-nodejs-puppeteer-5.0`` where the HAR files created by the canaries were missing request headers.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.1
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_2")
+    def SYNTHETICS_NODEJS_PUPPETEER_5_2(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-5.2`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Updated versions of the bundled libraries in Chromium**
+        - **Bug fixes**
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.2
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_6_0(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-6.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Dependency upgrade**: The Node.js dependency is upgraded to 18.x.
+          Bug fixes:
+        - **Bug fix**: Clean up core dump generated when Chromium crashes during a canary run.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.0
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_1")
+    def SYNTHETICS_NODEJS_PUPPETEER_6_1(cls) -> "Runtime":
+        '''(deprecated) ``syn-nodejs-puppeteer-6.1`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Stability improvements**: Added auto-retry logic for handling intermittent Puppeteer launch errors.
+        - **Dependency upgrades**: Upgrades for some third-party dependency packages.
+        - **Canaries without Amazon S3 permissions**: Bug fixes, such that canaries that don't have any Amazon S3 permissions can still run. These canaries with no Amazon S3 permissions won't be able to upload screenshots or other artifacts to Amazon S3. For more information about permissions for canaries, see {@link https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_CanaryPermissions.html Required roles and permissions for canaries}.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.1
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_2")
+    def SYNTHETICS_NODEJS_PUPPETEER_6_2(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-6.2`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Updated versions of the bundled libraries in Chromium**
+        - **Ephemeral storage monitoring**: This runtime adds ephemeral storage monitoring in customer accounts.
+        - **Bug fixes**
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.2
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_7_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_7_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-7.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 21.9.0 - Chromium version 121.0.6167.139.
+
+        New Features:
+
+        - **Updated versions of the bundled libraries in Puppeteer and Chromium**: The Puppeteer and Chromium dependencies are updated to new versions.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-7.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_7_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_8_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_8_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-8.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.10.0 - Chromium version 125.0.6422.112.
+
+        New Features:
+
+        - **Support for two-factor authentication**
+        - **Bug fixes** for situations where some service clients were losing data in Node.js SDK V3 responses.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-8.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_8_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_9_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-9.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
+
+        New Features:
+
+        - **Bug fixes** Bug fix to enable visual monitoring capabilities.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-9.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_9_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_1")
+    def SYNTHETICS_NODEJS_PUPPETEER_9_1(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-9.1`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
+
+        New Features:
+
+        - **Bug fixes** Bug fix related to date ranges and pending requests in HAR files.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-9.1
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_9_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_0")
+    def SYNTHETICS_PYTHON_SELENIUM_1_0(cls) -> "Runtime":
+        '''(deprecated) ``syn-python-selenium-1.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.0
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_1")
+    def SYNTHETICS_PYTHON_SELENIUM_1_1(cls) -> "Runtime":
+        '''(deprecated) ``syn-python-selenium-1.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
+
+        New Features:
+
+        - **Custom handler function**: You can now use a custom handler function for your canary scripts.
+        - **Configuration options for adding metrics and step failure configurations**: These options were already available in runtimes for Node.js canaries.
+        - **Custom arguments in Chrome**: You can now open a browser in incognito mode or pass in proxy server configuration.
+        - **Cross-Region artifact buckets**: A canary can store its artifacts in an Amazon S3 bucket in a different Region.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.1
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_2")
+    def SYNTHETICS_PYTHON_SELENIUM_1_2(cls) -> "Runtime":
+        '''(deprecated) ``syn-python-selenium-1.2`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
+
+        New Features:
+
+        - **Updated dependencies**: The only new features in this runtime are the updated dependencies.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.2
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_3")
+    def SYNTHETICS_PYTHON_SELENIUM_1_3(cls) -> "Runtime":
+        '''(deprecated) ``syn-python-selenium-1.3`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
+
+        New Features:
+
+        - **More precise timestamps**: The start time and stop time of canary runs are now precise to the millisecond.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.3
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_0")
+    def SYNTHETICS_PYTHON_SELENIUM_2_0(cls) -> "Runtime":
+        '''(deprecated) ``syn-python-selenium-2.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.10.0 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Updated dependencies**: The Chromium and Selenium dependencies are updated to new versions.
+        - **More precise timestamps**: The start time and stop time of canary runs are now precise to the millisecond.
+
+        Bug fixes:
+
+        - **Timestamp added**: A timestamp has been added to canary logs.
+        - **Session re-use**: A bug was fixed so that canaries are now prevented from reusing the session from their previous canary run.
+
+        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-2.0
+        :stability: deprecated
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_1")
+    def SYNTHETICS_PYTHON_SELENIUM_2_1(cls) -> "Runtime":
+        '''``syn-python-selenium-2.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 111.0.5563.146.
+
+        New Features:
+
+        - **Updated versions of the bundled libraries in Chromium**: The Chromium and Selenium dependencies are updated to new versions.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-2.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_3_0")
+    def SYNTHETICS_PYTHON_SELENIUM_3_0(cls) -> "Runtime":
+        '''``syn-python-selenium-3.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 121.0.6167.139.
+
+        New Features:
+
+        - **Updated versions of the bundled libraries in Chromium**: The Chromium dependency is updated to a new version.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-3.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_3_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_0")
+    def SYNTHETICS_PYTHON_SELENIUM_4_0(cls) -> "Runtime":
+        '''``syn-python-selenium-4.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
+
+        New Features:
+
+        - **Bug fixes** for errors in HAR parser logging.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-4.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_4_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_1")
+    def SYNTHETICS_PYTHON_SELENIUM_4_1(cls) -> "Runtime":
+        '''``syn-python-selenium-4.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
+
+        New Features:
+
+        - **Addresses security vulnerability** This runtime has an update to address the CVE-2024-39689 vulnerability.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-4.1
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_4_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_0")
+    def SYNTHETICS_PYTHON_SELENIUM_5_0(cls) -> "Runtime":
+        '''``syn-python-selenium-5.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
+
+        New Features:
+
+        - Automatic retry if the browser fails to launch.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-5.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_5_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_1")
+    def SYNTHETICS_PYTHON_SELENIUM_5_1(cls) -> "Runtime":
+        '''``syn-python-selenium-5.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
+
+        New Features:
+
+        - Minor updates on metric emission.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-5.1
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_5_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_6_0")
+    def SYNTHETICS_PYTHON_SELENIUM_6_0(cls) -> "Runtime":
+        '''``syn-python-selenium-6.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-6.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_6_0"))
+
+    @builtins.property
+    @jsii.member(jsii_name="family")
+    def family(self) -> "RuntimeFamily":
+        '''The Lambda runtime family.'''
+        return typing.cast("RuntimeFamily", jsii.get(self, "family"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the runtime version.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.RuntimeFamily")
+class RuntimeFamily(enum.Enum):
+    '''All known Lambda runtime families.'''
+
+    NODEJS = "NODEJS"
+    '''All Lambda runtimes that depend on Node.js.'''
+    PYTHON = "PYTHON"
+    '''All lambda runtimes that depend on Python.'''
+    OTHER = "OTHER"
+    '''Any future runtime family.'''
+
+
+class S3Code(
+    Code,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.S3Code",
+):
+    '''S3 bucket path to the code zip file.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_s3 as s3
+        from aws_cdk import aws_synthetics as synthetics
+        
+        # bucket_ref: s3.IBucketRef
+        
+        s3_code = synthetics.S3Code(bucket_ref, "key", "objectVersion")
+    '''
+
+    def __init__(
+        self,
+        bucket: _IBucketRef_fb8fe266,
+        key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param bucket: -
+        :param key: -
+        :param object_version: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
+        jsii.create(self.__class__, self, [bucket, key, object_version])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        _scope: _constructs_77d1e7e8.Construct,
+        _handler: builtins.str,
+        _family: RuntimeFamily,
+        _runtime_name: typing.Optional[builtins.str] = None,
+    ) -> CodeConfig:
+        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
+
+        :param _scope: -
+        :param _handler: -
+        :param _family: -
+        :param _runtime_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07)
+            check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
+            check_type(argname="argument _handler", value=_handler, expected_type=type_hints["_handler"])
+            check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
+            check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
+        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [_scope, _handler, _family, _runtime_name]))
+
+
+class Schedule(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.Schedule",
+):
+    '''Schedule for canary runs.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                handler="canary.handler",
+                code=synthetics.Code.from_asset(path.join(__dirname, "canaries"))
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1,
+            max_retries=2
+        )
+    '''
+
+    @jsii.member(jsii_name="cron")
+    @builtins.classmethod
+    def cron(
+        cls,
+        *,
+        day: typing.Optional[builtins.str] = None,
+        hour: typing.Optional[builtins.str] = None,
+        minute: typing.Optional[builtins.str] = None,
+        month: typing.Optional[builtins.str] = None,
+        week_day: typing.Optional[builtins.str] = None,
+    ) -> "Schedule":
+        '''Create a schedule from a set of cron fields.
+
+        :param day: The day of the month to run this rule at. Default: - Every day of the month
+        :param hour: The hour to run this rule at. Default: - Every hour
+        :param minute: The minute to run this rule at. Default: - Every minute
+        :param month: The month to run this rule at. Default: - Every month
+        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
+        '''
+        options = CronOptions(
+            day=day, hour=hour, minute=minute, month=month, week_day=week_day
+        )
+
+        return typing.cast("Schedule", jsii.sinvoke(cls, "cron", [options]))
+
+    @jsii.member(jsii_name="expression")
+    @builtins.classmethod
+    def expression(cls, expression: builtins.str) -> "Schedule":
+        '''Construct a schedule from a literal schedule expression.
+
+        The expression must be in a ``rate(number units)`` format.
+        For example, ``Schedule.expression('rate(10 minutes)')``
+
+        :param expression: The expression to use.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34)
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+        return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
+
+    @jsii.member(jsii_name="once")
+    @builtins.classmethod
+    def once(cls) -> "Schedule":
+        '''The canary will be executed once.'''
+        return typing.cast("Schedule", jsii.sinvoke(cls, "once", []))
+
+    @jsii.member(jsii_name="rate")
+    @builtins.classmethod
+    def rate(cls, interval: _Duration_4839e8c3) -> "Schedule":
+        '''Construct a schedule from an interval.
+
+        Allowed values: 0 (for a single run) or between 1 and 60 minutes.
+        To specify a single run, you can use ``Schedule.once()``.
+
+        :param interval: The interval at which to run the canary.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a)
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+        return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [interval]))
+
+    @builtins.property
+    @jsii.member(jsii_name="expressionString")
+    def expression_string(self) -> builtins.str:
+        '''The Schedule expression.'''
+        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
+
+
+class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test"):
+    '''Specify a test that the canary should run.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        canary = synthetics.Canary(self, "MyCanary",
+            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+            test=synthetics.Test.custom(
+                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+                handler="index.handler"
+            ),
+            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
+            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
+        )
+    '''
+
+    @jsii.member(jsii_name="custom")
+    @builtins.classmethod
+    def custom(cls, *, code: Code, handler: builtins.str) -> "Test":
+        '''Specify a custom test with your own code.
+
+        :param code: The code of the canary script.
+        :param handler: The handler for the code. Must end with ``.handler``.
+
+        :return: ``Test`` associated with the specified Code object
+        '''
+        options = CustomTestOptions(code=code, handler=handler)
+
+        return typing.cast("Test", jsii.sinvoke(cls, "custom", [options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="code")
+    def code(self) -> Code:
+        '''The code that the canary should run.'''
+        return typing.cast(Code, jsii.get(self, "code"))
+
+    @builtins.property
+    @jsii.member(jsii_name="handler")
+    def handler(self) -> builtins.str:
+        '''The handler of the canary.'''
+        return typing.cast(builtins.str, jsii.get(self, "handler"))
+
+
+class AssetCode(
+    Code,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.AssetCode",
+):
+    '''Canary code from an Asset.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        from aws_cdk import aws_iam as iam
+        from aws_cdk import aws_kms as kms
+        from aws_cdk import aws_synthetics as synthetics
+        
+        # docker_image: cdk.DockerImage
+        # grantable: iam.IGrantable
+        # key_ref: kms.IKeyRef
+        # local_bundling: cdk.ILocalBundling
+        
+        asset_code = synthetics.AssetCode("assetPath",
+            asset_hash="assetHash",
+            asset_hash_type=cdk.AssetHashType.SOURCE,
+            bundling=cdk.BundlingOptions(
+                image=docker_image,
+        
+                # the properties below are optional
+                bundling_file_access=cdk.BundlingFileAccess.VOLUME_COPY,
+                command=["command"],
+                entrypoint=["entrypoint"],
+                environment={
+                    "environment_key": "environment"
+                },
+                local=local_bundling,
+                network="network",
+                output_type=cdk.BundlingOutput.ARCHIVED,
+                platform="platform",
+                security_opt="securityOpt",
+                user="user",
+                volumes=[cdk.DockerVolume(
+                    container_path="containerPath",
+                    host_path="hostPath",
+        
+                    # the properties below are optional
+                    consistency=cdk.DockerVolumeConsistency.CONSISTENT
+                )],
+                volumes_from=["volumesFrom"],
+                working_directory="workingDirectory"
+            ),
+            deploy_time=False,
+            display_name="displayName",
+            exclude=["exclude"],
+            follow_symlinks=cdk.SymlinkFollowMode.NEVER,
+            ignore_mode=cdk.IgnoreMode.GLOB,
+            readers=[grantable],
+            source_kMSKey=key_ref
+        )
+    '''
+
+    def __init__(
+        self,
+        asset_path: builtins.str,
+        *,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+    ) -> None:
+        '''
+        :param asset_path: The path to the asset file or directory.
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f)
+            check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
+        options = _AssetOptions_2aa69621(
+            deploy_time=deploy_time,
+            display_name=display_name,
+            readers=readers,
+            source_kms_key=source_kms_key,
+            asset_hash=asset_hash,
+            asset_hash_type=asset_hash_type,
+            bundling=bundling,
+            exclude=exclude,
+            follow_symlinks=follow_symlinks,
+            ignore_mode=ignore_mode,
+        )
+
+        jsii.create(self.__class__, self, [asset_path, options])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        handler: builtins.str,
+        family: RuntimeFamily,
+        runtime_name: typing.Optional[builtins.str] = None,
+    ) -> CodeConfig:
+        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
+
+        :param scope: -
+        :param handler: -
+        :param family: -
+        :param runtime_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
+        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
+
+
+@jsii.implements(_IInspectable_c2943556, ICanaryRef, _ITaggable_36806126)
 class CfnCanary(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1600,7 +3882,7 @@ class CfnCanary(
         :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
         :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
         :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
-        :param browser_configs: List of browser configurations for the canary.
+        :param browser_configs: A structure that specifies the browser type to use for a canary run. CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers. .. epigraph:: If not specified, ``browserConfigs`` defaults to Chrome.
         :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
         :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
         :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
@@ -1610,8 +3892,8 @@ class CfnCanary(
         :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
         :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
         :param tags: The list of key-value pairs that are associated with the canary.
-        :param visual_reference: (deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
-        :param visual_references: List of visual references for the canary.
+        :param visual_reference: 
+        :param visual_references: A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on. Visual references are used for visual monitoring comparisons. ``syn-nodejs-puppeteer-11.0`` and above, and ``syn-nodejs-playwright-3.0`` and above, only supports ``visualReferences`` . ``visualReference`` field is not supported. Versions older than ``syn-nodejs-puppeteer-11.0`` supports both ``visualReference`` and ``visualReferences`` for backward compatibility. It is recommended to use ``visualReferences`` for consistency and future compatibility.
         :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
         '''
         if __debug__:
@@ -1701,6 +3983,12 @@ class CfnCanary(
         :cloudformationAttribute: State
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryRef")
+    def canary_ref(self) -> CanaryReference:
+        '''A reference to a Canary resource.'''
+        return typing.cast(CanaryReference, jsii.get(self, "canaryRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1822,7 +4110,7 @@ class CfnCanary(
     def browser_configs(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]]:
-        '''List of browser configurations for the canary.'''
+        '''A structure that specifies the browser type to use for a canary run.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
 
     @browser_configs.setter
@@ -1988,8 +4276,7 @@ class CfnCanary(
     def visual_reference(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]:
-        '''(deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
-
+        '''
         :deprecated: this property has been deprecated
 
         :stability: deprecated
@@ -2011,7 +4298,7 @@ class CfnCanary(
     def visual_references(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]]:
-        '''List of visual references for the canary.'''
+        '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
 
     @visual_references.setter
@@ -2191,8 +4478,9 @@ class CfnCanary(
     )
     class BrowserConfigProperty:
         def __init__(self, *, browser_type: builtins.str) -> None:
-            '''
-            :param browser_type: 
+            '''A structure that specifies the browser type to use for a canary run.
+
+            :param browser_type: The browser type associated with this browser configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html
             :exampleMetadata: fixture=_generated
@@ -2216,7 +4504,8 @@ class CfnCanary(
 
         @builtins.property
         def browser_type(self) -> builtins.str:
-            '''
+            '''The browser type associated with this browser configuration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html#cfn-synthetics-canary-browserconfig-browsertype
             '''
             result = self._values.get("browser_type")
@@ -3086,516 +5375,7 @@ class CfnCanary(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CfnCanaryProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "artifact_s3_location": "artifactS3Location",
-        "code": "code",
-        "execution_role_arn": "executionRoleArn",
-        "name": "name",
-        "runtime_version": "runtimeVersion",
-        "schedule": "schedule",
-        "artifact_config": "artifactConfig",
-        "browser_configs": "browserConfigs",
-        "delete_lambda_resources_on_canary_deletion": "deleteLambdaResourcesOnCanaryDeletion",
-        "dry_run_and_update": "dryRunAndUpdate",
-        "failure_retention_period": "failureRetentionPeriod",
-        "provisioned_resource_cleanup": "provisionedResourceCleanup",
-        "resources_to_replicate_tags": "resourcesToReplicateTags",
-        "run_config": "runConfig",
-        "start_canary_after_creation": "startCanaryAfterCreation",
-        "success_retention_period": "successRetentionPeriod",
-        "tags": "tags",
-        "visual_reference": "visualReference",
-        "visual_references": "visualReferences",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnCanaryProps:
-    def __init__(
-        self,
-        *,
-        artifact_s3_location: builtins.str,
-        code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: builtins.str,
-        name: builtins.str,
-        runtime_version: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-        artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        failure_retention_period: typing.Optional[jsii.Number] = None,
-        provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
-        resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        success_retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCanary``.
-
-        :param artifact_s3_location: The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary. Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
-        :param code: Use this structure to input your script code for the canary. This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
-        :param execution_role_arn: The ARN of the IAM role to be used to run the canary. This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions: - ``s3:PutObject`` - ``s3:GetBucketLocation`` - ``s3:ListAllMyBuckets`` - ``cloudwatch:PutMetricData`` - ``logs:CreateLogGroup`` - ``logs:CreateLogStream`` - ``logs:PutLogEvents``
-        :param name: The name for this canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
-        :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
-        :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
-        :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
-        :param browser_configs: List of browser configurations for the canary.
-        :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
-        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
-        :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-        :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
-        :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
-        :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
-        :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
-        :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-        :param tags: The list of key-value pairs that are associated with the canary.
-        :param visual_reference: (deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
-        :param visual_references: List of visual references for the canary.
-        :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_synthetics as synthetics
-            
-            cfn_canary_props = synthetics.CfnCanaryProps(
-                artifact_s3_location="artifactS3Location",
-                code=synthetics.CfnCanary.CodeProperty(
-                    handler="handler",
-            
-                    # the properties below are optional
-                    dependencies=[synthetics.CfnCanary.DependencyProperty(
-                        reference="reference",
-            
-                        # the properties below are optional
-                        type="type"
-                    )],
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key",
-                    s3_object_version="s3ObjectVersion",
-                    script="script",
-                    source_location_arn="sourceLocationArn"
-                ),
-                execution_role_arn="executionRoleArn",
-                name="name",
-                runtime_version="runtimeVersion",
-                schedule=synthetics.CfnCanary.ScheduleProperty(
-                    expression="expression",
-            
-                    # the properties below are optional
-                    duration_in_seconds="durationInSeconds",
-                    retry_config=synthetics.CfnCanary.RetryConfigProperty(
-                        max_retries=123
-                    )
-                ),
-            
-                # the properties below are optional
-                artifact_config=synthetics.CfnCanary.ArtifactConfigProperty(
-                    s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
-                        encryption_mode="encryptionMode",
-                        kms_key_arn="kmsKeyArn"
-                    )
-                ),
-                browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
-                    browser_type="browserType"
-                )],
-                delete_lambda_resources_on_canary_deletion=False,
-                dry_run_and_update=False,
-                failure_retention_period=123,
-                provisioned_resource_cleanup="provisionedResourceCleanup",
-                resources_to_replicate_tags=["resourcesToReplicateTags"],
-                run_config=synthetics.CfnCanary.RunConfigProperty(
-                    active_tracing=False,
-                    environment_variables={
-                        "environment_variables_key": "environmentVariables"
-                    },
-                    ephemeral_storage=123,
-                    memory_in_mb=123,
-                    timeout_in_seconds=123
-                ),
-                start_canary_after_creation=False,
-                success_retention_period=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                visual_reference=synthetics.CfnCanary.VisualReferenceProperty(
-                    base_canary_run_id="baseCanaryRunId",
-            
-                    # the properties below are optional
-                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
-                        screenshot_name="screenshotName",
-            
-                        # the properties below are optional
-                        ignore_coordinates=["ignoreCoordinates"]
-                    )],
-                    browser_type="browserType"
-                ),
-                visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
-                    base_canary_run_id="baseCanaryRunId",
-            
-                    # the properties below are optional
-                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
-                        screenshot_name="screenshotName",
-            
-                        # the properties below are optional
-                        ignore_coordinates=["ignoreCoordinates"]
-                    )],
-                    browser_type="browserType"
-                )],
-                vpc_config=synthetics.CfnCanary.VPCConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-            
-                    # the properties below are optional
-                    ipv6_allowed_for_dual_stack=False,
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423)
-            check_type(argname="argument artifact_s3_location", value=artifact_s3_location, expected_type=type_hints["artifact_s3_location"])
-            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument runtime_version", value=runtime_version, expected_type=type_hints["runtime_version"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument artifact_config", value=artifact_config, expected_type=type_hints["artifact_config"])
-            check_type(argname="argument browser_configs", value=browser_configs, expected_type=type_hints["browser_configs"])
-            check_type(argname="argument delete_lambda_resources_on_canary_deletion", value=delete_lambda_resources_on_canary_deletion, expected_type=type_hints["delete_lambda_resources_on_canary_deletion"])
-            check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
-            check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
-            check_type(argname="argument provisioned_resource_cleanup", value=provisioned_resource_cleanup, expected_type=type_hints["provisioned_resource_cleanup"])
-            check_type(argname="argument resources_to_replicate_tags", value=resources_to_replicate_tags, expected_type=type_hints["resources_to_replicate_tags"])
-            check_type(argname="argument run_config", value=run_config, expected_type=type_hints["run_config"])
-            check_type(argname="argument start_canary_after_creation", value=start_canary_after_creation, expected_type=type_hints["start_canary_after_creation"])
-            check_type(argname="argument success_retention_period", value=success_retention_period, expected_type=type_hints["success_retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument visual_reference", value=visual_reference, expected_type=type_hints["visual_reference"])
-            check_type(argname="argument visual_references", value=visual_references, expected_type=type_hints["visual_references"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "artifact_s3_location": artifact_s3_location,
-            "code": code,
-            "execution_role_arn": execution_role_arn,
-            "name": name,
-            "runtime_version": runtime_version,
-            "schedule": schedule,
-        }
-        if artifact_config is not None:
-            self._values["artifact_config"] = artifact_config
-        if browser_configs is not None:
-            self._values["browser_configs"] = browser_configs
-        if delete_lambda_resources_on_canary_deletion is not None:
-            self._values["delete_lambda_resources_on_canary_deletion"] = delete_lambda_resources_on_canary_deletion
-        if dry_run_and_update is not None:
-            self._values["dry_run_and_update"] = dry_run_and_update
-        if failure_retention_period is not None:
-            self._values["failure_retention_period"] = failure_retention_period
-        if provisioned_resource_cleanup is not None:
-            self._values["provisioned_resource_cleanup"] = provisioned_resource_cleanup
-        if resources_to_replicate_tags is not None:
-            self._values["resources_to_replicate_tags"] = resources_to_replicate_tags
-        if run_config is not None:
-            self._values["run_config"] = run_config
-        if start_canary_after_creation is not None:
-            self._values["start_canary_after_creation"] = start_canary_after_creation
-        if success_retention_period is not None:
-            self._values["success_retention_period"] = success_retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-        if visual_reference is not None:
-            self._values["visual_reference"] = visual_reference
-        if visual_references is not None:
-            self._values["visual_references"] = visual_references
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def artifact_s3_location(self) -> builtins.str:
-        '''The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary.
-
-        Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifacts3location
-        '''
-        result = self._values.get("artifact_s3_location")
-        assert result is not None, "Required property 'artifact_s3_location' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def code(self) -> typing.Union[_IResolvable_da3f097b, CfnCanary.CodeProperty]:
-        '''Use this structure to input your script code for the canary.
-
-        This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-code
-        '''
-        result = self._values.get("code")
-        assert result is not None, "Required property 'code' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCanary.CodeProperty], result)
-
-    @builtins.property
-    def execution_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role to be used to run the canary.
-
-        This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions:
-
-        - ``s3:PutObject``
-        - ``s3:GetBucketLocation``
-        - ``s3:ListAllMyBuckets``
-        - ``cloudwatch:PutMetricData``
-        - ``logs:CreateLogGroup``
-        - ``logs:CreateLogStream``
-        - ``logs:PutLogEvents``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        assert result is not None, "Required property 'execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for this canary.
-
-        Be sure to give it a descriptive name that distinguishes it from other canaries in your account.
-
-        Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def runtime_version(self) -> builtins.str:
-        '''Specifies the runtime version to use for the canary.
-
-        For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runtimeversion
-        '''
-        result = self._values.get("runtime_version")
-        assert result is not None, "Required property 'runtime_version' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnCanary.ScheduleProperty]:
-        '''A structure that contains information about how often the canary is to run, and when these runs are to stop.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-schedule
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnCanary.ScheduleProperty], result)
-
-    @builtins.property
-    def artifact_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.ArtifactConfigProperty]]:
-        '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifactconfig
-        '''
-        result = self._values.get("artifact_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.ArtifactConfigProperty]], result)
-
-    @builtins.property
-    def browser_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]]:
-        '''List of browser configurations for the canary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-browserconfigs
-        '''
-        result = self._values.get("browser_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.BrowserConfigProperty]]]], result)
-
-    @builtins.property
-    def delete_lambda_resources_on_canary_deletion(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
-
-        Default is False
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-deletelambdaresourcesoncanarydeletion
-        :stability: deprecated
-        '''
-        result = self._values.get("delete_lambda_resources_on_canary_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def dry_run_and_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to perform a dry run before updating the canary.
-
-        If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason.
-
-        If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` .
-
-        For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-dryrunandupdate
-        '''
-        result = self._values.get("dry_run_and_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def failure_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain data about failed runs of this canary.
-
-        If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days.
-
-        This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-failureretentionperiod
-        '''
-        result = self._values.get("failure_retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.
-
-        If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted.
-
-        If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-provisionedresourcecleanup
-        '''
-        result = self._values.get("provisioned_resource_cleanup")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resources_to_replicate_tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` .
-
-        If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-resourcestoreplicatetags
-        '''
-        result = self._values.get("resources_to_replicate_tags")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def run_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.RunConfigProperty]]:
-        '''A structure that contains input information for a canary run.
-
-        If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runconfig
-        '''
-        result = self._values.get("run_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.RunConfigProperty]], result)
-
-    @builtins.property
-    def start_canary_after_creation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specify TRUE to have the canary start making runs immediately after it is created.
-
-        A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-startcanaryaftercreation
-        '''
-        result = self._values.get("start_canary_after_creation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def success_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain data about successful runs of this canary.
-
-        If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days.
-
-        This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-successretentionperiod
-        '''
-        result = self._values.get("success_retention_period")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of key-value pairs that are associated with the canary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def visual_reference(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]:
-        '''(deprecated) If this canary performs visual monitoring by comparing screenshots, this structure contains the ID of the canary run to use as the baseline for screenshots, and the coordinates of any parts of the screen to ignore during the visual monitoring comparison.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreference
-        :stability: deprecated
-        '''
-        result = self._values.get("visual_reference")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]], result)
-
-    @builtins.property
-    def visual_references(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]]:
-        '''List of visual references for the canary.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreferences
-        '''
-        result = self._values.get("visual_references")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCanary.VisualReferenceProperty]]]], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VPCConfigProperty]]:
-        '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
-
-        For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCanary.VPCConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCanaryProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IGroupRef, _ITaggable_36806126)
 class CfnGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3700,6 +5480,12 @@ class CfnGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> GroupReference:
+        '''A reference to a Group resource.'''
+        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -3748,1468 +5534,14 @@ class CfnGroup(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CfnGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "resource_arns": "resourceArns", "tags": "tags"},
-)
-class CfnGroupProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnGroup``.
-
-        :param name: A name for the group. It can include any Unicode characters. The names for all groups in your account, across all Regions, must be unique.
-        :param resource_arns: The ARNs of the canaries that you want to associate with this group.
-        :param tags: The list of key-value pairs that are associated with the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_synthetics as synthetics
-            
-            cfn_group_props = synthetics.CfnGroupProps(
-                name="name",
-            
-                # the properties below are optional
-                resource_arns=["resourceArns"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resource_arns", value=resource_arns, expected_type=type_hints["resource_arns"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if resource_arns is not None:
-            self._values["resource_arns"] = resource_arns
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A name for the group. It can include any Unicode characters.
-
-        The names for all groups in your account, across all Regions, must be unique.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the canaries that you want to associate with this group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-resourcearns
-        '''
-        result = self._values.get("resource_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of key-value pairs that are associated with the group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.Cleanup")
-class Cleanup(enum.Enum):
-    '''Different ways to clean up underlying Canary resources when the Canary is deleted.'''
-
-    NOTHING = "NOTHING"
-    '''Clean up nothing.
-
-    The user is responsible for cleaning up
-    all resources left behind by the Canary.
-    '''
-    LAMBDA = "LAMBDA"
-    '''Clean up the underlying Lambda function only.
-
-    The user is
-    responsible for cleaning up all other resources left behind
-    by the Canary.
-    '''
-
-
-class Code(
-    metaclass=jsii.JSIIAbstractClass,
-    jsii_type="aws-cdk-lib.aws_synthetics.Code",
-):
-    '''The code the canary should execute.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                handler="index.handler"
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-        )
-    '''
-
-    def __init__(self) -> None:
-        jsii.create(self.__class__, self, [])
-
-    @jsii.member(jsii_name="fromAsset")
-    @builtins.classmethod
-    def from_asset(
-        cls,
-        asset_path: builtins.str,
-        *,
-        deploy_time: typing.Optional[builtins.bool] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
-        asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-    ) -> "AssetCode":
-        '''Specify code from a local path.
-
-        Path must include the folder structure ``nodejs/node_modules/myCanaryFilename.js``.
-
-        :param asset_path: Either a directory or a .zip file.
-        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
-        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
-        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
-        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
-        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
-        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
-        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-
-        :return: ``AssetCode`` associated with the specified path.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff)
-            check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
-        options = _AssetOptions_2aa69621(
-            deploy_time=deploy_time,
-            display_name=display_name,
-            readers=readers,
-            source_kms_key=source_kms_key,
-            asset_hash=asset_hash,
-            asset_hash_type=asset_hash_type,
-            bundling=bundling,
-            exclude=exclude,
-            follow_symlinks=follow_symlinks,
-            ignore_mode=ignore_mode,
-        )
-
-        return typing.cast("AssetCode", jsii.sinvoke(cls, "fromAsset", [asset_path, options]))
-
-    @jsii.member(jsii_name="fromBucket")
-    @builtins.classmethod
-    def from_bucket(
-        cls,
-        bucket: _IBucket_42e086fd,
-        key: builtins.str,
-        object_version: typing.Optional[builtins.str] = None,
-    ) -> "S3Code":
-        '''Specify code from an s3 bucket.
-
-        The object in the s3 bucket must be a .zip file that contains
-        the structure ``nodejs/node_modules/myCanaryFilename.js``.
-
-        :param bucket: The S3 bucket.
-        :param key: The object key.
-        :param object_version: Optional S3 object version.
-
-        :return: ``S3Code`` associated with the specified S3 object.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html#CloudWatch_Synthetics_Canaries_write_from_scratch
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
-        return typing.cast("S3Code", jsii.sinvoke(cls, "fromBucket", [bucket, key, object_version]))
-
-    @jsii.member(jsii_name="fromInline")
-    @builtins.classmethod
-    def from_inline(cls, code: builtins.str) -> "InlineCode":
-        '''Specify code inline.
-
-        :param code: The actual handler code (limited to 5MB).
-
-        :return: ``InlineCode`` with inline code.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab)
-            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        return typing.cast("InlineCode", jsii.sinvoke(cls, "fromInline", [code]))
-
-    @jsii.member(jsii_name="bind")
-    @abc.abstractmethod
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        handler: builtins.str,
-        family: "RuntimeFamily",
-        runtime_name: typing.Optional[builtins.str] = None,
-    ) -> "CodeConfig":
-        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
-
-        :param scope: The binding scope. Don't be smart about trying to down-cast or assume it's initialized. You may just use it as a construct scope.
-        :param handler: -
-        :param family: -
-        :param runtime_name: -
-
-        :return: a bound ``CodeConfig``.
-        '''
-        ...
-
-
-class _CodeProxy(Code):
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        handler: builtins.str,
-        family: "RuntimeFamily",
-        runtime_name: typing.Optional[builtins.str] = None,
-    ) -> "CodeConfig":
-        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
-
-        :param scope: The binding scope. Don't be smart about trying to down-cast or assume it's initialized. You may just use it as a construct scope.
-        :param handler: -
-        :param family: -
-        :param runtime_name: -
-
-        :return: a bound ``CodeConfig``.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
-            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
-        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
-typing.cast(typing.Any, Code).__jsii_proxy_class__ = lambda : _CodeProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CodeConfig",
-    jsii_struct_bases=[],
-    name_mapping={"inline_code": "inlineCode", "s3_location": "s3Location"},
-)
-class CodeConfig:
-    def __init__(
-        self,
-        *,
-        inline_code: typing.Optional[builtins.str] = None,
-        s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''Configuration of the code class.
-
-        :param inline_code: Inline code (mutually exclusive with ``s3Location``). Default: - none
-        :param s3_location: The location of the code in S3 (mutually exclusive with ``inlineCode``). Default: - none
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_synthetics as synthetics
-            
-            code_config = synthetics.CodeConfig(
-                inline_code="inlineCode",
-                s3_location=Location(
-                    bucket_name="bucketName",
-                    object_key="objectKey",
-            
-                    # the properties below are optional
-                    object_version="objectVersion"
-                )
-            )
-        '''
-        if isinstance(s3_location, dict):
-            s3_location = _Location_0948fa7f(**s3_location)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e)
-            check_type(argname="argument inline_code", value=inline_code, expected_type=type_hints["inline_code"])
-            check_type(argname="argument s3_location", value=s3_location, expected_type=type_hints["s3_location"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if inline_code is not None:
-            self._values["inline_code"] = inline_code
-        if s3_location is not None:
-            self._values["s3_location"] = s3_location
-
-    @builtins.property
-    def inline_code(self) -> typing.Optional[builtins.str]:
-        '''Inline code (mutually exclusive with ``s3Location``).
-
-        :default: - none
-        '''
-        result = self._values.get("inline_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_location(self) -> typing.Optional[_Location_0948fa7f]:
-        '''The location of the code in S3 (mutually exclusive with ``inlineCode``).
-
-        :default: - none
-        '''
-        result = self._values.get("s3_location")
-        return typing.cast(typing.Optional[_Location_0948fa7f], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CodeConfig(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CronOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "day": "day",
-        "hour": "hour",
-        "minute": "minute",
-        "month": "month",
-        "week_day": "weekDay",
-    },
-)
-class CronOptions:
-    def __init__(
-        self,
-        *,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Options to configure a cron expression.
-
-        All fields are strings so you can use complex expressions. Absence of
-        a field implies '*' or '?', whichever one is appropriate.
-
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html
-        :exampleMetadata: infused
-
-        Example::
-
-            schedule = synthetics.Schedule.cron(
-                hour="0,8,16"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d)
-            check_type(argname="argument day", value=day, expected_type=type_hints["day"])
-            check_type(argname="argument hour", value=hour, expected_type=type_hints["hour"])
-            check_type(argname="argument minute", value=minute, expected_type=type_hints["minute"])
-            check_type(argname="argument month", value=month, expected_type=type_hints["month"])
-            check_type(argname="argument week_day", value=week_day, expected_type=type_hints["week_day"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if day is not None:
-            self._values["day"] = day
-        if hour is not None:
-            self._values["hour"] = hour
-        if minute is not None:
-            self._values["minute"] = minute
-        if month is not None:
-            self._values["month"] = month
-        if week_day is not None:
-            self._values["week_day"] = week_day
-
-    @builtins.property
-    def day(self) -> typing.Optional[builtins.str]:
-        '''The day of the month to run this rule at.
-
-        :default: - Every day of the month
-        '''
-        result = self._values.get("day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hour(self) -> typing.Optional[builtins.str]:
-        '''The hour to run this rule at.
-
-        :default: - Every hour
-        '''
-        result = self._values.get("hour")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def minute(self) -> typing.Optional[builtins.str]:
-        '''The minute to run this rule at.
-
-        :default: - Every minute
-        '''
-        result = self._values.get("minute")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def month(self) -> typing.Optional[builtins.str]:
-        '''The month to run this rule at.
-
-        :default: - Every month
-        '''
-        result = self._values.get("month")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def week_day(self) -> typing.Optional[builtins.str]:
-        '''The day of the week to run this rule at.
-
-        :default: - Any day of the week
-        '''
-        result = self._values.get("week_day")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CronOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CustomTestOptions",
-    jsii_struct_bases=[],
-    name_mapping={"code": "code", "handler": "handler"},
-)
-class CustomTestOptions:
-    def __init__(self, *, code: Code, handler: builtins.str) -> None:
-        '''Properties for specifying a test.
-
-        :param code: The code of the canary script.
-        :param handler: The handler for the code. Must end with ``.handler``.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            canary = synthetics.Canary(self, "MyCanary",
-                schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-                test=synthetics.Test.custom(
-                    code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                    handler="index.handler"
-                ),
-                runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-                resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d)
-            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "code": code,
-            "handler": handler,
-        }
-
-    @builtins.property
-    def code(self) -> Code:
-        '''The code of the canary script.'''
-        result = self._values.get("code")
-        assert result is not None, "Required property 'code' is missing"
-        return typing.cast(Code, result)
-
-    @builtins.property
-    def handler(self) -> builtins.str:
-        '''The handler for the code.
-
-        Must end with ``.handler``.
-        '''
-        result = self._values.get("handler")
-        assert result is not None, "Required property 'handler' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CustomTestOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-class InlineCode(
-    Code,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.InlineCode",
-):
-    '''Canary code from an inline string.
-
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_synthetics as synthetics
-        
-        inline_code = synthetics.InlineCode("code")
-    '''
-
-    def __init__(self, code: builtins.str) -> None:
-        '''
-        :param code: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2)
-            check_type(argname="argument code", value=code, expected_type=type_hints["code"])
-        jsii.create(self.__class__, self, [code])
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        handler: builtins.str,
-        _family: "RuntimeFamily",
-        _runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
-        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
-
-        :param scope: -
-        :param handler: -
-        :param _family: -
-        :param _runtime_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
-            check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, _family, _runtime_name]))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.ResourceToReplicateTags")
-class ResourceToReplicateTags(enum.Enum):
-    '''Resources that tags applied to a canary should be replicated to.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                handler="index.handler"
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-        )
-    '''
-
-    LAMBDA_FUNCTION = "LAMBDA_FUNCTION"
-    '''Replicate canary tags to the Lambda function.
-
-    When specified, CloudWatch Synthetics will keep the tags of the canary
-    and the Lambda function synchronized. Any future changes made to the
-    canary's tags will also be applied to the function.
-    '''
-
-
-class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Runtime"):
-    '''Runtime options for a canary.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                handler="index.handler"
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-        )
-    '''
-
-    def __init__(self, name: builtins.str, family: "RuntimeFamily") -> None:
-        '''
-        :param name: The name of the runtime version.
-        :param family: The Lambda runtime family.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
-        jsii.create(self.__class__, self, [name, family])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_1_0")
-    def SYNTHETICS_NODEJS_PLAYWRIGHT_1_0(cls) -> "Runtime":
-        '''``syn-nodejs-playwright-1.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.45 - Chromium version 126.0.6478.126.
-
-        New Features:
-
-        - **PlayWright support** You can write canary scripts by using the Playwright automation framework. You can bring your existing Playwright scripts to run as canaries, and enhance them with AWS monitoring capabilities.
-        - **CloudWatch Logs integration** You can query and filter for logs through the CloudWatch Synthetics console. Each log message contains unique canaryRunId, making it easy to search for logs for a particular canary run.
-        - **Metrics and canary artifacts** You can monitor canary run pass rate through CloudWatch metrics, and configure alarms to alert you when canaries detect issues.
-        - **Screenshots and steps association** You can capture screenshots using native Playwright functionality to visualize the stages of a canary script on each run. Screenshots are automatically associated with canary steps, and are uploaded to Amazon S3 buckets.
-        - **Multiple tabs** You can create canaries that open multiple browser tabs, and access screenshots from each tab. You can create multi-tab and multi-step user workflows in Synthetics.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-1.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_2_0")
-    def SYNTHETICS_NODEJS_PLAYWRIGHT_2_0(cls) -> "Runtime":
-        '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.49.1 - Chromium version 131.0.6778.264.
-
-        New Features:
-
-        - The mismatch between total duration and sum of timings for a given request in HAR file is fixed.
-        - Supports dry runs for the canary which allows for adhoc executions or performing a safe canary update.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-2.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_5")
-    def SYNTHETICS_NODEJS_PUPPETEER_3_5(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-3.5`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
-
-        New features:
-
-        - **Updated dependencies**: The only new features in this runtime are the updated dependencies.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.5
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_5"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_6")
-    def SYNTHETICS_NODEJS_PUPPETEER_3_6(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-3.6`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.6
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_6"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_7")
-    def SYNTHETICS_NODEJS_PUPPETEER_3_7(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-3.7`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
-
-        New Features:
-
-        - **Logging enhancement**: The canary will upload logs to Amazon S3 even if it times out or crashes.
-        - **Lambda layer size reduced**: The size of the Lambda layer used for canaries is reduced by 34%.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.7
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_7"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_8")
-    def SYNTHETICS_NODEJS_PUPPETEER_3_8(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-3.8`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 10.1.0 - Chromium version 92.0.4512.
-
-        New Features:
-
-        - **Profile cleanup**: Chromium profiles are now cleaned up after each canary run.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.8
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_8"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_9")
-    def SYNTHETICS_NODEJS_PUPPETEER_3_9(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-3.9`` includes the following:.
-
-        - Lambda runtime Node.js 14.x
-        - Puppeteer-core version 5.5.0
-        - Chromium version 92.0.4512
-
-        New Features:
-
-        - **Dependency upgrades**: Upgrades some third-party dependency packages.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-3.9
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_3_9"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_4_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_4_0(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-4.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
-
-        New Features:
-
-        - **Dependency upgrades**: The Node.js dependency is updated to 16.x.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-4.0
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_4_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_5_0(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-5.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Dependency upgrade**: The Puppeteer-core version is updated to 19.7.0. The Chromium version is upgraded to 111.0.5563.146.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.0
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_1")
-    def SYNTHETICS_NODEJS_PUPPETEER_5_1(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-5.1`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        Bug fixes:
-
-        - **Bug fix**: This runtime fixes a bug in ``syn-nodejs-puppeteer-5.0`` where the HAR files created by the canaries were missing request headers.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.1
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_2")
-    def SYNTHETICS_NODEJS_PUPPETEER_5_2(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-5.2`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Updated versions of the bundled libraries in Chromium**
-        - **Bug fixes**
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-5.2
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_5_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_6_0(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-6.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Dependency upgrade**: The Node.js dependency is upgraded to 18.x.
-          Bug fixes:
-        - **Bug fix**: Clean up core dump generated when Chromium crashes during a canary run.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.0
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_1")
-    def SYNTHETICS_NODEJS_PUPPETEER_6_1(cls) -> "Runtime":
-        '''(deprecated) ``syn-nodejs-puppeteer-6.1`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Stability improvements**: Added auto-retry logic for handling intermittent Puppeteer launch errors.
-        - **Dependency upgrades**: Upgrades for some third-party dependency packages.
-        - **Canaries without Amazon S3 permissions**: Bug fixes, such that canaries that don't have any Amazon S3 permissions can still run. These canaries with no Amazon S3 permissions won't be able to upload screenshots or other artifacts to Amazon S3. For more information about permissions for canaries, see {@link https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_CanaryPermissions.html Required roles and permissions for canaries}.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest NodeJS Puppeteer runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.1
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_2")
-    def SYNTHETICS_NODEJS_PUPPETEER_6_2(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-6.2`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Updated versions of the bundled libraries in Chromium**
-        - **Ephemeral storage monitoring**: This runtime adds ephemeral storage monitoring in customer accounts.
-        - **Bug fixes**
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-6.2
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_6_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_7_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_7_0(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-7.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 21.9.0 - Chromium version 121.0.6167.139.
-
-        New Features:
-
-        - **Updated versions of the bundled libraries in Puppeteer and Chromium**: The Puppeteer and Chromium dependencies are updated to new versions.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-7.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_7_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_8_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_8_0(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-8.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.10.0 - Chromium version 125.0.6422.112.
-
-        New Features:
-
-        - **Support for two-factor authentication**
-        - **Bug fixes** for situations where some service clients were losing data in Node.js SDK V3 responses.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-8.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_8_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_0")
-    def SYNTHETICS_NODEJS_PUPPETEER_9_0(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-9.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
-
-        New Features:
-
-        - **Bug fixes** Bug fix to enable visual monitoring capabilities.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-9.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_9_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_1")
-    def SYNTHETICS_NODEJS_PUPPETEER_9_1(cls) -> "Runtime":
-        '''``syn-nodejs-puppeteer-9.1`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
-
-        New Features:
-
-        - **Bug fixes** Bug fix related to date ranges and pending requests in HAR files.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-9.1
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_9_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_0")
-    def SYNTHETICS_PYTHON_SELENIUM_1_0(cls) -> "Runtime":
-        '''(deprecated) ``syn-python-selenium-1.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.0
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_1")
-    def SYNTHETICS_PYTHON_SELENIUM_1_1(cls) -> "Runtime":
-        '''(deprecated) ``syn-python-selenium-1.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
-
-        New Features:
-
-        - **Custom handler function**: You can now use a custom handler function for your canary scripts.
-        - **Configuration options for adding metrics and step failure configurations**: These options were already available in runtimes for Node.js canaries.
-        - **Custom arguments in Chrome**: You can now open a browser in incognito mode or pass in proxy server configuration.
-        - **Cross-Region artifact buckets**: A canary can store its artifacts in an Amazon S3 bucket in a different Region.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.1
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_2")
-    def SYNTHETICS_PYTHON_SELENIUM_1_2(cls) -> "Runtime":
-        '''(deprecated) ``syn-python-selenium-1.2`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
-
-        New Features:
-
-        - **Updated dependencies**: The only new features in this runtime are the updated dependencies.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.2
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_2"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_3")
-    def SYNTHETICS_PYTHON_SELENIUM_1_3(cls) -> "Runtime":
-        '''(deprecated) ``syn-python-selenium-1.3`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
-
-        New Features:
-
-        - **More precise timestamps**: The start time and stop time of canary runs are now precise to the millisecond.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-1.3
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_1_3"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_0")
-    def SYNTHETICS_PYTHON_SELENIUM_2_0(cls) -> "Runtime":
-        '''(deprecated) ``syn-python-selenium-2.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.10.0 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Updated dependencies**: The Chromium and Selenium dependencies are updated to new versions.
-        - **More precise timestamps**: The start time and stop time of canary runs are now precise to the millisecond.
-
-        Bug fixes:
-
-        - **Timestamp added**: A timestamp has been added to canary logs.
-        - **Session re-use**: A bug was fixed so that canaries are now prevented from reusing the session from their previous canary run.
-
-        :deprecated: Legacy runtime no longer supported by AWS Lambda. Migrate to the latest Python Selenium runtime.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-2.0
-        :stability: deprecated
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_2_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_1")
-    def SYNTHETICS_PYTHON_SELENIUM_2_1(cls) -> "Runtime":
-        '''``syn-python-selenium-2.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 111.0.5563.146.
-
-        New Features:
-
-        - **Updated versions of the bundled libraries in Chromium**: The Chromium and Selenium dependencies are updated to new versions.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-2.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_2_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_3_0")
-    def SYNTHETICS_PYTHON_SELENIUM_3_0(cls) -> "Runtime":
-        '''``syn-python-selenium-3.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 121.0.6167.139.
-
-        New Features:
-
-        - **Updated versions of the bundled libraries in Chromium**: The Chromium dependency is updated to a new version.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-3.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_3_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_0")
-    def SYNTHETICS_PYTHON_SELENIUM_4_0(cls) -> "Runtime":
-        '''``syn-python-selenium-4.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
-
-        New Features:
-
-        - **Bug fixes** for errors in HAR parser logging.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-4.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_4_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_1")
-    def SYNTHETICS_PYTHON_SELENIUM_4_1(cls) -> "Runtime":
-        '''``syn-python-selenium-4.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
-
-        New Features:
-
-        - **Addresses security vulnerability** This runtime has an update to address the CVE-2024-39689 vulnerability.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-4.1
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_4_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_0")
-    def SYNTHETICS_PYTHON_SELENIUM_5_0(cls) -> "Runtime":
-        '''``syn-python-selenium-5.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
-
-        New Features:
-
-        - Automatic retry if the browser fails to launch.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-5.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_5_0"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_1")
-    def SYNTHETICS_PYTHON_SELENIUM_5_1(cls) -> "Runtime":
-        '''``syn-python-selenium-5.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
-
-        New Features:
-
-        - Minor updates on metric emission.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-5.1
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_5_1"))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_6_0")
-    def SYNTHETICS_PYTHON_SELENIUM_6_0(cls) -> "Runtime":
-        '''``syn-python-selenium-6.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
-
-        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-6.0
-        '''
-        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_6_0"))
-
-    @builtins.property
-    @jsii.member(jsii_name="family")
-    def family(self) -> "RuntimeFamily":
-        '''The Lambda runtime family.'''
-        return typing.cast("RuntimeFamily", jsii.get(self, "family"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the runtime version.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.RuntimeFamily")
-class RuntimeFamily(enum.Enum):
-    '''All known Lambda runtime families.'''
-
-    NODEJS = "NODEJS"
-    '''All Lambda runtimes that depend on Node.js.'''
-    PYTHON = "PYTHON"
-    '''All lambda runtimes that depend on Python.'''
-    OTHER = "OTHER"
-    '''Any future runtime family.'''
-
-
-class S3Code(
-    Code,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.S3Code",
-):
-    '''S3 bucket path to the code zip file.
-
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_s3 as s3
-        from aws_cdk import aws_synthetics as synthetics
-        
-        # bucket: s3.Bucket
-        
-        s3_code = synthetics.S3Code(bucket, "key", "objectVersion")
-    '''
-
-    def __init__(
-        self,
-        bucket: _IBucket_42e086fd,
-        key: builtins.str,
-        object_version: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param bucket: -
-        :param key: -
-        :param object_version: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-            check_type(argname="argument object_version", value=object_version, expected_type=type_hints["object_version"])
-        jsii.create(self.__class__, self, [bucket, key, object_version])
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _handler: builtins.str,
-        _family: RuntimeFamily,
-        _runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
-        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
-
-        :param _scope: -
-        :param _handler: -
-        :param _family: -
-        :param _runtime_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07)
-            check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-            check_type(argname="argument _handler", value=_handler, expected_type=type_hints["_handler"])
-            check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
-            check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [_scope, _handler, _family, _runtime_name]))
-
-
-class Schedule(
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.Schedule",
-):
-    '''Schedule for canary runs.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                handler="canary.handler",
-                code=synthetics.Code.from_asset(path.join(__dirname, "canaries"))
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1,
-            max_retries=2
-        )
-    '''
-
-    @jsii.member(jsii_name="cron")
-    @builtins.classmethod
-    def cron(
-        cls,
-        *,
-        day: typing.Optional[builtins.str] = None,
-        hour: typing.Optional[builtins.str] = None,
-        minute: typing.Optional[builtins.str] = None,
-        month: typing.Optional[builtins.str] = None,
-        week_day: typing.Optional[builtins.str] = None,
-    ) -> "Schedule":
-        '''Create a schedule from a set of cron fields.
-
-        :param day: The day of the month to run this rule at. Default: - Every day of the month
-        :param hour: The hour to run this rule at. Default: - Every hour
-        :param minute: The minute to run this rule at. Default: - Every minute
-        :param month: The month to run this rule at. Default: - Every month
-        :param week_day: The day of the week to run this rule at. Default: - Any day of the week
-        '''
-        options = CronOptions(
-            day=day, hour=hour, minute=minute, month=month, week_day=week_day
-        )
-
-        return typing.cast("Schedule", jsii.sinvoke(cls, "cron", [options]))
-
-    @jsii.member(jsii_name="expression")
-    @builtins.classmethod
-    def expression(cls, expression: builtins.str) -> "Schedule":
-        '''Construct a schedule from a literal schedule expression.
-
-        The expression must be in a ``rate(number units)`` format.
-        For example, ``Schedule.expression('rate(10 minutes)')``
-
-        :param expression: The expression to use.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34)
-            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-        return typing.cast("Schedule", jsii.sinvoke(cls, "expression", [expression]))
-
-    @jsii.member(jsii_name="once")
-    @builtins.classmethod
-    def once(cls) -> "Schedule":
-        '''The canary will be executed once.'''
-        return typing.cast("Schedule", jsii.sinvoke(cls, "once", []))
-
-    @jsii.member(jsii_name="rate")
-    @builtins.classmethod
-    def rate(cls, interval: _Duration_4839e8c3) -> "Schedule":
-        '''Construct a schedule from an interval.
-
-        Allowed values: 0 (for a single run) or between 1 and 60 minutes.
-        To specify a single run, you can use ``Schedule.once()``.
-
-        :param interval: The interval at which to run the canary.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a)
-            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
-        return typing.cast("Schedule", jsii.sinvoke(cls, "rate", [interval]))
-
-    @builtins.property
-    @jsii.member(jsii_name="expressionString")
-    def expression_string(self) -> builtins.str:
-        '''The Schedule expression.'''
-        return typing.cast(builtins.str, jsii.get(self, "expressionString"))
-
-
-class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test"):
-    '''Specify a test that the canary should run.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        canary = synthetics.Canary(self, "MyCanary",
-            schedule=synthetics.Schedule.rate(Duration.minutes(5)),
-            test=synthetics.Test.custom(
-                code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
-                handler="index.handler"
-            ),
-            runtime=synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_7_0,
-            resources_to_replicate_tags=[synthetics.ResourceToReplicateTags.LAMBDA_FUNCTION]
-        )
-    '''
-
-    @jsii.member(jsii_name="custom")
-    @builtins.classmethod
-    def custom(cls, *, code: Code, handler: builtins.str) -> "Test":
-        '''Specify a custom test with your own code.
-
-        :param code: The code of the canary script.
-        :param handler: The handler for the code. Must end with ``.handler``.
-
-        :return: ``Test`` associated with the specified Code object
-        '''
-        options = CustomTestOptions(code=code, handler=handler)
-
-        return typing.cast("Test", jsii.sinvoke(cls, "custom", [options]))
-
-    @builtins.property
-    @jsii.member(jsii_name="code")
-    def code(self) -> Code:
-        '''The code that the canary should run.'''
-        return typing.cast(Code, jsii.get(self, "code"))
-
-    @builtins.property
-    @jsii.member(jsii_name="handler")
-    def handler(self) -> builtins.str:
-        '''The handler of the canary.'''
-        return typing.cast(builtins.str, jsii.get(self, "handler"))
-
-
-class AssetCode(
-    Code,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.AssetCode",
-):
-    '''Canary code from an Asset.
-
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk as cdk
-        from aws_cdk import aws_iam as iam
-        from aws_cdk import aws_kms as kms
-        from aws_cdk import aws_synthetics as synthetics
-        
-        # docker_image: cdk.DockerImage
-        # grantable: iam.IGrantable
-        # key: kms.Key
-        # local_bundling: cdk.ILocalBundling
-        
-        asset_code = synthetics.AssetCode("assetPath",
-            asset_hash="assetHash",
-            asset_hash_type=cdk.AssetHashType.SOURCE,
-            bundling=cdk.BundlingOptions(
-                image=docker_image,
-        
-                # the properties below are optional
-                bundling_file_access=cdk.BundlingFileAccess.VOLUME_COPY,
-                command=["command"],
-                entrypoint=["entrypoint"],
-                environment={
-                    "environment_key": "environment"
-                },
-                local=local_bundling,
-                network="network",
-                output_type=cdk.BundlingOutput.ARCHIVED,
-                platform="platform",
-                security_opt="securityOpt",
-                user="user",
-                volumes=[cdk.DockerVolume(
-                    container_path="containerPath",
-                    host_path="hostPath",
-        
-                    # the properties below are optional
-                    consistency=cdk.DockerVolumeConsistency.CONSISTENT
-                )],
-                volumes_from=["volumesFrom"],
-                working_directory="workingDirectory"
-            ),
-            deploy_time=False,
-            display_name="displayName",
-            exclude=["exclude"],
-            follow_symlinks=cdk.SymlinkFollowMode.NEVER,
-            ignore_mode=cdk.IgnoreMode.GLOB,
-            readers=[grantable],
-            source_kMSKey=key
-        )
-    '''
-
-    def __init__(
-        self,
-        asset_path: builtins.str,
-        *,
-        deploy_time: typing.Optional[builtins.bool] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
-        asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-    ) -> None:
-        '''
-        :param asset_path: The path to the asset file or directory.
-        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
-        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
-        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
-        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
-        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
-        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
-        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
-        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
-        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
-        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f)
-            check_type(argname="argument asset_path", value=asset_path, expected_type=type_hints["asset_path"])
-        options = _AssetOptions_2aa69621(
-            deploy_time=deploy_time,
-            display_name=display_name,
-            readers=readers,
-            source_kms_key=source_kms_key,
-            asset_hash=asset_hash,
-            asset_hash_type=asset_hash_type,
-            bundling=bundling,
-            exclude=exclude,
-            follow_symlinks=follow_symlinks,
-            ignore_mode=ignore_mode,
-        )
-
-        jsii.create(self.__class__, self, [asset_path, options])
-
-    @jsii.member(jsii_name="bind")
-    def bind(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        handler: builtins.str,
-        family: RuntimeFamily,
-        runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
-        '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
-
-        :param scope: -
-        :param handler: -
-        :param family: -
-        :param runtime_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
-            check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
-
-
 __all__ = [
     "ArtifactsBucketLocation",
     "ArtifactsEncryptionMode",
     "AssetCode",
+    "BrowserType",
     "Canary",
     "CanaryProps",
+    "CanaryReference",
     "CfnCanary",
     "CfnCanaryProps",
     "CfnGroup",
@@ -5219,6 +5551,9 @@ __all__ = [
     "CodeConfig",
     "CronOptions",
     "CustomTestOptions",
+    "GroupReference",
+    "ICanaryRef",
+    "IGroupRef",
     "InlineCode",
     "ResourceToReplicateTags",
     "Runtime",
@@ -5249,6 +5584,7 @@ def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346
     artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
     artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
+    browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
@@ -5280,6 +5616,7 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
     artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
+    browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
     dry_run_and_update: typing.Optional[builtins.bool] = None,
@@ -5298,6 +5635,199 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     time_to_live: typing.Optional[_Duration_4839e8c3] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9010a572d449865253b0fb9c46ad46fa1b6341ec7d7876cd7b3f5fe9271b9f04(
+    *,
+    canary_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423(
+    *,
+    artifact_s3_location: builtins.str,
+    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    runtime_version: builtins.str,
+    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    failure_retention_period: typing.Optional[jsii.Number] = None,
+    provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+    resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    success_retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f(
+    *,
+    name: builtins.str,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff(
+    asset_path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6(
+    bucket: _IBucketRef_fb8fe266,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab(
+    code: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    family: RuntimeFamily,
+    runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e(
+    *,
+    inline_code: typing.Optional[builtins.str] = None,
+    s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d(
+    *,
+    day: typing.Optional[builtins.str] = None,
+    hour: typing.Optional[builtins.str] = None,
+    minute: typing.Optional[builtins.str] = None,
+    month: typing.Optional[builtins.str] = None,
+    week_day: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d(
+    *,
+    code: Code,
+    handler: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73164cd8a0bb9ee7a5efdacdcef416de8ebe14cac7d826ecaabe6a40db15e0d8(
+    *,
+    group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2(
+    code: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    _family: RuntimeFamily,
+    _runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780(
+    name: builtins.str,
+    family: RuntimeFamily,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd(
+    bucket: _IBucketRef_fb8fe266,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07(
+    _scope: _constructs_77d1e7e8.Construct,
+    _handler: builtins.str,
+    _family: RuntimeFamily,
+    _runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34(
+    expression: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a(
+    interval: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f(
+    asset_path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    family: RuntimeFamily,
+    runtime_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5559,32 +6089,6 @@ def _typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423(
-    *,
-    artifact_s3_location: builtins.str,
-    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: builtins.str,
-    name: builtins.str,
-    runtime_version: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    failure_retention_period: typing.Optional[jsii.Number] = None,
-    provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
-    resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    success_retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5622,159 +6126,6 @@ def _typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d64
 
 def _typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f(
-    *,
-    name: builtins.str,
-    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff(
-    asset_path: builtins.str,
-    *,
-    deploy_time: typing.Optional[builtins.bool] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6(
-    bucket: _IBucket_42e086fd,
-    key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab(
-    code: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    family: RuntimeFamily,
-    runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e(
-    *,
-    inline_code: typing.Optional[builtins.str] = None,
-    s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d(
-    *,
-    day: typing.Optional[builtins.str] = None,
-    hour: typing.Optional[builtins.str] = None,
-    minute: typing.Optional[builtins.str] = None,
-    month: typing.Optional[builtins.str] = None,
-    week_day: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d(
-    *,
-    code: Code,
-    handler: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2(
-    code: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    _family: RuntimeFamily,
-    _runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780(
-    name: builtins.str,
-    family: RuntimeFamily,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd(
-    bucket: _IBucket_42e086fd,
-    key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07(
-    _scope: _constructs_77d1e7e8.Construct,
-    _handler: builtins.str,
-    _family: RuntimeFamily,
-    _runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34(
-    expression: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a(
-    interval: _Duration_4839e8c3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f(
-    asset_path: builtins.str,
-    *,
-    deploy_time: typing.Optional[builtins.bool] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    family: RuntimeFamily,
-    runtime_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

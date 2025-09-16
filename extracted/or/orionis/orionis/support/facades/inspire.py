@@ -1,24 +1,23 @@
 from orionis.container.facades.facade import Facade
-from orionis.services.inspirational.contracts.inspire import IInspire
 
 class Inspire(Facade):
 
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Get the registered name of the component.
+        Retrieves the service container binding key for the inspirational service.
 
-        This method returns the service container binding key that identifies the
-        inspirational service implementation. The facade system uses this accessor
-        to resolve the underlying service instance from the IoC container when
-        facade methods are called.
+        This method provides the unique identifier used by the facade system to resolve
+        the underlying inspirational service implementation from the IoC container. The
+        returned binding key allows the facade to delegate method calls to the correct
+        service instance registered within the application.
 
         Returns
         -------
         str
-            The service container binding key 'x-orionis.services.inspirational.contracts.inspire.IInspire'
-            used to resolve the inspirational service instance.
+            The binding key 'x-orionis.services.inspirational.contracts.inspire.IInspire'
+            that identifies the inspirational service in the service container.
         """
 
-        # Return the service container binding key for the inspirational service
-        return f"x-{IInspire.__module__}.{IInspire.__name__}"
+        # Return the unique binding key for the inspirational service in the IoC container
+        return "x-orionis.services.inspirational.contracts.inspire.IInspire"

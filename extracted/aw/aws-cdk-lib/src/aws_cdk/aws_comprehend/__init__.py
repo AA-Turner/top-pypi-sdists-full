@@ -70,7 +70,701 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnDocumentClassifierProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_access_role_arn": "dataAccessRoleArn",
+        "document_classifier_name": "documentClassifierName",
+        "input_data_config": "inputDataConfig",
+        "language_code": "languageCode",
+        "mode": "mode",
+        "model_kms_key_id": "modelKmsKeyId",
+        "model_policy": "modelPolicy",
+        "output_data_config": "outputDataConfig",
+        "tags": "tags",
+        "version_name": "versionName",
+        "volume_kms_key_id": "volumeKmsKeyId",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnDocumentClassifierProps:
+    def __init__(
+        self,
+        *,
+        data_access_role_arn: builtins.str,
+        document_classifier_name: builtins.str,
+        input_data_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        language_code: builtins.str,
+        mode: typing.Optional[builtins.str] = None,
+        model_kms_key_id: typing.Optional[builtins.str] = None,
+        model_policy: typing.Optional[builtins.str] = None,
+        output_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_name: typing.Optional[builtins.str] = None,
+        volume_kms_key_id: typing.Optional[builtins.str] = None,
+        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocumentClassifier.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDocumentClassifier``.
+
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
+        :param document_classifier_name: The name of the document classifier.
+        :param input_data_config: Specifies the format and location of the input data for the job.
+        :param language_code: The language of the input documents. You can specify any of the languages supported by Amazon Comprehend. All documents must be in the same language.
+        :param mode: Indicates the mode in which the classifier will be trained. The classifier can be trained in multi-class (single-label) mode or multi-label mode. Multi-class mode identifies a single class label for each document and multi-label mode identifies one or more class labels for each document. Multiple labels for an individual document are separated by a delimiter. The default delimiter between labels is a pipe (|).
+        :param model_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models. The ModelKmsKeyId can be either of the following formats: - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"`` - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
+        :param model_policy: The resource-based policy to attach to your custom document classifier model. You can use this policy to allow another AWS account to import your custom model. Provide your policy as a JSON body that you enter as a UTF-8 encoded string without line breaks. To provide valid JSON, enclose the attribute names and values in double quotes. If the JSON body is also enclosed in double quotes, then you must escape the double quotes that are inside the policy: ``"{\\"attribute\\": \\"value\\", \\"attribute\\": [\\"value\\"]}"`` To avoid escaping quotes, you can use single quotes to enclose the policy and double quotes to enclose the JSON names and values: ``'{"attribute": "value", "attribute": ["value"]}'``
+        :param output_data_config: Provides output results configuration parameters for custom classifier jobs.
+        :param tags: Tags to associate with the document classifier. A tag is a key-value pair that adds as a metadata to a resource used by Amazon Comprehend. For example, a tag with "Sales" as the key might be added to a resource to indicate its use by the sales department.
+        :param version_name: The version name given to the newly created classifier. Version names can have a maximum of 256 characters. Alphanumeric characters, hyphens (-) and underscores (_) are allowed. The version name must be unique among all models with the same classifier name in the AWS account / AWS Region .
+        :param volume_kms_key_id: ID for the AWS Key Management Service (KMS) key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s) that process the analysis job. The VolumeKmsKeyId can be either of the following formats: - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"`` - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
+        :param vpc_config: Configuration parameters for a private Virtual Private Cloud (VPC) containing the resources you are using for your custom classifier. For more information, see `Amazon VPC <https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            cfn_document_classifier_props = comprehend.CfnDocumentClassifierProps(
+                data_access_role_arn="dataAccessRoleArn",
+                document_classifier_name="documentClassifierName",
+                input_data_config=comprehend.CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty(
+                    augmented_manifests=[comprehend.CfnDocumentClassifier.AugmentedManifestsListItemProperty(
+                        attribute_names=["attributeNames"],
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        split="split"
+                    )],
+                    data_format="dataFormat",
+                    document_reader_config=comprehend.CfnDocumentClassifier.DocumentReaderConfigProperty(
+                        document_read_action="documentReadAction",
+            
+                        # the properties below are optional
+                        document_read_mode="documentReadMode",
+                        feature_types=["featureTypes"]
+                    ),
+                    documents=comprehend.CfnDocumentClassifier.DocumentClassifierDocumentsProperty(
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        test_s3_uri="testS3Uri"
+                    ),
+                    document_type="documentType",
+                    label_delimiter="labelDelimiter",
+                    s3_uri="s3Uri",
+                    test_s3_uri="testS3Uri"
+                ),
+                language_code="languageCode",
+            
+                # the properties below are optional
+                mode="mode",
+                model_kms_key_id="modelKmsKeyId",
+                model_policy="modelPolicy",
+                output_data_config=comprehend.CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty(
+                    kms_key_id="kmsKeyId",
+                    s3_uri="s3Uri"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                version_name="versionName",
+                volume_kms_key_id="volumeKmsKeyId",
+                vpc_config=comprehend.CfnDocumentClassifier.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce52312e20)
+            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+            check_type(argname="argument document_classifier_name", value=document_classifier_name, expected_type=type_hints["document_classifier_name"])
+            check_type(argname="argument input_data_config", value=input_data_config, expected_type=type_hints["input_data_config"])
+            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument model_kms_key_id", value=model_kms_key_id, expected_type=type_hints["model_kms_key_id"])
+            check_type(argname="argument model_policy", value=model_policy, expected_type=type_hints["model_policy"])
+            check_type(argname="argument output_data_config", value=output_data_config, expected_type=type_hints["output_data_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
+            check_type(argname="argument volume_kms_key_id", value=volume_kms_key_id, expected_type=type_hints["volume_kms_key_id"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_access_role_arn": data_access_role_arn,
+            "document_classifier_name": document_classifier_name,
+            "input_data_config": input_data_config,
+            "language_code": language_code,
+        }
+        if mode is not None:
+            self._values["mode"] = mode
+        if model_kms_key_id is not None:
+            self._values["model_kms_key_id"] = model_kms_key_id
+        if model_policy is not None:
+            self._values["model_policy"] = model_policy
+        if output_data_config is not None:
+            self._values["output_data_config"] = output_data_config
+        if tags is not None:
+            self._values["tags"] = tags
+        if version_name is not None:
+            self._values["version_name"] = version_name
+        if volume_kms_key_id is not None:
+            self._values["volume_kms_key_id"] = volume_kms_key_id
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-dataaccessrolearn
+        '''
+        result = self._values.get("data_access_role_arn")
+        assert result is not None, "Required property 'data_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def document_classifier_name(self) -> builtins.str:
+        '''The name of the document classifier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-documentclassifiername
+        '''
+        result = self._values.get("document_classifier_name")
+        assert result is not None, "Required property 'document_classifier_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_data_config(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty"]:
+        '''Specifies the format and location of the input data for the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-inputdataconfig
+        '''
+        result = self._values.get("input_data_config")
+        assert result is not None, "Required property 'input_data_config' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty"], result)
+
+    @builtins.property
+    def language_code(self) -> builtins.str:
+        '''The language of the input documents.
+
+        You can specify any of the languages supported by Amazon Comprehend. All documents must be in the same language.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-languagecode
+        '''
+        result = self._values.get("language_code")
+        assert result is not None, "Required property 'language_code' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mode(self) -> typing.Optional[builtins.str]:
+        '''Indicates the mode in which the classifier will be trained.
+
+        The classifier can be trained in multi-class (single-label) mode or multi-label mode. Multi-class mode identifies a single class label for each document and multi-label mode identifies one or more class labels for each document. Multiple labels for an individual document are separated by a delimiter. The default delimiter between labels is a pipe (|).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-mode
+        '''
+        result = self._values.get("mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def model_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.
+
+        The ModelKmsKeyId can be either of the following formats:
+
+        - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"``
+        - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-modelkmskeyid
+        '''
+        result = self._values.get("model_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def model_policy(self) -> typing.Optional[builtins.str]:
+        '''The resource-based policy to attach to your custom document classifier model.
+
+        You can use this policy to allow another AWS account to import your custom model.
+
+        Provide your policy as a JSON body that you enter as a UTF-8 encoded string without line breaks. To provide valid JSON, enclose the attribute names and values in double quotes. If the JSON body is also enclosed in double quotes, then you must escape the double quotes that are inside the policy:
+
+        ``"{\\"attribute\\": \\"value\\", \\"attribute\\": [\\"value\\"]}"``
+
+        To avoid escaping quotes, you can use single quotes to enclose the policy and double quotes to enclose the JSON names and values:
+
+        ``'{"attribute": "value", "attribute": ["value"]}'``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-modelpolicy
+        '''
+        result = self._values.get("model_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_data_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty"]]:
+        '''Provides output results configuration parameters for custom classifier jobs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-outputdataconfig
+        '''
+        result = self._values.get("output_data_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags to associate with the document classifier.
+
+        A tag is a key-value pair that adds as a metadata to a resource used by Amazon Comprehend. For example, a tag with "Sales" as the key might be added to a resource to indicate its use by the sales department.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def version_name(self) -> typing.Optional[builtins.str]:
+        '''The version name given to the newly created classifier.
+
+        Version names can have a maximum of 256 characters. Alphanumeric characters, hyphens (-) and underscores (_) are allowed. The version name must be unique among all models with the same classifier name in the AWS account / AWS Region .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-versionname
+        '''
+        result = self._values.get("version_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''ID for the AWS Key Management Service (KMS) key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s) that process the analysis job.
+
+        The VolumeKmsKeyId can be either of the following formats:
+
+        - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"``
+        - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-volumekmskeyid
+        '''
+        result = self._values.get("volume_kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.VpcConfigProperty"]]:
+        '''Configuration parameters for a private Virtual Private Cloud (VPC) containing the resources you are using for your custom classifier.
+
+        For more information, see `Amazon VPC <https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDocumentClassifier.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDocumentClassifierProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.CfnFlywheelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_access_role_arn": "dataAccessRoleArn",
+        "data_lake_s3_uri": "dataLakeS3Uri",
+        "flywheel_name": "flywheelName",
+        "active_model_arn": "activeModelArn",
+        "data_security_config": "dataSecurityConfig",
+        "model_type": "modelType",
+        "tags": "tags",
+        "task_config": "taskConfig",
+    },
+)
+class CfnFlywheelProps:
+    def __init__(
+        self,
+        *,
+        data_access_role_arn: builtins.str,
+        data_lake_s3_uri: builtins.str,
+        flywheel_name: builtins.str,
+        active_model_arn: typing.Optional[builtins.str] = None,
+        data_security_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlywheel.DataSecurityConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        model_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlywheel.TaskConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlywheel``.
+
+        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend permission to access the flywheel data.
+        :param data_lake_s3_uri: Amazon S3 URI of the data lake location.
+        :param flywheel_name: Name for the flywheel.
+        :param active_model_arn: The Amazon Resource Number (ARN) of the active model version.
+        :param data_security_config: Data security configuration.
+        :param model_type: Model type of the flywheel's model.
+        :param tags: Tags associated with the endpoint being created. A tag is a key-value pair that adds metadata to the endpoint. For example, a tag with "Sales" as the key might be added to an endpoint to indicate its use by the sales department.
+        :param task_config: Configuration about the model associated with a flywheel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            cfn_flywheel_props = comprehend.CfnFlywheelProps(
+                data_access_role_arn="dataAccessRoleArn",
+                data_lake_s3_uri="dataLakeS3Uri",
+                flywheel_name="flywheelName",
+            
+                # the properties below are optional
+                active_model_arn="activeModelArn",
+                data_security_config=comprehend.CfnFlywheel.DataSecurityConfigProperty(
+                    data_lake_kms_key_id="dataLakeKmsKeyId",
+                    model_kms_key_id="modelKmsKeyId",
+                    volume_kms_key_id="volumeKmsKeyId",
+                    vpc_config=comprehend.CfnFlywheel.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnets=["subnets"]
+                    )
+                ),
+                model_type="modelType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                task_config=comprehend.CfnFlywheel.TaskConfigProperty(
+                    language_code="languageCode",
+            
+                    # the properties below are optional
+                    document_classification_config=comprehend.CfnFlywheel.DocumentClassificationConfigProperty(
+                        mode="mode",
+            
+                        # the properties below are optional
+                        labels=["labels"]
+                    ),
+                    entity_recognition_config=comprehend.CfnFlywheel.EntityRecognitionConfigProperty(
+                        entity_types=[comprehend.CfnFlywheel.EntityTypesListItemProperty(
+                            type="type"
+                        )]
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__354388f245744b59494c23dd6a47939e13228c4105132c6911824acf04080c64)
+            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
+            check_type(argname="argument data_lake_s3_uri", value=data_lake_s3_uri, expected_type=type_hints["data_lake_s3_uri"])
+            check_type(argname="argument flywheel_name", value=flywheel_name, expected_type=type_hints["flywheel_name"])
+            check_type(argname="argument active_model_arn", value=active_model_arn, expected_type=type_hints["active_model_arn"])
+            check_type(argname="argument data_security_config", value=data_security_config, expected_type=type_hints["data_security_config"])
+            check_type(argname="argument model_type", value=model_type, expected_type=type_hints["model_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument task_config", value=task_config, expected_type=type_hints["task_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_access_role_arn": data_access_role_arn,
+            "data_lake_s3_uri": data_lake_s3_uri,
+            "flywheel_name": flywheel_name,
+        }
+        if active_model_arn is not None:
+            self._values["active_model_arn"] = active_model_arn
+        if data_security_config is not None:
+            self._values["data_security_config"] = data_security_config
+        if model_type is not None:
+            self._values["model_type"] = model_type
+        if tags is not None:
+            self._values["tags"] = tags
+        if task_config is not None:
+            self._values["task_config"] = task_config
+
+    @builtins.property
+    def data_access_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend permission to access the flywheel data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-dataaccessrolearn
+        '''
+        result = self._values.get("data_access_role_arn")
+        assert result is not None, "Required property 'data_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_lake_s3_uri(self) -> builtins.str:
+        '''Amazon S3 URI of the data lake location.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-datalakes3uri
+        '''
+        result = self._values.get("data_lake_s3_uri")
+        assert result is not None, "Required property 'data_lake_s3_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flywheel_name(self) -> builtins.str:
+        '''Name for the flywheel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-flywheelname
+        '''
+        result = self._values.get("flywheel_name")
+        assert result is not None, "Required property 'flywheel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def active_model_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Number (ARN) of the active model version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-activemodelarn
+        '''
+        result = self._values.get("active_model_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_security_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlywheel.DataSecurityConfigProperty"]]:
+        '''Data security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-datasecurityconfig
+        '''
+        result = self._values.get("data_security_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlywheel.DataSecurityConfigProperty"]], result)
+
+    @builtins.property
+    def model_type(self) -> typing.Optional[builtins.str]:
+        '''Model type of the flywheel's model.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-modeltype
+        '''
+        result = self._values.get("model_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags associated with the endpoint being created.
+
+        A tag is a key-value pair that adds metadata to the endpoint. For example, a tag with "Sales" as the key might be added to an endpoint to indicate its use by the sales department.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def task_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlywheel.TaskConfigProperty"]]:
+        '''Configuration about the model associated with a flywheel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-taskconfig
+        '''
+        result = self._values.get("task_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlywheel.TaskConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlywheelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.DocumentClassifierReference",
+    jsii_struct_bases=[],
+    name_mapping={"document_classifier_arn": "documentClassifierArn"},
+)
+class DocumentClassifierReference:
+    def __init__(self, *, document_classifier_arn: builtins.str) -> None:
+        '''A reference to a DocumentClassifier resource.
+
+        :param document_classifier_arn: The Arn of the DocumentClassifier resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            document_classifier_reference = comprehend.DocumentClassifierReference(
+                document_classifier_arn="documentClassifierArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d06b70fbed1a266117a970f6db61f13dd54ec059a703f3fdfaf7d47e30f0f401)
+            check_type(argname="argument document_classifier_arn", value=document_classifier_arn, expected_type=type_hints["document_classifier_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "document_classifier_arn": document_classifier_arn,
+        }
+
+    @builtins.property
+    def document_classifier_arn(self) -> builtins.str:
+        '''The Arn of the DocumentClassifier resource.'''
+        result = self._values.get("document_classifier_arn")
+        assert result is not None, "Required property 'document_classifier_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DocumentClassifierReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_comprehend.FlywheelReference",
+    jsii_struct_bases=[],
+    name_mapping={"flywheel_arn": "flywheelArn"},
+)
+class FlywheelReference:
+    def __init__(self, *, flywheel_arn: builtins.str) -> None:
+        '''A reference to a Flywheel resource.
+
+        :param flywheel_arn: The Arn of the Flywheel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_comprehend as comprehend
+            
+            flywheel_reference = comprehend.FlywheelReference(
+                flywheel_arn="flywheelArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d63d862c0dec50e2f8259c10a39ae7f5053995b24f9ef79fcbebd6d4d1092e28)
+            check_type(argname="argument flywheel_arn", value=flywheel_arn, expected_type=type_hints["flywheel_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flywheel_arn": flywheel_arn,
+        }
+
+    @builtins.property
+    def flywheel_arn(self) -> builtins.str:
+        '''The Arn of the Flywheel resource.'''
+        result = self._values.get("flywheel_arn")
+        assert result is not None, "Required property 'flywheel_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlywheelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_comprehend.IDocumentClassifierRef")
+class IDocumentClassifierRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DocumentClassifier.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="documentClassifierRef")
+    def document_classifier_ref(self) -> DocumentClassifierReference:
+        '''(experimental) A reference to a DocumentClassifier resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDocumentClassifierRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DocumentClassifier.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_comprehend.IDocumentClassifierRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="documentClassifierRef")
+    def document_classifier_ref(self) -> DocumentClassifierReference:
+        '''(experimental) A reference to a DocumentClassifier resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DocumentClassifierReference, jsii.get(self, "documentClassifierRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDocumentClassifierRef).__jsii_proxy_class__ = lambda : _IDocumentClassifierRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_comprehend.IFlywheelRef")
+class IFlywheelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Flywheel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flywheelRef")
+    def flywheel_ref(self) -> FlywheelReference:
+        '''(experimental) A reference to a Flywheel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlywheelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flywheel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_comprehend.IFlywheelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flywheelRef")
+    def flywheel_ref(self) -> FlywheelReference:
+        '''(experimental) A reference to a Flywheel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlywheelReference, jsii.get(self, "flywheelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlywheelRef).__jsii_proxy_class__ = lambda : _IFlywheelRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDocumentClassifierRef, _ITaggableV2_4e6798f8)
 class CfnDocumentClassifier(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -247,6 +941,12 @@ class CfnDocumentClassifier(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="documentClassifierRef")
+    def document_classifier_ref(self) -> DocumentClassifierReference:
+        '''A reference to a DocumentClassifier resource.'''
+        return typing.cast(DocumentClassifierReference, jsii.get(self, "documentClassifierRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataAccessRoleArn")
@@ -1096,315 +1796,7 @@ class CfnDocumentClassifier(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_comprehend.CfnDocumentClassifierProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_access_role_arn": "dataAccessRoleArn",
-        "document_classifier_name": "documentClassifierName",
-        "input_data_config": "inputDataConfig",
-        "language_code": "languageCode",
-        "mode": "mode",
-        "model_kms_key_id": "modelKmsKeyId",
-        "model_policy": "modelPolicy",
-        "output_data_config": "outputDataConfig",
-        "tags": "tags",
-        "version_name": "versionName",
-        "volume_kms_key_id": "volumeKmsKeyId",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnDocumentClassifierProps:
-    def __init__(
-        self,
-        *,
-        data_access_role_arn: builtins.str,
-        document_classifier_name: builtins.str,
-        input_data_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-        language_code: builtins.str,
-        mode: typing.Optional[builtins.str] = None,
-        model_kms_key_id: typing.Optional[builtins.str] = None,
-        model_policy: typing.Optional[builtins.str] = None,
-        output_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        version_name: typing.Optional[builtins.str] = None,
-        volume_kms_key_id: typing.Optional[builtins.str] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDocumentClassifier``.
-
-        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
-        :param document_classifier_name: The name of the document classifier.
-        :param input_data_config: Specifies the format and location of the input data for the job.
-        :param language_code: The language of the input documents. You can specify any of the languages supported by Amazon Comprehend. All documents must be in the same language.
-        :param mode: Indicates the mode in which the classifier will be trained. The classifier can be trained in multi-class (single-label) mode or multi-label mode. Multi-class mode identifies a single class label for each document and multi-label mode identifies one or more class labels for each document. Multiple labels for an individual document are separated by a delimiter. The default delimiter between labels is a pipe (|).
-        :param model_kms_key_id: ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models. The ModelKmsKeyId can be either of the following formats: - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"`` - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
-        :param model_policy: The resource-based policy to attach to your custom document classifier model. You can use this policy to allow another AWS account to import your custom model. Provide your policy as a JSON body that you enter as a UTF-8 encoded string without line breaks. To provide valid JSON, enclose the attribute names and values in double quotes. If the JSON body is also enclosed in double quotes, then you must escape the double quotes that are inside the policy: ``"{\\"attribute\\": \\"value\\", \\"attribute\\": [\\"value\\"]}"`` To avoid escaping quotes, you can use single quotes to enclose the policy and double quotes to enclose the JSON names and values: ``'{"attribute": "value", "attribute": ["value"]}'``
-        :param output_data_config: Provides output results configuration parameters for custom classifier jobs.
-        :param tags: Tags to associate with the document classifier. A tag is a key-value pair that adds as a metadata to a resource used by Amazon Comprehend. For example, a tag with "Sales" as the key might be added to a resource to indicate its use by the sales department.
-        :param version_name: The version name given to the newly created classifier. Version names can have a maximum of 256 characters. Alphanumeric characters, hyphens (-) and underscores (_) are allowed. The version name must be unique among all models with the same classifier name in the AWS account / AWS Region .
-        :param volume_kms_key_id: ID for the AWS Key Management Service (KMS) key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s) that process the analysis job. The VolumeKmsKeyId can be either of the following formats: - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"`` - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
-        :param vpc_config: Configuration parameters for a private Virtual Private Cloud (VPC) containing the resources you are using for your custom classifier. For more information, see `Amazon VPC <https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_comprehend as comprehend
-            
-            cfn_document_classifier_props = comprehend.CfnDocumentClassifierProps(
-                data_access_role_arn="dataAccessRoleArn",
-                document_classifier_name="documentClassifierName",
-                input_data_config=comprehend.CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty(
-                    augmented_manifests=[comprehend.CfnDocumentClassifier.AugmentedManifestsListItemProperty(
-                        attribute_names=["attributeNames"],
-                        s3_uri="s3Uri",
-            
-                        # the properties below are optional
-                        split="split"
-                    )],
-                    data_format="dataFormat",
-                    document_reader_config=comprehend.CfnDocumentClassifier.DocumentReaderConfigProperty(
-                        document_read_action="documentReadAction",
-            
-                        # the properties below are optional
-                        document_read_mode="documentReadMode",
-                        feature_types=["featureTypes"]
-                    ),
-                    documents=comprehend.CfnDocumentClassifier.DocumentClassifierDocumentsProperty(
-                        s3_uri="s3Uri",
-            
-                        # the properties below are optional
-                        test_s3_uri="testS3Uri"
-                    ),
-                    document_type="documentType",
-                    label_delimiter="labelDelimiter",
-                    s3_uri="s3Uri",
-                    test_s3_uri="testS3Uri"
-                ),
-                language_code="languageCode",
-            
-                # the properties below are optional
-                mode="mode",
-                model_kms_key_id="modelKmsKeyId",
-                model_policy="modelPolicy",
-                output_data_config=comprehend.CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty(
-                    kms_key_id="kmsKeyId",
-                    s3_uri="s3Uri"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                version_name="versionName",
-                volume_kms_key_id="volumeKmsKeyId",
-                vpc_config=comprehend.CfnDocumentClassifier.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnets=["subnets"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce52312e20)
-            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
-            check_type(argname="argument document_classifier_name", value=document_classifier_name, expected_type=type_hints["document_classifier_name"])
-            check_type(argname="argument input_data_config", value=input_data_config, expected_type=type_hints["input_data_config"])
-            check_type(argname="argument language_code", value=language_code, expected_type=type_hints["language_code"])
-            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            check_type(argname="argument model_kms_key_id", value=model_kms_key_id, expected_type=type_hints["model_kms_key_id"])
-            check_type(argname="argument model_policy", value=model_policy, expected_type=type_hints["model_policy"])
-            check_type(argname="argument output_data_config", value=output_data_config, expected_type=type_hints["output_data_config"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
-            check_type(argname="argument volume_kms_key_id", value=volume_kms_key_id, expected_type=type_hints["volume_kms_key_id"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_access_role_arn": data_access_role_arn,
-            "document_classifier_name": document_classifier_name,
-            "input_data_config": input_data_config,
-            "language_code": language_code,
-        }
-        if mode is not None:
-            self._values["mode"] = mode
-        if model_kms_key_id is not None:
-            self._values["model_kms_key_id"] = model_kms_key_id
-        if model_policy is not None:
-            self._values["model_policy"] = model_policy
-        if output_data_config is not None:
-            self._values["output_data_config"] = output_data_config
-        if tags is not None:
-            self._values["tags"] = tags
-        if version_name is not None:
-            self._values["version_name"] = version_name
-        if volume_kms_key_id is not None:
-            self._values["volume_kms_key_id"] = volume_kms_key_id
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def data_access_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend read access to your input data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-dataaccessrolearn
-        '''
-        result = self._values.get("data_access_role_arn")
-        assert result is not None, "Required property 'data_access_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def document_classifier_name(self) -> builtins.str:
-        '''The name of the document classifier.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-documentclassifiername
-        '''
-        result = self._values.get("document_classifier_name")
-        assert result is not None, "Required property 'document_classifier_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def input_data_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty]:
-        '''Specifies the format and location of the input data for the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-inputdataconfig
-        '''
-        result = self._values.get("input_data_config")
-        assert result is not None, "Required property 'input_data_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty], result)
-
-    @builtins.property
-    def language_code(self) -> builtins.str:
-        '''The language of the input documents.
-
-        You can specify any of the languages supported by Amazon Comprehend. All documents must be in the same language.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-languagecode
-        '''
-        result = self._values.get("language_code")
-        assert result is not None, "Required property 'language_code' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mode(self) -> typing.Optional[builtins.str]:
-        '''Indicates the mode in which the classifier will be trained.
-
-        The classifier can be trained in multi-class (single-label) mode or multi-label mode. Multi-class mode identifies a single class label for each document and multi-label mode identifies one or more class labels for each document. Multiple labels for an individual document are separated by a delimiter. The default delimiter between labels is a pipe (|).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-mode
-        '''
-        result = self._values.get("mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def model_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''ID for the AWS KMS key that Amazon Comprehend uses to encrypt trained custom models.
-
-        The ModelKmsKeyId can be either of the following formats:
-
-        - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"``
-        - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-modelkmskeyid
-        '''
-        result = self._values.get("model_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def model_policy(self) -> typing.Optional[builtins.str]:
-        '''The resource-based policy to attach to your custom document classifier model.
-
-        You can use this policy to allow another AWS account to import your custom model.
-
-        Provide your policy as a JSON body that you enter as a UTF-8 encoded string without line breaks. To provide valid JSON, enclose the attribute names and values in double quotes. If the JSON body is also enclosed in double quotes, then you must escape the double quotes that are inside the policy:
-
-        ``"{\\"attribute\\": \\"value\\", \\"attribute\\": [\\"value\\"]}"``
-
-        To avoid escaping quotes, you can use single quotes to enclose the policy and double quotes to enclose the JSON names and values:
-
-        ``'{"attribute": "value", "attribute": ["value"]}'``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-modelpolicy
-        '''
-        result = self._values.get("model_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def output_data_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty]]:
-        '''Provides output results configuration parameters for custom classifier jobs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-outputdataconfig
-        '''
-        result = self._values.get("output_data_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags to associate with the document classifier.
-
-        A tag is a key-value pair that adds as a metadata to a resource used by Amazon Comprehend. For example, a tag with "Sales" as the key might be added to a resource to indicate its use by the sales department.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def version_name(self) -> typing.Optional[builtins.str]:
-        '''The version name given to the newly created classifier.
-
-        Version names can have a maximum of 256 characters. Alphanumeric characters, hyphens (-) and underscores (_) are allowed. The version name must be unique among all models with the same classifier name in the AWS account / AWS Region .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-versionname
-        '''
-        result = self._values.get("version_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''ID for the AWS Key Management Service (KMS) key that Amazon Comprehend uses to encrypt data on the storage volume attached to the ML compute instance(s) that process the analysis job.
-
-        The VolumeKmsKeyId can be either of the following formats:
-
-        - KMS Key ID: ``"1234abcd-12ab-34cd-56ef-1234567890ab"``
-        - Amazon Resource Name (ARN) of a KMS Key: ``"arn:aws:kms:us-west-2:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-volumekmskeyid
-        '''
-        result = self._values.get("volume_kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.VpcConfigProperty]]:
-        '''Configuration parameters for a private Virtual Private Cloud (VPC) containing the resources you are using for your custom classifier.
-
-        For more information, see `Amazon VPC <https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifier.html#cfn-comprehend-documentclassifier-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDocumentClassifier.VpcConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDocumentClassifierProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFlywheelRef, _ITaggable_36806126)
 class CfnFlywheel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1558,6 +1950,12 @@ class CfnFlywheel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flywheelRef")
+    def flywheel_ref(self) -> FlywheelReference:
+        '''A reference to a Flywheel resource.'''
+        return typing.cast(FlywheelReference, jsii.get(self, "flywheelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2165,219 +2563,64 @@ class CfnFlywheel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_comprehend.CfnFlywheelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_access_role_arn": "dataAccessRoleArn",
-        "data_lake_s3_uri": "dataLakeS3Uri",
-        "flywheel_name": "flywheelName",
-        "active_model_arn": "activeModelArn",
-        "data_security_config": "dataSecurityConfig",
-        "model_type": "modelType",
-        "tags": "tags",
-        "task_config": "taskConfig",
-    },
-)
-class CfnFlywheelProps:
-    def __init__(
-        self,
-        *,
-        data_access_role_arn: builtins.str,
-        data_lake_s3_uri: builtins.str,
-        flywheel_name: builtins.str,
-        active_model_arn: typing.Optional[builtins.str] = None,
-        data_security_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.DataSecurityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        model_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        task_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.TaskConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlywheel``.
-
-        :param data_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend permission to access the flywheel data.
-        :param data_lake_s3_uri: Amazon S3 URI of the data lake location.
-        :param flywheel_name: Name for the flywheel.
-        :param active_model_arn: The Amazon Resource Number (ARN) of the active model version.
-        :param data_security_config: Data security configuration.
-        :param model_type: Model type of the flywheel's model.
-        :param tags: Tags associated with the endpoint being created. A tag is a key-value pair that adds metadata to the endpoint. For example, a tag with "Sales" as the key might be added to an endpoint to indicate its use by the sales department.
-        :param task_config: Configuration about the model associated with a flywheel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_comprehend as comprehend
-            
-            cfn_flywheel_props = comprehend.CfnFlywheelProps(
-                data_access_role_arn="dataAccessRoleArn",
-                data_lake_s3_uri="dataLakeS3Uri",
-                flywheel_name="flywheelName",
-            
-                # the properties below are optional
-                active_model_arn="activeModelArn",
-                data_security_config=comprehend.CfnFlywheel.DataSecurityConfigProperty(
-                    data_lake_kms_key_id="dataLakeKmsKeyId",
-                    model_kms_key_id="modelKmsKeyId",
-                    volume_kms_key_id="volumeKmsKeyId",
-                    vpc_config=comprehend.CfnFlywheel.VpcConfigProperty(
-                        security_group_ids=["securityGroupIds"],
-                        subnets=["subnets"]
-                    )
-                ),
-                model_type="modelType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                task_config=comprehend.CfnFlywheel.TaskConfigProperty(
-                    language_code="languageCode",
-            
-                    # the properties below are optional
-                    document_classification_config=comprehend.CfnFlywheel.DocumentClassificationConfigProperty(
-                        mode="mode",
-            
-                        # the properties below are optional
-                        labels=["labels"]
-                    ),
-                    entity_recognition_config=comprehend.CfnFlywheel.EntityRecognitionConfigProperty(
-                        entity_types=[comprehend.CfnFlywheel.EntityTypesListItemProperty(
-                            type="type"
-                        )]
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__354388f245744b59494c23dd6a47939e13228c4105132c6911824acf04080c64)
-            check_type(argname="argument data_access_role_arn", value=data_access_role_arn, expected_type=type_hints["data_access_role_arn"])
-            check_type(argname="argument data_lake_s3_uri", value=data_lake_s3_uri, expected_type=type_hints["data_lake_s3_uri"])
-            check_type(argname="argument flywheel_name", value=flywheel_name, expected_type=type_hints["flywheel_name"])
-            check_type(argname="argument active_model_arn", value=active_model_arn, expected_type=type_hints["active_model_arn"])
-            check_type(argname="argument data_security_config", value=data_security_config, expected_type=type_hints["data_security_config"])
-            check_type(argname="argument model_type", value=model_type, expected_type=type_hints["model_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument task_config", value=task_config, expected_type=type_hints["task_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_access_role_arn": data_access_role_arn,
-            "data_lake_s3_uri": data_lake_s3_uri,
-            "flywheel_name": flywheel_name,
-        }
-        if active_model_arn is not None:
-            self._values["active_model_arn"] = active_model_arn
-        if data_security_config is not None:
-            self._values["data_security_config"] = data_security_config
-        if model_type is not None:
-            self._values["model_type"] = model_type
-        if tags is not None:
-            self._values["tags"] = tags
-        if task_config is not None:
-            self._values["task_config"] = task_config
-
-    @builtins.property
-    def data_access_role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role that grants Amazon Comprehend permission to access the flywheel data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-dataaccessrolearn
-        '''
-        result = self._values.get("data_access_role_arn")
-        assert result is not None, "Required property 'data_access_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_lake_s3_uri(self) -> builtins.str:
-        '''Amazon S3 URI of the data lake location.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-datalakes3uri
-        '''
-        result = self._values.get("data_lake_s3_uri")
-        assert result is not None, "Required property 'data_lake_s3_uri' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def flywheel_name(self) -> builtins.str:
-        '''Name for the flywheel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-flywheelname
-        '''
-        result = self._values.get("flywheel_name")
-        assert result is not None, "Required property 'flywheel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def active_model_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the active model version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-activemodelarn
-        '''
-        result = self._values.get("active_model_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_security_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlywheel.DataSecurityConfigProperty]]:
-        '''Data security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-datasecurityconfig
-        '''
-        result = self._values.get("data_security_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlywheel.DataSecurityConfigProperty]], result)
-
-    @builtins.property
-    def model_type(self) -> typing.Optional[builtins.str]:
-        '''Model type of the flywheel's model.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-modeltype
-        '''
-        result = self._values.get("model_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags associated with the endpoint being created.
-
-        A tag is a key-value pair that adds metadata to the endpoint. For example, a tag with "Sales" as the key might be added to an endpoint to indicate its use by the sales department.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def task_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlywheel.TaskConfigProperty]]:
-        '''Configuration about the model associated with a flywheel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheel.html#cfn-comprehend-flywheel-taskconfig
-        '''
-        result = self._values.get("task_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlywheel.TaskConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlywheelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDocumentClassifier",
     "CfnDocumentClassifierProps",
     "CfnFlywheel",
     "CfnFlywheelProps",
+    "DocumentClassifierReference",
+    "FlywheelReference",
+    "IDocumentClassifierRef",
+    "IFlywheelRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce52312e20(
+    *,
+    data_access_role_arn: builtins.str,
+    document_classifier_name: builtins.str,
+    input_data_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    language_code: builtins.str,
+    mode: typing.Optional[builtins.str] = None,
+    model_kms_key_id: typing.Optional[builtins.str] = None,
+    model_policy: typing.Optional[builtins.str] = None,
+    output_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_name: typing.Optional[builtins.str] = None,
+    volume_kms_key_id: typing.Optional[builtins.str] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__354388f245744b59494c23dd6a47939e13228c4105132c6911824acf04080c64(
+    *,
+    data_access_role_arn: builtins.str,
+    data_lake_s3_uri: builtins.str,
+    flywheel_name: builtins.str,
+    active_model_arn: typing.Optional[builtins.str] = None,
+    data_security_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.DataSecurityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    model_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.TaskConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d06b70fbed1a266117a970f6db61f13dd54ec059a703f3fdfaf7d47e30f0f401(
+    *,
+    document_classifier_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d63d862c0dec50e2f8259c10a39ae7f5053995b24f9ef79fcbebd6d4d1092e28(
+    *,
+    flywheel_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__0da43afef06b62227e1171021a9a7ce43e2e481fa3c1ff8263e87fc9d8a04a11(
     scope: _constructs_77d1e7e8.Construct,
@@ -2539,24 +2782,6 @@ def _typecheckingstub__4e8c9eb83a42e141603118fff6dba5cc0774a8a4602d73ce0f9caec1b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d7d72cba46a86b5cfc5fb202d8e4e9466278a4b300f044f71c8d02ce52312e20(
-    *,
-    data_access_role_arn: builtins.str,
-    document_classifier_name: builtins.str,
-    input_data_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierInputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    language_code: builtins.str,
-    mode: typing.Optional[builtins.str] = None,
-    model_kms_key_id: typing.Optional[builtins.str] = None,
-    model_policy: typing.Optional[builtins.str] = None,
-    output_data_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.DocumentClassifierOutputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version_name: typing.Optional[builtins.str] = None,
-    volume_kms_key_id: typing.Optional[builtins.str] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocumentClassifier.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__08326dbba3b3e1fbd1b7c33b09deb1212a1a2d4d763f2b2c49693b85d0558b1e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2678,20 +2903,6 @@ def _typecheckingstub__6f148a8e29a057dfa8bd6a5945aaf37e92f70297900e6a35e12b4f9de
     *,
     security_group_ids: typing.Sequence[builtins.str],
     subnets: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__354388f245744b59494c23dd6a47939e13228c4105132c6911824acf04080c64(
-    *,
-    data_access_role_arn: builtins.str,
-    data_lake_s3_uri: builtins.str,
-    flywheel_name: builtins.str,
-    active_model_arn: typing.Optional[builtins.str] = None,
-    data_security_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.DataSecurityConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    model_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    task_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlywheel.TaskConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

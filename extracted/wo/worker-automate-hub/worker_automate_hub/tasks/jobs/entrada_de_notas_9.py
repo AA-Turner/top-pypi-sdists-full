@@ -7,7 +7,7 @@ import uuid
 import time
 import win32clipboard
 import difflib
-
+import pyperclip
 import pyautogui
 import pytesseract
 from datetime import datetime, timedelta
@@ -582,7 +582,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
         await worker_sleep(2)
 
         observacoes_nota = nota.get("observacoes")
-        pattern = rf"(\b{filialEmpresaOrigem}\d+)\s*-\s*TANQUE\s+(\d+)\s*[/-]\s*(\w+\s*\w*)\s*\((.*?)\)"
+        pattern = rf"(\b{filialEmpresaOrigem}\d+)\s*-\s*TANQUE\s+(\d+)\s*[/-]\s*(.+?)\s*\((.*?)\)"
 
         resultados_itens_ahead = re.findall(pattern, observacoes_nota)
 
@@ -595,6 +595,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
         if len(list_distribuicao_obs) > 0:
             console.print(f'Distribuição observação a serem processados: {list_distribuicao_obs}')
             index_tanque = 0
+            item_executado = '0'
             list_tanques_distribuidos = []
             send_keys("{TAB 2}", pause=0.1)
             
@@ -606,6 +607,24 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     await worker_sleep(1)
                     send_keys("{DOWN " + str(index_tanque) + "}", pause=0.1)
                     await worker_sleep(1)
+                    #Copiar e extrai o Seq Item XML
+                    send_keys("^c")
+                    copiado = pyperclip.paste()
+                    linha = copiado.splitlines()[1]
+                    colunas = linha.split("\t")
+                    seq_item = colunas[0]
+                    if seq_item != item_executado:
+                        item_executado = seq_item
+                    else:
+                        while seq_item == item_executado:
+                            send_keys("{DOWN}", pause=0.1)
+                            index_tanque += 1
+                            send_keys("^c")
+                            copiado = pyperclip.paste()
+                            linha = copiado.splitlines()[1]
+                            colunas = linha.split("\t")
+                            seq_item = colunas[0]
+                            
                     send_keys("+{F10}")
                     await worker_sleep(1)
                     send_keys("{DOWN 6}")
@@ -825,6 +844,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                                 except:
                                     console.print(f"Tela de distribuir item deve ter sido encerrada")
                                 finally:
+                                    await worker_sleep(10)
                                     i = i + 1
                                     await worker_sleep(2)
                             else:

@@ -69,7 +69,1153 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "channel_name": "channelName",
+        "channel_storage": "channelStorage",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+    },
+)
+class CfnChannelProps:
+    def __init__(
+        self,
+        *,
+        channel_name: typing.Optional[builtins.str] = None,
+        channel_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.ChannelStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnChannel``.
+
+        :param channel_name: The name of the channel.
+        :param channel_storage: Where channel data is stored.
+        :param retention_period: How long, in days, message data is kept for the channel.
+        :param tags: Metadata which can be used to manage the channel. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            # service_managed_s3: Any
+            
+            cfn_channel_props = iotanalytics.CfnChannelProps(
+                channel_name="channelName",
+                channel_storage=iotanalytics.CfnChannel.ChannelStorageProperty(
+                    customer_managed_s3=iotanalytics.CfnChannel.CustomerManagedS3Property(
+                        bucket="bucket",
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        key_prefix="keyPrefix"
+                    ),
+                    service_managed_s3=service_managed_s3
+                ),
+                retention_period=iotanalytics.CfnChannel.RetentionPeriodProperty(
+                    number_of_days=123,
+                    unlimited=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1389944a7a7c5ae7ccfca31343abcc6dd4bb78b250fa7c33a3787f169cd7fdb3)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument channel_storage", value=channel_storage, expected_type=type_hints["channel_storage"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if channel_name is not None:
+            self._values["channel_name"] = channel_name
+        if channel_storage is not None:
+            self._values["channel_storage"] = channel_storage
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def channel_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-channelname
+        '''
+        result = self._values.get("channel_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def channel_storage(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelStorageProperty"]]:
+        '''Where channel data is stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-channelstorage
+        '''
+        result = self._values.get("channel_storage")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.ChannelStorageProperty"]], result)
+
+    @builtins.property
+    def retention_period(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RetentionPeriodProperty"]]:
+        '''How long, in days, message data is kept for the channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.RetentionPeriodProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the channel.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "content_delivery_rules": "contentDeliveryRules",
+        "dataset_name": "datasetName",
+        "late_data_rules": "lateDataRules",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+        "triggers": "triggers",
+        "versioning_configuration": "versioningConfiguration",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        content_delivery_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.DatasetContentDeliveryRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dataset_name: typing.Optional[builtins.str] = None,
+        late_data_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.LateDataRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.TriggerProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.VersioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param actions: The ``DatasetAction`` objects that automatically create the dataset contents.
+        :param content_delivery_rules: When dataset contents are created they are delivered to destinations specified here.
+        :param dataset_name: The name of the dataset.
+        :param late_data_rules: A list of data rules that send notifications to CloudWatch, when data arrives late. To specify ``lateDataRules`` , the dataset must use a `DeltaTimer <https://docs.aws.amazon.com/iotanalytics/latest/APIReference/API_DeltaTime.html>`_ filter.
+        :param retention_period: Optional. How long, in days, message data is kept for the dataset.
+        :param tags: Metadata which can be used to manage the data set. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param triggers: The ``DatasetTrigger`` objects that specify when the dataset is automatically updated.
+        :param versioning_configuration: Optional. How many versions of dataset contents are kept. If not specified or set to null, only the latest version plus the latest succeeded version (if they are different) are kept for the time period specified by the ``retentionPeriod`` parameter. For more information, see `Keeping Multiple Versions of AWS IoT Analytics datasets <https://docs.aws.amazon.com/iotanalytics/latest/userguide/getting-started.html#aws-iot-analytics-dataset-versions>`_ in the *AWS IoT Analytics User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            cfn_dataset_props = iotanalytics.CfnDatasetProps(
+                actions=[iotanalytics.CfnDataset.ActionProperty(
+                    action_name="actionName",
+            
+                    # the properties below are optional
+                    container_action=iotanalytics.CfnDataset.ContainerActionProperty(
+                        execution_role_arn="executionRoleArn",
+                        image="image",
+                        resource_configuration=iotanalytics.CfnDataset.ResourceConfigurationProperty(
+                            compute_type="computeType",
+                            volume_size_in_gb=123
+                        ),
+            
+                        # the properties below are optional
+                        variables=[iotanalytics.CfnDataset.VariableProperty(
+                            variable_name="variableName",
+            
+                            # the properties below are optional
+                            dataset_content_version_value=iotanalytics.CfnDataset.DatasetContentVersionValueProperty(
+                                dataset_name="datasetName"
+                            ),
+                            double_value=123,
+                            output_file_uri_value=iotanalytics.CfnDataset.OutputFileUriValueProperty(
+                                file_name="fileName"
+                            ),
+                            string_value="stringValue"
+                        )]
+                    ),
+                    query_action=iotanalytics.CfnDataset.QueryActionProperty(
+                        sql_query="sqlQuery",
+            
+                        # the properties below are optional
+                        filters=[iotanalytics.CfnDataset.FilterProperty(
+                            delta_time=iotanalytics.CfnDataset.DeltaTimeProperty(
+                                offset_seconds=123,
+                                time_expression="timeExpression"
+                            )
+                        )]
+                    )
+                )],
+            
+                # the properties below are optional
+                content_delivery_rules=[iotanalytics.CfnDataset.DatasetContentDeliveryRuleProperty(
+                    destination=iotanalytics.CfnDataset.DatasetContentDeliveryRuleDestinationProperty(
+                        iot_events_destination_configuration=iotanalytics.CfnDataset.IotEventsDestinationConfigurationProperty(
+                            input_name="inputName",
+                            role_arn="roleArn"
+                        ),
+                        s3_destination_configuration=iotanalytics.CfnDataset.S3DestinationConfigurationProperty(
+                            bucket="bucket",
+                            key="key",
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            glue_configuration=iotanalytics.CfnDataset.GlueConfigurationProperty(
+                                database_name="databaseName",
+                                table_name="tableName"
+                            )
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    entry_name="entryName"
+                )],
+                dataset_name="datasetName",
+                late_data_rules=[iotanalytics.CfnDataset.LateDataRuleProperty(
+                    rule_configuration=iotanalytics.CfnDataset.LateDataRuleConfigurationProperty(
+                        delta_time_session_window_configuration=iotanalytics.CfnDataset.DeltaTimeSessionWindowConfigurationProperty(
+                            timeout_in_minutes=123
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    rule_name="ruleName"
+                )],
+                retention_period=iotanalytics.CfnDataset.RetentionPeriodProperty(
+                    number_of_days=123,
+                    unlimited=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                triggers=[iotanalytics.CfnDataset.TriggerProperty(
+                    schedule=iotanalytics.CfnDataset.ScheduleProperty(
+                        schedule_expression="scheduleExpression"
+                    ),
+                    triggering_dataset=iotanalytics.CfnDataset.TriggeringDatasetProperty(
+                        dataset_name="datasetName"
+                    )
+                )],
+                versioning_configuration=iotanalytics.CfnDataset.VersioningConfigurationProperty(
+                    max_versions=123,
+                    unlimited=False
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba482b4c89e3977548d923f68d372a4195ddedc9b62d05ec8d5000808561e994)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument content_delivery_rules", value=content_delivery_rules, expected_type=type_hints["content_delivery_rules"])
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+            check_type(argname="argument late_data_rules", value=late_data_rules, expected_type=type_hints["late_data_rules"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
+            check_type(argname="argument versioning_configuration", value=versioning_configuration, expected_type=type_hints["versioning_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+        }
+        if content_delivery_rules is not None:
+            self._values["content_delivery_rules"] = content_delivery_rules
+        if dataset_name is not None:
+            self._values["dataset_name"] = dataset_name
+        if late_data_rules is not None:
+            self._values["late_data_rules"] = late_data_rules
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+        if triggers is not None:
+            self._values["triggers"] = triggers
+        if versioning_configuration is not None:
+            self._values["versioning_configuration"] = versioning_configuration
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.ActionProperty"]]]:
+        '''The ``DatasetAction`` objects that automatically create the dataset contents.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.ActionProperty"]]], result)
+
+    @builtins.property
+    def content_delivery_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetContentDeliveryRuleProperty"]]]]:
+        '''When dataset contents are created they are delivered to destinations specified here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-contentdeliveryrules
+        '''
+        result = self._values.get("content_delivery_rules")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.DatasetContentDeliveryRuleProperty"]]]], result)
+
+    @builtins.property
+    def dataset_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-datasetname
+        '''
+        result = self._values.get("dataset_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def late_data_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.LateDataRuleProperty"]]]]:
+        '''A list of data rules that send notifications to CloudWatch, when data arrives late.
+
+        To specify ``lateDataRules`` , the dataset must use a `DeltaTimer <https://docs.aws.amazon.com/iotanalytics/latest/APIReference/API_DeltaTime.html>`_ filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-latedatarules
+        '''
+        result = self._values.get("late_data_rules")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.LateDataRuleProperty"]]]], result)
+
+    @builtins.property
+    def retention_period(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.RetentionPeriodProperty"]]:
+        '''Optional.
+
+        How long, in days, message data is kept for the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.RetentionPeriodProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the data set.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def triggers(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.TriggerProperty"]]]]:
+        '''The ``DatasetTrigger`` objects that specify when the dataset is automatically updated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-triggers
+        '''
+        result = self._values.get("triggers")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataset.TriggerProperty"]]]], result)
+
+    @builtins.property
+    def versioning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.VersioningConfigurationProperty"]]:
+        '''Optional.
+
+        How many versions of dataset contents are kept. If not specified or set to null, only the latest version plus the latest succeeded version (if they are different) are kept for the time period specified by the ``retentionPeriod`` parameter. For more information, see `Keeping Multiple Versions of AWS IoT Analytics datasets <https://docs.aws.amazon.com/iotanalytics/latest/userguide/getting-started.html#aws-iot-analytics-dataset-versions>`_ in the *AWS IoT Analytics User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-versioningconfiguration
+        '''
+        result = self._values.get("versioning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.VersioningConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnDatastoreProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "datastore_name": "datastoreName",
+        "datastore_partitions": "datastorePartitions",
+        "datastore_storage": "datastoreStorage",
+        "file_format_configuration": "fileFormatConfiguration",
+        "retention_period": "retentionPeriod",
+        "tags": "tags",
+    },
+)
+class CfnDatastoreProps:
+    def __init__(
+        self,
+        *,
+        datastore_name: typing.Optional[builtins.str] = None,
+        datastore_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDatastore.DatastorePartitionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        datastore_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDatastore.DatastoreStorageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        file_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDatastore.FileFormatConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDatastore.RetentionPeriodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatastore``.
+
+        :param datastore_name: The name of the data store.
+        :param datastore_partitions: Information about the partition dimensions in a data store.
+        :param datastore_storage: Where data store data is stored.
+        :param file_format_configuration: Contains the configuration information of file formats. AWS IoT Analytics data stores support JSON and `Parquet <https://docs.aws.amazon.com/https://parquet.apache.org/>`_ . The default file format is JSON. You can specify only one format. You can't change the file format after you create the data store.
+        :param retention_period: How long, in days, message data is kept for the data store. When ``customerManagedS3`` storage is selected, this parameter is ignored.
+        :param tags: Metadata which can be used to manage the data store. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            # json_configuration: Any
+            # service_managed_s3: Any
+            
+            cfn_datastore_props = iotanalytics.CfnDatastoreProps(
+                datastore_name="datastoreName",
+                datastore_partitions=iotanalytics.CfnDatastore.DatastorePartitionsProperty(
+                    partitions=[iotanalytics.CfnDatastore.DatastorePartitionProperty(
+                        partition=iotanalytics.CfnDatastore.PartitionProperty(
+                            attribute_name="attributeName"
+                        ),
+                        timestamp_partition=iotanalytics.CfnDatastore.TimestampPartitionProperty(
+                            attribute_name="attributeName",
+            
+                            # the properties below are optional
+                            timestamp_format="timestampFormat"
+                        )
+                    )]
+                ),
+                datastore_storage=iotanalytics.CfnDatastore.DatastoreStorageProperty(
+                    customer_managed_s3=iotanalytics.CfnDatastore.CustomerManagedS3Property(
+                        bucket="bucket",
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        key_prefix="keyPrefix"
+                    ),
+                    iot_site_wise_multi_layer_storage=iotanalytics.CfnDatastore.IotSiteWiseMultiLayerStorageProperty(
+                        customer_managed_s3_storage=iotanalytics.CfnDatastore.CustomerManagedS3StorageProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            key_prefix="keyPrefix"
+                        )
+                    ),
+                    service_managed_s3=service_managed_s3
+                ),
+                file_format_configuration=iotanalytics.CfnDatastore.FileFormatConfigurationProperty(
+                    json_configuration=json_configuration,
+                    parquet_configuration=iotanalytics.CfnDatastore.ParquetConfigurationProperty(
+                        schema_definition=iotanalytics.CfnDatastore.SchemaDefinitionProperty(
+                            columns=[iotanalytics.CfnDatastore.ColumnProperty(
+                                name="name",
+                                type="type"
+                            )]
+                        )
+                    )
+                ),
+                retention_period=iotanalytics.CfnDatastore.RetentionPeriodProperty(
+                    number_of_days=123,
+                    unlimited=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5e07deff1542b5d76f6fbec1b51b693bafafe7f15017228354ea52b83a2737b)
+            check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
+            check_type(argname="argument datastore_partitions", value=datastore_partitions, expected_type=type_hints["datastore_partitions"])
+            check_type(argname="argument datastore_storage", value=datastore_storage, expected_type=type_hints["datastore_storage"])
+            check_type(argname="argument file_format_configuration", value=file_format_configuration, expected_type=type_hints["file_format_configuration"])
+            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if datastore_name is not None:
+            self._values["datastore_name"] = datastore_name
+        if datastore_partitions is not None:
+            self._values["datastore_partitions"] = datastore_partitions
+        if datastore_storage is not None:
+            self._values["datastore_storage"] = datastore_storage
+        if file_format_configuration is not None:
+            self._values["file_format_configuration"] = file_format_configuration
+        if retention_period is not None:
+            self._values["retention_period"] = retention_period
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def datastore_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorename
+        '''
+        result = self._values.get("datastore_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def datastore_partitions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.DatastorePartitionsProperty"]]:
+        '''Information about the partition dimensions in a data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorepartitions
+        '''
+        result = self._values.get("datastore_partitions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.DatastorePartitionsProperty"]], result)
+
+    @builtins.property
+    def datastore_storage(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.DatastoreStorageProperty"]]:
+        '''Where data store data is stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorestorage
+        '''
+        result = self._values.get("datastore_storage")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.DatastoreStorageProperty"]], result)
+
+    @builtins.property
+    def file_format_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.FileFormatConfigurationProperty"]]:
+        '''Contains the configuration information of file formats. AWS IoT Analytics data stores support JSON and `Parquet <https://docs.aws.amazon.com/https://parquet.apache.org/>`_ .
+
+        The default file format is JSON. You can specify only one format.
+
+        You can't change the file format after you create the data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-fileformatconfiguration
+        '''
+        result = self._values.get("file_format_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.FileFormatConfigurationProperty"]], result)
+
+    @builtins.property
+    def retention_period(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.RetentionPeriodProperty"]]:
+        '''How long, in days, message data is kept for the data store.
+
+        When ``customerManagedS3`` storage is selected, this parameter is ignored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-retentionperiod
+        '''
+        result = self._values.get("retention_period")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDatastore.RetentionPeriodProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the data store.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatastoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnPipelineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "pipeline_activities": "pipelineActivities",
+        "pipeline_name": "pipelineName",
+        "tags": "tags",
+    },
+)
+class CfnPipelineProps:
+    def __init__(
+        self,
+        *,
+        pipeline_activities: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.ActivityProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        pipeline_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPipeline``.
+
+        :param pipeline_activities: A list of "PipelineActivity" objects. Activities perform transformations on your messages, such as removing, renaming or adding message attributes; filtering messages based on attribute values; invoking your Lambda functions on messages for advanced processing; or performing mathematical transformations to normalize device data. The list can be 2-25 *PipelineActivity* objects and must contain both a ``channel`` and a ``datastore`` activity. Each entry in the list must contain only one activity, for example: ``pipelineActivities = [ { "channel": { ... } }, { "lambda": { ... } }, ... ]``
+        :param pipeline_name: The name of the pipeline.
+        :param tags: Metadata which can be used to manage the pipeline. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            cfn_pipeline_props = iotanalytics.CfnPipelineProps(
+                pipeline_activities=[iotanalytics.CfnPipeline.ActivityProperty(
+                    add_attributes=iotanalytics.CfnPipeline.AddAttributesProperty(
+                        attributes={
+                            "attributes_key": "attributes"
+                        },
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    channel=iotanalytics.CfnPipeline.ChannelProperty(
+                        channel_name="channelName",
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    datastore=iotanalytics.CfnPipeline.DatastoreProperty(
+                        datastore_name="datastoreName",
+                        name="name"
+                    ),
+                    device_registry_enrich=iotanalytics.CfnPipeline.DeviceRegistryEnrichProperty(
+                        attribute="attribute",
+                        name="name",
+                        role_arn="roleArn",
+                        thing_name="thingName",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    device_shadow_enrich=iotanalytics.CfnPipeline.DeviceShadowEnrichProperty(
+                        attribute="attribute",
+                        name="name",
+                        role_arn="roleArn",
+                        thing_name="thingName",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    filter=iotanalytics.CfnPipeline.FilterProperty(
+                        filter="filter",
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    lambda_=iotanalytics.CfnPipeline.LambdaProperty(
+                        batch_size=123,
+                        lambda_name="lambdaName",
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    math=iotanalytics.CfnPipeline.MathProperty(
+                        attribute="attribute",
+                        math="math",
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    remove_attributes=iotanalytics.CfnPipeline.RemoveAttributesProperty(
+                        attributes=["attributes"],
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    ),
+                    select_attributes=iotanalytics.CfnPipeline.SelectAttributesProperty(
+                        attributes=["attributes"],
+                        name="name",
+            
+                        # the properties below are optional
+                        next="next"
+                    )
+                )],
+            
+                # the properties below are optional
+                pipeline_name="pipelineName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f679c4a07101956552f6a581e512ccc717093dd11033f5cba9e585cec9333ef)
+            check_type(argname="argument pipeline_activities", value=pipeline_activities, expected_type=type_hints["pipeline_activities"])
+            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipeline_activities": pipeline_activities,
+        }
+        if pipeline_name is not None:
+            self._values["pipeline_name"] = pipeline_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def pipeline_activities(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActivityProperty"]]]:
+        '''A list of "PipelineActivity" objects.
+
+        Activities perform transformations on your messages, such as removing, renaming or adding message attributes; filtering messages based on attribute values; invoking your Lambda functions on messages for advanced processing; or performing mathematical transformations to normalize device data.
+
+        The list can be 2-25 *PipelineActivity* objects and must contain both a ``channel`` and a ``datastore`` activity. Each entry in the list must contain only one activity, for example:
+
+        ``pipelineActivities = [ { "channel": { ... } }, { "lambda": { ... } }, ... ]``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-pipelineactivities
+        '''
+        result = self._values.get("pipeline_activities")
+        assert result is not None, "Required property 'pipeline_activities' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.ActivityProperty"]]], result)
+
+    @builtins.property
+    def pipeline_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-pipelinename
+        '''
+        result = self._values.get("pipeline_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata which can be used to manage the pipeline.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPipelineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.ChannelReference",
+    jsii_struct_bases=[],
+    name_mapping={"channel_name": "channelName"},
+)
+class ChannelReference:
+    def __init__(self, *, channel_name: builtins.str) -> None:
+        '''A reference to a Channel resource.
+
+        :param channel_name: The ChannelName of the Channel resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            channel_reference = iotanalytics.ChannelReference(
+                channel_name="channelName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef5002bd3f62c09941e43854262cb7f7480f8b9cb5b8f87fe5d5c98b2b1d87d7)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+        }
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''The ChannelName of the Channel resource.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChannelReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.DatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_name": "datasetName"},
+)
+class DatasetReference:
+    def __init__(self, *, dataset_name: builtins.str) -> None:
+        '''A reference to a Dataset resource.
+
+        :param dataset_name: The DatasetName of the Dataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            dataset_reference = iotanalytics.DatasetReference(
+                dataset_name="datasetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b16ab94d74f063217f87da5d2c6dc40c8b22a1e01226a08f084f0da5fe26f7f7)
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_name": dataset_name,
+        }
+
+    @builtins.property
+    def dataset_name(self) -> builtins.str:
+        '''The DatasetName of the Dataset resource.'''
+        result = self._values.get("dataset_name")
+        assert result is not None, "Required property 'dataset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.DatastoreReference",
+    jsii_struct_bases=[],
+    name_mapping={"datastore_name": "datastoreName"},
+)
+class DatastoreReference:
+    def __init__(self, *, datastore_name: builtins.str) -> None:
+        '''A reference to a Datastore resource.
+
+        :param datastore_name: The DatastoreName of the Datastore resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            datastore_reference = iotanalytics.DatastoreReference(
+                datastore_name="datastoreName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8ebac0e1807268e8e85f97e3ab981a7ad92fea8044addf96c192b25f8d01922)
+            check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "datastore_name": datastore_name,
+        }
+
+    @builtins.property
+    def datastore_name(self) -> builtins.str:
+        '''The DatastoreName of the Datastore resource.'''
+        result = self._values.get("datastore_name")
+        assert result is not None, "Required property 'datastore_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatastoreReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotanalytics.IChannelRef")
+class IChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IChannelRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Channel.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotanalytics.IChannelRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''(experimental) A reference to a Channel resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotanalytics.IDatasetRef")
+class IDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotanalytics.IDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotanalytics.IDatastoreRef")
+class IDatastoreRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Datastore.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''(experimental) A reference to a Datastore resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatastoreRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Datastore.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotanalytics.IDatastoreRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''(experimental) A reference to a Datastore resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatastoreReference, jsii.get(self, "datastoreRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatastoreRef).__jsii_proxy_class__ = lambda : _IDatastoreRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iotanalytics.IPipelineRef")
+class IPipelineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "PipelineReference":
+        '''(experimental) A reference to a Pipeline resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPipelineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotanalytics.IPipelineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "PipelineReference":
+        '''(experimental) A reference to a Pipeline resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PipelineReference", jsii.get(self, "pipelineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPipelineRef).__jsii_proxy_class__ = lambda : _IPipelineRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotanalytics.PipelineReference",
+    jsii_struct_bases=[],
+    name_mapping={"pipeline_name": "pipelineName"},
+)
+class PipelineReference:
+    def __init__(self, *, pipeline_name: builtins.str) -> None:
+        '''A reference to a Pipeline resource.
+
+        :param pipeline_name: The PipelineName of the Pipeline resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotanalytics as iotanalytics
+            
+            pipeline_reference = iotanalytics.PipelineReference(
+                pipeline_name="pipelineName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d7365a611cca2ed370cab2f97fadef898e66a314d7b531d454c0534eaf6e597)
+            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipeline_name": pipeline_name,
+        }
+
+    @builtins.property
+    def pipeline_name(self) -> builtins.str:
+        '''The PipelineName of the Pipeline resource.'''
+        result = self._values.get("pipeline_name")
+        assert result is not None, "Required property 'pipeline_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PipelineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IChannelRef, _ITaggable_36806126)
 class CfnChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -187,6 +1333,12 @@ class CfnChannel(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelRef")
+    def channel_ref(self) -> ChannelReference:
+        '''A reference to a Channel resource.'''
+        return typing.cast(ChannelReference, jsii.get(self, "channelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -514,136 +1666,7 @@ class CfnChannel(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "channel_name": "channelName",
-        "channel_storage": "channelStorage",
-        "retention_period": "retentionPeriod",
-        "tags": "tags",
-    },
-)
-class CfnChannelProps:
-    def __init__(
-        self,
-        *,
-        channel_name: typing.Optional[builtins.str] = None,
-        channel_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnChannel``.
-
-        :param channel_name: The name of the channel.
-        :param channel_storage: Where channel data is stored.
-        :param retention_period: How long, in days, message data is kept for the channel.
-        :param tags: Metadata which can be used to manage the channel. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotanalytics as iotanalytics
-            
-            # service_managed_s3: Any
-            
-            cfn_channel_props = iotanalytics.CfnChannelProps(
-                channel_name="channelName",
-                channel_storage=iotanalytics.CfnChannel.ChannelStorageProperty(
-                    customer_managed_s3=iotanalytics.CfnChannel.CustomerManagedS3Property(
-                        bucket="bucket",
-                        role_arn="roleArn",
-            
-                        # the properties below are optional
-                        key_prefix="keyPrefix"
-                    ),
-                    service_managed_s3=service_managed_s3
-                ),
-                retention_period=iotanalytics.CfnChannel.RetentionPeriodProperty(
-                    number_of_days=123,
-                    unlimited=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1389944a7a7c5ae7ccfca31343abcc6dd4bb78b250fa7c33a3787f169cd7fdb3)
-            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
-            check_type(argname="argument channel_storage", value=channel_storage, expected_type=type_hints["channel_storage"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if channel_name is not None:
-            self._values["channel_name"] = channel_name
-        if channel_storage is not None:
-            self._values["channel_storage"] = channel_storage
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def channel_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-channelname
-        '''
-        result = self._values.get("channel_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def channel_storage(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.ChannelStorageProperty]]:
-        '''Where channel data is stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-channelstorage
-        '''
-        result = self._values.get("channel_storage")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.ChannelStorageProperty]], result)
-
-    @builtins.property
-    def retention_period(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.RetentionPeriodProperty]]:
-        '''How long, in days, message data is kept for the channel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.RetentionPeriodProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the channel.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-channel.html#cfn-iotanalytics-channel-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDatasetRef, _ITaggable_36806126)
 class CfnDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -846,6 +1869,12 @@ class CfnDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''A reference to a Dataset resource.'''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2767,284 +3796,7 @@ class CfnDataset(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "content_delivery_rules": "contentDeliveryRules",
-        "dataset_name": "datasetName",
-        "late_data_rules": "lateDataRules",
-        "retention_period": "retentionPeriod",
-        "tags": "tags",
-        "triggers": "triggers",
-        "versioning_configuration": "versioningConfiguration",
-    },
-)
-class CfnDatasetProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        content_delivery_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetContentDeliveryRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        dataset_name: typing.Optional[builtins.str] = None,
-        late_data_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.LateDataRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataset``.
-
-        :param actions: The ``DatasetAction`` objects that automatically create the dataset contents.
-        :param content_delivery_rules: When dataset contents are created they are delivered to destinations specified here.
-        :param dataset_name: The name of the dataset.
-        :param late_data_rules: A list of data rules that send notifications to CloudWatch, when data arrives late. To specify ``lateDataRules`` , the dataset must use a `DeltaTimer <https://docs.aws.amazon.com/iotanalytics/latest/APIReference/API_DeltaTime.html>`_ filter.
-        :param retention_period: Optional. How long, in days, message data is kept for the dataset.
-        :param tags: Metadata which can be used to manage the data set. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param triggers: The ``DatasetTrigger`` objects that specify when the dataset is automatically updated.
-        :param versioning_configuration: Optional. How many versions of dataset contents are kept. If not specified or set to null, only the latest version plus the latest succeeded version (if they are different) are kept for the time period specified by the ``retentionPeriod`` parameter. For more information, see `Keeping Multiple Versions of AWS IoT Analytics datasets <https://docs.aws.amazon.com/iotanalytics/latest/userguide/getting-started.html#aws-iot-analytics-dataset-versions>`_ in the *AWS IoT Analytics User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotanalytics as iotanalytics
-            
-            cfn_dataset_props = iotanalytics.CfnDatasetProps(
-                actions=[iotanalytics.CfnDataset.ActionProperty(
-                    action_name="actionName",
-            
-                    # the properties below are optional
-                    container_action=iotanalytics.CfnDataset.ContainerActionProperty(
-                        execution_role_arn="executionRoleArn",
-                        image="image",
-                        resource_configuration=iotanalytics.CfnDataset.ResourceConfigurationProperty(
-                            compute_type="computeType",
-                            volume_size_in_gb=123
-                        ),
-            
-                        # the properties below are optional
-                        variables=[iotanalytics.CfnDataset.VariableProperty(
-                            variable_name="variableName",
-            
-                            # the properties below are optional
-                            dataset_content_version_value=iotanalytics.CfnDataset.DatasetContentVersionValueProperty(
-                                dataset_name="datasetName"
-                            ),
-                            double_value=123,
-                            output_file_uri_value=iotanalytics.CfnDataset.OutputFileUriValueProperty(
-                                file_name="fileName"
-                            ),
-                            string_value="stringValue"
-                        )]
-                    ),
-                    query_action=iotanalytics.CfnDataset.QueryActionProperty(
-                        sql_query="sqlQuery",
-            
-                        # the properties below are optional
-                        filters=[iotanalytics.CfnDataset.FilterProperty(
-                            delta_time=iotanalytics.CfnDataset.DeltaTimeProperty(
-                                offset_seconds=123,
-                                time_expression="timeExpression"
-                            )
-                        )]
-                    )
-                )],
-            
-                # the properties below are optional
-                content_delivery_rules=[iotanalytics.CfnDataset.DatasetContentDeliveryRuleProperty(
-                    destination=iotanalytics.CfnDataset.DatasetContentDeliveryRuleDestinationProperty(
-                        iot_events_destination_configuration=iotanalytics.CfnDataset.IotEventsDestinationConfigurationProperty(
-                            input_name="inputName",
-                            role_arn="roleArn"
-                        ),
-                        s3_destination_configuration=iotanalytics.CfnDataset.S3DestinationConfigurationProperty(
-                            bucket="bucket",
-                            key="key",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            glue_configuration=iotanalytics.CfnDataset.GlueConfigurationProperty(
-                                database_name="databaseName",
-                                table_name="tableName"
-                            )
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    entry_name="entryName"
-                )],
-                dataset_name="datasetName",
-                late_data_rules=[iotanalytics.CfnDataset.LateDataRuleProperty(
-                    rule_configuration=iotanalytics.CfnDataset.LateDataRuleConfigurationProperty(
-                        delta_time_session_window_configuration=iotanalytics.CfnDataset.DeltaTimeSessionWindowConfigurationProperty(
-                            timeout_in_minutes=123
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    rule_name="ruleName"
-                )],
-                retention_period=iotanalytics.CfnDataset.RetentionPeriodProperty(
-                    number_of_days=123,
-                    unlimited=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                triggers=[iotanalytics.CfnDataset.TriggerProperty(
-                    schedule=iotanalytics.CfnDataset.ScheduleProperty(
-                        schedule_expression="scheduleExpression"
-                    ),
-                    triggering_dataset=iotanalytics.CfnDataset.TriggeringDatasetProperty(
-                        dataset_name="datasetName"
-                    )
-                )],
-                versioning_configuration=iotanalytics.CfnDataset.VersioningConfigurationProperty(
-                    max_versions=123,
-                    unlimited=False
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba482b4c89e3977548d923f68d372a4195ddedc9b62d05ec8d5000808561e994)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument content_delivery_rules", value=content_delivery_rules, expected_type=type_hints["content_delivery_rules"])
-            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
-            check_type(argname="argument late_data_rules", value=late_data_rules, expected_type=type_hints["late_data_rules"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
-            check_type(argname="argument versioning_configuration", value=versioning_configuration, expected_type=type_hints["versioning_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-        }
-        if content_delivery_rules is not None:
-            self._values["content_delivery_rules"] = content_delivery_rules
-        if dataset_name is not None:
-            self._values["dataset_name"] = dataset_name
-        if late_data_rules is not None:
-            self._values["late_data_rules"] = late_data_rules
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-        if triggers is not None:
-            self._values["triggers"] = triggers
-        if versioning_configuration is not None:
-            self._values["versioning_configuration"] = versioning_configuration
-
-    @builtins.property
-    def actions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.ActionProperty]]]:
-        '''The ``DatasetAction`` objects that automatically create the dataset contents.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.ActionProperty]]], result)
-
-    @builtins.property
-    def content_delivery_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetContentDeliveryRuleProperty]]]]:
-        '''When dataset contents are created they are delivered to destinations specified here.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-contentdeliveryrules
-        '''
-        result = self._values.get("content_delivery_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.DatasetContentDeliveryRuleProperty]]]], result)
-
-    @builtins.property
-    def dataset_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-datasetname
-        '''
-        result = self._values.get("dataset_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def late_data_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.LateDataRuleProperty]]]]:
-        '''A list of data rules that send notifications to CloudWatch, when data arrives late.
-
-        To specify ``lateDataRules`` , the dataset must use a `DeltaTimer <https://docs.aws.amazon.com/iotanalytics/latest/APIReference/API_DeltaTime.html>`_ filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-latedatarules
-        '''
-        result = self._values.get("late_data_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.LateDataRuleProperty]]]], result)
-
-    @builtins.property
-    def retention_period(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.RetentionPeriodProperty]]:
-        '''Optional.
-
-        How long, in days, message data is kept for the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.RetentionPeriodProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the data set.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def triggers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.TriggerProperty]]]]:
-        '''The ``DatasetTrigger`` objects that specify when the dataset is automatically updated.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-triggers
-        '''
-        result = self._values.get("triggers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataset.TriggerProperty]]]], result)
-
-    @builtins.property
-    def versioning_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.VersioningConfigurationProperty]]:
-        '''Optional.
-
-        How many versions of dataset contents are kept. If not specified or set to null, only the latest version plus the latest succeeded version (if they are different) are kept for the time period specified by the ``retentionPeriod`` parameter. For more information, see `Keeping Multiple Versions of AWS IoT Analytics datasets <https://docs.aws.amazon.com/iotanalytics/latest/userguide/getting-started.html#aws-iot-analytics-dataset-versions>`_ in the *AWS IoT Analytics User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-dataset.html#cfn-iotanalytics-dataset-versioningconfiguration
-        '''
-        result = self._values.get("versioning_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.VersioningConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDatastoreRef, _ITaggable_36806126)
 class CfnDatastore(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3201,6 +3953,12 @@ class CfnDatastore(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''A reference to a Datastore resource.'''
+        return typing.cast(DatastoreReference, jsii.get(self, "datastoreRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4300,209 +5058,7 @@ class CfnDatastore(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnDatastoreProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "datastore_name": "datastoreName",
-        "datastore_partitions": "datastorePartitions",
-        "datastore_storage": "datastoreStorage",
-        "file_format_configuration": "fileFormatConfiguration",
-        "retention_period": "retentionPeriod",
-        "tags": "tags",
-    },
-)
-class CfnDatastoreProps:
-    def __init__(
-        self,
-        *,
-        datastore_name: typing.Optional[builtins.str] = None,
-        datastore_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastorePartitionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        datastore_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastoreStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        file_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.FileFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDatastore``.
-
-        :param datastore_name: The name of the data store.
-        :param datastore_partitions: Information about the partition dimensions in a data store.
-        :param datastore_storage: Where data store data is stored.
-        :param file_format_configuration: Contains the configuration information of file formats. AWS IoT Analytics data stores support JSON and `Parquet <https://docs.aws.amazon.com/https://parquet.apache.org/>`_ . The default file format is JSON. You can specify only one format. You can't change the file format after you create the data store.
-        :param retention_period: How long, in days, message data is kept for the data store. When ``customerManagedS3`` storage is selected, this parameter is ignored.
-        :param tags: Metadata which can be used to manage the data store. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotanalytics as iotanalytics
-            
-            # json_configuration: Any
-            # service_managed_s3: Any
-            
-            cfn_datastore_props = iotanalytics.CfnDatastoreProps(
-                datastore_name="datastoreName",
-                datastore_partitions=iotanalytics.CfnDatastore.DatastorePartitionsProperty(
-                    partitions=[iotanalytics.CfnDatastore.DatastorePartitionProperty(
-                        partition=iotanalytics.CfnDatastore.PartitionProperty(
-                            attribute_name="attributeName"
-                        ),
-                        timestamp_partition=iotanalytics.CfnDatastore.TimestampPartitionProperty(
-                            attribute_name="attributeName",
-            
-                            # the properties below are optional
-                            timestamp_format="timestampFormat"
-                        )
-                    )]
-                ),
-                datastore_storage=iotanalytics.CfnDatastore.DatastoreStorageProperty(
-                    customer_managed_s3=iotanalytics.CfnDatastore.CustomerManagedS3Property(
-                        bucket="bucket",
-                        role_arn="roleArn",
-            
-                        # the properties below are optional
-                        key_prefix="keyPrefix"
-                    ),
-                    iot_site_wise_multi_layer_storage=iotanalytics.CfnDatastore.IotSiteWiseMultiLayerStorageProperty(
-                        customer_managed_s3_storage=iotanalytics.CfnDatastore.CustomerManagedS3StorageProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            key_prefix="keyPrefix"
-                        )
-                    ),
-                    service_managed_s3=service_managed_s3
-                ),
-                file_format_configuration=iotanalytics.CfnDatastore.FileFormatConfigurationProperty(
-                    json_configuration=json_configuration,
-                    parquet_configuration=iotanalytics.CfnDatastore.ParquetConfigurationProperty(
-                        schema_definition=iotanalytics.CfnDatastore.SchemaDefinitionProperty(
-                            columns=[iotanalytics.CfnDatastore.ColumnProperty(
-                                name="name",
-                                type="type"
-                            )]
-                        )
-                    )
-                ),
-                retention_period=iotanalytics.CfnDatastore.RetentionPeriodProperty(
-                    number_of_days=123,
-                    unlimited=False
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5e07deff1542b5d76f6fbec1b51b693bafafe7f15017228354ea52b83a2737b)
-            check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
-            check_type(argname="argument datastore_partitions", value=datastore_partitions, expected_type=type_hints["datastore_partitions"])
-            check_type(argname="argument datastore_storage", value=datastore_storage, expected_type=type_hints["datastore_storage"])
-            check_type(argname="argument file_format_configuration", value=file_format_configuration, expected_type=type_hints["file_format_configuration"])
-            check_type(argname="argument retention_period", value=retention_period, expected_type=type_hints["retention_period"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if datastore_name is not None:
-            self._values["datastore_name"] = datastore_name
-        if datastore_partitions is not None:
-            self._values["datastore_partitions"] = datastore_partitions
-        if datastore_storage is not None:
-            self._values["datastore_storage"] = datastore_storage
-        if file_format_configuration is not None:
-            self._values["file_format_configuration"] = file_format_configuration
-        if retention_period is not None:
-            self._values["retention_period"] = retention_period
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def datastore_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorename
-        '''
-        result = self._values.get("datastore_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def datastore_partitions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.DatastorePartitionsProperty]]:
-        '''Information about the partition dimensions in a data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorepartitions
-        '''
-        result = self._values.get("datastore_partitions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.DatastorePartitionsProperty]], result)
-
-    @builtins.property
-    def datastore_storage(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.DatastoreStorageProperty]]:
-        '''Where data store data is stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-datastorestorage
-        '''
-        result = self._values.get("datastore_storage")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.DatastoreStorageProperty]], result)
-
-    @builtins.property
-    def file_format_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.FileFormatConfigurationProperty]]:
-        '''Contains the configuration information of file formats. AWS IoT Analytics data stores support JSON and `Parquet <https://docs.aws.amazon.com/https://parquet.apache.org/>`_ .
-
-        The default file format is JSON. You can specify only one format.
-
-        You can't change the file format after you create the data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-fileformatconfiguration
-        '''
-        result = self._values.get("file_format_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.FileFormatConfigurationProperty]], result)
-
-    @builtins.property
-    def retention_period(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.RetentionPeriodProperty]]:
-        '''How long, in days, message data is kept for the data store.
-
-        When ``customerManagedS3`` storage is selected, this parameter is ignored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-retentionperiod
-        '''
-        result = self._values.get("retention_period")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDatastore.RetentionPeriodProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the data store.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-datastore.html#cfn-iotanalytics-datastore-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatastoreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPipelineRef, _ITaggable_36806126)
 class CfnPipeline(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4680,6 +5236,12 @@ class CfnPipeline(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> PipelineReference:
+        '''A reference to a Pipeline resource.'''
+        return typing.cast(PipelineReference, jsii.get(self, "pipelineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5998,188 +6560,6 @@ class CfnPipeline(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotanalytics.CfnPipelineProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "pipeline_activities": "pipelineActivities",
-        "pipeline_name": "pipelineName",
-        "tags": "tags",
-    },
-)
-class CfnPipelineProps:
-    def __init__(
-        self,
-        *,
-        pipeline_activities: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ActivityProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        pipeline_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPipeline``.
-
-        :param pipeline_activities: A list of "PipelineActivity" objects. Activities perform transformations on your messages, such as removing, renaming or adding message attributes; filtering messages based on attribute values; invoking your Lambda functions on messages for advanced processing; or performing mathematical transformations to normalize device data. The list can be 2-25 *PipelineActivity* objects and must contain both a ``channel`` and a ``datastore`` activity. Each entry in the list must contain only one activity, for example: ``pipelineActivities = [ { "channel": { ... } }, { "lambda": { ... } }, ... ]``
-        :param pipeline_name: The name of the pipeline.
-        :param tags: Metadata which can be used to manage the pipeline. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotanalytics as iotanalytics
-            
-            cfn_pipeline_props = iotanalytics.CfnPipelineProps(
-                pipeline_activities=[iotanalytics.CfnPipeline.ActivityProperty(
-                    add_attributes=iotanalytics.CfnPipeline.AddAttributesProperty(
-                        attributes={
-                            "attributes_key": "attributes"
-                        },
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    channel=iotanalytics.CfnPipeline.ChannelProperty(
-                        channel_name="channelName",
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    datastore=iotanalytics.CfnPipeline.DatastoreProperty(
-                        datastore_name="datastoreName",
-                        name="name"
-                    ),
-                    device_registry_enrich=iotanalytics.CfnPipeline.DeviceRegistryEnrichProperty(
-                        attribute="attribute",
-                        name="name",
-                        role_arn="roleArn",
-                        thing_name="thingName",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    device_shadow_enrich=iotanalytics.CfnPipeline.DeviceShadowEnrichProperty(
-                        attribute="attribute",
-                        name="name",
-                        role_arn="roleArn",
-                        thing_name="thingName",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    filter=iotanalytics.CfnPipeline.FilterProperty(
-                        filter="filter",
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    lambda_=iotanalytics.CfnPipeline.LambdaProperty(
-                        batch_size=123,
-                        lambda_name="lambdaName",
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    math=iotanalytics.CfnPipeline.MathProperty(
-                        attribute="attribute",
-                        math="math",
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    remove_attributes=iotanalytics.CfnPipeline.RemoveAttributesProperty(
-                        attributes=["attributes"],
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    ),
-                    select_attributes=iotanalytics.CfnPipeline.SelectAttributesProperty(
-                        attributes=["attributes"],
-                        name="name",
-            
-                        # the properties below are optional
-                        next="next"
-                    )
-                )],
-            
-                # the properties below are optional
-                pipeline_name="pipelineName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f679c4a07101956552f6a581e512ccc717093dd11033f5cba9e585cec9333ef)
-            check_type(argname="argument pipeline_activities", value=pipeline_activities, expected_type=type_hints["pipeline_activities"])
-            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "pipeline_activities": pipeline_activities,
-        }
-        if pipeline_name is not None:
-            self._values["pipeline_name"] = pipeline_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def pipeline_activities(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPipeline.ActivityProperty]]]:
-        '''A list of "PipelineActivity" objects.
-
-        Activities perform transformations on your messages, such as removing, renaming or adding message attributes; filtering messages based on attribute values; invoking your Lambda functions on messages for advanced processing; or performing mathematical transformations to normalize device data.
-
-        The list can be 2-25 *PipelineActivity* objects and must contain both a ``channel`` and a ``datastore`` activity. Each entry in the list must contain only one activity, for example:
-
-        ``pipelineActivities = [ { "channel": { ... } }, { "lambda": { ... } }, ... ]``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-pipelineactivities
-        '''
-        result = self._values.get("pipeline_activities")
-        assert result is not None, "Required property 'pipeline_activities' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPipeline.ActivityProperty]]], result)
-
-    @builtins.property
-    def pipeline_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the pipeline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-pipelinename
-        '''
-        result = self._values.get("pipeline_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata which can be used to manage the pipeline.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotanalytics-pipeline.html#cfn-iotanalytics-pipeline-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPipelineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnChannel",
     "CfnChannelProps",
@@ -6189,9 +6569,90 @@ __all__ = [
     "CfnDatastoreProps",
     "CfnPipeline",
     "CfnPipelineProps",
+    "ChannelReference",
+    "DatasetReference",
+    "DatastoreReference",
+    "IChannelRef",
+    "IDatasetRef",
+    "IDatastoreRef",
+    "IPipelineRef",
+    "PipelineReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1389944a7a7c5ae7ccfca31343abcc6dd4bb78b250fa7c33a3787f169cd7fdb3(
+    *,
+    channel_name: typing.Optional[builtins.str] = None,
+    channel_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba482b4c89e3977548d923f68d372a4195ddedc9b62d05ec8d5000808561e994(
+    *,
+    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    content_delivery_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetContentDeliveryRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dataset_name: typing.Optional[builtins.str] = None,
+    late_data_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.LateDataRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5e07deff1542b5d76f6fbec1b51b693bafafe7f15017228354ea52b83a2737b(
+    *,
+    datastore_name: typing.Optional[builtins.str] = None,
+    datastore_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastorePartitionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    datastore_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastoreStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    file_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.FileFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f679c4a07101956552f6a581e512ccc717093dd11033f5cba9e585cec9333ef(
+    *,
+    pipeline_activities: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ActivityProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pipeline_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef5002bd3f62c09941e43854262cb7f7480f8b9cb5b8f87fe5d5c98b2b1d87d7(
+    *,
+    channel_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b16ab94d74f063217f87da5d2c6dc40c8b22a1e01226a08f084f0da5fe26f7f7(
+    *,
+    dataset_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8ebac0e1807268e8e85f97e3ab981a7ad92fea8044addf96c192b25f8d01922(
+    *,
+    datastore_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d7365a611cca2ed370cab2f97fadef898e66a314d7b531d454c0534eaf6e597(
+    *,
+    pipeline_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__8332c208b00865f2cfdad255e86ebeabe2b2b68a70b8fa26b96ec9b8c1e25499(
     scope: _constructs_77d1e7e8.Construct,
@@ -6262,16 +6723,6 @@ def _typecheckingstub__c61da11bbb4ca5d43e4fd9639491db4447e4c3f71df13bf8e176559ea
     *,
     number_of_days: typing.Optional[jsii.Number] = None,
     unlimited: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1389944a7a7c5ae7ccfca31343abcc6dd4bb78b250fa7c33a3787f169cd7fdb3(
-    *,
-    channel_name: typing.Optional[builtins.str] = None,
-    channel_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6529,20 +6980,6 @@ def _typecheckingstub__44ef2d0f147e3d91be95ed97931f9fe1fdbe66142e58213b3dda686e0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ba482b4c89e3977548d923f68d372a4195ddedc9b62d05ec8d5000808561e994(
-    *,
-    actions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    content_delivery_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.DatasetContentDeliveryRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    dataset_name: typing.Optional[builtins.str] = None,
-    late_data_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.LateDataRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    triggers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.TriggerProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    versioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.VersioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__80888194774a160a9eb52d698126a6fd1e7e99768082595c8f4810a89813f3c1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6706,18 +7143,6 @@ def _typecheckingstub__6d43c9ee54cedeb8e135981f6b1b363d55973c05551571400829d3f5e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e5e07deff1542b5d76f6fbec1b51b693bafafe7f15017228354ea52b83a2737b(
-    *,
-    datastore_name: typing.Optional[builtins.str] = None,
-    datastore_partitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastorePartitionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    datastore_storage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.DatastoreStorageProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    file_format_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.FileFormatConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    retention_period: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDatastore.RetentionPeriodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__780e6e051f6bd102a51bd0b3de8f56cd44681953f4198d827460085558e2add9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6866,15 +7291,6 @@ def _typecheckingstub__32451c3e1df1197b5950a71e851820554a3321946c3ba2be585d73c0f
     attributes: typing.Sequence[builtins.str],
     name: builtins.str,
     next: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0f679c4a07101956552f6a581e512ccc717093dd11033f5cba9e585cec9333ef(
-    *,
-    pipeline_activities: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.ActivityProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    pipeline_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

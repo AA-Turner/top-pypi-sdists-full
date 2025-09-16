@@ -42,33 +42,26 @@ jobs:
             allow_failure: false
             prefix: ''
 
-          - os: macos-latest
+          - os: ubuntu-latest
             python: '3.12'
             tox_env: 'py312-test-alldeps'
             allow_failure: false
             prefix: ''
 
-          - os: macos-14
-            python: '3.12'
-            tox_env: 'py312-test-alldeps'
+          - os: macos-latest
+            python: '3.13'
+            tox_env: 'py313-test-alldeps'
             allow_failure: false
-            prefix: 'M1'
+            prefix: ''
 
           - os: windows-latest
-            python: '3.12'
-            tox_env: 'py312-test-alldeps'
+            python: '3.13'
+            tox_env: 'py313-test-alldeps'
             allow_failure: false
             prefix: ''
 
           - os: ubuntu-latest
-            python: '3.12'
-            tox_env: 'py312-test'
-            toxposargs: --remote-data=any
-            allow_failure: false
-            prefix: ''
-
-          - os: ubuntu-latest
-            python: '3.12'
+            python: '3.13'
             tox_env: 'py312-test-alldeps-cov'
             toxposargs: --remote-data=any
             allow_failure: false
@@ -76,32 +69,34 @@ jobs:
 
           # cannot use alldeps: rasterio does not have a arm64 wheel
           - os: ubuntu-24.04-arm
-            python: '3.12'
-            tox_env: 'py312-test'
+            python: '3.13'
+            tox_env: 'py313-test'
             allow_failure: false
             prefix: ''
 
+          # test without all dependencies
           - os: ubuntu-latest
-            python: '3.12'
-            tox_env: 'codestyle'
-            allow_failure: false
-            prefix: ''
-
-          - os: ubuntu-latest
-            python: '3.12'
-            tox_env: 'pep517'
-            allow_failure: false
-            prefix: ''
-
-          - os: ubuntu-latest
-            python: '3.12'
-            tox_env: 'bandit'
+            python: '3.13'
+            tox_env: 'py313-test'
+            toxposargs: --remote-data=any
             allow_failure: false
             prefix: ''
 
           - os: ubuntu-latest
             python: '3.13'
-            tox_env: 'py313-test-alldeps'
+            tox_env: 'codestyle'
+            allow_failure: false
+            prefix: ''
+
+          - os: ubuntu-latest
+            python: '3.13'
+            tox_env: 'pep517'
+            allow_failure: false
+            prefix: ''
+
+          - os: ubuntu-latest
+            python: '3.13'
+            tox_env: 'bandit'
             allow_failure: false
             prefix: ''
 
@@ -116,9 +111,10 @@ jobs:
     - name: Check out repository
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       with:
+        persist-credentials: false
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38  # v5.4.0
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
       with:
         python-version: ${{ matrix.python }}
         allow-prereleases: true
@@ -134,7 +130,7 @@ jobs:
       run: python -m tox -e ${{ matrix.tox_env }} -- -n=2 ${{ matrix.toxposargs }}
     - name: Upload coverage to codecov
       if: ${{ contains(matrix.tox_env, '-cov') }}
-      uses: codecov/codecov-action@13ce06bfc6bbe3ecf90edbbf1bc32fe5978ca1d3  # v5.3.1
+      uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24  # v5.4.3
       with:
         files: ./coverage.xml
         verbose: true

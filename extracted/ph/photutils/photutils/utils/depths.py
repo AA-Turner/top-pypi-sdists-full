@@ -1,17 +1,18 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides tools for calculating limiting fluxes.
+Define tools for calculating limiting fluxes.
 """
 
 import warnings
 
 import astropy.units as u
 import numpy as np
-from astropy.stats import SigmaClip
 from astropy.utils.exceptions import AstropyUserWarning
 from scipy.ndimage import binary_dilation
 
 from photutils.utils._coords import apply_separation
+from photutils.utils._parameters import (SigmaClipSentinelDefault,
+                                         create_default_sigmaclip)
 from photutils.utils._progress_bars import add_progress_bar
 from photutils.utils._repr import make_repr
 from photutils.utils.footprints import circular_footprint
@@ -19,6 +20,8 @@ from photutils.utils.footprints import circular_footprint
 __all__ = ['ImageDepth']
 
 __doctest_requires__ = {('ImageDepth', 'ImageDepth.*'): ['skimage']}
+
+SIGMA_CLIP = SigmaClipSentinelDefault(sigma=3.0, maxiters=10)
 
 
 class ImageDepth:
@@ -72,7 +75,7 @@ class ImageDepth:
             m_{\mathrm{lim}} = -2.5 \log_{10} f_{\mathrm{lim}}
                 + \mathrm{zeropoint}
 
-    sigma_clip : `astropy.stats.SigmaClip` instance, optional
+    sigma_clip : `astropy.stats.SigmaClip`, optional
         A `~astropy.stats.SigmaClip` object that defines the sigma
         clipping parameters to use when computing the limiting flux. If
         `None` then no sigma clipping will be performed.
@@ -80,8 +83,7 @@ class ImageDepth:
     progress_bar : bool, optional
         Whether to display a progress bar. The progress bar requires
         that the `tqdm <https://tqdm.github.io/>`_ optional dependency
-        be installed. Note that the progress bar does not currently work
-        in the Jupyter console due to limitations in ``tqdm``.
+        be installed.
 
     Attributes
     ----------
@@ -195,13 +197,14 @@ class ImageDepth:
 
     def __init__(self, aper_radius, *, nsigma=5.0, mask_pad=0, napers=1000,
                  niters=10, overlap=True, overlap_maxiters=100, seed=None,
-                 zeropoint=0.0, sigma_clip=SigmaClip(sigma=3.0, maxiters=10),
-                 progress_bar=True):
+                 zeropoint=0.0, sigma_clip=SIGMA_CLIP, progress_bar=True):
 
         if aper_radius <= 0:
-            raise ValueError('aper_radius must be > 0')
+            msg = 'aper_radius must be > 0'
+            raise ValueError(msg)
         if mask_pad < 0:
-            raise ValueError('mask_pad must be >= 0')
+            msg = 'mask_pad must be >= 0'
+            raise ValueError(msg)
 
         self.aper_radius = aper_radius
         self.nsigma = nsigma
@@ -212,6 +215,9 @@ class ImageDepth:
         self.overlap_maxiters = overlap_maxiters
         self.seed = seed
         self.zeropoint = zeropoint
+        if sigma_clip is SIGMA_CLIP:
+            sigma_clip = create_default_sigmaclip(sigma=SIGMA_CLIP.sigma,
+                                                  maxiters=SIGMA_CLIP.maxiters)
         self.sigma_clip = sigma_clip
         self.progress_bar = progress_bar
 
@@ -264,8 +270,9 @@ class ImageDepth:
             all_xycoords = self._make_all_coords(mask)
 
         if len(all_xycoords) == 0:
-            raise ValueError('There are no unmasked pixel values (including '
-                             'the masked image borders).')
+            msg = ('There are no unmasked pixel values (including the '
+                   'masked image borders).')
+            raise ValueError(msg)
 
         napers = self.napers
         if not self.overlap:
@@ -515,7 +522,8 @@ class ImageDepth:
             The (x, y) coordinates.
         """
         if napers > xycoords.shape[0]:
-            raise ValueError('Too many apertures for given unmasked area')
+            msg = 'Too many apertures for given unmasked area'
+            raise ValueError(msg)
 
         idx = self.rng.choice(xycoords.shape[0], napers, replace=False)
         xycoords = xycoords[idx, :].astype(float)

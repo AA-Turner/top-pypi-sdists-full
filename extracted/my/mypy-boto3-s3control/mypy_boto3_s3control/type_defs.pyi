@@ -120,6 +120,7 @@ __all__ = (
     "CreateMultiRegionAccessPointResultTypeDef",
     "CreateStorageLensGroupRequestTypeDef",
     "CredentialsTypeDef",
+    "DSSEKMSFilterTypeDef",
     "DeleteAccessGrantRequestTypeDef",
     "DeleteAccessGrantsInstanceRequestTypeDef",
     "DeleteAccessGrantsInstanceResourcePolicyRequestTypeDef",
@@ -301,6 +302,8 @@ __all__ = (
     "MultiRegionAccessPointsAsyncResponseTypeDef",
     "NoncurrentVersionExpirationTypeDef",
     "NoncurrentVersionTransitionTypeDef",
+    "ObjectEncryptionFilterOutputTypeDef",
+    "ObjectEncryptionFilterTypeDef",
     "ObjectLambdaAccessPointAliasTypeDef",
     "ObjectLambdaAccessPointTypeDef",
     "ObjectLambdaConfigurationOutputTypeDef",
@@ -381,6 +384,7 @@ __all__ = (
     "S3SetObjectTaggingOperationTypeDef",
     "S3TagTypeDef",
     "SSEKMSEncryptionTypeDef",
+    "SSEKMSFilterTypeDef",
     "SSEKMSTypeDef",
     "ScopeOutputTypeDef",
     "ScopeTypeDef",
@@ -527,6 +531,9 @@ class CredentialsTypeDef(TypedDict):
     SecretAccessKey: NotRequired[str]
     SessionToken: NotRequired[str]
     Expiration: NotRequired[datetime]
+
+class DSSEKMSFilterTypeDef(TypedDict):
+    KmsKeyArn: NotRequired[str]
 
 class DeleteAccessGrantRequestTypeDef(TypedDict):
     AccountId: str
@@ -985,6 +992,10 @@ class RegionReportTypeDef(TypedDict):
     Bucket: NotRequired[str]
     Region: NotRequired[str]
     BucketAccountId: NotRequired[str]
+
+class SSEKMSFilterTypeDef(TypedDict):
+    KmsKeyArn: NotRequired[str]
+    BucketKeyEnabled: NotRequired[bool]
 
 class SelectionCriteriaTypeDef(TypedDict):
     Delimiter: NotRequired[str]
@@ -1454,26 +1465,6 @@ class PutStorageLensConfigurationTaggingRequestTypeDef(TypedDict):
     AccountId: str
     Tags: Sequence[StorageLensTagTypeDef]
 
-class JobManifestGeneratorFilterOutputTypeDef(TypedDict):
-    EligibleForReplication: NotRequired[bool]
-    CreatedAfter: NotRequired[datetime]
-    CreatedBefore: NotRequired[datetime]
-    ObjectReplicationStatuses: NotRequired[List[ReplicationStatusType]]
-    KeyNameConstraint: NotRequired[KeyNameConstraintOutputTypeDef]
-    ObjectSizeGreaterThanBytes: NotRequired[int]
-    ObjectSizeLessThanBytes: NotRequired[int]
-    MatchAnyStorageClass: NotRequired[List[S3StorageClassType]]
-
-class JobManifestGeneratorFilterTypeDef(TypedDict):
-    EligibleForReplication: NotRequired[bool]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    ObjectReplicationStatuses: NotRequired[Sequence[ReplicationStatusType]]
-    KeyNameConstraint: NotRequired[KeyNameConstraintTypeDef]
-    ObjectSizeGreaterThanBytes: NotRequired[int]
-    ObjectSizeLessThanBytes: NotRequired[int]
-    MatchAnyStorageClass: NotRequired[Sequence[S3StorageClassType]]
-
 class LifecycleExpirationTypeDef(TypedDict):
     Date: NotRequired[TimestampTypeDef]
     Days: NotRequired[int]
@@ -1614,6 +1605,20 @@ class MultiRegionAccessPointReportTypeDef(TypedDict):
     PublicAccessBlock: NotRequired[PublicAccessBlockConfigurationTypeDef]
     Status: NotRequired[MultiRegionAccessPointStatusType]
     Regions: NotRequired[List[RegionReportTypeDef]]
+
+class ObjectEncryptionFilterOutputTypeDef(TypedDict):
+    SSES3: NotRequired[Dict[str, Any]]
+    SSEKMS: NotRequired[SSEKMSFilterTypeDef]
+    DSSEKMS: NotRequired[DSSEKMSFilterTypeDef]
+    SSEC: NotRequired[Dict[str, Any]]
+    NOTSSE: NotRequired[Dict[str, Any]]
+
+class ObjectEncryptionFilterTypeDef(TypedDict):
+    SSES3: NotRequired[Mapping[str, Any]]
+    SSEKMS: NotRequired[SSEKMSFilterTypeDef]
+    DSSEKMS: NotRequired[DSSEKMSFilterTypeDef]
+    SSEC: NotRequired[Mapping[str, Any]]
+    NOTSSE: NotRequired[Mapping[str, Any]]
 
 class PrefixLevelStorageMetricsTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
@@ -1798,6 +1803,28 @@ class ListMultiRegionAccessPointsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class JobManifestGeneratorFilterOutputTypeDef(TypedDict):
+    EligibleForReplication: NotRequired[bool]
+    CreatedAfter: NotRequired[datetime]
+    CreatedBefore: NotRequired[datetime]
+    ObjectReplicationStatuses: NotRequired[List[ReplicationStatusType]]
+    KeyNameConstraint: NotRequired[KeyNameConstraintOutputTypeDef]
+    ObjectSizeGreaterThanBytes: NotRequired[int]
+    ObjectSizeLessThanBytes: NotRequired[int]
+    MatchAnyStorageClass: NotRequired[List[S3StorageClassType]]
+    MatchAnyObjectEncryption: NotRequired[List[ObjectEncryptionFilterOutputTypeDef]]
+
+class JobManifestGeneratorFilterTypeDef(TypedDict):
+    EligibleForReplication: NotRequired[bool]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    ObjectReplicationStatuses: NotRequired[Sequence[ReplicationStatusType]]
+    KeyNameConstraint: NotRequired[KeyNameConstraintTypeDef]
+    ObjectSizeGreaterThanBytes: NotRequired[int]
+    ObjectSizeLessThanBytes: NotRequired[int]
+    MatchAnyStorageClass: NotRequired[Sequence[S3StorageClassType]]
+    MatchAnyObjectEncryption: NotRequired[Sequence[ObjectEncryptionFilterTypeDef]]
+
 class PrefixLevelTypeDef(TypedDict):
     StorageMetrics: PrefixLevelStorageMetricsTypeDef
 
@@ -1914,20 +1941,6 @@ class CreateMultiRegionAccessPointRequestTypeDef(TypedDict):
     ClientToken: str
     Details: CreateMultiRegionAccessPointInputUnionTypeDef
 
-class S3JobManifestGeneratorOutputTypeDef(TypedDict):
-    SourceBucket: str
-    EnableManifestOutput: bool
-    ExpectedBucketOwner: NotRequired[str]
-    ManifestOutputLocation: NotRequired[S3ManifestOutputLocationOutputTypeDef]
-    Filter: NotRequired[JobManifestGeneratorFilterOutputTypeDef]
-
-class S3JobManifestGeneratorTypeDef(TypedDict):
-    SourceBucket: str
-    EnableManifestOutput: bool
-    ExpectedBucketOwner: NotRequired[str]
-    ManifestOutputLocation: NotRequired[S3ManifestOutputLocationTypeDef]
-    Filter: NotRequired[JobManifestGeneratorFilterTypeDef]
-
 class ListJobsResultTypeDef(TypedDict):
     Jobs: List[JobListDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1975,6 +1988,20 @@ class AsyncOperationTypeDef(TypedDict):
     RequestStatus: NotRequired[str]
     ResponseDetails: NotRequired[AsyncResponseDetailsTypeDef]
 
+class S3JobManifestGeneratorOutputTypeDef(TypedDict):
+    SourceBucket: str
+    EnableManifestOutput: bool
+    ExpectedBucketOwner: NotRequired[str]
+    ManifestOutputLocation: NotRequired[S3ManifestOutputLocationOutputTypeDef]
+    Filter: NotRequired[JobManifestGeneratorFilterOutputTypeDef]
+
+class S3JobManifestGeneratorTypeDef(TypedDict):
+    SourceBucket: str
+    EnableManifestOutput: bool
+    ExpectedBucketOwner: NotRequired[str]
+    ManifestOutputLocation: NotRequired[S3ManifestOutputLocationTypeDef]
+    Filter: NotRequired[JobManifestGeneratorFilterTypeDef]
+
 class BucketLevelTypeDef(TypedDict):
     ActivityMetrics: NotRequired[ActivityMetricsTypeDef]
     PrefixLevel: NotRequired[PrefixLevelTypeDef]
@@ -2014,12 +2041,6 @@ LifecycleRuleFilterUnionTypeDef = Union[
     LifecycleRuleFilterTypeDef, LifecycleRuleFilterOutputTypeDef
 ]
 
-class JobManifestGeneratorOutputTypeDef(TypedDict):
-    S3JobManifestGenerator: NotRequired[S3JobManifestGeneratorOutputTypeDef]
-
-class JobManifestGeneratorTypeDef(TypedDict):
-    S3JobManifestGenerator: NotRequired[S3JobManifestGeneratorTypeDef]
-
 class GetStorageLensGroupResultTypeDef(TypedDict):
     StorageLensGroup: StorageLensGroupOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2037,6 +2058,12 @@ class ReplicationConfigurationTypeDef(TypedDict):
 class DescribeMultiRegionAccessPointOperationResultTypeDef(TypedDict):
     AsyncOperation: AsyncOperationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class JobManifestGeneratorOutputTypeDef(TypedDict):
+    S3JobManifestGenerator: NotRequired[S3JobManifestGeneratorOutputTypeDef]
+
+class JobManifestGeneratorTypeDef(TypedDict):
+    S3JobManifestGenerator: NotRequired[S3JobManifestGeneratorTypeDef]
 
 class AccountLevelOutputTypeDef(TypedDict):
     BucketLevel: BucketLevelTypeDef
@@ -2080,10 +2107,6 @@ class LifecycleRuleTypeDef(TypedDict):
     NoncurrentVersionExpiration: NotRequired[NoncurrentVersionExpirationTypeDef]
     AbortIncompleteMultipartUpload: NotRequired[AbortIncompleteMultipartUploadTypeDef]
 
-JobManifestGeneratorUnionTypeDef = Union[
-    JobManifestGeneratorTypeDef, JobManifestGeneratorOutputTypeDef
-]
-
 class CreateStorageLensGroupRequestTypeDef(TypedDict):
     AccountId: str
     StorageLensGroup: StorageLensGroupUnionTypeDef
@@ -2100,6 +2123,9 @@ class GetBucketReplicationResultTypeDef(TypedDict):
 
 ReplicationConfigurationUnionTypeDef = Union[
     ReplicationConfigurationTypeDef, ReplicationConfigurationOutputTypeDef
+]
+JobManifestGeneratorUnionTypeDef = Union[
+    JobManifestGeneratorTypeDef, JobManifestGeneratorOutputTypeDef
 ]
 
 class StorageLensConfigurationOutputTypeDef(TypedDict):

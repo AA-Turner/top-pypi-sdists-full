@@ -1,5 +1,6 @@
 import sys
 from argparse import ArgumentParser, FileType
+from pathlib import Path
 
 from html_to_markdown.constants import (
     ASTERISK,
@@ -13,6 +14,7 @@ from html_to_markdown.constants import (
     WHITESPACE_NORMALIZED,
     WHITESPACE_STRICT,
 )
+from html_to_markdown.exceptions import InvalidEncodingError
 from html_to_markdown.processing import convert_to_markdown
 
 
@@ -131,6 +133,12 @@ def main(argv: list[str]) -> str:
         help="Parent tags where images remain inline (not converted to alt-text).",
     )
 
+    parser.add_argument(
+        "--br-in-tables",
+        action="store_true",
+        help="Use <br> tags for line breaks in table cells instead of spaces.",
+    )
+
     parser.add_argument("-w", "--wrap", action="store_true", help="Enable text wrapping at --wrap-width characters.")
 
     parser.add_argument(
@@ -235,10 +243,18 @@ def main(argv: list[str]) -> str:
         help="Keep navigation elements when preprocessing (normally removed).",
     )
 
+    parser.add_argument(
+        "--source-encoding",
+        type=str,
+        default=None,
+        help="Source file encoding (e.g. 'utf-8', 'latin-1'). Defaults to system default.",
+    )
+
     args = parser.parse_args(argv)
 
     base_args = {
         "autolinks": args.autolinks,
+        "br_in_tables": args.br_in_tables,
         "bullets": args.bullets,
         "code_language": args.code_language,
         "convert": args.convert,
@@ -278,7 +294,7 @@ def main(argv: list[str]) -> str:
         if args.show_progress:
 
             def progress_callback(processed: int, total: int) -> None:
-                if total > 0:
+                if total > 0:  # pragma: no cover
                     percent = (processed / total) * 100
 
                     sys.stderr.write(f"\rProgress: {percent:.1f}% ({processed}/{total} bytes)")
@@ -286,4 +302,14 @@ def main(argv: list[str]) -> str:
 
             base_args["progress_callback"] = progress_callback
 
-    return convert_to_markdown(args.html.read(), **base_args)
+    if args.source_encoding and args.html.name != "<stdin>":
+        args.html.close()
+        try:
+            with Path(args.html.name).open(encoding=args.source_encoding) as f:
+                html_content = f.read()
+        except LookupError as e:
+            raise InvalidEncodingError(args.source_encoding) from e
+    else:
+        html_content = args.html.read()
+
+    return convert_to_markdown(html_content, **base_args)

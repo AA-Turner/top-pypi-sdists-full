@@ -78,7 +78,210 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codeconnections.CfnConnectionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_name": "connectionName",
+        "host_arn": "hostArn",
+        "provider_type": "providerType",
+        "tags": "tags",
+    },
+)
+class CfnConnectionProps:
+    def __init__(
+        self,
+        *,
+        connection_name: builtins.str,
+        host_arn: typing.Optional[builtins.str] = None,
+        provider_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnection``.
+
+        :param connection_name: The name of the connection. Connection names must be unique in an AWS account .
+        :param host_arn: The Amazon Resource Name (ARN) of the host associated with the connection.
+        :param provider_type: The name of the external provider where your third-party code repository is configured.
+        :param tags: Specifies the tags applied to a connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codeconnections as codeconnections
+            
+            cfn_connection_props = codeconnections.CfnConnectionProps(
+                connection_name="connectionName",
+            
+                # the properties below are optional
+                host_arn="hostArn",
+                provider_type="providerType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde)
+            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+            check_type(argname="argument host_arn", value=host_arn, expected_type=type_hints["host_arn"])
+            check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_name": connection_name,
+        }
+        if host_arn is not None:
+            self._values["host_arn"] = host_arn
+        if provider_type is not None:
+            self._values["provider_type"] = provider_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def connection_name(self) -> builtins.str:
+        '''The name of the connection.
+
+        Connection names must be unique in an AWS account .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-connectionname
+        '''
+        result = self._values.get("connection_name")
+        assert result is not None, "Required property 'connection_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def host_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the host associated with the connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-hostarn
+        '''
+        result = self._values.get("host_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def provider_type(self) -> typing.Optional[builtins.str]:
+        '''The name of the external provider where your third-party code repository is configured.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-providertype
+        '''
+        result = self._values.get("provider_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Specifies the tags applied to a connection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codeconnections.ConnectionReference",
+    jsii_struct_bases=[],
+    name_mapping={"connection_arn": "connectionArn"},
+)
+class ConnectionReference:
+    def __init__(self, *, connection_arn: builtins.str) -> None:
+        '''A reference to a Connection resource.
+
+        :param connection_arn: The ConnectionArn of the Connection resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codeconnections as codeconnections
+            
+            connection_reference = codeconnections.ConnectionReference(
+                connection_arn="connectionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8aa42e08c855d8398d3126c750c673c58752af789e813a8d55dc6161bffde531)
+            check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connection_arn": connection_arn,
+        }
+
+    @builtins.property
+    def connection_arn(self) -> builtins.str:
+        '''The ConnectionArn of the Connection resource.'''
+        result = self._values.get("connection_arn")
+        assert result is not None, "Required property 'connection_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_codeconnections.IConnectionRef")
+class IConnectionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConnectionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Connection.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codeconnections.IConnectionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''(experimental) A reference to a Connection resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConnectionReference, jsii.get(self, "connectionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConnectionRef).__jsii_proxy_class__ = lambda : _IConnectionRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IConnectionRef, _ITaggableV2_4e6798f8)
 class CfnConnection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -218,6 +421,12 @@ class CfnConnection(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="connectionRef")
+    def connection_ref(self) -> ConnectionReference:
+        '''A reference to a Connection resource.'''
+        return typing.cast(ConnectionReference, jsii.get(self, "connectionRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="connectionName")
     def connection_name(self) -> builtins.str:
         '''The name of the connection.'''
@@ -270,126 +479,31 @@ class CfnConnection(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_codeconnections.CfnConnectionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "connection_name": "connectionName",
-        "host_arn": "hostArn",
-        "provider_type": "providerType",
-        "tags": "tags",
-    },
-)
-class CfnConnectionProps:
-    def __init__(
-        self,
-        *,
-        connection_name: builtins.str,
-        host_arn: typing.Optional[builtins.str] = None,
-        provider_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConnection``.
-
-        :param connection_name: The name of the connection. Connection names must be unique in an AWS account .
-        :param host_arn: The Amazon Resource Name (ARN) of the host associated with the connection.
-        :param provider_type: The name of the external provider where your third-party code repository is configured.
-        :param tags: Specifies the tags applied to a connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_codeconnections as codeconnections
-            
-            cfn_connection_props = codeconnections.CfnConnectionProps(
-                connection_name="connectionName",
-            
-                # the properties below are optional
-                host_arn="hostArn",
-                provider_type="providerType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde)
-            check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
-            check_type(argname="argument host_arn", value=host_arn, expected_type=type_hints["host_arn"])
-            check_type(argname="argument provider_type", value=provider_type, expected_type=type_hints["provider_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "connection_name": connection_name,
-        }
-        if host_arn is not None:
-            self._values["host_arn"] = host_arn
-        if provider_type is not None:
-            self._values["provider_type"] = provider_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def connection_name(self) -> builtins.str:
-        '''The name of the connection.
-
-        Connection names must be unique in an AWS account .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-connectionname
-        '''
-        result = self._values.get("connection_name")
-        assert result is not None, "Required property 'connection_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def host_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the host associated with the connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-hostarn
-        '''
-        result = self._values.get("host_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def provider_type(self) -> typing.Optional[builtins.str]:
-        '''The name of the external provider where your third-party code repository is configured.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-providertype
-        '''
-        result = self._values.get("provider_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the tags applied to a connection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeconnections-connection.html#cfn-codeconnections-connection-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConnectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConnection",
     "CfnConnectionProps",
+    "ConnectionReference",
+    "IConnectionRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde(
+    *,
+    connection_name: builtins.str,
+    host_arn: typing.Optional[builtins.str] = None,
+    provider_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8aa42e08c855d8398d3126c750c673c58752af789e813a8d55dc6161bffde531(
+    *,
+    connection_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__da00c1ce515c51afa7843809dadd2cb48a76e0e91dd2a8096cc430768e89a815(
     scope: _constructs_77d1e7e8.Construct,
@@ -435,16 +549,6 @@ def _typecheckingstub__2ec396e84dc4ee92669ed87aa685780cf9af74b974c8d0d7f12b0c119
 
 def _typecheckingstub__cd277a1214d747c2b8b1a0998909d0fe0edc54719c5d7b8ae3621585dbf60405(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ac62d1262e0fc9d7647548096d4e83c0367271b1f1be70c2119c14ec99b3dde(
-    *,
-    connection_name: builtins.str,
-    host_arn: typing.Optional[builtins.str] = None,
-    provider_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

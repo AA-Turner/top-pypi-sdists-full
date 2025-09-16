@@ -77,7 +77,204 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_healthimaging.CfnDatastoreProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "datastore_name": "datastoreName",
+        "kms_key_arn": "kmsKeyArn",
+        "tags": "tags",
+    },
+)
+class CfnDatastoreProps:
+    def __init__(
+        self,
+        *,
+        datastore_name: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDatastore``.
+
+        :param datastore_name: The data store name.
+        :param kms_key_arn: The Amazon Resource Name (ARN) assigned to the Key Management Service (KMS) key for accessing encrypted data.
+        :param tags: The tags provided when creating a data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_healthimaging as healthimaging
+            
+            cfn_datastore_props = healthimaging.CfnDatastoreProps(
+                datastore_name="datastoreName",
+                kms_key_arn="kmsKeyArn",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe)
+            check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if datastore_name is not None:
+            self._values["datastore_name"] = datastore_name
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def datastore_name(self) -> typing.Optional[builtins.str]:
+        '''The data store name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-datastorename
+        '''
+        result = self._values.get("datastore_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) assigned to the Key Management Service (KMS) key for accessing encrypted data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags provided when creating a data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatastoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_healthimaging.DatastoreReference",
+    jsii_struct_bases=[],
+    name_mapping={"datastore_arn": "datastoreArn", "datastore_id": "datastoreId"},
+)
+class DatastoreReference:
+    def __init__(
+        self,
+        *,
+        datastore_arn: builtins.str,
+        datastore_id: builtins.str,
+    ) -> None:
+        '''A reference to a Datastore resource.
+
+        :param datastore_arn: The ARN of the Datastore resource.
+        :param datastore_id: The DatastoreId of the Datastore resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_healthimaging as healthimaging
+            
+            datastore_reference = healthimaging.DatastoreReference(
+                datastore_arn="datastoreArn",
+                datastore_id="datastoreId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__203eb1fff8f314f289ee4b200f33543407f751dada8171974dba1e55b02b013e)
+            check_type(argname="argument datastore_arn", value=datastore_arn, expected_type=type_hints["datastore_arn"])
+            check_type(argname="argument datastore_id", value=datastore_id, expected_type=type_hints["datastore_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "datastore_arn": datastore_arn,
+            "datastore_id": datastore_id,
+        }
+
+    @builtins.property
+    def datastore_arn(self) -> builtins.str:
+        '''The ARN of the Datastore resource.'''
+        result = self._values.get("datastore_arn")
+        assert result is not None, "Required property 'datastore_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def datastore_id(self) -> builtins.str:
+        '''The DatastoreId of the Datastore resource.'''
+        result = self._values.get("datastore_id")
+        assert result is not None, "Required property 'datastore_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatastoreReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_healthimaging.IDatastoreRef")
+class IDatastoreRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Datastore.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''(experimental) A reference to a Datastore resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatastoreRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Datastore.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_healthimaging.IDatastoreRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''(experimental) A reference to a Datastore resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatastoreReference, jsii.get(self, "datastoreRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatastoreRef).__jsii_proxy_class__ = lambda : _IDatastoreRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IDatastoreRef, _ITaggableV2_4e6798f8)
 class CfnDatastore(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -217,6 +414,12 @@ class CfnDatastore(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="datastoreRef")
+    def datastore_ref(self) -> DatastoreReference:
+        '''A reference to a Datastore resource.'''
+        return typing.cast(DatastoreReference, jsii.get(self, "datastoreRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="datastoreName")
     def datastore_name(self) -> typing.Optional[builtins.str]:
         '''The data store name.'''
@@ -259,104 +462,31 @@ class CfnDatastore(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_healthimaging.CfnDatastoreProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "datastore_name": "datastoreName",
-        "kms_key_arn": "kmsKeyArn",
-        "tags": "tags",
-    },
-)
-class CfnDatastoreProps:
-    def __init__(
-        self,
-        *,
-        datastore_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDatastore``.
-
-        :param datastore_name: The data store name.
-        :param kms_key_arn: The Amazon Resource Name (ARN) assigned to the Key Management Service (KMS) key for accessing encrypted data.
-        :param tags: The tags provided when creating a data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_healthimaging as healthimaging
-            
-            cfn_datastore_props = healthimaging.CfnDatastoreProps(
-                datastore_name="datastoreName",
-                kms_key_arn="kmsKeyArn",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe)
-            check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if datastore_name is not None:
-            self._values["datastore_name"] = datastore_name
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def datastore_name(self) -> typing.Optional[builtins.str]:
-        '''The data store name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-datastorename
-        '''
-        result = self._values.get("datastore_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) assigned to the Key Management Service (KMS) key for accessing encrypted data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags provided when creating a data store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthimaging-datastore.html#cfn-healthimaging-datastore-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatastoreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDatastore",
     "CfnDatastoreProps",
+    "DatastoreReference",
+    "IDatastoreRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe(
+    *,
+    datastore_name: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__203eb1fff8f314f289ee4b200f33543407f751dada8171974dba1e55b02b013e(
+    *,
+    datastore_arn: builtins.str,
+    datastore_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__79b4005abdc2acc4fbde1f52def5483b4f3842866d771c24e762a57e0a4c5b8a(
     scope: _constructs_77d1e7e8.Construct,
@@ -395,15 +525,6 @@ def _typecheckingstub__23bc8d23f4b6e4945b6b893192f673deeee7f593b8395cb7a14deed34
 
 def _typecheckingstub__6d245bacf34b43fbfa31b2fb6f2cebd4f675510d4d7607d2e2ec945e1c946895(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69345297321f692481fc45ede1e7fda558b5a5d69c93ced4613f61a8bd41a0fe(
-    *,
-    datastore_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

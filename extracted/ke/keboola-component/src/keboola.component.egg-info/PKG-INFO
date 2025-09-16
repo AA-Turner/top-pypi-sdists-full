@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: keboola.component
-Version: 1.6.12
+Version: 1.6.13
 Summary: General library for Python applications running in Keboola Connection environment
 Home-page: https://github.com/keboola/python-component
 Author: Keboola KDS Team

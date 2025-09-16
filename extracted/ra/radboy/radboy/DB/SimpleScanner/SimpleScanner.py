@@ -631,6 +631,16 @@ drop and regenerate SimpleScan Table
             'desc':f'Find {Fore.light_yellow}cmd{Fore.medium_violet_red} and excute for return{Style.reset}',
             'exec':self.findAndUse2
         }
+        self.DESCRIPTION=f'''
+A Scanner software that prompts for text, and if a duplicate is found, select the duplicate, and increments a counter TimesScanned.
+This is made for making lists, where a name tied to a barcode is not necessary, but keeping qty is.
+        '''
+
+        self.options[str(uuid1())]={
+            'cmds':['desciption','describe me','what am i','help me','?+'],
+            'desc':f'print the module description',
+            'exec':lambda self=self:print(self.DESCRIPTION)
+        }
 
         for num,i in enumerate(self.options):
             if str(num) not in self.options[i]['cmds']:

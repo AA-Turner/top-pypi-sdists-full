@@ -19,7 +19,7 @@ from swarms.agents.auto_generate_swarm_config import (
 from swarms.agents.create_agents_from_yaml import (
     create_agents_from_yaml,
 )
-from swarms.cli.onboarding_process import OnboardingProcess
+
 from swarms.structs.agent import Agent
 from swarms.structs.agent_loader import AgentLoader
 from swarms.utils.formatter import formatter
@@ -602,7 +602,10 @@ def create_command_table() -> Table:
     table.add_column("Description", style="dim white")
 
     commands = [
-        ("onboarding", "Start the interactive onboarding process"),
+        (
+            "onboarding",
+            "Run environment setup check (same as setup-check)",
+        ),
         ("help", "Display this help message"),
         ("get-api-key", "Retrieve your API key from the platform"),
         ("check-login", "Verify login status and initialize cache"),
@@ -630,15 +633,171 @@ def create_command_table() -> Table:
     return table
 
 
+def create_detailed_command_table() -> Table:
+    """Create a comprehensive table of all available commands with detailed information."""
+    table = Table(
+        show_header=True,
+        header_style=f"bold {COLORS['primary']}",
+        border_style=COLORS["secondary"],
+        title="🚀 Swarms CLI - Complete Command Reference",
+        title_style=f"bold {COLORS['primary']}",
+        padding=(0, 1),
+        show_lines=True,
+        expand=True,
+    )
+
+    # Add columns with consistent widths and better styles
+    table.add_column(
+        "Command",
+        style=f"bold {COLORS['accent']}",
+        width=16,
+        no_wrap=True,
+    )
+    table.add_column(
+        "Category", style="bold cyan", width=12, justify="center"
+    )
+    table.add_column(
+        "Description", style="white", width=45, no_wrap=False
+    )
+    table.add_column(
+        "Usage Example", style="dim yellow", width=50, no_wrap=False
+    )
+    table.add_column(
+        "Key Args", style="dim magenta", width=20, no_wrap=False
+    )
+
+    commands = [
+        {
+            "cmd": "onboarding",
+            "category": "Setup",
+            "desc": "Run environment setup check (same as setup-check)",
+            "usage": "swarms onboarding [--verbose]",
+            "args": "--verbose",
+        },
+        {
+            "cmd": "help",
+            "category": "Info",
+            "desc": "Display this comprehensive help message",
+            "usage": "swarms help",
+            "args": "None",
+        },
+        {
+            "cmd": "get-api-key",
+            "category": "Setup",
+            "desc": "Open browser to retrieve API keys from platform",
+            "usage": "swarms get-api-key",
+            "args": "None",
+        },
+        {
+            "cmd": "check-login",
+            "category": "Auth",
+            "desc": "Verify authentication status and cache",
+            "usage": "swarms check-login",
+            "args": "None",
+        },
+        {
+            "cmd": "run-agents",
+            "category": "Execution",
+            "desc": "Execute agents from YAML configuration",
+            "usage": "swarms run-agents --yaml-file agents.yaml",
+            "args": "--yaml-file",
+        },
+        {
+            "cmd": "load-markdown",
+            "category": "Loading",
+            "desc": "Load agents from markdown files",
+            "usage": "swarms load-markdown --markdown-path ./agents/",
+            "args": "--markdown-path",
+        },
+        {
+            "cmd": "agent",
+            "category": "Creation",
+            "desc": "Create and run a custom agent",
+            "usage": "swarms agent --name 'Agent' --task 'Analyze data'",
+            "args": "--name, --task",
+        },
+        {
+            "cmd": "auto-upgrade",
+            "category": "Maintenance",
+            "desc": "Update Swarms to latest version",
+            "usage": "swarms auto-upgrade",
+            "args": "None",
+        },
+        {
+            "cmd": "book-call",
+            "category": "Support",
+            "desc": "Schedule a strategy session",
+            "usage": "swarms book-call",
+            "args": "None",
+        },
+        {
+            "cmd": "autoswarm",
+            "category": "AI Gen",
+            "desc": "Generate autonomous swarm config",
+            "usage": "swarms autoswarm --task 'analyze data' --model gpt-4",
+            "args": "--task, --model",
+        },
+        {
+            "cmd": "setup-check",
+            "category": "Diagnostics",
+            "desc": "Run environment setup checks",
+            "usage": "swarms setup-check [--verbose]",
+            "args": "--verbose",
+        },
+    ]
+
+    for cmd_info in commands:
+        table.add_row(
+            cmd_info["cmd"],
+            cmd_info["category"],
+            cmd_info["desc"],
+            cmd_info["usage"],
+            cmd_info["args"],
+        )
+
+    return table
+
+
 def show_help():
-    """Display a beautifully formatted help message."""
+    """Display a beautifully formatted help message with comprehensive command reference."""
     console.print(
         "\n[bold]Swarms CLI - Command Reference[/bold]\n",
         style=COLORS["primary"],
     )
-    console.print(create_command_table())
+
+    # Add a quick usage panel with consistent sizing
+    usage_panel = Panel(
+        "[bold cyan]Quick Start Commands:[/bold cyan]\n"
+        "• [yellow]swarms onboarding[/yellow] - Environment setup check\n"
+        "• [yellow]swarms setup-check[/yellow] - Check your environment\n"
+        "• [yellow]swarms agent --name 'MyAgent' --task 'Hello World'[/yellow] - Create agent\n"
+        "• [yellow]swarms autoswarm --task 'analyze data' --model gpt-4[/yellow] - Auto-generate swarm",
+        title="⚡ Quick Usage Guide",
+        border_style=COLORS["secondary"],
+        padding=(1, 2),
+        expand=False,
+        width=140,
+    )
+    console.print(usage_panel)
+    console.print("\n")
+
+    console.print(create_detailed_command_table())
+
+    # Add additional help panels with consistent sizing
+    docs_panel = Panel(
+        "📚 [bold]Documentation:[/bold] https://docs.swarms.world\n"
+        "🐛 [bold]Support:[/bold] https://github.com/kyegomez/swarms/issues\n"
+        "💬 [bold]Community:[/bold] https://discord.gg/EamjgSaEQf",
+        title="🔗 Useful Links",
+        border_style=COLORS["success"],
+        padding=(1, 2),
+        expand=False,
+        width=140,
+    )
+    console.print(docs_panel)
+
     console.print(
-        "\n[dim]For detailed documentation, visit: https://docs.swarms.world[/dim]"
+        "\n[dim]💡 Tip: Use [bold]swarms setup-check --verbose[/bold] for detailed environment diagnostics[/dim]"
     )
 
 
@@ -1131,7 +1290,11 @@ def main():
 
         try:
             if args.command == "onboarding":
-                OnboardingProcess().run()
+                # For compatibility, redirect onboarding to setup-check
+                console.print(
+                    "[yellow]Note: 'swarms onboarding' now runs the same checks as 'swarms setup-check'[/yellow]"
+                )
+                run_setup_check(verbose=args.verbose)
             elif args.command == "help":
                 show_help()
             elif args.command == "get-api-key":

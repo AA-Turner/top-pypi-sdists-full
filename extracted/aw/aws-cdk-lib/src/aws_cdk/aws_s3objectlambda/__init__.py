@@ -71,7 +71,375 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3objectlambda.AccessPointPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"object_lambda_access_point": "objectLambdaAccessPoint"},
+)
+class AccessPointPolicyReference:
+    def __init__(self, *, object_lambda_access_point: builtins.str) -> None:
+        '''A reference to a AccessPointPolicy resource.
+
+        :param object_lambda_access_point: The ObjectLambdaAccessPoint of the AccessPointPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3objectlambda as s3objectlambda
+            
+            access_point_policy_reference = s3objectlambda.AccessPointPolicyReference(
+                object_lambda_access_point="objectLambdaAccessPoint"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c915e7344285c3b5308cc0f0bb880669ddf361a51ae329495b970b394e6c6ee9)
+            check_type(argname="argument object_lambda_access_point", value=object_lambda_access_point, expected_type=type_hints["object_lambda_access_point"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "object_lambda_access_point": object_lambda_access_point,
+        }
+
+    @builtins.property
+    def object_lambda_access_point(self) -> builtins.str:
+        '''The ObjectLambdaAccessPoint of the AccessPointPolicy resource.'''
+        result = self._values.get("object_lambda_access_point")
+        assert result is not None, "Required property 'object_lambda_access_point' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPointPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3objectlambda.AccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_point_arn": "accessPointArn",
+        "access_point_name": "accessPointName",
+    },
+)
+class AccessPointReference:
+    def __init__(
+        self,
+        *,
+        access_point_arn: builtins.str,
+        access_point_name: builtins.str,
+    ) -> None:
+        '''A reference to a AccessPoint resource.
+
+        :param access_point_arn: The ARN of the AccessPoint resource.
+        :param access_point_name: The Name of the AccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3objectlambda as s3objectlambda
+            
+            access_point_reference = s3objectlambda.AccessPointReference(
+                access_point_arn="accessPointArn",
+                access_point_name="accessPointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d202c0c9e390f3e53d7a158272be8f2ebdca10cf082a67cf0c42771a5844c07b)
+            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+            check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_point_arn": access_point_arn,
+            "access_point_name": access_point_name,
+        }
+
+    @builtins.property
+    def access_point_arn(self) -> builtins.str:
+        '''The ARN of the AccessPoint resource.'''
+        result = self._values.get("access_point_arn")
+        assert result is not None, "Required property 'access_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_point_name(self) -> builtins.str:
+        '''The Name of the AccessPoint resource.'''
+        result = self._values.get("access_point_name")
+        assert result is not None, "Required property 'access_point_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPointPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "object_lambda_access_point": "objectLambdaAccessPoint",
+        "policy_document": "policyDocument",
+    },
+)
+class CfnAccessPointPolicyProps:
+    def __init__(
+        self,
+        *,
+        object_lambda_access_point: builtins.str,
+        policy_document: typing.Any,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPointPolicy``.
+
+        :param object_lambda_access_point: An access point with an attached AWS Lambda function used to access transformed data from an Amazon S3 bucket.
+        :param policy_document: Object Lambda Access Point resource policy document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3objectlambda as s3objectlambda
+            
+            # policy_document: Any
+            
+            cfn_access_point_policy_props = s3objectlambda.CfnAccessPointPolicyProps(
+                object_lambda_access_point="objectLambdaAccessPoint",
+                policy_document=policy_document
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73)
+            check_type(argname="argument object_lambda_access_point", value=object_lambda_access_point, expected_type=type_hints["object_lambda_access_point"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "object_lambda_access_point": object_lambda_access_point,
+            "policy_document": policy_document,
+        }
+
+    @builtins.property
+    def object_lambda_access_point(self) -> builtins.str:
+        '''An access point with an attached AWS Lambda function used to access transformed data from an Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html#cfn-s3objectlambda-accesspointpolicy-objectlambdaaccesspoint
+        '''
+        result = self._values.get("object_lambda_access_point")
+        assert result is not None, "Required property 'object_lambda_access_point' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''Object Lambda Access Point resource policy document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html#cfn-s3objectlambda-accesspointpolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPointPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "object_lambda_configuration": "objectLambdaConfiguration",
+        "name": "name",
+    },
+)
+class CfnAccessPointProps:
+    def __init__(
+        self,
+        *,
+        object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.ObjectLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPoint``.
+
+        :param object_lambda_configuration: A configuration used when creating an Object Lambda Access Point.
+        :param name: The name of this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3objectlambda as s3objectlambda
+            
+            # content_transformation: Any
+            
+            cfn_access_point_props = s3objectlambda.CfnAccessPointProps(
+                object_lambda_configuration=s3objectlambda.CfnAccessPoint.ObjectLambdaConfigurationProperty(
+                    supporting_access_point="supportingAccessPoint",
+                    transformation_configurations=[s3objectlambda.CfnAccessPoint.TransformationConfigurationProperty(
+                        actions=["actions"],
+                        content_transformation=content_transformation
+                    )],
+            
+                    # the properties below are optional
+                    allowed_features=["allowedFeatures"],
+                    cloud_watch_metrics_enabled=False
+                ),
+            
+                # the properties below are optional
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd)
+            check_type(argname="argument object_lambda_configuration", value=object_lambda_configuration, expected_type=type_hints["object_lambda_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "object_lambda_configuration": object_lambda_configuration,
+        }
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def object_lambda_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.ObjectLambdaConfigurationProperty"]:
+        '''A configuration used when creating an Object Lambda Access Point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html#cfn-s3objectlambda-accesspoint-objectlambdaconfiguration
+        '''
+        result = self._values.get("object_lambda_configuration")
+        assert result is not None, "Required property 'object_lambda_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.ObjectLambdaConfigurationProperty"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html#cfn-s3objectlambda-accesspoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3objectlambda.IAccessPointPolicyRef")
+class IAccessPointPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPointPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointPolicyRef")
+    def access_point_policy_ref(self) -> AccessPointPolicyReference:
+        '''(experimental) A reference to a AccessPointPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPointPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPointPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3objectlambda.IAccessPointPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointPolicyRef")
+    def access_point_policy_ref(self) -> AccessPointPolicyReference:
+        '''(experimental) A reference to a AccessPointPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPointPolicyReference, jsii.get(self, "accessPointPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPointPolicyRef).__jsii_proxy_class__ = lambda : _IAccessPointPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3objectlambda.IAccessPointRef")
+class IAccessPointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3objectlambda.IAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAccessPointRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessPointRef)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -162,6 +530,12 @@ class CfnAccessPoint(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''A reference to a AccessPoint resource.'''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAlias")
@@ -931,7 +1305,7 @@ class CfnAccessPoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAccessPointPolicyRef)
 class CfnAccessPointPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1013,6 +1387,12 @@ class CfnAccessPointPolicy(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="accessPointPolicyRef")
+    def access_point_policy_ref(self) -> AccessPointPolicyReference:
+        '''A reference to a AccessPointPolicy resource.'''
+        return typing.cast(AccessPointPolicyReference, jsii.get(self, "accessPointPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1044,182 +1424,49 @@ class CfnAccessPointPolicy(
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPointPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "object_lambda_access_point": "objectLambdaAccessPoint",
-        "policy_document": "policyDocument",
-    },
-)
-class CfnAccessPointPolicyProps:
-    def __init__(
-        self,
-        *,
-        object_lambda_access_point: builtins.str,
-        policy_document: typing.Any,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPointPolicy``.
-
-        :param object_lambda_access_point: An access point with an attached AWS Lambda function used to access transformed data from an Amazon S3 bucket.
-        :param policy_document: Object Lambda Access Point resource policy document.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3objectlambda as s3objectlambda
-            
-            # policy_document: Any
-            
-            cfn_access_point_policy_props = s3objectlambda.CfnAccessPointPolicyProps(
-                object_lambda_access_point="objectLambdaAccessPoint",
-                policy_document=policy_document
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73)
-            check_type(argname="argument object_lambda_access_point", value=object_lambda_access_point, expected_type=type_hints["object_lambda_access_point"])
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "object_lambda_access_point": object_lambda_access_point,
-            "policy_document": policy_document,
-        }
-
-    @builtins.property
-    def object_lambda_access_point(self) -> builtins.str:
-        '''An access point with an attached AWS Lambda function used to access transformed data from an Amazon S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html#cfn-s3objectlambda-accesspointpolicy-objectlambdaaccesspoint
-        '''
-        result = self._values.get("object_lambda_access_point")
-        assert result is not None, "Required property 'object_lambda_access_point' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_document(self) -> typing.Any:
-        '''Object Lambda Access Point resource policy document.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspointpolicy.html#cfn-s3objectlambda-accesspointpolicy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPointPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "object_lambda_configuration": "objectLambdaConfiguration",
-        "name": "name",
-    },
-)
-class CfnAccessPointProps:
-    def __init__(
-        self,
-        *,
-        object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPoint``.
-
-        :param object_lambda_configuration: A configuration used when creating an Object Lambda Access Point.
-        :param name: The name of this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3objectlambda as s3objectlambda
-            
-            # content_transformation: Any
-            
-            cfn_access_point_props = s3objectlambda.CfnAccessPointProps(
-                object_lambda_configuration=s3objectlambda.CfnAccessPoint.ObjectLambdaConfigurationProperty(
-                    supporting_access_point="supportingAccessPoint",
-                    transformation_configurations=[s3objectlambda.CfnAccessPoint.TransformationConfigurationProperty(
-                        actions=["actions"],
-                        content_transformation=content_transformation
-                    )],
-            
-                    # the properties below are optional
-                    allowed_features=["allowedFeatures"],
-                    cloud_watch_metrics_enabled=False
-                ),
-            
-                # the properties below are optional
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd)
-            check_type(argname="argument object_lambda_configuration", value=object_lambda_configuration, expected_type=type_hints["object_lambda_configuration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "object_lambda_configuration": object_lambda_configuration,
-        }
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def object_lambda_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ObjectLambdaConfigurationProperty]:
-        '''A configuration used when creating an Object Lambda Access Point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html#cfn-s3objectlambda-accesspoint-objectlambdaconfiguration
-        '''
-        result = self._values.get("object_lambda_configuration")
-        assert result is not None, "Required property 'object_lambda_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ObjectLambdaConfigurationProperty], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3objectlambda-accesspoint.html#cfn-s3objectlambda-accesspoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessPointPolicyReference",
+    "AccessPointReference",
     "CfnAccessPoint",
     "CfnAccessPointPolicy",
     "CfnAccessPointPolicyProps",
     "CfnAccessPointProps",
+    "IAccessPointPolicyRef",
+    "IAccessPointRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__c915e7344285c3b5308cc0f0bb880669ddf361a51ae329495b970b394e6c6ee9(
+    *,
+    object_lambda_access_point: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d202c0c9e390f3e53d7a158272be8f2ebdca10cf082a67cf0c42771a5844c07b(
+    *,
+    access_point_arn: builtins.str,
+    access_point_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73(
+    *,
+    object_lambda_access_point: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd(
+    *,
+    object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__fc24858ef1979ca1cb8fba3d4a06956342322b232c5594f16f11ee6c380ea43b(
     scope: _constructs_77d1e7e8.Construct,
@@ -1343,22 +1590,6 @@ def _typecheckingstub__40f558fc15d35e909e4982b57f0cb15aac48aef92d7578cdf38fd4959
 
 def _typecheckingstub__1efc67ebff8549be6ada402864d14d3f20c1a9eb0a85a3c67f4b18a6e16a0c7b(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e74559fc14955323f1b747cf5a2176c72b35f214ab3c372190cb4bccfc72c73(
-    *,
-    object_lambda_access_point: builtins.str,
-    policy_document: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__66de11e6e5191035e65409608a7f83aecaaa29de4379ba833b4b4a340ffa4ecd(
-    *,
-    object_lambda_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ObjectLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

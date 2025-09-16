@@ -67,7 +67,1078 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.BotAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bot_alias_arn": "botAliasArn",
+        "bot_alias_id": "botAliasId",
+        "bot_id": "botId",
+    },
+)
+class BotAliasReference:
+    def __init__(
+        self,
+        *,
+        bot_alias_arn: builtins.str,
+        bot_alias_id: builtins.str,
+        bot_id: builtins.str,
+    ) -> None:
+        '''A reference to a BotAlias resource.
+
+        :param bot_alias_arn: The ARN of the BotAlias resource.
+        :param bot_alias_id: The BotAliasId of the BotAlias resource.
+        :param bot_id: The BotId of the BotAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            bot_alias_reference = lex.BotAliasReference(
+                bot_alias_arn="botAliasArn",
+                bot_alias_id="botAliasId",
+                bot_id="botId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e46b3ec070c4bda3dd8f2ec92005bdecbf87c1679f74077e9457fff51e8c9530)
+            check_type(argname="argument bot_alias_arn", value=bot_alias_arn, expected_type=type_hints["bot_alias_arn"])
+            check_type(argname="argument bot_alias_id", value=bot_alias_id, expected_type=type_hints["bot_alias_id"])
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_alias_arn": bot_alias_arn,
+            "bot_alias_id": bot_alias_id,
+            "bot_id": bot_id,
+        }
+
+    @builtins.property
+    def bot_alias_arn(self) -> builtins.str:
+        '''The ARN of the BotAlias resource.'''
+        result = self._values.get("bot_alias_arn")
+        assert result is not None, "Required property 'bot_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_alias_id(self) -> builtins.str:
+        '''The BotAliasId of the BotAlias resource.'''
+        result = self._values.get("bot_alias_id")
+        assert result is not None, "Required property 'bot_alias_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The BotId of the BotAlias resource.'''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BotAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.BotReference",
+    jsii_struct_bases=[],
+    name_mapping={"bot_arn": "botArn", "bot_id": "botId"},
+)
+class BotReference:
+    def __init__(self, *, bot_arn: builtins.str, bot_id: builtins.str) -> None:
+        '''A reference to a Bot resource.
+
+        :param bot_arn: The ARN of the Bot resource.
+        :param bot_id: The Id of the Bot resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            bot_reference = lex.BotReference(
+                bot_arn="botArn",
+                bot_id="botId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40d89eab07398bad93ca41a190f8f69d6a440215be24527fd403bbbe65631eeb)
+            check_type(argname="argument bot_arn", value=bot_arn, expected_type=type_hints["bot_arn"])
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_arn": bot_arn,
+            "bot_id": bot_id,
+        }
+
+    @builtins.property
+    def bot_arn(self) -> builtins.str:
+        '''The ARN of the Bot resource.'''
+        result = self._values.get("bot_arn")
+        assert result is not None, "Required property 'bot_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The Id of the Bot resource.'''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BotReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.BotVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"bot_id": "botId", "bot_version": "botVersion"},
+)
+class BotVersionReference:
+    def __init__(self, *, bot_id: builtins.str, bot_version: builtins.str) -> None:
+        '''A reference to a BotVersion resource.
+
+        :param bot_id: The BotId of the BotVersion resource.
+        :param bot_version: The BotVersion of the BotVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            bot_version_reference = lex.BotVersionReference(
+                bot_id="botId",
+                bot_version="botVersion"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e33eafb5f2d52b7c65a0ccaeeb0cc3208f7a81c44eb621c36de7f25cdee4c28)
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_id": bot_id,
+            "bot_version": bot_version,
+        }
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The BotId of the BotVersion resource.'''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_version(self) -> builtins.str:
+        '''The BotVersion of the BotVersion resource.'''
+        result = self._values.get("bot_version")
+        assert result is not None, "Required property 'bot_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BotVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bot_alias_name": "botAliasName",
+        "bot_id": "botId",
+        "bot_alias_locale_settings": "botAliasLocaleSettings",
+        "bot_alias_tags": "botAliasTags",
+        "bot_version": "botVersion",
+        "conversation_log_settings": "conversationLogSettings",
+        "description": "description",
+        "sentiment_analysis_settings": "sentimentAnalysisSettings",
+    },
+)
+class CfnBotAliasProps:
+    def __init__(
+        self,
+        *,
+        bot_alias_name: builtins.str,
+        bot_id: builtins.str,
+        bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.BotAliasLocaleSettingsItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_version: typing.Optional[builtins.str] = None,
+        conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotAlias.ConversationLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        sentiment_analysis_settings: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBotAlias``.
+
+        :param bot_alias_name: The name of the bot alias.
+        :param bot_id: The unique identifier of the bot.
+        :param bot_alias_locale_settings: Specifies settings that are unique to a locale. For example, you can use different Lambda function depending on the bot's locale.
+        :param bot_alias_tags: An array of key-value pairs to apply to this resource. You can only add tags when you specify an alias. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param bot_version: The version of the bot that the bot alias references.
+        :param conversation_log_settings: Specifies whether Amazon Lex logs text and audio for conversations with the bot. When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
+        :param description: The description of the bot alias.
+        :param sentiment_analysis_settings: Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            # sentiment_analysis_settings: Any
+            
+            cfn_bot_alias_props = lex.CfnBotAliasProps(
+                bot_alias_name="botAliasName",
+                bot_id="botId",
+            
+                # the properties below are optional
+                bot_alias_locale_settings=[lex.CfnBotAlias.BotAliasLocaleSettingsItemProperty(
+                    bot_alias_locale_setting=lex.CfnBotAlias.BotAliasLocaleSettingsProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        code_hook_specification=lex.CfnBotAlias.CodeHookSpecificationProperty(
+                            lambda_code_hook=lex.CfnBotAlias.LambdaCodeHookProperty(
+                                code_hook_interface_version="codeHookInterfaceVersion",
+                                lambda_arn="lambdaArn"
+                            )
+                        )
+                    ),
+                    locale_id="localeId"
+                )],
+                bot_alias_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                bot_version="botVersion",
+                conversation_log_settings=lex.CfnBotAlias.ConversationLogSettingsProperty(
+                    audio_log_settings=[lex.CfnBotAlias.AudioLogSettingProperty(
+                        destination=lex.CfnBotAlias.AudioLogDestinationProperty(
+                            s3_bucket=lex.CfnBotAlias.S3BucketLogDestinationProperty(
+                                log_prefix="logPrefix",
+                                s3_bucket_arn="s3BucketArn",
+            
+                                # the properties below are optional
+                                kms_key_arn="kmsKeyArn"
+                            )
+                        ),
+                        enabled=False
+                    )],
+                    text_log_settings=[lex.CfnBotAlias.TextLogSettingProperty(
+                        destination=lex.CfnBotAlias.TextLogDestinationProperty(
+                            cloud_watch=lex.CfnBotAlias.CloudWatchLogGroupLogDestinationProperty(
+                                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
+                                log_prefix="logPrefix"
+                            )
+                        ),
+                        enabled=False
+                    )]
+                ),
+                description="description",
+                sentiment_analysis_settings=sentiment_analysis_settings
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2)
+            check_type(argname="argument bot_alias_name", value=bot_alias_name, expected_type=type_hints["bot_alias_name"])
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+            check_type(argname="argument bot_alias_locale_settings", value=bot_alias_locale_settings, expected_type=type_hints["bot_alias_locale_settings"])
+            check_type(argname="argument bot_alias_tags", value=bot_alias_tags, expected_type=type_hints["bot_alias_tags"])
+            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
+            check_type(argname="argument conversation_log_settings", value=conversation_log_settings, expected_type=type_hints["conversation_log_settings"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument sentiment_analysis_settings", value=sentiment_analysis_settings, expected_type=type_hints["sentiment_analysis_settings"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_alias_name": bot_alias_name,
+            "bot_id": bot_id,
+        }
+        if bot_alias_locale_settings is not None:
+            self._values["bot_alias_locale_settings"] = bot_alias_locale_settings
+        if bot_alias_tags is not None:
+            self._values["bot_alias_tags"] = bot_alias_tags
+        if bot_version is not None:
+            self._values["bot_version"] = bot_version
+        if conversation_log_settings is not None:
+            self._values["conversation_log_settings"] = conversation_log_settings
+        if description is not None:
+            self._values["description"] = description
+        if sentiment_analysis_settings is not None:
+            self._values["sentiment_analysis_settings"] = sentiment_analysis_settings
+
+    @builtins.property
+    def bot_alias_name(self) -> builtins.str:
+        '''The name of the bot alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliasname
+        '''
+        result = self._values.get("bot_alias_name")
+        assert result is not None, "Required property 'bot_alias_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The unique identifier of the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botid
+        '''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_alias_locale_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]]:
+        '''Specifies settings that are unique to a locale.
+
+        For example, you can use different Lambda function depending on the bot's locale.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliaslocalesettings
+        '''
+        result = self._values.get("bot_alias_locale_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.BotAliasLocaleSettingsItemProperty"]]]], result)
+
+    @builtins.property
+    def bot_alias_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        You can only add tags when you specify an alias.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliastags
+        '''
+        result = self._values.get("bot_alias_tags")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
+
+    @builtins.property
+    def bot_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the bot that the bot alias references.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botversion
+        '''
+        result = self._values.get("bot_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def conversation_log_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]]:
+        '''Specifies whether Amazon Lex logs text and audio for conversations with the bot.
+
+        When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-conversationlogsettings
+        '''
+        result = self._values.get("conversation_log_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBotAlias.ConversationLogSettingsProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the bot alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sentiment_analysis_settings(self) -> typing.Any:
+        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-sentimentanalysissettings
+        '''
+        result = self._values.get("sentiment_analysis_settings")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_privacy": "dataPrivacy",
+        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
+        "name": "name",
+        "role_arn": "roleArn",
+        "auto_build_bot_locales": "autoBuildBotLocales",
+        "bot_file_s3_location": "botFileS3Location",
+        "bot_locales": "botLocales",
+        "bot_tags": "botTags",
+        "description": "description",
+        "error_log_settings": "errorLogSettings",
+        "replication": "replication",
+        "test_bot_alias_settings": "testBotAliasSettings",
+        "test_bot_alias_tags": "testBotAliasTags",
+    },
+)
+class CfnBotProps:
+    def __init__(
+        self,
+        *,
+        data_privacy: typing.Any,
+        idle_session_ttl_in_seconds: jsii.Number,
+        name: builtins.str,
+        role_arn: builtins.str,
+        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.S3LocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBot``.
+
+        :param data_privacy: By default, data stored by Amazon Lex is encrypted. The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
+        :param idle_session_ttl_in_seconds: The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout. You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
+        :param name: The name of the bot locale.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
+        :param auto_build_bot_locales: Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
+        :param bot_file_s3_location: The Amazon S3 location of files used to import a bot. The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
+        :param bot_locales: A list of locales for the bot.
+        :param bot_tags: A list of tags to add to the bot. You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
+        :param description: The description of the version.
+        :param error_log_settings: 
+        :param replication: 
+        :param test_bot_alias_settings: Specifies configuration settings for the alias used to test the bot. If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
+        :param test_bot_alias_tags: A list of tags to add to the test alias for a bot. You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83)
+            check_type(argname="argument data_privacy", value=data_privacy, expected_type=type_hints["data_privacy"])
+            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument auto_build_bot_locales", value=auto_build_bot_locales, expected_type=type_hints["auto_build_bot_locales"])
+            check_type(argname="argument bot_file_s3_location", value=bot_file_s3_location, expected_type=type_hints["bot_file_s3_location"])
+            check_type(argname="argument bot_locales", value=bot_locales, expected_type=type_hints["bot_locales"])
+            check_type(argname="argument bot_tags", value=bot_tags, expected_type=type_hints["bot_tags"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument error_log_settings", value=error_log_settings, expected_type=type_hints["error_log_settings"])
+            check_type(argname="argument replication", value=replication, expected_type=type_hints["replication"])
+            check_type(argname="argument test_bot_alias_settings", value=test_bot_alias_settings, expected_type=type_hints["test_bot_alias_settings"])
+            check_type(argname="argument test_bot_alias_tags", value=test_bot_alias_tags, expected_type=type_hints["test_bot_alias_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_privacy": data_privacy,
+            "idle_session_ttl_in_seconds": idle_session_ttl_in_seconds,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if auto_build_bot_locales is not None:
+            self._values["auto_build_bot_locales"] = auto_build_bot_locales
+        if bot_file_s3_location is not None:
+            self._values["bot_file_s3_location"] = bot_file_s3_location
+        if bot_locales is not None:
+            self._values["bot_locales"] = bot_locales
+        if bot_tags is not None:
+            self._values["bot_tags"] = bot_tags
+        if description is not None:
+            self._values["description"] = description
+        if error_log_settings is not None:
+            self._values["error_log_settings"] = error_log_settings
+        if replication is not None:
+            self._values["replication"] = replication
+        if test_bot_alias_settings is not None:
+            self._values["test_bot_alias_settings"] = test_bot_alias_settings
+        if test_bot_alias_tags is not None:
+            self._values["test_bot_alias_tags"] = test_bot_alias_tags
+
+    @builtins.property
+    def data_privacy(self) -> typing.Any:
+        '''By default, data stored by Amazon Lex is encrypted.
+
+        The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-dataprivacy
+        '''
+        result = self._values.get("data_privacy")
+        assert result is not None, "Required property 'data_privacy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def idle_session_ttl_in_seconds(self) -> jsii.Number:
+        '''The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot.
+
+        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout.
+
+        You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-idlesessionttlinseconds
+        '''
+        result = self._values.get("idle_session_ttl_in_seconds")
+        assert result is not None, "Required property 'idle_session_ttl_in_seconds' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the bot locale.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def auto_build_bot_locales(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-autobuildbotlocales
+        '''
+        result = self._values.get("auto_build_bot_locales")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def bot_file_s3_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]]:
+        '''The Amazon S3 location of files used to import a bot.
+
+        The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botfiles3location
+        '''
+        result = self._values.get("bot_file_s3_location")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.S3LocationProperty"]], result)
+
+    @builtins.property
+    def bot_locales(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]]:
+        '''A list of locales for the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botlocales
+        '''
+        result = self._values.get("bot_locales")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBot.BotLocaleProperty"]]]], result)
+
+    @builtins.property
+    def bot_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+        '''A list of tags to add to the bot.
+
+        You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-bottags
+        '''
+        result = self._values.get("bot_tags")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def error_log_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-errorlogsettings
+        '''
+        result = self._values.get("error_log_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]], result)
+
+    @builtins.property
+    def replication(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-replication
+        '''
+        result = self._values.get("replication")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ReplicationProperty"]], result)
+
+    @builtins.property
+    def test_bot_alias_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]]:
+        '''Specifies configuration settings for the alias used to test the bot.
+
+        If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliassettings
+        '''
+        result = self._values.get("test_bot_alias_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.TestBotAliasSettingsProperty"]], result)
+
+    @builtins.property
+    def test_bot_alias_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
+        '''A list of tags to add to the test alias for a bot.
+
+        You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliastags
+        '''
+        result = self._values.get("test_bot_alias_tags")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnBotVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bot_id": "botId",
+        "bot_version_locale_specification": "botVersionLocaleSpecification",
+        "description": "description",
+    },
+)
+class CfnBotVersionProps:
+    def __init__(
+        self,
+        *,
+        bot_id: builtins.str,
+        bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBotVersion.BotVersionLocaleSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBotVersion``.
+
+        :param bot_id: The unique identifier of the bot.
+        :param bot_version_locale_specification: Specifies the locales that Amazon Lex adds to this version. You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
+        :param description: The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            cfn_bot_version_props = lex.CfnBotVersionProps(
+                bot_id="botId",
+                bot_version_locale_specification=[lex.CfnBotVersion.BotVersionLocaleSpecificationProperty(
+                    bot_version_locale_details=lex.CfnBotVersion.BotVersionLocaleDetailsProperty(
+                        source_bot_version="sourceBotVersion"
+                    ),
+                    locale_id="localeId"
+                )],
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5)
+            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
+            check_type(argname="argument bot_version_locale_specification", value=bot_version_locale_specification, expected_type=type_hints["bot_version_locale_specification"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bot_id": bot_id,
+            "bot_version_locale_specification": bot_version_locale_specification,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def bot_id(self) -> builtins.str:
+        '''The unique identifier of the bot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botid
+        '''
+        result = self._values.get("bot_id")
+        assert result is not None, "Required property 'bot_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bot_version_locale_specification(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]]:
+        '''Specifies the locales that Amazon Lex adds to this version.
+
+        You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botversionlocalespecification
+        '''
+        result = self._values.get("bot_version_locale_specification")
+        assert result is not None, "Required property 'bot_version_locale_specification' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBotVersion.BotVersionLocaleSpecificationProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBotVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy: A resource policy to add to the resource. The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
+        :param resource_arn: The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            # policy: Any
+            
+            cfn_resource_policy_props = lex.CfnResourcePolicyProps(
+                policy=policy,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''A resource policy to add to the resource.
+
+        The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotAliasRef")
+class IBotAliasRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BotAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="botAliasRef")
+    def bot_alias_ref(self) -> BotAliasReference:
+        '''(experimental) A reference to a BotAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBotAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BotAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="botAliasRef")
+    def bot_alias_ref(self) -> BotAliasReference:
+        '''(experimental) A reference to a BotAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BotAliasReference, jsii.get(self, "botAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBotAliasRef).__jsii_proxy_class__ = lambda : _IBotAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotRef")
+class IBotRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Bot.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="botRef")
+    def bot_ref(self) -> BotReference:
+        '''(experimental) A reference to a Bot resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBotRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Bot.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="botRef")
+    def bot_ref(self) -> BotReference:
+        '''(experimental) A reference to a Bot resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BotReference, jsii.get(self, "botRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBotRef).__jsii_proxy_class__ = lambda : _IBotRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IBotVersionRef")
+class IBotVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BotVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="botVersionRef")
+    def bot_version_ref(self) -> BotVersionReference:
+        '''(experimental) A reference to a BotVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBotVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BotVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IBotVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="botVersionRef")
+    def bot_version_ref(self) -> BotVersionReference:
+        '''(experimental) A reference to a BotVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BotVersionReference, jsii.get(self, "botVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBotVersionRef).__jsii_proxy_class__ = lambda : _IBotVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_lex.IResourcePolicyRef")
+class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_lex.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lex.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_policy_id": "resourcePolicyId"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_policy_id: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_policy_id: The Id of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lex as lex
+            
+            resource_policy_reference = lex.ResourcePolicyReference(
+                resource_policy_id="resourcePolicyId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6810919282112482d5bb8c323d06d3d6ae38a3de854f0fa3f00e995557262c37)
+            check_type(argname="argument resource_policy_id", value=resource_policy_id, expected_type=type_hints["resource_policy_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_policy_id": resource_policy_id,
+        }
+
+    @builtins.property
+    def resource_policy_id(self) -> builtins.str:
+        '''The Id of the ResourcePolicy resource.'''
+        result = self._values.get("resource_policy_id")
+        assert result is not None, "Required property 'resource_policy_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IBotRef)
 class CfnBot(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -104,6 +1175,7 @@ class CfnBot(
         bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.BotLocaleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ErrorLogSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.ReplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBot.TestBotAliasSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -120,6 +1192,7 @@ class CfnBot(
         :param bot_locales: A list of locales for the bot.
         :param bot_tags: A list of tags to add to the bot. You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
         :param description: The description of the version.
+        :param error_log_settings: 
         :param replication: 
         :param test_bot_alias_settings: Specifies configuration settings for the alias used to test the bot. If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
         :param test_bot_alias_tags: A list of tags to add to the test alias for a bot. You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
@@ -138,6 +1211,7 @@ class CfnBot(
             bot_locales=bot_locales,
             bot_tags=bot_tags,
             description=description,
+            error_log_settings=error_log_settings,
             replication=replication,
             test_bot_alias_settings=test_bot_alias_settings,
             test_bot_alias_tags=test_bot_alias_tags,
@@ -192,6 +1266,12 @@ class CfnBot(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="botRef")
+    def bot_ref(self) -> BotReference:
+        '''A reference to a Bot resource.'''
+        return typing.cast(BotReference, jsii.get(self, "botRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -334,6 +1414,23 @@ class CfnBot(
             type_hints = typing.get_type_hints(_typecheckingstub__72103623fa216232524c89f3e94b6a4e2056c1e8ad43603db83275506363e42f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="errorLogSettings")
+    def error_log_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]], jsii.get(self, "errorLogSettings"))
+
+    @error_log_settings.setter
+    def error_log_settings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBot.ErrorLogSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__606ffbe82078c04fc48db5544bb87403e15eecb94ab4de4dfef298d8b2e5cbca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "errorLogSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="replication")
@@ -3952,6 +5049,60 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "ElicitationCodeHookInvocationSettingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.ErrorLogSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class ErrorLogSettingsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        ) -> None:
+            '''
+            :param enabled: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-errorlogsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                error_log_settings_property = lex.CfnBot.ErrorLogSettingsProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__889dfa7e4bae2942ab9113cc1fc2daf6258bacf8d15a90096950359390714919)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-errorlogsettings.html#cfn-lex-bot-errorlogsettings-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ErrorLogSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12522,7 +13673,7 @@ class CfnBot(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBotAliasRef)
 class CfnBotAlias(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12701,6 +13852,12 @@ class CfnBotAlias(
         :cloudformationAttribute: BotAliasStatus
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrBotAliasStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="botAliasRef")
+    def bot_alias_ref(self) -> BotAliasReference:
+        '''A reference to a BotAlias resource.'''
+        return typing.cast(BotAliasReference, jsii.get(self, "botAliasRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13745,479 +14902,7 @@ class CfnBotAlias(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotAliasProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bot_alias_name": "botAliasName",
-        "bot_id": "botId",
-        "bot_alias_locale_settings": "botAliasLocaleSettings",
-        "bot_alias_tags": "botAliasTags",
-        "bot_version": "botVersion",
-        "conversation_log_settings": "conversationLogSettings",
-        "description": "description",
-        "sentiment_analysis_settings": "sentimentAnalysisSettings",
-    },
-)
-class CfnBotAliasProps:
-    def __init__(
-        self,
-        *,
-        bot_alias_name: builtins.str,
-        bot_id: builtins.str,
-        bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_version: typing.Optional[builtins.str] = None,
-        conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        sentiment_analysis_settings: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBotAlias``.
-
-        :param bot_alias_name: The name of the bot alias.
-        :param bot_id: The unique identifier of the bot.
-        :param bot_alias_locale_settings: Specifies settings that are unique to a locale. For example, you can use different Lambda function depending on the bot's locale.
-        :param bot_alias_tags: An array of key-value pairs to apply to this resource. You can only add tags when you specify an alias. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param bot_version: The version of the bot that the bot alias references.
-        :param conversation_log_settings: Specifies whether Amazon Lex logs text and audio for conversations with the bot. When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
-        :param description: The description of the bot alias.
-        :param sentiment_analysis_settings: Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            # sentiment_analysis_settings: Any
-            
-            cfn_bot_alias_props = lex.CfnBotAliasProps(
-                bot_alias_name="botAliasName",
-                bot_id="botId",
-            
-                # the properties below are optional
-                bot_alias_locale_settings=[lex.CfnBotAlias.BotAliasLocaleSettingsItemProperty(
-                    bot_alias_locale_setting=lex.CfnBotAlias.BotAliasLocaleSettingsProperty(
-                        enabled=False,
-            
-                        # the properties below are optional
-                        code_hook_specification=lex.CfnBotAlias.CodeHookSpecificationProperty(
-                            lambda_code_hook=lex.CfnBotAlias.LambdaCodeHookProperty(
-                                code_hook_interface_version="codeHookInterfaceVersion",
-                                lambda_arn="lambdaArn"
-                            )
-                        )
-                    ),
-                    locale_id="localeId"
-                )],
-                bot_alias_tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                bot_version="botVersion",
-                conversation_log_settings=lex.CfnBotAlias.ConversationLogSettingsProperty(
-                    audio_log_settings=[lex.CfnBotAlias.AudioLogSettingProperty(
-                        destination=lex.CfnBotAlias.AudioLogDestinationProperty(
-                            s3_bucket=lex.CfnBotAlias.S3BucketLogDestinationProperty(
-                                log_prefix="logPrefix",
-                                s3_bucket_arn="s3BucketArn",
-            
-                                # the properties below are optional
-                                kms_key_arn="kmsKeyArn"
-                            )
-                        ),
-                        enabled=False
-                    )],
-                    text_log_settings=[lex.CfnBotAlias.TextLogSettingProperty(
-                        destination=lex.CfnBotAlias.TextLogDestinationProperty(
-                            cloud_watch=lex.CfnBotAlias.CloudWatchLogGroupLogDestinationProperty(
-                                cloud_watch_log_group_arn="cloudWatchLogGroupArn",
-                                log_prefix="logPrefix"
-                            )
-                        ),
-                        enabled=False
-                    )]
-                ),
-                description="description",
-                sentiment_analysis_settings=sentiment_analysis_settings
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2)
-            check_type(argname="argument bot_alias_name", value=bot_alias_name, expected_type=type_hints["bot_alias_name"])
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-            check_type(argname="argument bot_alias_locale_settings", value=bot_alias_locale_settings, expected_type=type_hints["bot_alias_locale_settings"])
-            check_type(argname="argument bot_alias_tags", value=bot_alias_tags, expected_type=type_hints["bot_alias_tags"])
-            check_type(argname="argument bot_version", value=bot_version, expected_type=type_hints["bot_version"])
-            check_type(argname="argument conversation_log_settings", value=conversation_log_settings, expected_type=type_hints["conversation_log_settings"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument sentiment_analysis_settings", value=sentiment_analysis_settings, expected_type=type_hints["sentiment_analysis_settings"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_alias_name": bot_alias_name,
-            "bot_id": bot_id,
-        }
-        if bot_alias_locale_settings is not None:
-            self._values["bot_alias_locale_settings"] = bot_alias_locale_settings
-        if bot_alias_tags is not None:
-            self._values["bot_alias_tags"] = bot_alias_tags
-        if bot_version is not None:
-            self._values["bot_version"] = bot_version
-        if conversation_log_settings is not None:
-            self._values["conversation_log_settings"] = conversation_log_settings
-        if description is not None:
-            self._values["description"] = description
-        if sentiment_analysis_settings is not None:
-            self._values["sentiment_analysis_settings"] = sentiment_analysis_settings
-
-    @builtins.property
-    def bot_alias_name(self) -> builtins.str:
-        '''The name of the bot alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliasname
-        '''
-        result = self._values.get("bot_alias_name")
-        assert result is not None, "Required property 'bot_alias_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The unique identifier of the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botid
-        '''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_alias_locale_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBotAlias.BotAliasLocaleSettingsItemProperty]]]]:
-        '''Specifies settings that are unique to a locale.
-
-        For example, you can use different Lambda function depending on the bot's locale.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliaslocalesettings
-        '''
-        result = self._values.get("bot_alias_locale_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBotAlias.BotAliasLocaleSettingsItemProperty]]]], result)
-
-    @builtins.property
-    def bot_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        You can only add tags when you specify an alias.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botaliastags
-        '''
-        result = self._values.get("bot_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    @builtins.property
-    def bot_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the bot that the bot alias references.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-botversion
-        '''
-        result = self._values.get("bot_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def conversation_log_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBotAlias.ConversationLogSettingsProperty]]:
-        '''Specifies whether Amazon Lex logs text and audio for conversations with the bot.
-
-        When you enable conversation logs, text logs store text input, transcripts of audio input, and associated metadata in Amazon CloudWatch logs. Audio logs store input in Amazon S3 .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-conversationlogsettings
-        '''
-        result = self._values.get("conversation_log_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBotAlias.ConversationLogSettingsProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the bot alias.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sentiment_analysis_settings(self) -> typing.Any:
-        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botalias.html#cfn-lex-botalias-sentimentanalysissettings
-        '''
-        result = self._values.get("sentiment_analysis_settings")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotAliasProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_privacy": "dataPrivacy",
-        "idle_session_ttl_in_seconds": "idleSessionTtlInSeconds",
-        "name": "name",
-        "role_arn": "roleArn",
-        "auto_build_bot_locales": "autoBuildBotLocales",
-        "bot_file_s3_location": "botFileS3Location",
-        "bot_locales": "botLocales",
-        "bot_tags": "botTags",
-        "description": "description",
-        "replication": "replication",
-        "test_bot_alias_settings": "testBotAliasSettings",
-        "test_bot_alias_tags": "testBotAliasTags",
-    },
-)
-class CfnBotProps:
-    def __init__(
-        self,
-        *,
-        data_privacy: typing.Any,
-        idle_session_ttl_in_seconds: jsii.Number,
-        name: builtins.str,
-        role_arn: builtins.str,
-        auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBot``.
-
-        :param data_privacy: By default, data stored by Amazon Lex is encrypted. The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
-        :param idle_session_ttl_in_seconds: The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot. A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout. You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
-        :param name: The name of the bot locale.
-        :param role_arn: The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
-        :param auto_build_bot_locales: Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
-        :param bot_file_s3_location: The Amazon S3 location of files used to import a bot. The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
-        :param bot_locales: A list of locales for the bot.
-        :param bot_tags: A list of tags to add to the bot. You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
-        :param description: The description of the version.
-        :param replication: 
-        :param test_bot_alias_settings: Specifies configuration settings for the alias used to test the bot. If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
-        :param test_bot_alias_tags: A list of tags to add to the test alias for a bot. You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83)
-            check_type(argname="argument data_privacy", value=data_privacy, expected_type=type_hints["data_privacy"])
-            check_type(argname="argument idle_session_ttl_in_seconds", value=idle_session_ttl_in_seconds, expected_type=type_hints["idle_session_ttl_in_seconds"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument auto_build_bot_locales", value=auto_build_bot_locales, expected_type=type_hints["auto_build_bot_locales"])
-            check_type(argname="argument bot_file_s3_location", value=bot_file_s3_location, expected_type=type_hints["bot_file_s3_location"])
-            check_type(argname="argument bot_locales", value=bot_locales, expected_type=type_hints["bot_locales"])
-            check_type(argname="argument bot_tags", value=bot_tags, expected_type=type_hints["bot_tags"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument replication", value=replication, expected_type=type_hints["replication"])
-            check_type(argname="argument test_bot_alias_settings", value=test_bot_alias_settings, expected_type=type_hints["test_bot_alias_settings"])
-            check_type(argname="argument test_bot_alias_tags", value=test_bot_alias_tags, expected_type=type_hints["test_bot_alias_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_privacy": data_privacy,
-            "idle_session_ttl_in_seconds": idle_session_ttl_in_seconds,
-            "name": name,
-            "role_arn": role_arn,
-        }
-        if auto_build_bot_locales is not None:
-            self._values["auto_build_bot_locales"] = auto_build_bot_locales
-        if bot_file_s3_location is not None:
-            self._values["bot_file_s3_location"] = bot_file_s3_location
-        if bot_locales is not None:
-            self._values["bot_locales"] = bot_locales
-        if bot_tags is not None:
-            self._values["bot_tags"] = bot_tags
-        if description is not None:
-            self._values["description"] = description
-        if replication is not None:
-            self._values["replication"] = replication
-        if test_bot_alias_settings is not None:
-            self._values["test_bot_alias_settings"] = test_bot_alias_settings
-        if test_bot_alias_tags is not None:
-            self._values["test_bot_alias_tags"] = test_bot_alias_tags
-
-    @builtins.property
-    def data_privacy(self) -> typing.Any:
-        '''By default, data stored by Amazon Lex is encrypted.
-
-        The ``DataPrivacy`` structure provides settings that determine how Amazon Lex handles special cases of securing the data for your bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-dataprivacy
-        '''
-        result = self._values.get("data_privacy")
-        assert result is not None, "Required property 'data_privacy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def idle_session_ttl_in_seconds(self) -> jsii.Number:
-        '''The time, in seconds, that Amazon Lex should keep information about a user's conversation with the bot.
-
-        A user interaction remains active for the amount of time specified. If no conversation occurs during this time, the session expires and Amazon Lex deletes any data provided before the timeout.
-
-        You can specify between 60 (1 minute) and 86,400 (24 hours) seconds.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-idlesessionttlinseconds
-        '''
-        result = self._values.get("idle_session_ttl_in_seconds")
-        assert result is not None, "Required property 'idle_session_ttl_in_seconds' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the bot locale.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role used to build and run the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def auto_build_bot_locales(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether Amazon Lex V2 should automatically build the locales for the bot after a change.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-autobuildbotlocales
-        '''
-        result = self._values.get("auto_build_bot_locales")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def bot_file_s3_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.S3LocationProperty]]:
-        '''The Amazon S3 location of files used to import a bot.
-
-        The files must be in the import format specified in `JSON format for importing and exporting <https://docs.aws.amazon.com/lexv2/latest/dg/import-export-format.html>`_ in the *Amazon Lex developer guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botfiles3location
-        '''
-        result = self._values.get("bot_file_s3_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.S3LocationProperty]], result)
-
-    @builtins.property
-    def bot_locales(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBot.BotLocaleProperty]]]]:
-        '''A list of locales for the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-botlocales
-        '''
-        result = self._values.get("bot_locales")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBot.BotLocaleProperty]]]], result)
-
-    @builtins.property
-    def bot_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''A list of tags to add to the bot.
-
-        You can only add tags when you import a bot. You can't use the ``UpdateBot`` operation to update tags. To update tags, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-bottags
-        '''
-        result = self._values.get("bot_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.ReplicationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-replication
-        '''
-        result = self._values.get("replication")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.ReplicationProperty]], result)
-
-    @builtins.property
-    def test_bot_alias_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.TestBotAliasSettingsProperty]]:
-        '''Specifies configuration settings for the alias used to test the bot.
-
-        If the ``TestBotAliasSettings`` property is not specified, the settings are configured with default values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliassettings
-        '''
-        result = self._values.get("test_bot_alias_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.TestBotAliasSettingsProperty]], result)
-
-    @builtins.property
-    def test_bot_alias_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]]:
-        '''A list of tags to add to the test alias for a bot.
-
-        You can only add tags when you import a bot. You can't use the ``UpdateAlias`` operation to update tags. To update tags on the test alias, use the ``TagResource`` operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-bot.html#cfn-lex-bot-testbotaliastags
-        '''
-        result = self._values.get("test_bot_alias_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, _CfnTag_f6864754]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBotVersionRef)
 class CfnBotVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14321,6 +15006,12 @@ class CfnBotVersion(
         :cloudformationAttribute: BotVersion
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrBotVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="botVersionRef")
+    def bot_version_ref(self) -> BotVersionReference:
+        '''A reference to a BotVersion resource.'''
+        return typing.cast(BotVersionReference, jsii.get(self, "botVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -14504,109 +15195,7 @@ class CfnBotVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnBotVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bot_id": "botId",
-        "bot_version_locale_specification": "botVersionLocaleSpecification",
-        "description": "description",
-    },
-)
-class CfnBotVersionProps:
-    def __init__(
-        self,
-        *,
-        bot_id: builtins.str,
-        bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBotVersion``.
-
-        :param bot_id: The unique identifier of the bot.
-        :param bot_version_locale_specification: Specifies the locales that Amazon Lex adds to this version. You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
-        :param description: The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            cfn_bot_version_props = lex.CfnBotVersionProps(
-                bot_id="botId",
-                bot_version_locale_specification=[lex.CfnBotVersion.BotVersionLocaleSpecificationProperty(
-                    bot_version_locale_details=lex.CfnBotVersion.BotVersionLocaleDetailsProperty(
-                        source_bot_version="sourceBotVersion"
-                    ),
-                    locale_id="localeId"
-                )],
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5)
-            check_type(argname="argument bot_id", value=bot_id, expected_type=type_hints["bot_id"])
-            check_type(argname="argument bot_version_locale_specification", value=bot_version_locale_specification, expected_type=type_hints["bot_version_locale_specification"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bot_id": bot_id,
-            "bot_version_locale_specification": bot_version_locale_specification,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def bot_id(self) -> builtins.str:
-        '''The unique identifier of the bot.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botid
-        '''
-        result = self._values.get("bot_id")
-        assert result is not None, "Required property 'bot_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bot_version_locale_specification(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBotVersion.BotVersionLocaleSpecificationProperty]]]:
-        '''Specifies the locales that Amazon Lex adds to this version.
-
-        You can choose the Draft version or any other previously published version for each locale. When you specify a source version, the locale data is copied from the source version to the new version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-botversionlocalespecification
-        '''
-        result = self._values.get("bot_version_locale_specification")
-        assert result is not None, "Required property 'bot_version_locale_specification' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBotVersion.BotVersionLocaleSpecificationProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-botversion.html#cfn-lex-botversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBotVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14712,6 +15301,12 @@ class CfnResourcePolicy(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> ResourcePolicyReference:
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="policy")
     def policy(self) -> typing.Any:
         '''A resource policy to add to the resource.'''
@@ -14738,78 +15333,10 @@ class CfnResourcePolicy(
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_lex.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
-)
-class CfnResourcePolicyProps:
-    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param policy: A resource policy to add to the resource. The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
-        :param resource_arn: The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_lex as lex
-            
-            # policy: Any
-            
-            cfn_resource_policy_props = lex.CfnResourcePolicyProps(
-                policy=policy,
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''A resource policy to add to the resource.
-
-        The policy is a JSON structure that contains one or more statements that define the policy. The policy must follow IAM syntax. If the policy isn't valid, Amazon Lex returns a validation exception.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the bot or bot alias that the resource policy is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lex-resourcepolicy.html#cfn-lex-resourcepolicy-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BotAliasReference",
+    "BotReference",
+    "BotVersionReference",
     "CfnBot",
     "CfnBotAlias",
     "CfnBotAliasProps",
@@ -14818,9 +15345,96 @@ __all__ = [
     "CfnBotVersionProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
+    "IBotAliasRef",
+    "IBotRef",
+    "IBotVersionRef",
+    "IResourcePolicyRef",
+    "ResourcePolicyReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__e46b3ec070c4bda3dd8f2ec92005bdecbf87c1679f74077e9457fff51e8c9530(
+    *,
+    bot_alias_arn: builtins.str,
+    bot_alias_id: builtins.str,
+    bot_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40d89eab07398bad93ca41a190f8f69d6a440215be24527fd403bbbe65631eeb(
+    *,
+    bot_arn: builtins.str,
+    bot_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e33eafb5f2d52b7c65a0ccaeeb0cc3208f7a81c44eb621c36de7f25cdee4c28(
+    *,
+    bot_id: builtins.str,
+    bot_version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2(
+    *,
+    bot_alias_name: builtins.str,
+    bot_id: builtins.str,
+    bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_version: typing.Optional[builtins.str] = None,
+    conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    sentiment_analysis_settings: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83(
+    *,
+    data_privacy: typing.Any,
+    idle_session_ttl_in_seconds: jsii.Number,
+    name: builtins.str,
+    role_arn: builtins.str,
+    auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ErrorLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5(
+    *,
+    bot_id: builtins.str,
+    bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae(
+    *,
+    policy: typing.Any,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6810919282112482d5bb8c323d06d3d6ae38a3de854f0fa3f00e995557262c37(
+    *,
+    resource_policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5c185fb71324df3b939f1cbff6a813b57733510cba6989dac147b9a3a7e6e7b3(
     scope: _constructs_77d1e7e8.Construct,
@@ -14835,6 +15449,7 @@ def _typecheckingstub__5c185fb71324df3b939f1cbff6a813b57733510cba6989dac147b9a3a
     bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    error_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ErrorLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -14904,6 +15519,12 @@ def _typecheckingstub__ebd0622909df38949fb95f9e4bfc9d82f922d11b6e1fee1b78ed955a1
 
 def _typecheckingstub__72103623fa216232524c89f3e94b6a4e2056c1e8ad43603db83275506363e42f(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__606ffbe82078c04fc48db5544bb87403e15eecb94ab4de4dfef298d8b2e5cbca(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBot.ErrorLogSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15237,6 +15858,13 @@ def _typecheckingstub__60b6686b2f7d08316ec6f3906c1eb41b85065d8e1d623e4ccb84213be
     *,
     enable_code_hook_invocation: typing.Union[builtins.bool, _IResolvable_da3f097b],
     invocation_label: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__889dfa7e4bae2942ab9113cc1fc2daf6258bacf8d15a90096950359390714919(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16049,38 +16677,6 @@ def _typecheckingstub__36c17e23b7248b4c9083a2060e90ef8caa965339b7f35431c3d9740cb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__738c59c8472d47ce88d44e92ffd9f33e52944ccc1849febc9bf2f7edbd7c3db2(
-    *,
-    bot_alias_name: builtins.str,
-    bot_id: builtins.str,
-    bot_alias_locale_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.BotAliasLocaleSettingsItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_version: typing.Optional[builtins.str] = None,
-    conversation_log_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotAlias.ConversationLogSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    sentiment_analysis_settings: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5bd27c18d3e2a58ae9aef768e05a25ed92243f8298c9575d9ff15c1d7f1aae83(
-    *,
-    data_privacy: typing.Any,
-    idle_session_ttl_in_seconds: jsii.Number,
-    name: builtins.str,
-    role_arn: builtins.str,
-    auto_build_bot_locales: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    bot_file_s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.S3LocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bot_locales: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BotLocaleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    bot_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    replication: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.ReplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    test_bot_alias_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.TestBotAliasSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    test_bot_alias_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4f9a25d6b442565e4ffb72003af0c316d38fe2ab4bfc804150cdde827b2a9544(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16137,15 +16733,6 @@ def _typecheckingstub__4802f8ce0abbf146138354d6e73113a70e24b8b7c9612564e44de4c4a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c7e84893518e25327247dbe2e6a44e1ceeb51478dafbe33bce09ea7685937be5(
-    *,
-    bot_id: builtins.str,
-    bot_version_locale_specification: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBotVersion.BotVersionLocaleSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0c4e37a39c1961787db85c32c8fd5d0f194dd3d7ace3f425501ca99f4a6bfaf9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16176,14 +16763,6 @@ def _typecheckingstub__9bedb04f3a7639ce6dd847afa27b9015e9c5a45e10d0185b1e422d001
 
 def _typecheckingstub__c2269eb87c059c5d27aab85364fde6b4ccb6e21ca5bc766b939d038b5294665a(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26bba8594196376d121fda2be732c9f29e1f3796c7e460c1a716addfae4eb1ae(
-    *,
-    policy: typing.Any,
-    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

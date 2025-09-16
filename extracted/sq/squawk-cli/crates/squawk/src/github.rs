@@ -235,8 +235,10 @@ fn get_summary_comment_body(
         file_summaries.push(summary);
     }
 
-    let summary_notice = Some("⚠️ **Large Report**: This report was summarized due to size constraints. SQL content has been omitted but all violations were analyzed.");
-    
+    let summary_notice = Some(
+        "⚠️ **Large Report**: This report was summarized due to size constraints. SQL content has been omitted but all violations were analyzed.",
+    );
+
     format_comment(
         violations_emoji,
         violations_count,
@@ -293,8 +295,10 @@ fn truncate_sql_if_needed(sql: &str) -> (String, bool) {
     if lines.len() <= MAX_SQL_PREVIEW_LINES {
         (sql.to_string(), false)
     } else {
-        let truncated_lines = lines[..MAX_SQL_PREVIEW_LINES].join("
-");
+        let truncated_lines = lines[..MAX_SQL_PREVIEW_LINES].join(
+            "
+",
+        );
         let remaining_lines = lines.len() - MAX_SQL_PREVIEW_LINES;
         (
             format!(
@@ -377,21 +381,18 @@ mod test_github_comment {
     fn generating_comment_multiple_files() {
         let violations = vec![CheckReport {
             filename: "alpha.sql".into(),
-            sql: r"
-SELECT 1;
-                "
-            .into(),
+            sql: "SELECT 1;".into(),
             violations: vec![ReportViolation {
                 file: "alpha.sql".into(),
                 line: 1,
-                column: 0,
+                column: 8,
                 level: ViolationLevel::Warning,
                 rule_name: "adding-not-nullable-field".to_string(),
-                range: TextRange::new(TextSize::new(0), TextSize::new(0)),
+                range: TextRange::new(TextSize::new(7), TextSize::new(8)),
                 message: "Adding a NOT NULL field requires exclusive locks and table rewrites."
                     .to_string(),
                 help: Some("Make the field nullable.".to_string()),
-                column_end: 0,
+                column_end: 9,
                 line_end: 1,
             }],
         }];

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: scikit-lego
-Version: 0.9.5
+Version: 0.9.6
 Summary: A collection of lego bricks for scikit-learn pipelines
 Author: Vincent D. Warmerdam, Matthijs Brouns
 Maintainer: Francesco Bruzzesi
@@ -30,7 +30,6 @@ Project-URL: repository, https://github.com/koaning/scikit-lego
 Project-URL: issue-tracker, https://github.com/koaning/scikit-lego/issues
 Project-URL: documentation, https://koaning.github.io/scikit-lego/
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -39,18 +38,50 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: cvxpy
-Provides-Extra: formulaic
-Provides-Extra: umap
-Provides-Extra: all
-Provides-Extra: docs
-Provides-Extra: test
-Provides-Extra: test-all
-Provides-Extra: utils
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: narwhals>=1.5.0
+Requires-Dist: pandas>=1.1.5
+Requires-Dist: scikit-learn>=1.0
+Requires-Dist: sklearn-compat>=0.1.3
+Requires-Dist: importlib-resources; python_version < "3.9"
+Provides-Extra: cvxpy
+Requires-Dist: cmake; extra == "cvxpy"
+Requires-Dist: osqp; extra == "cvxpy"
+Requires-Dist: cvxpy>=1.1.8; extra == "cvxpy"
+Requires-Dist: numpy<2.0; extra == "cvxpy"
+Provides-Extra: formulaic
+Requires-Dist: formulaic>=0.6.0; extra == "formulaic"
+Provides-Extra: umap
+Requires-Dist: umap-learn>=0.4.6; extra == "umap"
+Requires-Dist: numpy<2.0; extra == "umap"
+Provides-Extra: all
+Requires-Dist: scikit-lego[cvxpy,formulaic,umap]; extra == "all"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.5.3; extra == "docs"
+Requires-Dist: mkdocs-autorefs>=0.5.0; extra == "docs"
+Requires-Dist: mkdocs-material>=9.4.5; extra == "docs"
+Requires-Dist: mkdocs-material-extensions>=1.2; extra == "docs"
+Requires-Dist: mkdocstrings>=0.23.0; extra == "docs"
+Requires-Dist: mkdocstrings-python>=1.7.3; extra == "docs"
+Provides-Extra: test
+Requires-Dist: narwhals[polars,pyarrow]; extra == "test"
+Requires-Dist: pytest>=6.2.5; extra == "test"
+Requires-Dist: pytest-xdist>=1.34.0; extra == "test"
+Requires-Dist: pytest-cov>=2.6.1; extra == "test"
+Requires-Dist: pytest-mock>=1.6.3; extra == "test"
+Provides-Extra: test-all
+Requires-Dist: scikit-lego[all,test]; extra == "test-all"
+Provides-Extra: utils
+Requires-Dist: matplotlib>=3.0.2; extra == "utils"
+Requires-Dist: jupyter>=1.0.0; extra == "utils"
+Requires-Dist: jupyterlab>=0.35.4; extra == "utils"
+Provides-Extra: dev
+Requires-Dist: scikit-lego[all,docs,test]; extra == "dev"
+Requires-Dist: pre-commit>=1.18.3; extra == "dev"
+Requires-Dist: ruff>=0.1.6; extra == "dev"
+Dynamic: license-file
 
 [![Downloads](https://static.pepy.tech/badge/scikit-lego/month)](https://www.pepy.tech/projects/scikit-lego)
 [![Version](https://img.shields.io/pypi/v/scikit-lego)](https://pypi.org/project/scikit-lego/)
@@ -173,6 +204,7 @@ Here's a list of features that this library currently offers:
 - `sklego.preprocessing.ColumnSelector` selects columns based on column name
 - `sklego.preprocessing.InformationFilter` transformer that can de-correlate features
 - `sklego.preprocessing.IdentityTransformer` returns the same data, allows for concatenating pipelines
+- `sklego.preprocessing.LinearEmbedder` reweight features using coefficients from a fitted linear model
 - `sklego.preprocessing.OrthogonalTransformer` makes all features linearly independent
 - `sklego.preprocessing.TypeSelector` selects columns based on type
 - `sklego.preprocessing.RandomAdder` adds randomness in training

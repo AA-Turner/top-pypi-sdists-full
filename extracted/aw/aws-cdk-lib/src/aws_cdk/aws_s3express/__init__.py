@@ -79,7 +79,768 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.AccessPointReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_point_arn": "accessPointArn",
+        "access_point_name": "accessPointName",
+    },
+)
+class AccessPointReference:
+    def __init__(
+        self,
+        *,
+        access_point_arn: builtins.str,
+        access_point_name: builtins.str,
+    ) -> None:
+        '''A reference to a AccessPoint resource.
+
+        :param access_point_arn: The ARN of the AccessPoint resource.
+        :param access_point_name: The Name of the AccessPoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            access_point_reference = s3express.AccessPointReference(
+                access_point_arn="accessPointArn",
+                access_point_name="accessPointName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f0d2feff9862d517a83f681770861e9cd51c180e485983afa488a6cae1369c8)
+            check_type(argname="argument access_point_arn", value=access_point_arn, expected_type=type_hints["access_point_arn"])
+            check_type(argname="argument access_point_name", value=access_point_name, expected_type=type_hints["access_point_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "access_point_arn": access_point_arn,
+            "access_point_name": access_point_name,
+        }
+
+    @builtins.property
+    def access_point_arn(self) -> builtins.str:
+        '''The ARN of the AccessPoint resource.'''
+        result = self._values.get("access_point_arn")
+        assert result is not None, "Required property 'access_point_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_point_name(self) -> builtins.str:
+        '''The Name of the AccessPoint resource.'''
+        result = self._values.get("access_point_name")
+        assert result is not None, "Required property 'access_point_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AccessPointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.BucketPolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket"},
+)
+class BucketPolicyReference:
+    def __init__(self, *, bucket: builtins.str) -> None:
+        '''A reference to a BucketPolicy resource.
+
+        :param bucket: The Bucket of the BucketPolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            bucket_policy_reference = s3express.BucketPolicyReference(
+                bucket="bucket"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe1213140a617ce9ede71ee141bfc832e04b784128936156ee406291cf912472)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The Bucket of the BucketPolicy resource.'''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketPolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.CfnAccessPointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket": "bucket",
+        "bucket_account_id": "bucketAccountId",
+        "name": "name",
+        "policy": "policy",
+        "public_access_block_configuration": "publicAccessBlockConfiguration",
+        "scope": "scope",
+        "tags": "tags",
+        "vpc_configuration": "vpcConfiguration",
+    },
+)
+class CfnAccessPointProps:
+    def __init__(
+        self,
+        *,
+        bucket: builtins.str,
+        bucket_account_id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        policy: typing.Any = None,
+        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.ScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAccessPoint``.
+
+        :param bucket: The name of the bucket that you want to associate the access point with.
+        :param bucket_account_id: The AWS account ID that owns the bucket associated with this access point.
+        :param name: An access point name consists of a base name you provide, followed by the zoneID ( AWS Local Zone) followed by the prefix ``--xa-s3`` . For example, accesspointname--zoneID--xa-s3.
+        :param policy: The access point policy associated with the specified access point.
+        :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
+        :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+        :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            # policy: Any
+            
+            cfn_access_point_props = s3express.CfnAccessPointProps(
+                bucket="bucket",
+            
+                # the properties below are optional
+                bucket_account_id="bucketAccountId",
+                name="name",
+                policy=policy,
+                public_access_block_configuration=s3express.CfnAccessPoint.PublicAccessBlockConfigurationProperty(
+                    block_public_acls=False,
+                    block_public_policy=False,
+                    ignore_public_acls=False,
+                    restrict_public_buckets=False
+                ),
+                scope=s3express.CfnAccessPoint.ScopeProperty(
+                    permissions=["permissions"],
+                    prefixes=["prefixes"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_configuration=s3express.CfnAccessPoint.VpcConfigurationProperty(
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ec03a7d5826304628784add6c3daf7da7d66e0c0d94fd92f203f6842dda50d0)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument bucket_account_id", value=bucket_account_id, expected_type=type_hints["bucket_account_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+        }
+        if bucket_account_id is not None:
+            self._values["bucket_account_id"] = bucket_account_id
+        if name is not None:
+            self._values["name"] = name
+        if policy is not None:
+            self._values["policy"] = policy
+        if public_access_block_configuration is not None:
+            self._values["public_access_block_configuration"] = public_access_block_configuration
+        if scope is not None:
+            self._values["scope"] = scope
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_configuration is not None:
+            self._values["vpc_configuration"] = vpc_configuration
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The name of the bucket that you want to associate the access point with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bucket_account_id(self) -> typing.Optional[builtins.str]:
+        '''The AWS account ID that owns the bucket associated with this access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-bucketaccountid
+        '''
+        result = self._values.get("bucket_account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''An access point name consists of a base name you provide, followed by the zoneID ( AWS Local Zone) followed by the prefix ``--xa-s3`` .
+
+        For example, accesspointname--zoneID--xa-s3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with the specified access point.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def public_access_block_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.PublicAccessBlockConfigurationProperty"]]:
+        '''Public access is blocked by default to access points for directory buckets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-publicaccessblockconfiguration
+        '''
+        result = self._values.get("public_access_block_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.PublicAccessBlockConfigurationProperty"]], result)
+
+    @builtins.property
+    def scope(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.ScopeProperty"]]:
+        '''You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both.
+
+        For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.ScopeProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to access points.
+
+        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def vpc_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"]]:
+        '''If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-vpcconfiguration
+        '''
+        result = self._values.get("vpc_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAccessPoint.VpcConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAccessPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.CfnBucketPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
+)
+class CfnBucketPolicyProps:
+    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
+        '''Properties for defining a ``CfnBucketPolicy``.
+
+        :param bucket: The name of the S3 directory bucket to which the policy applies.
+        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Policies and Permissions in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            # policy_document: Any
+            
+            cfn_bucket_policy_props = s3express.CfnBucketPolicyProps(
+                bucket="bucket",
+                policy_document=policy_document
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7978963298afc97ec8564e6e114bf73c7797f21fb71f9d0a187dd5852499f423)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket": bucket,
+            "policy_document": policy_document,
+        }
+
+    @builtins.property
+    def bucket(self) -> builtins.str:
+        '''The name of the S3 directory bucket to which the policy applies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html#cfn-s3express-bucketpolicy-bucket
+        '''
+        result = self._values.get("bucket")
+        assert result is not None, "Required property 'bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''A policy document containing permissions to add to the specified bucket.
+
+        In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Policies and Permissions in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html#cfn-s3express-bucketpolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBucketPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucketProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_redundancy": "dataRedundancy",
+        "location_name": "locationName",
+        "bucket_encryption": "bucketEncryption",
+        "bucket_name": "bucketName",
+        "lifecycle_configuration": "lifecycleConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDirectoryBucketProps:
+    def __init__(
+        self,
+        *,
+        data_redundancy: builtins.str,
+        location_name: builtins.str,
+        bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDirectoryBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        bucket_name: typing.Optional[builtins.str] = None,
+        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDirectoryBucket.LifecycleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDirectoryBucket``.
+
+        :param data_redundancy: The number of Zone (Availability Zone or Local Zone) that's used for redundancy for the bucket.
+        :param location_name: The name of the location where the bucket will be created. For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
+        :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
+        :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
+        :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            cfn_directory_bucket_props = s3express.CfnDirectoryBucketProps(
+                data_redundancy="dataRedundancy",
+                location_name="locationName",
+            
+                # the properties below are optional
+                bucket_encryption=s3express.CfnDirectoryBucket.BucketEncryptionProperty(
+                    server_side_encryption_configuration=[s3express.CfnDirectoryBucket.ServerSideEncryptionRuleProperty(
+                        bucket_key_enabled=False,
+                        server_side_encryption_by_default=s3express.CfnDirectoryBucket.ServerSideEncryptionByDefaultProperty(
+                            sse_algorithm="sseAlgorithm",
+            
+                            # the properties below are optional
+                            kms_master_key_id="kmsMasterKeyId"
+                        )
+                    )]
+                ),
+                bucket_name="bucketName",
+                lifecycle_configuration=s3express.CfnDirectoryBucket.LifecycleConfigurationProperty(
+                    rules=[s3express.CfnDirectoryBucket.RuleProperty(
+                        status="status",
+            
+                        # the properties below are optional
+                        abort_incomplete_multipart_upload=s3express.CfnDirectoryBucket.AbortIncompleteMultipartUploadProperty(
+                            days_after_initiation=123
+                        ),
+                        expiration_in_days=123,
+                        id="id",
+                        object_size_greater_than="objectSizeGreaterThan",
+                        object_size_less_than="objectSizeLessThan",
+                        prefix="prefix"
+                    )]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b224078949985e6e)
+            check_type(argname="argument data_redundancy", value=data_redundancy, expected_type=type_hints["data_redundancy"])
+            check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
+            check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_redundancy": data_redundancy,
+            "location_name": location_name,
+        }
+        if bucket_encryption is not None:
+            self._values["bucket_encryption"] = bucket_encryption
+        if bucket_name is not None:
+            self._values["bucket_name"] = bucket_name
+        if lifecycle_configuration is not None:
+            self._values["lifecycle_configuration"] = lifecycle_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_redundancy(self) -> builtins.str:
+        '''The number of Zone (Availability Zone or Local Zone) that's used for redundancy for the bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-dataredundancy
+        '''
+        result = self._values.get("data_redundancy")
+        assert result is not None, "Required property 'data_redundancy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location_name(self) -> builtins.str:
+        '''The name of the location where the bucket will be created.
+
+        For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-locationname
+        '''
+        result = self._values.get("location_name")
+        assert result is not None, "Required property 'location_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bucket_encryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryBucket.BucketEncryptionProperty"]]:
+        '''Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS).
+
+        For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-bucketencryption
+        '''
+        result = self._values.get("bucket_encryption")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryBucket.BucketEncryptionProperty"]], result)
+
+    @builtins.property
+    def bucket_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the bucket.
+
+        The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* .
+        .. epigraph::
+
+           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def lifecycle_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryBucket.LifecycleConfigurationProperty"]]:
+        '''Container for lifecycle rules. You can add as many as 1000 rules.
+
+        For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-lifecycleconfiguration
+        '''
+        result = self._values.get("lifecycle_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDirectoryBucket.LifecycleConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to the S3 directory bucket.
+
+        Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDirectoryBucketProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_s3express.DirectoryBucketReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_name": "bucketName",
+        "directory_bucket_arn": "directoryBucketArn",
+    },
+)
+class DirectoryBucketReference:
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        directory_bucket_arn: builtins.str,
+    ) -> None:
+        '''A reference to a DirectoryBucket resource.
+
+        :param bucket_name: The BucketName of the DirectoryBucket resource.
+        :param directory_bucket_arn: The ARN of the DirectoryBucket resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_s3express as s3express
+            
+            directory_bucket_reference = s3express.DirectoryBucketReference(
+                bucket_name="bucketName",
+                directory_bucket_arn="directoryBucketArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__384f1f06648a88fd31db08755f4f335beb570bd04d4ca957c7c5dfec5becca40)
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument directory_bucket_arn", value=directory_bucket_arn, expected_type=type_hints["directory_bucket_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_name": bucket_name,
+            "directory_bucket_arn": directory_bucket_arn,
+        }
+
+    @builtins.property
+    def bucket_name(self) -> builtins.str:
+        '''The BucketName of the DirectoryBucket resource.'''
+        result = self._values.get("bucket_name")
+        assert result is not None, "Required property 'bucket_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def directory_bucket_arn(self) -> builtins.str:
+        '''The ARN of the DirectoryBucket resource.'''
+        result = self._values.get("directory_bucket_arn")
+        assert result is not None, "Required property 'directory_bucket_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DirectoryBucketReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3express.IAccessPointRef")
+class IAccessPointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAccessPointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AccessPoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3express.IAccessPointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''(experimental) A reference to a AccessPoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAccessPointRef).__jsii_proxy_class__ = lambda : _IAccessPointRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3express.IBucketPolicyRef")
+class IBucketPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBucketPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BucketPolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3express.IBucketPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''(experimental) A reference to a BucketPolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBucketPolicyRef).__jsii_proxy_class__ = lambda : _IBucketPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_s3express.IDirectoryBucketRef")
+class IDirectoryBucketRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryBucket.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryBucketRef")
+    def directory_bucket_ref(self) -> DirectoryBucketReference:
+        '''(experimental) A reference to a DirectoryBucket resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDirectoryBucketRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DirectoryBucket.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_s3express.IDirectoryBucketRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryBucketRef")
+    def directory_bucket_ref(self) -> DirectoryBucketReference:
+        '''(experimental) A reference to a DirectoryBucket resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DirectoryBucketReference, jsii.get(self, "directoryBucketRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDirectoryBucketRef).__jsii_proxy_class__ = lambda : _IDirectoryBucketRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IAccessPointRef, _ITaggableV2_4e6798f8)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -200,6 +961,12 @@ class CfnAccessPoint(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPointRef")
+    def access_point_ref(self) -> AccessPointReference:
+        '''A reference to a AccessPoint resource.'''
+        return typing.cast(AccessPointReference, jsii.get(self, "accessPointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -606,207 +1373,7 @@ class CfnAccessPoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3express.CfnAccessPointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bucket": "bucket",
-        "bucket_account_id": "bucketAccountId",
-        "name": "name",
-        "policy": "policy",
-        "public_access_block_configuration": "publicAccessBlockConfiguration",
-        "scope": "scope",
-        "tags": "tags",
-        "vpc_configuration": "vpcConfiguration",
-    },
-)
-class CfnAccessPointProps:
-    def __init__(
-        self,
-        *,
-        bucket: builtins.str,
-        bucket_account_id: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        policy: typing.Any = None,
-        public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAccessPoint``.
-
-        :param bucket: The name of the bucket that you want to associate the access point with.
-        :param bucket_account_id: The AWS account ID that owns the bucket associated with this access point.
-        :param name: An access point name consists of a base name you provide, followed by the zoneID ( AWS Local Zone) followed by the prefix ``--xa-s3`` . For example, accesspointname--zoneID--xa-s3.
-        :param policy: The access point policy associated with the specified access point.
-        :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
-        :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
-        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
-        :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3express as s3express
-            
-            # policy: Any
-            
-            cfn_access_point_props = s3express.CfnAccessPointProps(
-                bucket="bucket",
-            
-                # the properties below are optional
-                bucket_account_id="bucketAccountId",
-                name="name",
-                policy=policy,
-                public_access_block_configuration=s3express.CfnAccessPoint.PublicAccessBlockConfigurationProperty(
-                    block_public_acls=False,
-                    block_public_policy=False,
-                    ignore_public_acls=False,
-                    restrict_public_buckets=False
-                ),
-                scope=s3express.CfnAccessPoint.ScopeProperty(
-                    permissions=["permissions"],
-                    prefixes=["prefixes"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_configuration=s3express.CfnAccessPoint.VpcConfigurationProperty(
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ec03a7d5826304628784add6c3daf7da7d66e0c0d94fd92f203f6842dda50d0)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument bucket_account_id", value=bucket_account_id, expected_type=type_hints["bucket_account_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-        }
-        if bucket_account_id is not None:
-            self._values["bucket_account_id"] = bucket_account_id
-        if name is not None:
-            self._values["name"] = name
-        if policy is not None:
-            self._values["policy"] = policy
-        if public_access_block_configuration is not None:
-            self._values["public_access_block_configuration"] = public_access_block_configuration
-        if scope is not None:
-            self._values["scope"] = scope
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_configuration is not None:
-            self._values["vpc_configuration"] = vpc_configuration
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The name of the bucket that you want to associate the access point with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bucket_account_id(self) -> typing.Optional[builtins.str]:
-        '''The AWS account ID that owns the bucket associated with this access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-bucketaccountid
-        '''
-        result = self._values.get("bucket_account_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''An access point name consists of a base name you provide, followed by the zoneID ( AWS Local Zone) followed by the prefix ``--xa-s3`` .
-
-        For example, accesspointname--zoneID--xa-s3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with the specified access point.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def public_access_block_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.PublicAccessBlockConfigurationProperty]]:
-        '''Public access is blocked by default to access points for directory buckets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-publicaccessblockconfiguration
-        '''
-        result = self._values.get("public_access_block_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.PublicAccessBlockConfigurationProperty]], result)
-
-    @builtins.property
-    def scope(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ScopeProperty]]:
-        '''You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both.
-
-        For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-scope
-        '''
-        result = self._values.get("scope")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ScopeProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of tags that you can apply to access points.
-
-        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]]:
-        '''If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-vpcconfiguration
-        '''
-        result = self._values.get("vpc_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAccessPointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBucketPolicyRef)
 class CfnBucketPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -917,6 +1484,12 @@ class CfnBucketPolicy(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="bucketPolicyRef")
+    def bucket_policy_ref(self) -> BucketPolicyReference:
+        '''A reference to a BucketPolicy resource.'''
+        return typing.cast(BucketPolicyReference, jsii.get(self, "bucketPolicyRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -948,78 +1521,7 @@ class CfnBucketPolicy(
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3express.CfnBucketPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"bucket": "bucket", "policy_document": "policyDocument"},
-)
-class CfnBucketPolicyProps:
-    def __init__(self, *, bucket: builtins.str, policy_document: typing.Any) -> None:
-        '''Properties for defining a ``CfnBucketPolicy``.
-
-        :param bucket: The name of the S3 directory bucket to which the policy applies.
-        :param policy_document: A policy document containing permissions to add to the specified bucket. In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Policies and Permissions in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3express as s3express
-            
-            # policy_document: Any
-            
-            cfn_bucket_policy_props = s3express.CfnBucketPolicyProps(
-                bucket="bucket",
-                policy_document=policy_document
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7978963298afc97ec8564e6e114bf73c7797f21fb71f9d0a187dd5852499f423)
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bucket": bucket,
-            "policy_document": policy_document,
-        }
-
-    @builtins.property
-    def bucket(self) -> builtins.str:
-        '''The name of the S3 directory bucket to which the policy applies.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html#cfn-s3express-bucketpolicy-bucket
-        '''
-        result = self._values.get("bucket")
-        assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_document(self) -> typing.Any:
-        '''A policy document containing permissions to add to the specified bucket.
-
-        In IAM, you must provide policy documents in JSON format. However, in CloudFormation you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to IAM. For more information, see the AWS::IAM::Policy `PolicyDocument <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-policydocument>`_ resource description in this guide and `Policies and Permissions in Amazon S3 <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-bucketpolicy.html#cfn-s3express-bucketpolicy-policydocument
-        '''
-        result = self._values.get("policy_document")
-        assert result is not None, "Required property 'policy_document' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBucketPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IDirectoryBucketRef, _ITaggableV2_4e6798f8)
 class CfnDirectoryBucket(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1209,6 +1711,12 @@ class CfnDirectoryBucket(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryBucketRef")
+    def directory_bucket_ref(self) -> DirectoryBucketReference:
+        '''A reference to a DirectoryBucket resource.'''
+        return typing.cast(DirectoryBucketReference, jsii.get(self, "directoryBucketRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataRedundancy")
@@ -1860,201 +2368,79 @@ class CfnDirectoryBucket(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_s3express.CfnDirectoryBucketProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_redundancy": "dataRedundancy",
-        "location_name": "locationName",
-        "bucket_encryption": "bucketEncryption",
-        "bucket_name": "bucketName",
-        "lifecycle_configuration": "lifecycleConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnDirectoryBucketProps:
-    def __init__(
-        self,
-        *,
-        data_redundancy: builtins.str,
-        location_name: builtins.str,
-        bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        bucket_name: typing.Optional[builtins.str] = None,
-        lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDirectoryBucket``.
-
-        :param data_redundancy: The number of Zone (Availability Zone or Local Zone) that's used for redundancy for the bucket.
-        :param location_name: The name of the location where the bucket will be created. For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
-        :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS). For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
-        :param bucket_name: A name for the bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-        :param lifecycle_configuration: Container for lifecycle rules. You can add as many as 1000 rules. For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
-        :param tags: An array of tags that you can apply to the S3 directory bucket. Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_s3express as s3express
-            
-            cfn_directory_bucket_props = s3express.CfnDirectoryBucketProps(
-                data_redundancy="dataRedundancy",
-                location_name="locationName",
-            
-                # the properties below are optional
-                bucket_encryption=s3express.CfnDirectoryBucket.BucketEncryptionProperty(
-                    server_side_encryption_configuration=[s3express.CfnDirectoryBucket.ServerSideEncryptionRuleProperty(
-                        bucket_key_enabled=False,
-                        server_side_encryption_by_default=s3express.CfnDirectoryBucket.ServerSideEncryptionByDefaultProperty(
-                            sse_algorithm="sseAlgorithm",
-            
-                            # the properties below are optional
-                            kms_master_key_id="kmsMasterKeyId"
-                        )
-                    )]
-                ),
-                bucket_name="bucketName",
-                lifecycle_configuration=s3express.CfnDirectoryBucket.LifecycleConfigurationProperty(
-                    rules=[s3express.CfnDirectoryBucket.RuleProperty(
-                        status="status",
-            
-                        # the properties below are optional
-                        abort_incomplete_multipart_upload=s3express.CfnDirectoryBucket.AbortIncompleteMultipartUploadProperty(
-                            days_after_initiation=123
-                        ),
-                        expiration_in_days=123,
-                        id="id",
-                        object_size_greater_than="objectSizeGreaterThan",
-                        object_size_less_than="objectSizeLessThan",
-                        prefix="prefix"
-                    )]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b224078949985e6e)
-            check_type(argname="argument data_redundancy", value=data_redundancy, expected_type=type_hints["data_redundancy"])
-            check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
-            check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_redundancy": data_redundancy,
-            "location_name": location_name,
-        }
-        if bucket_encryption is not None:
-            self._values["bucket_encryption"] = bucket_encryption
-        if bucket_name is not None:
-            self._values["bucket_name"] = bucket_name
-        if lifecycle_configuration is not None:
-            self._values["lifecycle_configuration"] = lifecycle_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def data_redundancy(self) -> builtins.str:
-        '''The number of Zone (Availability Zone or Local Zone) that's used for redundancy for the bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-dataredundancy
-        '''
-        result = self._values.get("data_redundancy")
-        assert result is not None, "Required property 'data_redundancy' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location_name(self) -> builtins.str:
-        '''The name of the location where the bucket will be created.
-
-        For directory buckets, the name of the location is the Zone ID of the Availability Zone (AZ) or Local Zone (LZ) where the bucket will be created. An example AZ ID value is ``usw2-az1`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-locationname
-        '''
-        result = self._values.get("location_name")
-        assert result is not None, "Required property 'location_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bucket_encryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.BucketEncryptionProperty]]:
-        '''Specifies default encryption for a bucket using server-side encryption with Amazon S3 managed keys (SSE-S3) or AWS KMS keys (SSE-KMS).
-
-        For information about default encryption for directory buckets, see `Setting and monitoring default encryption for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-bucketencryption
-        '''
-        result = self._values.get("bucket_encryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.BucketEncryptionProperty]], result)
-
-    @builtins.property
-    def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the bucket.
-
-        The bucket name must contain only lowercase letters, numbers, and hyphens (-). A directory bucket name must be unique in the chosen Zone (Availability Zone or Local Zone). The bucket name must also follow the format ``*bucket_base_name* -- *zone_id* --x-s3`` (for example, ``*bucket_base_name* -- *usw2-az1* --x-s3`` ). If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. For information about bucket naming restrictions, see `Directory bucket naming rules <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html>`_ in the *Amazon S3 User Guide* .
-        .. epigraph::
-
-           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def lifecycle_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.LifecycleConfigurationProperty]]:
-        '''Container for lifecycle rules. You can add as many as 1000 rules.
-
-        For more information see, `Creating and managing a lifecycle configuration for directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-objects-lifecycle.html>`_ in the *Amazon S3 User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-lifecycleconfiguration
-        '''
-        result = self._values.get("lifecycle_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDirectoryBucket.LifecycleConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of tags that you can apply to the S3 directory bucket.
-
-        Tags are key-value pairs of metadata used to categorize and organize your buckets, track costs, and control access. For more information, see `Using tags with directory buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-buckets-tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-directorybucket.html#cfn-s3express-directorybucket-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDirectoryBucketProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "AccessPointReference",
+    "BucketPolicyReference",
     "CfnAccessPoint",
     "CfnAccessPointProps",
     "CfnBucketPolicy",
     "CfnBucketPolicyProps",
     "CfnDirectoryBucket",
     "CfnDirectoryBucketProps",
+    "DirectoryBucketReference",
+    "IAccessPointRef",
+    "IBucketPolicyRef",
+    "IDirectoryBucketRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0f0d2feff9862d517a83f681770861e9cd51c180e485983afa488a6cae1369c8(
+    *,
+    access_point_arn: builtins.str,
+    access_point_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe1213140a617ce9ede71ee141bfc832e04b784128936156ee406291cf912472(
+    *,
+    bucket: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ec03a7d5826304628784add6c3daf7da7d66e0c0d94fd92f203f6842dda50d0(
+    *,
+    bucket: builtins.str,
+    bucket_account_id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    policy: typing.Any = None,
+    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7978963298afc97ec8564e6e114bf73c7797f21fb71f9d0a187dd5852499f423(
+    *,
+    bucket: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b224078949985e6e(
+    *,
+    data_redundancy: builtins.str,
+    location_name: builtins.str,
+    bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bucket_name: typing.Optional[builtins.str] = None,
+    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__384f1f06648a88fd31db08755f4f335beb570bd04d4ca957c7c5dfec5becca40(
+    *,
+    bucket_name: builtins.str,
+    directory_bucket_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e5fc3ca5d7f872be531c5db2f2626dbbab094b459144a7d293c09461f39dc391(
     scope_: _constructs_77d1e7e8.Construct,
@@ -2157,20 +2543,6 @@ def _typecheckingstub__19e3009de93f19fb706fa644304d8806cbdc834cc18dec326b5586987
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2ec03a7d5826304628784add6c3daf7da7d66e0c0d94fd92f203f6842dda50d0(
-    *,
-    bucket: builtins.str,
-    bucket_account_id: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    policy: typing.Any = None,
-    public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c7ae0c19fbf2c7c716bc3304458f2695912d196d3e7439999f721b69fdbfc5a0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2201,14 +2573,6 @@ def _typecheckingstub__dedf6ffab37d96f5ca0d97fbcb6904b8dc185fd26912baba5f2b683ae
 
 def _typecheckingstub__575ca46990b1014411a210bab87827014d15a4bd9119ec2a06a134d0e642cfff(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7978963298afc97ec8564e6e114bf73c7797f21fb71f9d0a187dd5852499f423(
-    *,
-    bucket: builtins.str,
-    policy_document: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2321,18 +2685,6 @@ def _typecheckingstub__cb4bc307ba12040c7d9910685d8ea50fd2f9f3f34fdecd3ca61c34ccd
     *,
     bucket_key_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     server_side_encryption_by_default: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.ServerSideEncryptionByDefaultProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__997b2abc28c849393aef2f13f43682b271277998e07114f1b224078949985e6e(
-    *,
-    data_redundancy: builtins.str,
-    location_name: builtins.str,
-    bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    bucket_name: typing.Optional[builtins.str] = None,
-    lifecycle_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDirectoryBucket.LifecycleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

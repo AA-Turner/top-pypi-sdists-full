@@ -115,360 +115,6 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnNotificationRule(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRule",
-):
-    '''Creates a notification rule for a resource.
-
-    The rule specifies the events you want notifications about and the targets (such as Amazon Simple Notification Service topics or  clients configured for Slack) where you want to receive them.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarnotifications-notificationrule.html
-    :cloudformationResource: AWS::CodeStarNotifications::NotificationRule
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_codestarnotifications as codestarnotifications
-        
-        cfn_notification_rule = codestarnotifications.CfnNotificationRule(self, "MyCfnNotificationRule",
-            detail_type="detailType",
-            event_type_ids=["eventTypeIds"],
-            name="name",
-            resource="resource",
-            targets=[codestarnotifications.CfnNotificationRule.TargetProperty(
-                target_address="targetAddress",
-                target_type="targetType"
-            )],
-        
-            # the properties below are optional
-            created_by="createdBy",
-            event_type_id="eventTypeId",
-            status="status",
-            tags={
-                "tags_key": "tags"
-            },
-            target_address="targetAddress"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        detail_type: builtins.str,
-        event_type_ids: typing.Sequence[builtins.str],
-        name: builtins.str,
-        resource: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        created_by: typing.Optional[builtins.str] = None,
-        event_type_id: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        target_address: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param detail_type: The level of detail to include in the notifications for this resource. ``BASIC`` will include only the contents of the event as it would appear in Amazon CloudWatch. ``FULL`` will include any supplemental information provided by AWS CodeStar Notifications and/or the service for the resource for which the notification is created.
-        :param event_type_ids: A list of event types associated with this notification rule. For a complete list of event types and IDs, see `Notification concepts <https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api>`_ in the *Developer Tools Console User Guide* .
-        :param name: The name for the notification rule. Notification rule names must be unique in your AWS account .
-        :param resource: The Amazon Resource Name (ARN) of the resource to associate with the notification rule. Supported resources include pipelines in AWS CodePipeline , repositories in AWS CodeCommit , and build projects in AWS CodeBuild .
-        :param targets: A list of Amazon Resource Names (ARNs) of Amazon SNS topics and clients to associate with the notification rule.
-        :param created_by: The name or email alias of the person who created the notification rule.
-        :param event_type_id: The event type associated with this notification rule. For a complete list of event types and IDs, see `Notification concepts <https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api>`_ in the *Developer Tools Console User Guide* .
-        :param status: The status of the notification rule. The default value is ``ENABLED`` . If the status is set to ``DISABLED`` , notifications aren't sent for the notification rule.
-        :param tags: A list of tags to apply to this notification rule. Key names cannot start with " ``aws`` ".
-        :param target_address: The Amazon Resource Name (ARN) of the Amazon SNS topic or client.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c1086ace)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnNotificationRuleProps(
-            detail_type=detail_type,
-            event_type_ids=event_type_ids,
-            name=name,
-            resource=resource,
-            targets=targets,
-            created_by=created_by,
-            event_type_id=event_type_id,
-            status=status,
-            tags=tags,
-            target_address=target_address,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87ef25f46cfb8cebf7f1dcf20988342af27ada2610c31d3973ea93bae9079a0c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40d4fee78d1cb9b3932feffc8bdedc027a5eb171eb25256c49259b1081959e4d)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the notification rule.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="detailType")
-    def detail_type(self) -> builtins.str:
-        '''The level of detail to include in the notifications for this resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "detailType"))
-
-    @detail_type.setter
-    def detail_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e77575e9e7fed1aaa856782984f55190cacebb0127b3a420e5abd83c05124eb6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "detailType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventTypeIds")
-    def event_type_ids(self) -> typing.List[builtins.str]:
-        '''A list of event types associated with this notification rule.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "eventTypeIds"))
-
-    @event_type_ids.setter
-    def event_type_ids(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb90cf2b1d4d9f08c073745d794c6b1baab1fbeeb5c0bbda2d12a48b0d9f5108)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTypeIds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name for the notification rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5204aa375f9e4e9997555d623037738864aa5e6cea213dafa3cc2dbd08fe4b5f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resource")
-    def resource(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource to associate with the notification rule.'''
-        return typing.cast(builtins.str, jsii.get(self, "resource"))
-
-    @resource.setter
-    def resource(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e7eb7809f54a6ab1cc7633e54f753ffc88aee5242769abb918737ba1ece93e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targets")
-    def targets(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]]:
-        '''A list of Amazon Resource Names (ARNs) of Amazon SNS topics and  clients to associate with the notification rule.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]], jsii.get(self, "targets"))
-
-    @targets.setter
-    def targets(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4259d2e21a6aa16f5b382a6da87f39d19bce9c3ff108949185b9a52a0cdc3fb1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="createdBy")
-    def created_by(self) -> typing.Optional[builtins.str]:
-        '''The name or email alias of the person who created the notification rule.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdBy"))
-
-    @created_by.setter
-    def created_by(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a38c963a2f57c2eef37336737a4291ab12ddbea2f275489ad41a0f3b1626c2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createdBy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventTypeId")
-    def event_type_id(self) -> typing.Optional[builtins.str]:
-        '''The event type associated with this notification rule.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventTypeId"))
-
-    @event_type_id.setter
-    def event_type_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f4c0a2f101ac5756c08ca6fb073dca683dc73b0a107311500211b14b0fa45bd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTypeId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the notification rule.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__912dbe323db8cf96405e266076a8cdf4072b4a2dd758c0d981017c758190eab3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A list of tags to apply to this notification rule.'''
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(
-        self,
-        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__659b0f3db6d4ef27d56157bd416c0c93d14864433c289b856f1de2e84a2263eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="targetAddress")
-    def target_address(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic or  client.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetAddress"))
-
-    @target_address.setter
-    def target_address(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b60a2bf9b823ac3550ee164c0b5272642cbc4e5c916ec347fa569051a338b1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetAddress", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRule.TargetProperty",
-        jsii_struct_bases=[],
-        name_mapping={"target_address": "targetAddress", "target_type": "targetType"},
-    )
-    class TargetProperty:
-        def __init__(
-            self,
-            *,
-            target_address: builtins.str,
-            target_type: builtins.str,
-        ) -> None:
-            '''Information about the  topics or  clients associated with a notification rule.
-
-            :param target_address: The Amazon Resource Name (ARN) of the topic or client.
-            :param target_type: The target type. Can be an Amazon Simple Notification Service topic or client. - Amazon Simple Notification Service topics are specified as ``SNS`` . - clients are specified as ``AWSChatbotSlack`` . - clients for Microsoft Teams are specified as ``AWSChatbotMicrosoftTeams`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_codestarnotifications as codestarnotifications
-                
-                target_property = codestarnotifications.CfnNotificationRule.TargetProperty(
-                    target_address="targetAddress",
-                    target_type="targetType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c5808f80235ebed2f288b2e5e65437084fde23b48cb2a5daa84d6bf156a1aa57)
-                check_type(argname="argument target_address", value=target_address, expected_type=type_hints["target_address"])
-                check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "target_address": target_address,
-                "target_type": target_type,
-            }
-
-        @builtins.property
-        def target_address(self) -> builtins.str:
-            '''The Amazon Resource Name (ARN) of the  topic or  client.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targetaddress
-            '''
-            result = self._values.get("target_address")
-            assert result is not None, "Required property 'target_address' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def target_type(self) -> builtins.str:
-            '''The target type. Can be an Amazon Simple Notification Service topic or  client.
-
-            - Amazon Simple Notification Service topics are specified as ``SNS`` .
-            - clients are specified as ``AWSChatbotSlack`` .
-            - clients for Microsoft Teams are specified as ``AWSChatbotMicrosoftTeams`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targettype
-            '''
-            result = self._values.get("target_type")
-            assert result is not None, "Required property 'target_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "TargetProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRuleProps",
     jsii_struct_bases=[],
@@ -493,7 +139,7 @@ class CfnNotificationRuleProps:
         event_type_ids: typing.Sequence[builtins.str],
         name: builtins.str,
         resource: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
         created_by: typing.Optional[builtins.str] = None,
         event_type_id: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
@@ -623,14 +269,14 @@ class CfnNotificationRuleProps:
     @builtins.property
     def targets(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnNotificationRule.TargetProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]]:
         '''A list of Amazon Resource Names (ARNs) of Amazon SNS topics and  clients to associate with the notification rule.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarnotifications-notificationrule.html#cfn-codestarnotifications-notificationrule-targets
         '''
         result = self._values.get("targets")
         assert result is not None, "Required property 'targets' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnNotificationRule.TargetProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]], result)
 
     @builtins.property
     def created_by(self) -> typing.Optional[builtins.str]:
@@ -793,6 +439,46 @@ class _INotificationRuleProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, INotificationRule).__jsii_proxy_class__ = lambda : _INotificationRuleProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_codestarnotifications.INotificationRuleRef")
+class INotificationRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a NotificationRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRuleRef")
+    def notification_rule_ref(self) -> "NotificationRuleReference":
+        '''(experimental) A reference to a NotificationRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INotificationRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NotificationRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_codestarnotifications.INotificationRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRuleRef")
+    def notification_rule_ref(self) -> "NotificationRuleReference":
+        '''(experimental) A reference to a NotificationRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NotificationRuleReference", jsii.get(self, "notificationRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INotificationRuleRef).__jsii_proxy_class__ = lambda : _INotificationRuleRefProxy
 
 
 @jsii.interface(
@@ -1303,6 +989,55 @@ class NotificationRuleProps(NotificationRuleOptions):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codestarnotifications.NotificationRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"notification_rule_arn": "notificationRuleArn"},
+)
+class NotificationRuleReference:
+    def __init__(self, *, notification_rule_arn: builtins.str) -> None:
+        '''A reference to a NotificationRule resource.
+
+        :param notification_rule_arn: The Arn of the NotificationRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codestarnotifications as codestarnotifications
+            
+            notification_rule_reference = codestarnotifications.NotificationRuleReference(
+                notification_rule_arn="notificationRuleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6300a5110d81851e2b028e5384b2af7a4e0c7718b95c0ebf3ec6b73737680f36)
+            check_type(argname="argument notification_rule_arn", value=notification_rule_arn, expected_type=type_hints["notification_rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notification_rule_arn": notification_rule_arn,
+        }
+
+    @builtins.property
+    def notification_rule_arn(self) -> builtins.str:
+        '''The Arn of the NotificationRule resource.'''
+        result = self._values.get("notification_rule_arn")
+        assert result is not None, "Required property 'notification_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NotificationRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_codestarnotifications.NotificationRuleSourceConfig",
     jsii_struct_bases=[],
     name_mapping={"source_arn": "sourceArn"},
@@ -1419,21 +1154,491 @@ class NotificationRuleTargetConfig:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, INotificationRuleRef, _ITaggable_36806126)
+class CfnNotificationRule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRule",
+):
+    '''Creates a notification rule for a resource.
+
+    The rule specifies the events you want notifications about and the targets (such as Amazon Simple Notification Service topics or  clients configured for Slack) where you want to receive them.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codestarnotifications-notificationrule.html
+    :cloudformationResource: AWS::CodeStarNotifications::NotificationRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codestarnotifications as codestarnotifications
+        
+        cfn_notification_rule = codestarnotifications.CfnNotificationRule(self, "MyCfnNotificationRule",
+            detail_type="detailType",
+            event_type_ids=["eventTypeIds"],
+            name="name",
+            resource="resource",
+            targets=[codestarnotifications.CfnNotificationRule.TargetProperty(
+                target_address="targetAddress",
+                target_type="targetType"
+            )],
+        
+            # the properties below are optional
+            created_by="createdBy",
+            event_type_id="eventTypeId",
+            status="status",
+            tags={
+                "tags_key": "tags"
+            },
+            target_address="targetAddress"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        detail_type: builtins.str,
+        event_type_ids: typing.Sequence[builtins.str],
+        name: builtins.str,
+        resource: builtins.str,
+        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationRule.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        created_by: typing.Optional[builtins.str] = None,
+        event_type_id: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        target_address: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param detail_type: The level of detail to include in the notifications for this resource. ``BASIC`` will include only the contents of the event as it would appear in Amazon CloudWatch. ``FULL`` will include any supplemental information provided by AWS CodeStar Notifications and/or the service for the resource for which the notification is created.
+        :param event_type_ids: A list of event types associated with this notification rule. For a complete list of event types and IDs, see `Notification concepts <https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api>`_ in the *Developer Tools Console User Guide* .
+        :param name: The name for the notification rule. Notification rule names must be unique in your AWS account .
+        :param resource: The Amazon Resource Name (ARN) of the resource to associate with the notification rule. Supported resources include pipelines in AWS CodePipeline , repositories in AWS CodeCommit , and build projects in AWS CodeBuild .
+        :param targets: A list of Amazon Resource Names (ARNs) of Amazon SNS topics and clients to associate with the notification rule.
+        :param created_by: The name or email alias of the person who created the notification rule.
+        :param event_type_id: The event type associated with this notification rule. For a complete list of event types and IDs, see `Notification concepts <https://docs.aws.amazon.com/dtconsole/latest/userguide/concepts.html#concepts-api>`_ in the *Developer Tools Console User Guide* .
+        :param status: The status of the notification rule. The default value is ``ENABLED`` . If the status is set to ``DISABLED`` , notifications aren't sent for the notification rule.
+        :param tags: A list of tags to apply to this notification rule. Key names cannot start with " ``aws`` ".
+        :param target_address: The Amazon Resource Name (ARN) of the Amazon SNS topic or client.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c1086ace)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNotificationRuleProps(
+            detail_type=detail_type,
+            event_type_ids=event_type_ids,
+            name=name,
+            resource=resource,
+            targets=targets,
+            created_by=created_by,
+            event_type_id=event_type_id,
+            status=status,
+            tags=tags,
+            target_address=target_address,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87ef25f46cfb8cebf7f1dcf20988342af27ada2610c31d3973ea93bae9079a0c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40d4fee78d1cb9b3932feffc8bdedc027a5eb171eb25256c49259b1081959e4d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the notification rule.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRuleRef")
+    def notification_rule_ref(self) -> NotificationRuleReference:
+        '''A reference to a NotificationRule resource.'''
+        return typing.cast(NotificationRuleReference, jsii.get(self, "notificationRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="detailType")
+    def detail_type(self) -> builtins.str:
+        '''The level of detail to include in the notifications for this resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "detailType"))
+
+    @detail_type.setter
+    def detail_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e77575e9e7fed1aaa856782984f55190cacebb0127b3a420e5abd83c05124eb6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "detailType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventTypeIds")
+    def event_type_ids(self) -> typing.List[builtins.str]:
+        '''A list of event types associated with this notification rule.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "eventTypeIds"))
+
+    @event_type_ids.setter
+    def event_type_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb90cf2b1d4d9f08c073745d794c6b1baab1fbeeb5c0bbda2d12a48b0d9f5108)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventTypeIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name for the notification rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5204aa375f9e4e9997555d623037738864aa5e6cea213dafa3cc2dbd08fe4b5f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resource")
+    def resource(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource to associate with the notification rule.'''
+        return typing.cast(builtins.str, jsii.get(self, "resource"))
+
+    @resource.setter
+    def resource(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9e7eb7809f54a6ab1cc7633e54f753ffc88aee5242769abb918737ba1ece93e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targets")
+    def targets(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]]:
+        '''A list of Amazon Resource Names (ARNs) of Amazon SNS topics and  clients to associate with the notification rule.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]], jsii.get(self, "targets"))
+
+    @targets.setter
+    def targets(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnNotificationRule.TargetProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4259d2e21a6aa16f5b382a6da87f39d19bce9c3ff108949185b9a52a0cdc3fb1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="createdBy")
+    def created_by(self) -> typing.Optional[builtins.str]:
+        '''The name or email alias of the person who created the notification rule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "createdBy"))
+
+    @created_by.setter
+    def created_by(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3a38c963a2f57c2eef37336737a4291ab12ddbea2f275489ad41a0f3b1626c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createdBy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventTypeId")
+    def event_type_id(self) -> typing.Optional[builtins.str]:
+        '''The event type associated with this notification rule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventTypeId"))
+
+    @event_type_id.setter
+    def event_type_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f4c0a2f101ac5756c08ca6fb073dca683dc73b0a107311500211b14b0fa45bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventTypeId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the notification rule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__912dbe323db8cf96405e266076a8cdf4072b4a2dd758c0d981017c758190eab3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of tags to apply to this notification rule.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__659b0f3db6d4ef27d56157bd416c0c93d14864433c289b856f1de2e84a2263eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetAddress")
+    def target_address(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic or  client.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetAddress"))
+
+    @target_address.setter
+    def target_address(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b60a2bf9b823ac3550ee164c0b5272642cbc4e5c916ec347fa569051a338b1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetAddress", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codestarnotifications.CfnNotificationRule.TargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target_address": "targetAddress", "target_type": "targetType"},
+    )
+    class TargetProperty:
+        def __init__(
+            self,
+            *,
+            target_address: builtins.str,
+            target_type: builtins.str,
+        ) -> None:
+            '''Information about the  topics or  clients associated with a notification rule.
+
+            :param target_address: The Amazon Resource Name (ARN) of the topic or client.
+            :param target_type: The target type. Can be an Amazon Simple Notification Service topic or client. - Amazon Simple Notification Service topics are specified as ``SNS`` . - clients are specified as ``AWSChatbotSlack`` . - clients for Microsoft Teams are specified as ``AWSChatbotMicrosoftTeams`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codestarnotifications as codestarnotifications
+                
+                target_property = codestarnotifications.CfnNotificationRule.TargetProperty(
+                    target_address="targetAddress",
+                    target_type="targetType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c5808f80235ebed2f288b2e5e65437084fde23b48cb2a5daa84d6bf156a1aa57)
+                check_type(argname="argument target_address", value=target_address, expected_type=type_hints["target_address"])
+                check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_address": target_address,
+                "target_type": target_type,
+            }
+
+        @builtins.property
+        def target_address(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the  topic or  client.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targetaddress
+            '''
+            result = self._values.get("target_address")
+            assert result is not None, "Required property 'target_address' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target_type(self) -> builtins.str:
+            '''The target type. Can be an Amazon Simple Notification Service topic or  client.
+
+            - Amazon Simple Notification Service topics are specified as ``SNS`` .
+            - clients are specified as ``AWSChatbotSlack`` .
+            - clients for Microsoft Teams are specified as ``AWSChatbotMicrosoftTeams`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targettype
+            '''
+            result = self._values.get("target_type")
+            assert result is not None, "Required property 'target_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 __all__ = [
     "CfnNotificationRule",
     "CfnNotificationRuleProps",
     "DetailType",
     "INotificationRule",
+    "INotificationRuleRef",
     "INotificationRuleSource",
     "INotificationRuleTarget",
     "NotificationRule",
     "NotificationRuleOptions",
     "NotificationRuleProps",
+    "NotificationRuleReference",
     "NotificationRuleSourceConfig",
     "NotificationRuleTargetConfig",
 ]
 
 publication.publish()
+
+def _typecheckingstub__952abbe5911505f5e5382fd91146586f2692114d447a4f16d4f5749cae4799fe(
+    *,
+    detail_type: builtins.str,
+    event_type_ids: typing.Sequence[builtins.str],
+    name: builtins.str,
+    resource: builtins.str,
+    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    created_by: typing.Optional[builtins.str] = None,
+    event_type_id: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    target_address: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83568cba2bd196cd0611084c807a07f3158a16140c8d6c4d35238d6419431a3e(
+    target: INotificationRuleTarget,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5450ef736fad66a5746a2acf129158273757bccca5695cd9088cbd31c1190d4a(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aabe87bcc3bcfcb31e776adf52a667c84dfa7282f1c25dd08dd858cf88b5792(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ee042127cf39a85f944067772f0419c8ac6769379b69d847458271eeb8ab318(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    events: typing.Sequence[builtins.str],
+    source: INotificationRuleSource,
+    targets: typing.Optional[typing.Sequence[INotificationRuleTarget]] = None,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[DetailType] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c632c338e62acde6cbe6e9a621df456c5b97c1a83557f6e8004c96305cca6d53(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    notification_rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ae4822f460efa58f235b9774da89d7f779da55fe51601a3cdfdf7b24e56913c(
+    target: INotificationRuleTarget,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eefabcfdf7bed8d3d87d052ee762b71c3b6147378fc2dcef592f76197869ec52(
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[DetailType] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07e191339712f728b76ba8a634b1678dff009608132b685c7342315eab988d78(
+    *,
+    created_by: typing.Optional[builtins.str] = None,
+    detail_type: typing.Optional[DetailType] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    notification_rule_name: typing.Optional[builtins.str] = None,
+    events: typing.Sequence[builtins.str],
+    source: INotificationRuleSource,
+    targets: typing.Optional[typing.Sequence[INotificationRuleTarget]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6300a5110d81851e2b028e5384b2af7a4e0c7718b95c0ebf3ec6b73737680f36(
+    *,
+    notification_rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d360e17c334b6a0f70e67ffff0c1887ea63e43f8b4efcce27df4db191f21ce0(
+    *,
+    source_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6f32c99ca69e59363f10dc680579548d678dad8805ff6c48b7a60d0aa5f940c(
+    *,
+    target_address: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__724996b7b605c1ccec7fc232a8e933db042d262c4932936112f67cf6c1086ace(
     scope: _constructs_77d1e7e8.Construct,
@@ -1526,107 +1731,6 @@ def _typecheckingstub__0b60a2bf9b823ac3550ee164c0b5272642cbc4e5c916ec347fa569051
     pass
 
 def _typecheckingstub__c5808f80235ebed2f288b2e5e65437084fde23b48cb2a5daa84d6bf156a1aa57(
-    *,
-    target_address: builtins.str,
-    target_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__952abbe5911505f5e5382fd91146586f2692114d447a4f16d4f5749cae4799fe(
-    *,
-    detail_type: builtins.str,
-    event_type_ids: typing.Sequence[builtins.str],
-    name: builtins.str,
-    resource: builtins.str,
-    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationRule.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    created_by: typing.Optional[builtins.str] = None,
-    event_type_id: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    target_address: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__83568cba2bd196cd0611084c807a07f3158a16140c8d6c4d35238d6419431a3e(
-    target: INotificationRuleTarget,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5450ef736fad66a5746a2acf129158273757bccca5695cd9088cbd31c1190d4a(
-    scope: _constructs_77d1e7e8.Construct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1aabe87bcc3bcfcb31e776adf52a667c84dfa7282f1c25dd08dd858cf88b5792(
-    scope: _constructs_77d1e7e8.Construct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ee042127cf39a85f944067772f0419c8ac6769379b69d847458271eeb8ab318(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    events: typing.Sequence[builtins.str],
-    source: INotificationRuleSource,
-    targets: typing.Optional[typing.Sequence[INotificationRuleTarget]] = None,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[DetailType] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c632c338e62acde6cbe6e9a621df456c5b97c1a83557f6e8004c96305cca6d53(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    notification_rule_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ae4822f460efa58f235b9774da89d7f779da55fe51601a3cdfdf7b24e56913c(
-    target: INotificationRuleTarget,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eefabcfdf7bed8d3d87d052ee762b71c3b6147378fc2dcef592f76197869ec52(
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[DetailType] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__07e191339712f728b76ba8a634b1678dff009608132b685c7342315eab988d78(
-    *,
-    created_by: typing.Optional[builtins.str] = None,
-    detail_type: typing.Optional[DetailType] = None,
-    enabled: typing.Optional[builtins.bool] = None,
-    notification_rule_name: typing.Optional[builtins.str] = None,
-    events: typing.Sequence[builtins.str],
-    source: INotificationRuleSource,
-    targets: typing.Optional[typing.Sequence[INotificationRuleTarget]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4d360e17c334b6a0f70e67ffff0c1887ea63e43f8b4efcce27df4db191f21ce0(
-    *,
-    source_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6f32c99ca69e59363f10dc680579548d678dad8805ff6c48b7a60d0aa5f940c(
     *,
     target_address: builtins.str,
     target_type: builtins.str,

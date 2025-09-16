@@ -75,7 +75,2459 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallDomainListProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_file_url": "domainFileUrl",
+        "domains": "domains",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnFirewallDomainListProps:
+    def __init__(
+        self,
+        *,
+        domain_file_url: typing.Optional[builtins.str] = None,
+        domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFirewallDomainList``.
+
+        :param domain_file_url: The fully qualified URL or URI of the file stored in Amazon Simple Storage Service (Amazon S3) that contains the list of domains to import. The file must be in an S3 bucket that's in the same Region as your DNS Firewall. The file must be a text file and must contain a single domain per line.
+        :param domains: A list of the domain lists that you have defined.
+        :param name: The name of the domain list.
+        :param tags: A list of the tag keys and values that you want to associate with the domain list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_firewall_domain_list_props = route53resolver.CfnFirewallDomainListProps(
+                domain_file_url="domainFileUrl",
+                domains=["domains"],
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9cf9cc65cbfb33602e70ad9026e1edbeb5f1b4164b0394d3cfdce7740e405780)
+            check_type(argname="argument domain_file_url", value=domain_file_url, expected_type=type_hints["domain_file_url"])
+            check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if domain_file_url is not None:
+            self._values["domain_file_url"] = domain_file_url
+        if domains is not None:
+            self._values["domains"] = domains
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_file_url(self) -> typing.Optional[builtins.str]:
+        '''The fully qualified URL or URI of the file stored in Amazon Simple Storage Service (Amazon S3) that contains the list of domains to import.
+
+        The file must be in an S3 bucket that's in the same Region as your DNS Firewall. The file must be a text file and must contain a single domain per line.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-domainfileurl
+        '''
+        result = self._values.get("domain_file_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domains(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of the domain lists that you have defined.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-domains
+        '''
+        result = self._values.get("domains")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the domain list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of the tag keys and values that you want to associate with the domain list.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFirewallDomainListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroupAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_rule_group_id": "firewallRuleGroupId",
+        "priority": "priority",
+        "vpc_id": "vpcId",
+        "mutation_protection": "mutationProtection",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnFirewallRuleGroupAssociationProps:
+    def __init__(
+        self,
+        *,
+        firewall_rule_group_id: builtins.str,
+        priority: jsii.Number,
+        vpc_id: builtins.str,
+        mutation_protection: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFirewallRuleGroupAssociation``.
+
+        :param firewall_rule_group_id: The unique identifier of the firewall rule group.
+        :param priority: The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. You must specify a unique priority for each rule group that you associate with a single VPC. To make it easier to insert rule groups later, leave space between the numbers, for example, use 101, 200, and so on. You can change the priority setting for a rule group association after you create it. The allowed values for ``Priority`` are between 100 and 9900 (excluding 100 and 9900).
+        :param vpc_id: The unique identifier of the VPC that is associated with the rule group.
+        :param mutation_protection: If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
+        :param name: The name of the association.
+        :param tags: A list of the tag keys and values that you want to associate with the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_firewall_rule_group_association_props = route53resolver.CfnFirewallRuleGroupAssociationProps(
+                firewall_rule_group_id="firewallRuleGroupId",
+                priority=123,
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                mutation_protection="mutationProtection",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__715b8023408ad9032f9d4e486688e3bb6a5d34ab729223deee30ce0cd75c46e8)
+            check_type(argname="argument firewall_rule_group_id", value=firewall_rule_group_id, expected_type=type_hints["firewall_rule_group_id"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument mutation_protection", value=mutation_protection, expected_type=type_hints["mutation_protection"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_rule_group_id": firewall_rule_group_id,
+            "priority": priority,
+            "vpc_id": vpc_id,
+        }
+        if mutation_protection is not None:
+            self._values["mutation_protection"] = mutation_protection
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def firewall_rule_group_id(self) -> builtins.str:
+        '''The unique identifier of the firewall rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-firewallrulegroupid
+        '''
+        result = self._values.get("firewall_rule_group_id")
+        assert result is not None, "Required property 'firewall_rule_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def priority(self) -> jsii.Number:
+        '''The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC.
+
+        DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting.
+
+        You must specify a unique priority for each rule group that you associate with a single VPC. To make it easier to insert rule groups later, leave space between the numbers, for example, use 101, 200, and so on. You can change the priority setting for a rule group association after you create it.
+
+        The allowed values for ``Priority`` are between 100 and 9900 (excluding 100 and 9900).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-priority
+        '''
+        result = self._values.get("priority")
+        assert result is not None, "Required property 'priority' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The unique identifier of the VPC that is associated with the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def mutation_protection(self) -> typing.Optional[builtins.str]:
+        '''If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-mutationprotection
+        '''
+        result = self._values.get("mutation_protection")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of the tag keys and values that you want to associate with the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFirewallRuleGroupAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={"firewall_rules": "firewallRules", "name": "name", "tags": "tags"},
+)
+class CfnFirewallRuleGroupProps:
+    def __init__(
+        self,
+        *,
+        firewall_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFirewallRuleGroup.FirewallRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFirewallRuleGroup``.
+
+        :param firewall_rules: A list of the rules that you have defined.
+        :param name: The name of the rule group.
+        :param tags: A list of the tag keys and values that you want to associate with the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_firewall_rule_group_props = route53resolver.CfnFirewallRuleGroupProps(
+                firewall_rules=[route53resolver.CfnFirewallRuleGroup.FirewallRuleProperty(
+                    action="action",
+                    priority=123,
+            
+                    # the properties below are optional
+                    block_override_dns_type="blockOverrideDnsType",
+                    block_override_domain="blockOverrideDomain",
+                    block_override_ttl=123,
+                    block_response="blockResponse",
+                    confidence_threshold="confidenceThreshold",
+                    dns_threat_protection="dnsThreatProtection",
+                    firewall_domain_list_id="firewallDomainListId",
+                    firewall_domain_redirection_action="firewallDomainRedirectionAction",
+                    firewall_threat_protection_id="firewallThreatProtectionId",
+                    qtype="qtype"
+                )],
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b614b409c77b0163f669e1c5a722bed570fc73bbd7afce583918c9e4ee2b0436)
+            check_type(argname="argument firewall_rules", value=firewall_rules, expected_type=type_hints["firewall_rules"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if firewall_rules is not None:
+            self._values["firewall_rules"] = firewall_rules
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def firewall_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewallRuleGroup.FirewallRuleProperty"]]]]:
+        '''A list of the rules that you have defined.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-firewallrules
+        '''
+        result = self._values.get("firewall_rules")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewallRuleGroup.FirewallRuleProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of the tag keys and values that you want to associate with the rule group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFirewallRuleGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnOutpostResolverProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "outpost_arn": "outpostArn",
+        "preferred_instance_type": "preferredInstanceType",
+        "instance_count": "instanceCount",
+        "tags": "tags",
+    },
+)
+class CfnOutpostResolverProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        outpost_arn: builtins.str,
+        preferred_instance_type: builtins.str,
+        instance_count: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOutpostResolver``.
+
+        :param name: Name of the Resolver.
+        :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
+        :param preferred_instance_type: The Amazon EC2 instance type. If you specify this, you must also specify a value for the ``OutpostArn`` .
+        :param instance_count: Amazon EC2 instance count for the Resolver on the Outpost.
+        :param tags: A key value pair that helps you identify a Route 53 Resolver .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_outpost_resolver_props = route53resolver.CfnOutpostResolverProps(
+                name="name",
+                outpost_arn="outpostArn",
+                preferred_instance_type="preferredInstanceType",
+            
+                # the properties below are optional
+                instance_count=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b53ebd141bec9bc329c50935d9193d3066583cc585d0abb08ec4a100183f07e1)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument outpost_arn", value=outpost_arn, expected_type=type_hints["outpost_arn"])
+            check_type(argname="argument preferred_instance_type", value=preferred_instance_type, expected_type=type_hints["preferred_instance_type"])
+            check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "outpost_arn": outpost_arn,
+            "preferred_instance_type": preferred_instance_type,
+        }
+        if instance_count is not None:
+            self._values["instance_count"] = instance_count
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name of the Resolver.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def outpost_arn(self) -> builtins.str:
+        '''The ARN (Amazon Resource Name) for the Outpost.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-outpostarn
+        '''
+        result = self._values.get("outpost_arn")
+        assert result is not None, "Required property 'outpost_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def preferred_instance_type(self) -> builtins.str:
+        '''The Amazon EC2 instance type.
+
+        If you specify this, you must also specify a value for the ``OutpostArn`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-preferredinstancetype
+        '''
+        result = self._values.get("preferred_instance_type")
+        assert result is not None, "Required property 'preferred_instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_count(self) -> typing.Optional[jsii.Number]:
+        '''Amazon EC2 instance count for the Resolver on the Outpost.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-instancecount
+        '''
+        result = self._values.get("instance_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A key value pair that helps you identify a Route 53 Resolver .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOutpostResolverProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "autodefined_reverse_flag": "autodefinedReverseFlag",
+        "resource_id": "resourceId",
+    },
+)
+class CfnResolverConfigProps:
+    def __init__(
+        self,
+        *,
+        autodefined_reverse_flag: builtins.str,
+        resource_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverConfig``.
+
+        :param autodefined_reverse_flag: Represents the desired status of ``AutodefinedReverse`` . The only supported value on creation is ``DISABLE`` . Deletion of this resource will return ``AutodefinedReverse`` to its default value of ``ENABLED`` .
+        :param resource_id: The ID of the Amazon Virtual Private Cloud VPC or a Route 53 Profile that you're configuring Resolver for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_config_props = route53resolver.CfnResolverConfigProps(
+                autodefined_reverse_flag="autodefinedReverseFlag",
+                resource_id="resourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e8a6715c54a3032f85efda72259aecef906caa87b4729b8c9bc48010e591ae1)
+            check_type(argname="argument autodefined_reverse_flag", value=autodefined_reverse_flag, expected_type=type_hints["autodefined_reverse_flag"])
+            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "autodefined_reverse_flag": autodefined_reverse_flag,
+            "resource_id": resource_id,
+        }
+
+    @builtins.property
+    def autodefined_reverse_flag(self) -> builtins.str:
+        '''Represents the desired status of ``AutodefinedReverse`` .
+
+        The only supported value on creation is ``DISABLE`` . Deletion of this resource will return ``AutodefinedReverse`` to its default value of ``ENABLED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html#cfn-route53resolver-resolverconfig-autodefinedreverseflag
+        '''
+        result = self._values.get("autodefined_reverse_flag")
+        assert result is not None, "Required property 'autodefined_reverse_flag' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_id(self) -> builtins.str:
+        '''The ID of the Amazon Virtual Private Cloud VPC or a Route 53 Profile that you're configuring Resolver for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html#cfn-route53resolver-resolverconfig-resourceid
+        '''
+        result = self._values.get("resource_id")
+        assert result is not None, "Required property 'resource_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverDNSSECConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_id": "resourceId"},
+)
+class CfnResolverDNSSECConfigProps:
+    def __init__(self, *, resource_id: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnResolverDNSSECConfig``.
+
+        :param resource_id: The ID of the virtual private cloud (VPC) that you're configuring the DNSSEC validation status for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverdnssecconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_dNSSECConfig_props = route53resolver.CfnResolverDNSSECConfigProps(
+                resource_id="resourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d1d6cb497f316e5311641ff022dde6f5ae37e4e937722cbf4e49800c7dcf748)
+            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resource_id is not None:
+            self._values["resource_id"] = resource_id
+
+    @builtins.property
+    def resource_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the virtual private cloud (VPC) that you're configuring the DNSSEC validation status for.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverdnssecconfig.html#cfn-route53resolver-resolverdnssecconfig-resourceid
+        '''
+        result = self._values.get("resource_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverDNSSECConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "direction": "direction",
+        "ip_addresses": "ipAddresses",
+        "security_group_ids": "securityGroupIds",
+        "name": "name",
+        "outpost_arn": "outpostArn",
+        "preferred_instance_type": "preferredInstanceType",
+        "protocols": "protocols",
+        "resolver_endpoint_type": "resolverEndpointType",
+        "tags": "tags",
+    },
+)
+class CfnResolverEndpointProps:
+    def __init__(
+        self,
+        *,
+        direction: builtins.str,
+        ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResolverEndpoint.IpAddressRequestProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        security_group_ids: typing.Sequence[builtins.str],
+        name: typing.Optional[builtins.str] = None,
+        outpost_arn: typing.Optional[builtins.str] = None,
+        preferred_instance_type: typing.Optional[builtins.str] = None,
+        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resolver_endpoint_type: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverEndpoint``.
+
+        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
+        :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
+        :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
+        :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
+        :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
+        :param preferred_instance_type: The Amazon EC2 instance type.
+        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For a delegation inbound endpoint you can use Do53 only. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
+        :param resolver_endpoint_type: The Resolver endpoint IP address type.
+        :param tags: Route 53 Resolver doesn't support updating tags through CloudFormation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_endpoint_props = route53resolver.CfnResolverEndpointProps(
+                direction="direction",
+                ip_addresses=[route53resolver.CfnResolverEndpoint.IpAddressRequestProperty(
+                    subnet_id="subnetId",
+            
+                    # the properties below are optional
+                    ip="ip",
+                    ipv6="ipv6"
+                )],
+                security_group_ids=["securityGroupIds"],
+            
+                # the properties below are optional
+                name="name",
+                outpost_arn="outpostArn",
+                preferred_instance_type="preferredInstanceType",
+                protocols=["protocols"],
+                resolver_endpoint_type="resolverEndpointType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cc09ce842a854995739f051f3b593bc3ded813d2e97260dcb20f39108e8d889)
+            check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
+            check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument outpost_arn", value=outpost_arn, expected_type=type_hints["outpost_arn"])
+            check_type(argname="argument preferred_instance_type", value=preferred_instance_type, expected_type=type_hints["preferred_instance_type"])
+            check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
+            check_type(argname="argument resolver_endpoint_type", value=resolver_endpoint_type, expected_type=type_hints["resolver_endpoint_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "direction": direction,
+            "ip_addresses": ip_addresses,
+            "security_group_ids": security_group_ids,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if outpost_arn is not None:
+            self._values["outpost_arn"] = outpost_arn
+        if preferred_instance_type is not None:
+            self._values["preferred_instance_type"] = preferred_instance_type
+        if protocols is not None:
+            self._values["protocols"] = protocols
+        if resolver_endpoint_type is not None:
+            self._values["resolver_endpoint_type"] = resolver_endpoint_type
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def direction(self) -> builtins.str:
+        '''Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:.
+
+        - ``INBOUND`` : allows DNS queries to your VPC from your network
+        - ``OUTBOUND`` : allows DNS queries from your VPC to your network
+        - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-direction
+        '''
+        result = self._values.get("direction")
+        assert result is not None, "Required property 'direction' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ip_addresses(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResolverEndpoint.IpAddressRequestProperty"]]]:
+        '''The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints).
+
+        The subnet ID uniquely identifies a VPC.
+        .. epigraph::
+
+           Even though the minimum is 1, Route 53 requires that you create at least two.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-ipaddresses
+        '''
+        result = self._values.get("ip_addresses")
+        assert result is not None, "Required property 'ip_addresses' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResolverEndpoint.IpAddressRequestProperty"]]], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.List[builtins.str]:
+        '''The ID of one or more security groups that control access to this VPC.
+
+        The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        assert result is not None, "Required property 'security_group_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def outpost_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN (Amazon Resource Name) for the Outpost.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-outpostarn
+        '''
+        result = self._values.get("outpost_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preferred_instance_type(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EC2 instance type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-preferredinstancetype
+        '''
+        result = self._values.get("preferred_instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only.
+
+        For an inbound endpoint you can apply the protocols as follows:
+
+        - Do53 and DoH in combination.
+        - Do53 and DoH-FIPS in combination.
+        - Do53 alone.
+        - DoH alone.
+        - DoH-FIPS alone.
+        - None, which is treated as Do53.
+
+        For a delegation inbound endpoint you can use Do53 only.
+
+        For an outbound endpoint you can apply the protocols as follows:
+
+        - Do53 and DoH in combination.
+        - Do53 alone.
+        - DoH alone.
+        - None, which is treated as Do53.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-protocols
+        '''
+        result = self._values.get("protocols")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resolver_endpoint_type(self) -> typing.Optional[builtins.str]:
+        '''The Resolver endpoint IP address type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-resolverendpointtype
+        '''
+        result = self._values.get("resolver_endpoint_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Route 53 Resolver doesn't support updating tags through CloudFormation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverQueryLoggingConfigAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_query_log_config_id": "resolverQueryLogConfigId",
+        "resource_id": "resourceId",
+    },
+)
+class CfnResolverQueryLoggingConfigAssociationProps:
+    def __init__(
+        self,
+        *,
+        resolver_query_log_config_id: typing.Optional[builtins.str] = None,
+        resource_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverQueryLoggingConfigAssociation``.
+
+        :param resolver_query_log_config_id: The ID of the query logging configuration that a VPC is associated with.
+        :param resource_id: The ID of the Amazon VPC that is associated with the query logging configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_query_logging_config_association_props = route53resolver.CfnResolverQueryLoggingConfigAssociationProps(
+                resolver_query_log_config_id="resolverQueryLogConfigId",
+                resource_id="resourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9922d645c66dbe12414cb71b48fbdb1d63b9b6ab9822bdc726d40d6b6d7ec6af)
+            check_type(argname="argument resolver_query_log_config_id", value=resolver_query_log_config_id, expected_type=type_hints["resolver_query_log_config_id"])
+            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if resolver_query_log_config_id is not None:
+            self._values["resolver_query_log_config_id"] = resolver_query_log_config_id
+        if resource_id is not None:
+            self._values["resource_id"] = resource_id
+
+    @builtins.property
+    def resolver_query_log_config_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the query logging configuration that a VPC is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html#cfn-route53resolver-resolverqueryloggingconfigassociation-resolverquerylogconfigid
+        '''
+        result = self._values.get("resolver_query_log_config_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon VPC that is associated with the query logging configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html#cfn-route53resolver-resolverqueryloggingconfigassociation-resourceid
+        '''
+        result = self._values.get("resource_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverQueryLoggingConfigAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverQueryLoggingConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={"destination_arn": "destinationArn", "name": "name", "tags": "tags"},
+)
+class CfnResolverQueryLoggingConfigProps:
+    def __init__(
+        self,
+        *,
+        destination_arn: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverQueryLoggingConfig``.
+
+        :param destination_arn: The ARN of the resource that you want Resolver to send query logs: an Amazon S3 bucket, a CloudWatch Logs log group, or a Kinesis Data Firehose delivery stream.
+        :param name: The name of the query logging configuration.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_query_logging_config_props = route53resolver.CfnResolverQueryLoggingConfigProps(
+                destination_arn="destinationArn",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee1cbce67551eb150646abe50220d9cf7ebeceb023635a7a5fafd4c05efa335a)
+            check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if destination_arn is not None:
+            self._values["destination_arn"] = destination_arn
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def destination_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the resource that you want Resolver to send query logs: an Amazon S3 bucket, a CloudWatch Logs log group, or a Kinesis Data Firehose delivery stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-destinationarn
+        '''
+        result = self._values.get("destination_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the query logging configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverQueryLoggingConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverRuleAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_rule_id": "resolverRuleId",
+        "vpc_id": "vpcId",
+        "name": "name",
+    },
+)
+class CfnResolverRuleAssociationProps:
+    def __init__(
+        self,
+        *,
+        resolver_rule_id: builtins.str,
+        vpc_id: builtins.str,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverRuleAssociation``.
+
+        :param resolver_rule_id: The ID of the Resolver rule that you associated with the VPC that is specified by ``VPCId`` .
+        :param vpc_id: The ID of the VPC that you associated the Resolver rule with.
+        :param name: The name of an association between a Resolver rule and a VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_rule_association_props = route53resolver.CfnResolverRuleAssociationProps(
+                resolver_rule_id="resolverRuleId",
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1ae0c865)
+            check_type(argname="argument resolver_rule_id", value=resolver_rule_id, expected_type=type_hints["resolver_rule_id"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_rule_id": resolver_rule_id,
+            "vpc_id": vpc_id,
+        }
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def resolver_rule_id(self) -> builtins.str:
+        '''The ID of the Resolver rule that you associated with the VPC that is specified by ``VPCId`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-resolverruleid
+        '''
+        result = self._values.get("resolver_rule_id")
+        assert result is not None, "Required property 'resolver_rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The ID of the VPC that you associated the Resolver rule with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of an association between a Resolver rule and a VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverRuleAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "rule_type": "ruleType",
+        "delegation_record": "delegationRecord",
+        "domain_name": "domainName",
+        "name": "name",
+        "resolver_endpoint_id": "resolverEndpointId",
+        "tags": "tags",
+        "target_ips": "targetIps",
+    },
+)
+class CfnResolverRuleProps:
+    def __init__(
+        self,
+        *,
+        rule_type: builtins.str,
+        delegation_record: typing.Optional[builtins.str] = None,
+        domain_name: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        resolver_endpoint_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResolverRule.TargetAddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResolverRule``.
+
+        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` . If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com). When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+        :param delegation_record: DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
+        :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
+        :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
+        :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
+        :param tags: Tags help organize and categorize your Resolver rules. Each tag consists of a key and an optional value, both of which you define.
+        :param target_ips: An array that contains the IP addresses and ports that an outbound endpoint forwards DNS queries to. Typically, these are the IP addresses of DNS resolvers on your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            cfn_resolver_rule_props = route53resolver.CfnResolverRuleProps(
+                rule_type="ruleType",
+            
+                # the properties below are optional
+                delegation_record="delegationRecord",
+                domain_name="domainName",
+                name="name",
+                resolver_endpoint_id="resolverEndpointId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_ips=[route53resolver.CfnResolverRule.TargetAddressProperty(
+                    ip="ip",
+                    ipv6="ipv6",
+                    port="port",
+                    protocol="protocol",
+                    server_name_indication="serverNameIndication"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec)
+            check_type(argname="argument rule_type", value=rule_type, expected_type=type_hints["rule_type"])
+            check_type(argname="argument delegation_record", value=delegation_record, expected_type=type_hints["delegation_record"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_ips", value=target_ips, expected_type=type_hints["target_ips"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule_type": rule_type,
+        }
+        if delegation_record is not None:
+            self._values["delegation_record"] = delegation_record
+        if domain_name is not None:
+            self._values["domain_name"] = domain_name
+        if name is not None:
+            self._values["name"] = name
+        if resolver_endpoint_id is not None:
+            self._values["resolver_endpoint_id"] = resolver_endpoint_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_ips is not None:
+            self._values["target_ips"] = target_ips
+
+    @builtins.property
+    def rule_type(self) -> builtins.str:
+        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` .
+
+        If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com).
+
+        When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` .
+
+        For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` .
+
+        Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-ruletype
+        '''
+        result = self._values.get("rule_type")
+        assert result is not None, "Required property 'rule_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def delegation_record(self) -> typing.Optional[builtins.str]:
+        '''DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-delegationrecord
+        '''
+        result = self._values.get("delegation_record")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def domain_name(self) -> typing.Optional[builtins.str]:
+        '''DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` .
+
+        If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-domainname
+        '''
+        result = self._values.get("domain_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the Resolver rule, which you specified when you created the Resolver rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resolver_endpoint_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the endpoint that the rule is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-resolverendpointid
+        '''
+        result = self._values.get("resolver_endpoint_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Tags help organize and categorize your Resolver rules.
+
+        Each tag consists of a key and an optional value, both of which you define.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def target_ips(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResolverRule.TargetAddressProperty"]]]]:
+        '''An array that contains the IP addresses and ports that an outbound endpoint forwards DNS queries to.
+
+        Typically, these are the IP addresses of DNS resolvers on your network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-targetips
+        '''
+        result = self._values.get("target_ips")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResolverRule.TargetAddressProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResolverRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.FirewallDomainListReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_domain_list_arn": "firewallDomainListArn",
+        "firewall_domain_list_id": "firewallDomainListId",
+    },
+)
+class FirewallDomainListReference:
+    def __init__(
+        self,
+        *,
+        firewall_domain_list_arn: builtins.str,
+        firewall_domain_list_id: builtins.str,
+    ) -> None:
+        '''A reference to a FirewallDomainList resource.
+
+        :param firewall_domain_list_arn: The ARN of the FirewallDomainList resource.
+        :param firewall_domain_list_id: The Id of the FirewallDomainList resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            firewall_domain_list_reference = route53resolver.FirewallDomainListReference(
+                firewall_domain_list_arn="firewallDomainListArn",
+                firewall_domain_list_id="firewallDomainListId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a8fd2e2e52e6e5e7b6153b943f6139071671338bed614429b2516dc5a614e97)
+            check_type(argname="argument firewall_domain_list_arn", value=firewall_domain_list_arn, expected_type=type_hints["firewall_domain_list_arn"])
+            check_type(argname="argument firewall_domain_list_id", value=firewall_domain_list_id, expected_type=type_hints["firewall_domain_list_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_domain_list_arn": firewall_domain_list_arn,
+            "firewall_domain_list_id": firewall_domain_list_id,
+        }
+
+    @builtins.property
+    def firewall_domain_list_arn(self) -> builtins.str:
+        '''The ARN of the FirewallDomainList resource.'''
+        result = self._values.get("firewall_domain_list_arn")
+        assert result is not None, "Required property 'firewall_domain_list_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def firewall_domain_list_id(self) -> builtins.str:
+        '''The Id of the FirewallDomainList resource.'''
+        result = self._values.get("firewall_domain_list_id")
+        assert result is not None, "Required property 'firewall_domain_list_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirewallDomainListReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.FirewallRuleGroupAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_rule_group_association_arn": "firewallRuleGroupAssociationArn",
+        "firewall_rule_group_association_id": "firewallRuleGroupAssociationId",
+    },
+)
+class FirewallRuleGroupAssociationReference:
+    def __init__(
+        self,
+        *,
+        firewall_rule_group_association_arn: builtins.str,
+        firewall_rule_group_association_id: builtins.str,
+    ) -> None:
+        '''A reference to a FirewallRuleGroupAssociation resource.
+
+        :param firewall_rule_group_association_arn: The ARN of the FirewallRuleGroupAssociation resource.
+        :param firewall_rule_group_association_id: The Id of the FirewallRuleGroupAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            firewall_rule_group_association_reference = route53resolver.FirewallRuleGroupAssociationReference(
+                firewall_rule_group_association_arn="firewallRuleGroupAssociationArn",
+                firewall_rule_group_association_id="firewallRuleGroupAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04408ab60a973e38bc7cf251fcf0ceeb9683aae583a08bf84a0ce8784bc72d94)
+            check_type(argname="argument firewall_rule_group_association_arn", value=firewall_rule_group_association_arn, expected_type=type_hints["firewall_rule_group_association_arn"])
+            check_type(argname="argument firewall_rule_group_association_id", value=firewall_rule_group_association_id, expected_type=type_hints["firewall_rule_group_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_rule_group_association_arn": firewall_rule_group_association_arn,
+            "firewall_rule_group_association_id": firewall_rule_group_association_id,
+        }
+
+    @builtins.property
+    def firewall_rule_group_association_arn(self) -> builtins.str:
+        '''The ARN of the FirewallRuleGroupAssociation resource.'''
+        result = self._values.get("firewall_rule_group_association_arn")
+        assert result is not None, "Required property 'firewall_rule_group_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def firewall_rule_group_association_id(self) -> builtins.str:
+        '''The Id of the FirewallRuleGroupAssociation resource.'''
+        result = self._values.get("firewall_rule_group_association_id")
+        assert result is not None, "Required property 'firewall_rule_group_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirewallRuleGroupAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.FirewallRuleGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_rule_group_arn": "firewallRuleGroupArn",
+        "firewall_rule_group_id": "firewallRuleGroupId",
+    },
+)
+class FirewallRuleGroupReference:
+    def __init__(
+        self,
+        *,
+        firewall_rule_group_arn: builtins.str,
+        firewall_rule_group_id: builtins.str,
+    ) -> None:
+        '''A reference to a FirewallRuleGroup resource.
+
+        :param firewall_rule_group_arn: The ARN of the FirewallRuleGroup resource.
+        :param firewall_rule_group_id: The Id of the FirewallRuleGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            firewall_rule_group_reference = route53resolver.FirewallRuleGroupReference(
+                firewall_rule_group_arn="firewallRuleGroupArn",
+                firewall_rule_group_id="firewallRuleGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0839be08964e79d37454895b81304471208a2526d6c6a06a1be3dd7b1b88c1c9)
+            check_type(argname="argument firewall_rule_group_arn", value=firewall_rule_group_arn, expected_type=type_hints["firewall_rule_group_arn"])
+            check_type(argname="argument firewall_rule_group_id", value=firewall_rule_group_id, expected_type=type_hints["firewall_rule_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_rule_group_arn": firewall_rule_group_arn,
+            "firewall_rule_group_id": firewall_rule_group_id,
+        }
+
+    @builtins.property
+    def firewall_rule_group_arn(self) -> builtins.str:
+        '''The ARN of the FirewallRuleGroup resource.'''
+        result = self._values.get("firewall_rule_group_arn")
+        assert result is not None, "Required property 'firewall_rule_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def firewall_rule_group_id(self) -> builtins.str:
+        '''The Id of the FirewallRuleGroup resource.'''
+        result = self._values.get("firewall_rule_group_id")
+        assert result is not None, "Required property 'firewall_rule_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirewallRuleGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IFirewallDomainListRef")
+class IFirewallDomainListRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallDomainListRef")
+    def firewall_domain_list_ref(self) -> FirewallDomainListReference:
+        '''(experimental) A reference to a FirewallDomainList resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFirewallDomainListRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallDomainList.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IFirewallDomainListRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallDomainListRef")
+    def firewall_domain_list_ref(self) -> FirewallDomainListReference:
+        '''(experimental) A reference to a FirewallDomainList resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FirewallDomainListReference, jsii.get(self, "firewallDomainListRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFirewallDomainListRef).__jsii_proxy_class__ = lambda : _IFirewallDomainListRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_route53resolver.IFirewallRuleGroupAssociationRef"
+)
+class IFirewallRuleGroupAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroupAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupAssociationRef")
+    def firewall_rule_group_association_ref(
+        self,
+    ) -> FirewallRuleGroupAssociationReference:
+        '''(experimental) A reference to a FirewallRuleGroupAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFirewallRuleGroupAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroupAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IFirewallRuleGroupAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupAssociationRef")
+    def firewall_rule_group_association_ref(
+        self,
+    ) -> FirewallRuleGroupAssociationReference:
+        '''(experimental) A reference to a FirewallRuleGroupAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FirewallRuleGroupAssociationReference, jsii.get(self, "firewallRuleGroupAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFirewallRuleGroupAssociationRef).__jsii_proxy_class__ = lambda : _IFirewallRuleGroupAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IFirewallRuleGroupRef")
+class IFirewallRuleGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupRef")
+    def firewall_rule_group_ref(self) -> FirewallRuleGroupReference:
+        '''(experimental) A reference to a FirewallRuleGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFirewallRuleGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FirewallRuleGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IFirewallRuleGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupRef")
+    def firewall_rule_group_ref(self) -> FirewallRuleGroupReference:
+        '''(experimental) A reference to a FirewallRuleGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FirewallRuleGroupReference, jsii.get(self, "firewallRuleGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFirewallRuleGroupRef).__jsii_proxy_class__ = lambda : _IFirewallRuleGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IOutpostResolverRef")
+class IOutpostResolverRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a OutpostResolver.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="outpostResolverRef")
+    def outpost_resolver_ref(self) -> "OutpostResolverReference":
+        '''(experimental) A reference to a OutpostResolver resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOutpostResolverRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OutpostResolver.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IOutpostResolverRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="outpostResolverRef")
+    def outpost_resolver_ref(self) -> "OutpostResolverReference":
+        '''(experimental) A reference to a OutpostResolver resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OutpostResolverReference", jsii.get(self, "outpostResolverRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOutpostResolverRef).__jsii_proxy_class__ = lambda : _IOutpostResolverRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IResolverConfigRef")
+class IResolverConfigRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverConfigRef")
+    def resolver_config_ref(self) -> "ResolverConfigReference":
+        '''(experimental) A reference to a ResolverConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverConfigRef")
+    def resolver_config_ref(self) -> "ResolverConfigReference":
+        '''(experimental) A reference to a ResolverConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverConfigReference", jsii.get(self, "resolverConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverConfigRef).__jsii_proxy_class__ = lambda : _IResolverConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IResolverDNSSECConfigRef")
+class IResolverDNSSECConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverDNSSECConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverDnssecConfigRef")
+    def resolver_dnssec_config_ref(self) -> "ResolverDNSSECConfigReference":
+        '''(experimental) A reference to a ResolverDNSSECConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverDNSSECConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverDNSSECConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverDNSSECConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverDnssecConfigRef")
+    def resolver_dnssec_config_ref(self) -> "ResolverDNSSECConfigReference":
+        '''(experimental) A reference to a ResolverDNSSECConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverDNSSECConfigReference", jsii.get(self, "resolverDnssecConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverDNSSECConfigRef).__jsii_proxy_class__ = lambda : _IResolverDNSSECConfigRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IResolverEndpointRef")
+class IResolverEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverEndpointRef")
+    def resolver_endpoint_ref(self) -> "ResolverEndpointReference":
+        '''(experimental) A reference to a ResolverEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverEndpointRef")
+    def resolver_endpoint_ref(self) -> "ResolverEndpointReference":
+        '''(experimental) A reference to a ResolverEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverEndpointReference", jsii.get(self, "resolverEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverEndpointRef).__jsii_proxy_class__ = lambda : _IResolverEndpointRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_route53resolver.IResolverQueryLoggingConfigAssociationRef"
+)
+class IResolverQueryLoggingConfigAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfigAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigAssociationRef")
+    def resolver_query_logging_config_association_ref(
+        self,
+    ) -> "ResolverQueryLoggingConfigAssociationReference":
+        '''(experimental) A reference to a ResolverQueryLoggingConfigAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverQueryLoggingConfigAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfigAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverQueryLoggingConfigAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigAssociationRef")
+    def resolver_query_logging_config_association_ref(
+        self,
+    ) -> "ResolverQueryLoggingConfigAssociationReference":
+        '''(experimental) A reference to a ResolverQueryLoggingConfigAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverQueryLoggingConfigAssociationReference", jsii.get(self, "resolverQueryLoggingConfigAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverQueryLoggingConfigAssociationRef).__jsii_proxy_class__ = lambda : _IResolverQueryLoggingConfigAssociationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_route53resolver.IResolverQueryLoggingConfigRef"
+)
+class IResolverQueryLoggingConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigRef")
+    def resolver_query_logging_config_ref(
+        self,
+    ) -> "ResolverQueryLoggingConfigReference":
+        '''(experimental) A reference to a ResolverQueryLoggingConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverQueryLoggingConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverQueryLoggingConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverQueryLoggingConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigRef")
+    def resolver_query_logging_config_ref(
+        self,
+    ) -> "ResolverQueryLoggingConfigReference":
+        '''(experimental) A reference to a ResolverQueryLoggingConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverQueryLoggingConfigReference", jsii.get(self, "resolverQueryLoggingConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverQueryLoggingConfigRef).__jsii_proxy_class__ = lambda : _IResolverQueryLoggingConfigRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_route53resolver.IResolverRuleAssociationRef"
+)
+class IResolverRuleAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverRuleAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverRuleAssociationRef")
+    def resolver_rule_association_ref(self) -> "ResolverRuleAssociationReference":
+        '''(experimental) A reference to a ResolverRuleAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverRuleAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverRuleAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverRuleAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverRuleAssociationRef")
+    def resolver_rule_association_ref(self) -> "ResolverRuleAssociationReference":
+        '''(experimental) A reference to a ResolverRuleAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverRuleAssociationReference", jsii.get(self, "resolverRuleAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverRuleAssociationRef).__jsii_proxy_class__ = lambda : _IResolverRuleAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_route53resolver.IResolverRuleRef")
+class IResolverRuleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverRuleRef")
+    def resolver_rule_ref(self) -> "ResolverRuleReference":
+        '''(experimental) A reference to a ResolverRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResolverRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResolverRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_route53resolver.IResolverRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverRuleRef")
+    def resolver_rule_ref(self) -> "ResolverRuleReference":
+        '''(experimental) A reference to a ResolverRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResolverRuleReference", jsii.get(self, "resolverRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResolverRuleRef).__jsii_proxy_class__ = lambda : _IResolverRuleRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.OutpostResolverReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "outpost_resolver_arn": "outpostResolverArn",
+        "outpost_resolver_id": "outpostResolverId",
+    },
+)
+class OutpostResolverReference:
+    def __init__(
+        self,
+        *,
+        outpost_resolver_arn: builtins.str,
+        outpost_resolver_id: builtins.str,
+    ) -> None:
+        '''A reference to a OutpostResolver resource.
+
+        :param outpost_resolver_arn: The ARN of the OutpostResolver resource.
+        :param outpost_resolver_id: The Id of the OutpostResolver resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            outpost_resolver_reference = route53resolver.OutpostResolverReference(
+                outpost_resolver_arn="outpostResolverArn",
+                outpost_resolver_id="outpostResolverId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__160452db80411b085f53022083a52261b5e9d9b043da65ab155c81bc393ae92d)
+            check_type(argname="argument outpost_resolver_arn", value=outpost_resolver_arn, expected_type=type_hints["outpost_resolver_arn"])
+            check_type(argname="argument outpost_resolver_id", value=outpost_resolver_id, expected_type=type_hints["outpost_resolver_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "outpost_resolver_arn": outpost_resolver_arn,
+            "outpost_resolver_id": outpost_resolver_id,
+        }
+
+    @builtins.property
+    def outpost_resolver_arn(self) -> builtins.str:
+        '''The ARN of the OutpostResolver resource.'''
+        result = self._values.get("outpost_resolver_arn")
+        assert result is not None, "Required property 'outpost_resolver_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def outpost_resolver_id(self) -> builtins.str:
+        '''The Id of the OutpostResolver resource.'''
+        result = self._values.get("outpost_resolver_id")
+        assert result is not None, "Required property 'outpost_resolver_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OutpostResolverReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_id": "resourceId"},
+)
+class ResolverConfigReference:
+    def __init__(self, *, resource_id: builtins.str) -> None:
+        '''A reference to a ResolverConfig resource.
+
+        :param resource_id: The ResourceId of the ResolverConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_config_reference = route53resolver.ResolverConfigReference(
+                resource_id="resourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__198030d69ee4ad552e7805699a6c2e986ca1901710764103839a8170a874e15b)
+            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_id": resource_id,
+        }
+
+    @builtins.property
+    def resource_id(self) -> builtins.str:
+        '''The ResourceId of the ResolverConfig resource.'''
+        result = self._values.get("resource_id")
+        assert result is not None, "Required property 'resource_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverDNSSECConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"resolver_dnssec_config_id": "resolverDnssecConfigId"},
+)
+class ResolverDNSSECConfigReference:
+    def __init__(self, *, resolver_dnssec_config_id: builtins.str) -> None:
+        '''A reference to a ResolverDNSSECConfig resource.
+
+        :param resolver_dnssec_config_id: The Id of the ResolverDNSSECConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_dNSSECConfig_reference = route53resolver.ResolverDNSSECConfigReference(
+                resolver_dnssec_config_id="resolverDnssecConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d3ed502cc7157efd1a4f482760481a0dea5876f6e2d94aafaf00d8912b3a5e0)
+            check_type(argname="argument resolver_dnssec_config_id", value=resolver_dnssec_config_id, expected_type=type_hints["resolver_dnssec_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_dnssec_config_id": resolver_dnssec_config_id,
+        }
+
+    @builtins.property
+    def resolver_dnssec_config_id(self) -> builtins.str:
+        '''The Id of the ResolverDNSSECConfig resource.'''
+        result = self._values.get("resolver_dnssec_config_id")
+        assert result is not None, "Required property 'resolver_dnssec_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverDNSSECConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_endpoint_arn": "resolverEndpointArn",
+        "resolver_endpoint_id": "resolverEndpointId",
+    },
+)
+class ResolverEndpointReference:
+    def __init__(
+        self,
+        *,
+        resolver_endpoint_arn: builtins.str,
+        resolver_endpoint_id: builtins.str,
+    ) -> None:
+        '''A reference to a ResolverEndpoint resource.
+
+        :param resolver_endpoint_arn: The ARN of the ResolverEndpoint resource.
+        :param resolver_endpoint_id: The ResolverEndpointId of the ResolverEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_endpoint_reference = route53resolver.ResolverEndpointReference(
+                resolver_endpoint_arn="resolverEndpointArn",
+                resolver_endpoint_id="resolverEndpointId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8a1f6b8dd67d574f610899a78b37472e8a74f05bcc85326a14096d58f43c112)
+            check_type(argname="argument resolver_endpoint_arn", value=resolver_endpoint_arn, expected_type=type_hints["resolver_endpoint_arn"])
+            check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_endpoint_arn": resolver_endpoint_arn,
+            "resolver_endpoint_id": resolver_endpoint_id,
+        }
+
+    @builtins.property
+    def resolver_endpoint_arn(self) -> builtins.str:
+        '''The ARN of the ResolverEndpoint resource.'''
+        result = self._values.get("resolver_endpoint_arn")
+        assert result is not None, "Required property 'resolver_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resolver_endpoint_id(self) -> builtins.str:
+        '''The ResolverEndpointId of the ResolverEndpoint resource.'''
+        result = self._values.get("resolver_endpoint_id")
+        assert result is not None, "Required property 'resolver_endpoint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverQueryLoggingConfigAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_query_logging_config_association_id": "resolverQueryLoggingConfigAssociationId",
+    },
+)
+class ResolverQueryLoggingConfigAssociationReference:
+    def __init__(
+        self,
+        *,
+        resolver_query_logging_config_association_id: builtins.str,
+    ) -> None:
+        '''A reference to a ResolverQueryLoggingConfigAssociation resource.
+
+        :param resolver_query_logging_config_association_id: The Id of the ResolverQueryLoggingConfigAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_query_logging_config_association_reference = route53resolver.ResolverQueryLoggingConfigAssociationReference(
+                resolver_query_logging_config_association_id="resolverQueryLoggingConfigAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e23bac7d360ad7a8b60283651413142cf509ad32acc1f2dedf5082804b7a4470)
+            check_type(argname="argument resolver_query_logging_config_association_id", value=resolver_query_logging_config_association_id, expected_type=type_hints["resolver_query_logging_config_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_query_logging_config_association_id": resolver_query_logging_config_association_id,
+        }
+
+    @builtins.property
+    def resolver_query_logging_config_association_id(self) -> builtins.str:
+        '''The Id of the ResolverQueryLoggingConfigAssociation resource.'''
+        result = self._values.get("resolver_query_logging_config_association_id")
+        assert result is not None, "Required property 'resolver_query_logging_config_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverQueryLoggingConfigAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverQueryLoggingConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_query_logging_config_arn": "resolverQueryLoggingConfigArn",
+        "resolver_query_logging_config_id": "resolverQueryLoggingConfigId",
+    },
+)
+class ResolverQueryLoggingConfigReference:
+    def __init__(
+        self,
+        *,
+        resolver_query_logging_config_arn: builtins.str,
+        resolver_query_logging_config_id: builtins.str,
+    ) -> None:
+        '''A reference to a ResolverQueryLoggingConfig resource.
+
+        :param resolver_query_logging_config_arn: The ARN of the ResolverQueryLoggingConfig resource.
+        :param resolver_query_logging_config_id: The Id of the ResolverQueryLoggingConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_query_logging_config_reference = route53resolver.ResolverQueryLoggingConfigReference(
+                resolver_query_logging_config_arn="resolverQueryLoggingConfigArn",
+                resolver_query_logging_config_id="resolverQueryLoggingConfigId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e587e90b579eafe0a77e16c8ea5ba164bfb4150494032afa387c9602fe20f1f)
+            check_type(argname="argument resolver_query_logging_config_arn", value=resolver_query_logging_config_arn, expected_type=type_hints["resolver_query_logging_config_arn"])
+            check_type(argname="argument resolver_query_logging_config_id", value=resolver_query_logging_config_id, expected_type=type_hints["resolver_query_logging_config_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_query_logging_config_arn": resolver_query_logging_config_arn,
+            "resolver_query_logging_config_id": resolver_query_logging_config_id,
+        }
+
+    @builtins.property
+    def resolver_query_logging_config_arn(self) -> builtins.str:
+        '''The ARN of the ResolverQueryLoggingConfig resource.'''
+        result = self._values.get("resolver_query_logging_config_arn")
+        assert result is not None, "Required property 'resolver_query_logging_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resolver_query_logging_config_id(self) -> builtins.str:
+        '''The Id of the ResolverQueryLoggingConfig resource.'''
+        result = self._values.get("resolver_query_logging_config_id")
+        assert result is not None, "Required property 'resolver_query_logging_config_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverQueryLoggingConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverRuleAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"resolver_rule_association_id": "resolverRuleAssociationId"},
+)
+class ResolverRuleAssociationReference:
+    def __init__(self, *, resolver_rule_association_id: builtins.str) -> None:
+        '''A reference to a ResolverRuleAssociation resource.
+
+        :param resolver_rule_association_id: The ResolverRuleAssociationId of the ResolverRuleAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_rule_association_reference = route53resolver.ResolverRuleAssociationReference(
+                resolver_rule_association_id="resolverRuleAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3cd8d5c0bb52047195eb251d8ec5aa8aa6e18e3d321e650988c04e2a8ae428f)
+            check_type(argname="argument resolver_rule_association_id", value=resolver_rule_association_id, expected_type=type_hints["resolver_rule_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_rule_association_id": resolver_rule_association_id,
+        }
+
+    @builtins.property
+    def resolver_rule_association_id(self) -> builtins.str:
+        '''The ResolverRuleAssociationId of the ResolverRuleAssociation resource.'''
+        result = self._values.get("resolver_rule_association_id")
+        assert result is not None, "Required property 'resolver_rule_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverRuleAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53resolver.ResolverRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resolver_rule_arn": "resolverRuleArn",
+        "resolver_rule_id": "resolverRuleId",
+    },
+)
+class ResolverRuleReference:
+    def __init__(
+        self,
+        *,
+        resolver_rule_arn: builtins.str,
+        resolver_rule_id: builtins.str,
+    ) -> None:
+        '''A reference to a ResolverRule resource.
+
+        :param resolver_rule_arn: The ARN of the ResolverRule resource.
+        :param resolver_rule_id: The ResolverRuleId of the ResolverRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53resolver as route53resolver
+            
+            resolver_rule_reference = route53resolver.ResolverRuleReference(
+                resolver_rule_arn="resolverRuleArn",
+                resolver_rule_id="resolverRuleId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6686dd5cf9a30953e9ebf395bc574988a08852fb8805ffa0fbfe5a0fc82b1edc)
+            check_type(argname="argument resolver_rule_arn", value=resolver_rule_arn, expected_type=type_hints["resolver_rule_arn"])
+            check_type(argname="argument resolver_rule_id", value=resolver_rule_id, expected_type=type_hints["resolver_rule_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resolver_rule_arn": resolver_rule_arn,
+            "resolver_rule_id": resolver_rule_id,
+        }
+
+    @builtins.property
+    def resolver_rule_arn(self) -> builtins.str:
+        '''The ARN of the ResolverRule resource.'''
+        result = self._values.get("resolver_rule_arn")
+        assert result is not None, "Required property 'resolver_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resolver_rule_id(self) -> builtins.str:
+        '''The ResolverRuleId of the ResolverRule resource.'''
+        result = self._values.get("resolver_rule_id")
+        assert result is not None, "Required property 'resolver_rule_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResolverRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IFirewallDomainListRef, _ITaggable_36806126)
 class CfnFirewallDomainList(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -255,6 +2707,12 @@ class CfnFirewallDomainList(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="firewallDomainListRef")
+    def firewall_domain_list_ref(self) -> FirewallDomainListReference:
+        '''A reference to a FirewallDomainList resource.'''
+        return typing.cast(FirewallDomainListReference, jsii.get(self, "firewallDomainListRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -313,118 +2771,7 @@ class CfnFirewallDomainList(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallDomainListProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_file_url": "domainFileUrl",
-        "domains": "domains",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnFirewallDomainListProps:
-    def __init__(
-        self,
-        *,
-        domain_file_url: typing.Optional[builtins.str] = None,
-        domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFirewallDomainList``.
-
-        :param domain_file_url: The fully qualified URL or URI of the file stored in Amazon Simple Storage Service (Amazon S3) that contains the list of domains to import. The file must be in an S3 bucket that's in the same Region as your DNS Firewall. The file must be a text file and must contain a single domain per line.
-        :param domains: A list of the domain lists that you have defined.
-        :param name: The name of the domain list.
-        :param tags: A list of the tag keys and values that you want to associate with the domain list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_firewall_domain_list_props = route53resolver.CfnFirewallDomainListProps(
-                domain_file_url="domainFileUrl",
-                domains=["domains"],
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cf9cc65cbfb33602e70ad9026e1edbeb5f1b4164b0394d3cfdce7740e405780)
-            check_type(argname="argument domain_file_url", value=domain_file_url, expected_type=type_hints["domain_file_url"])
-            check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if domain_file_url is not None:
-            self._values["domain_file_url"] = domain_file_url
-        if domains is not None:
-            self._values["domains"] = domains
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def domain_file_url(self) -> typing.Optional[builtins.str]:
-        '''The fully qualified URL or URI of the file stored in Amazon Simple Storage Service (Amazon S3) that contains the list of domains to import.
-
-        The file must be in an S3 bucket that's in the same Region as your DNS Firewall. The file must be a text file and must contain a single domain per line.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-domainfileurl
-        '''
-        result = self._values.get("domain_file_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of the domain lists that you have defined.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-domains
-        '''
-        result = self._values.get("domains")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the domain list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of the tag keys and values that you want to associate with the domain list.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewalldomainlist.html#cfn-route53resolver-firewalldomainlist-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFirewallDomainListProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFirewallRuleGroupRef, _ITaggable_36806126)
 class CfnFirewallRuleGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -625,6 +2972,12 @@ class CfnFirewallRuleGroup(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupRef")
+    def firewall_rule_group_ref(self) -> FirewallRuleGroupReference:
+        '''A reference to a FirewallRuleGroup resource.'''
+        return typing.cast(FirewallRuleGroupReference, jsii.get(self, "firewallRuleGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -964,7 +3317,7 @@ class CfnFirewallRuleGroup(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IFirewallRuleGroupAssociationRef, _ITaggable_36806126)
 class CfnFirewallRuleGroupAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1146,6 +3499,14 @@ class CfnFirewallRuleGroupAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="firewallRuleGroupAssociationRef")
+    def firewall_rule_group_association_ref(
+        self,
+    ) -> FirewallRuleGroupAssociationReference:
+        '''A reference to a FirewallRuleGroupAssociation resource.'''
+        return typing.cast(FirewallRuleGroupAssociationReference, jsii.get(self, "firewallRuleGroupAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -1230,263 +3591,7 @@ class CfnFirewallRuleGroupAssociation(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroupAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "firewall_rule_group_id": "firewallRuleGroupId",
-        "priority": "priority",
-        "vpc_id": "vpcId",
-        "mutation_protection": "mutationProtection",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnFirewallRuleGroupAssociationProps:
-    def __init__(
-        self,
-        *,
-        firewall_rule_group_id: builtins.str,
-        priority: jsii.Number,
-        vpc_id: builtins.str,
-        mutation_protection: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFirewallRuleGroupAssociation``.
-
-        :param firewall_rule_group_id: The unique identifier of the firewall rule group.
-        :param priority: The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. You must specify a unique priority for each rule group that you associate with a single VPC. To make it easier to insert rule groups later, leave space between the numbers, for example, use 101, 200, and so on. You can change the priority setting for a rule group association after you create it. The allowed values for ``Priority`` are between 100 and 9900 (excluding 100 and 9900).
-        :param vpc_id: The unique identifier of the VPC that is associated with the rule group.
-        :param mutation_protection: If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
-        :param name: The name of the association.
-        :param tags: A list of the tag keys and values that you want to associate with the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_firewall_rule_group_association_props = route53resolver.CfnFirewallRuleGroupAssociationProps(
-                firewall_rule_group_id="firewallRuleGroupId",
-                priority=123,
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                mutation_protection="mutationProtection",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__715b8023408ad9032f9d4e486688e3bb6a5d34ab729223deee30ce0cd75c46e8)
-            check_type(argname="argument firewall_rule_group_id", value=firewall_rule_group_id, expected_type=type_hints["firewall_rule_group_id"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument mutation_protection", value=mutation_protection, expected_type=type_hints["mutation_protection"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "firewall_rule_group_id": firewall_rule_group_id,
-            "priority": priority,
-            "vpc_id": vpc_id,
-        }
-        if mutation_protection is not None:
-            self._values["mutation_protection"] = mutation_protection
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def firewall_rule_group_id(self) -> builtins.str:
-        '''The unique identifier of the firewall rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-firewallrulegroupid
-        '''
-        result = self._values.get("firewall_rule_group_id")
-        assert result is not None, "Required property 'firewall_rule_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def priority(self) -> jsii.Number:
-        '''The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC.
-
-        DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting.
-
-        You must specify a unique priority for each rule group that you associate with a single VPC. To make it easier to insert rule groups later, leave space between the numbers, for example, use 101, 200, and so on. You can change the priority setting for a rule group association after you create it.
-
-        The allowed values for ``Priority`` are between 100 and 9900 (excluding 100 and 9900).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-priority
-        '''
-        result = self._values.get("priority")
-        assert result is not None, "Required property 'priority' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The unique identifier of the VPC that is associated with the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def mutation_protection(self) -> typing.Optional[builtins.str]:
-        '''If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-mutationprotection
-        '''
-        result = self._values.get("mutation_protection")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of the tag keys and values that you want to associate with the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroupassociation.html#cfn-route53resolver-firewallrulegroupassociation-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFirewallRuleGroupAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnFirewallRuleGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={"firewall_rules": "firewallRules", "name": "name", "tags": "tags"},
-)
-class CfnFirewallRuleGroupProps:
-    def __init__(
-        self,
-        *,
-        firewall_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFirewallRuleGroup``.
-
-        :param firewall_rules: A list of the rules that you have defined.
-        :param name: The name of the rule group.
-        :param tags: A list of the tag keys and values that you want to associate with the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_firewall_rule_group_props = route53resolver.CfnFirewallRuleGroupProps(
-                firewall_rules=[route53resolver.CfnFirewallRuleGroup.FirewallRuleProperty(
-                    action="action",
-                    priority=123,
-            
-                    # the properties below are optional
-                    block_override_dns_type="blockOverrideDnsType",
-                    block_override_domain="blockOverrideDomain",
-                    block_override_ttl=123,
-                    block_response="blockResponse",
-                    confidence_threshold="confidenceThreshold",
-                    dns_threat_protection="dnsThreatProtection",
-                    firewall_domain_list_id="firewallDomainListId",
-                    firewall_domain_redirection_action="firewallDomainRedirectionAction",
-                    firewall_threat_protection_id="firewallThreatProtectionId",
-                    qtype="qtype"
-                )],
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b614b409c77b0163f669e1c5a722bed570fc73bbd7afce583918c9e4ee2b0436)
-            check_type(argname="argument firewall_rules", value=firewall_rules, expected_type=type_hints["firewall_rules"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if firewall_rules is not None:
-            self._values["firewall_rules"] = firewall_rules
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def firewall_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewallRuleGroup.FirewallRuleProperty]]]]:
-        '''A list of the rules that you have defined.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-firewallrules
-        '''
-        result = self._values.get("firewall_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewallRuleGroup.FirewallRuleProperty]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of the tag keys and values that you want to associate with the rule group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-firewallrulegroup.html#cfn-route53resolver-firewallrulegroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFirewallRuleGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IOutpostResolverRef, _ITaggableV2_4e6798f8)
 class CfnOutpostResolver(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1661,6 +3766,12 @@ class CfnOutpostResolver(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="outpostResolverRef")
+    def outpost_resolver_ref(self) -> OutpostResolverReference:
+        '''A reference to a OutpostResolver resource.'''
+        return typing.cast(OutpostResolverReference, jsii.get(self, "outpostResolverRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''Name of the Resolver.'''
@@ -1726,137 +3837,7 @@ class CfnOutpostResolver(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnOutpostResolverProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "outpost_arn": "outpostArn",
-        "preferred_instance_type": "preferredInstanceType",
-        "instance_count": "instanceCount",
-        "tags": "tags",
-    },
-)
-class CfnOutpostResolverProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        outpost_arn: builtins.str,
-        preferred_instance_type: builtins.str,
-        instance_count: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOutpostResolver``.
-
-        :param name: Name of the Resolver.
-        :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
-        :param preferred_instance_type: The Amazon EC2 instance type. If you specify this, you must also specify a value for the ``OutpostArn`` .
-        :param instance_count: Amazon EC2 instance count for the Resolver on the Outpost.
-        :param tags: A key value pair that helps you identify a Route 53 Resolver .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_outpost_resolver_props = route53resolver.CfnOutpostResolverProps(
-                name="name",
-                outpost_arn="outpostArn",
-                preferred_instance_type="preferredInstanceType",
-            
-                # the properties below are optional
-                instance_count=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b53ebd141bec9bc329c50935d9193d3066583cc585d0abb08ec4a100183f07e1)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument outpost_arn", value=outpost_arn, expected_type=type_hints["outpost_arn"])
-            check_type(argname="argument preferred_instance_type", value=preferred_instance_type, expected_type=type_hints["preferred_instance_type"])
-            check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "outpost_arn": outpost_arn,
-            "preferred_instance_type": preferred_instance_type,
-        }
-        if instance_count is not None:
-            self._values["instance_count"] = instance_count
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Name of the Resolver.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def outpost_arn(self) -> builtins.str:
-        '''The ARN (Amazon Resource Name) for the Outpost.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-outpostarn
-        '''
-        result = self._values.get("outpost_arn")
-        assert result is not None, "Required property 'outpost_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def preferred_instance_type(self) -> builtins.str:
-        '''The Amazon EC2 instance type.
-
-        If you specify this, you must also specify a value for the ``OutpostArn`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-preferredinstancetype
-        '''
-        result = self._values.get("preferred_instance_type")
-        assert result is not None, "Required property 'preferred_instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Amazon EC2 instance count for the Resolver on the Outpost.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-instancecount
-        '''
-        result = self._values.get("instance_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A key value pair that helps you identify a Route 53 Resolver .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-outpostresolver.html#cfn-route53resolver-outpostresolver-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOutpostResolverProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResolverConfigRef)
 class CfnResolverConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1969,6 +3950,12 @@ class CfnResolverConfig(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resolverConfigRef")
+    def resolver_config_ref(self) -> ResolverConfigReference:
+        '''A reference to a ResolverConfig resource.'''
+        return typing.cast(ResolverConfigReference, jsii.get(self, "resolverConfigRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="autodefinedReverseFlag")
     def autodefined_reverse_flag(self) -> builtins.str:
         '''Represents the desired status of ``AutodefinedReverse`` .'''
@@ -1995,84 +3982,7 @@ class CfnResolverConfig(
         jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "autodefined_reverse_flag": "autodefinedReverseFlag",
-        "resource_id": "resourceId",
-    },
-)
-class CfnResolverConfigProps:
-    def __init__(
-        self,
-        *,
-        autodefined_reverse_flag: builtins.str,
-        resource_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverConfig``.
-
-        :param autodefined_reverse_flag: Represents the desired status of ``AutodefinedReverse`` . The only supported value on creation is ``DISABLE`` . Deletion of this resource will return ``AutodefinedReverse`` to its default value of ``ENABLED`` .
-        :param resource_id: The ID of the Amazon Virtual Private Cloud VPC or a Route 53 Profile that you're configuring Resolver for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_config_props = route53resolver.CfnResolverConfigProps(
-                autodefined_reverse_flag="autodefinedReverseFlag",
-                resource_id="resourceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e8a6715c54a3032f85efda72259aecef906caa87b4729b8c9bc48010e591ae1)
-            check_type(argname="argument autodefined_reverse_flag", value=autodefined_reverse_flag, expected_type=type_hints["autodefined_reverse_flag"])
-            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "autodefined_reverse_flag": autodefined_reverse_flag,
-            "resource_id": resource_id,
-        }
-
-    @builtins.property
-    def autodefined_reverse_flag(self) -> builtins.str:
-        '''Represents the desired status of ``AutodefinedReverse`` .
-
-        The only supported value on creation is ``DISABLE`` . Deletion of this resource will return ``AutodefinedReverse`` to its default value of ``ENABLED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html#cfn-route53resolver-resolverconfig-autodefinedreverseflag
-        '''
-        result = self._values.get("autodefined_reverse_flag")
-        assert result is not None, "Required property 'autodefined_reverse_flag' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_id(self) -> builtins.str:
-        '''The ID of the Amazon Virtual Private Cloud VPC or a Route 53 Profile that you're configuring Resolver for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverconfig.html#cfn-route53resolver-resolverconfig-resourceid
-        '''
-        result = self._values.get("resource_id")
-        assert result is not None, "Required property 'resource_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResolverDNSSECConfigRef)
 class CfnResolverDNSSECConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2184,6 +4094,12 @@ class CfnResolverDNSSECConfig(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resolverDnssecConfigRef")
+    def resolver_dnssec_config_ref(self) -> ResolverDNSSECConfigReference:
+        '''A reference to a ResolverDNSSECConfig resource.'''
+        return typing.cast(ResolverDNSSECConfigReference, jsii.get(self, "resolverDnssecConfigRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="resourceId")
     def resource_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the virtual private cloud (VPC) that you're configuring the DNSSEC validation status for.'''
@@ -2197,59 +4113,7 @@ class CfnResolverDNSSECConfig(
         jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverDNSSECConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={"resource_id": "resourceId"},
-)
-class CfnResolverDNSSECConfigProps:
-    def __init__(self, *, resource_id: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnResolverDNSSECConfig``.
-
-        :param resource_id: The ID of the virtual private cloud (VPC) that you're configuring the DNSSEC validation status for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverdnssecconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_dNSSECConfig_props = route53resolver.CfnResolverDNSSECConfigProps(
-                resource_id="resourceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d1d6cb497f316e5311641ff022dde6f5ae37e4e937722cbf4e49800c7dcf748)
-            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if resource_id is not None:
-            self._values["resource_id"] = resource_id
-
-    @builtins.property
-    def resource_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the virtual private cloud (VPC) that you're configuring the DNSSEC validation status for.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverdnssecconfig.html#cfn-route53resolver-resolverdnssecconfig-resourceid
-        '''
-        result = self._values.get("resource_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverDNSSECConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IResolverEndpointRef, _ITaggable_36806126)
 class CfnResolverEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2457,6 +4321,12 @@ class CfnResolverEndpoint(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverEndpointRef")
+    def resolver_endpoint_ref(self) -> ResolverEndpointReference:
+        '''A reference to a ResolverEndpoint resource.'''
+        return typing.cast(ResolverEndpointReference, jsii.get(self, "resolverEndpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2678,236 +4548,7 @@ class CfnResolverEndpoint(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "direction": "direction",
-        "ip_addresses": "ipAddresses",
-        "security_group_ids": "securityGroupIds",
-        "name": "name",
-        "outpost_arn": "outpostArn",
-        "preferred_instance_type": "preferredInstanceType",
-        "protocols": "protocols",
-        "resolver_endpoint_type": "resolverEndpointType",
-        "tags": "tags",
-    },
-)
-class CfnResolverEndpointProps:
-    def __init__(
-        self,
-        *,
-        direction: builtins.str,
-        ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverEndpoint.IpAddressRequestProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        security_group_ids: typing.Sequence[builtins.str],
-        name: typing.Optional[builtins.str] = None,
-        outpost_arn: typing.Optional[builtins.str] = None,
-        preferred_instance_type: typing.Optional[builtins.str] = None,
-        protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
-        resolver_endpoint_type: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverEndpoint``.
-
-        :param direction: Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:. - ``INBOUND`` : allows DNS queries to your VPC from your network - ``OUTBOUND`` : allows DNS queries from your VPC to your network - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
-        :param ip_addresses: The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints). The subnet ID uniquely identifies a VPC. .. epigraph:: Even though the minimum is 1, Route 53 requires that you create at least two.
-        :param security_group_ids: The ID of one or more security groups that control access to this VPC. The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
-        :param name: A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
-        :param outpost_arn: The ARN (Amazon Resource Name) for the Outpost.
-        :param preferred_instance_type: The Amazon EC2 instance type.
-        :param protocols: Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only. For an inbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 and DoH-FIPS in combination. - Do53 alone. - DoH alone. - DoH-FIPS alone. - None, which is treated as Do53. For a delegation inbound endpoint you can use Do53 only. For an outbound endpoint you can apply the protocols as follows: - Do53 and DoH in combination. - Do53 alone. - DoH alone. - None, which is treated as Do53.
-        :param resolver_endpoint_type: The Resolver endpoint IP address type.
-        :param tags: Route 53 Resolver doesn't support updating tags through CloudFormation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_endpoint_props = route53resolver.CfnResolverEndpointProps(
-                direction="direction",
-                ip_addresses=[route53resolver.CfnResolverEndpoint.IpAddressRequestProperty(
-                    subnet_id="subnetId",
-            
-                    # the properties below are optional
-                    ip="ip",
-                    ipv6="ipv6"
-                )],
-                security_group_ids=["securityGroupIds"],
-            
-                # the properties below are optional
-                name="name",
-                outpost_arn="outpostArn",
-                preferred_instance_type="preferredInstanceType",
-                protocols=["protocols"],
-                resolver_endpoint_type="resolverEndpointType",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cc09ce842a854995739f051f3b593bc3ded813d2e97260dcb20f39108e8d889)
-            check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
-            check_type(argname="argument ip_addresses", value=ip_addresses, expected_type=type_hints["ip_addresses"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument outpost_arn", value=outpost_arn, expected_type=type_hints["outpost_arn"])
-            check_type(argname="argument preferred_instance_type", value=preferred_instance_type, expected_type=type_hints["preferred_instance_type"])
-            check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
-            check_type(argname="argument resolver_endpoint_type", value=resolver_endpoint_type, expected_type=type_hints["resolver_endpoint_type"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "direction": direction,
-            "ip_addresses": ip_addresses,
-            "security_group_ids": security_group_ids,
-        }
-        if name is not None:
-            self._values["name"] = name
-        if outpost_arn is not None:
-            self._values["outpost_arn"] = outpost_arn
-        if preferred_instance_type is not None:
-            self._values["preferred_instance_type"] = preferred_instance_type
-        if protocols is not None:
-            self._values["protocols"] = protocols
-        if resolver_endpoint_type is not None:
-            self._values["resolver_endpoint_type"] = resolver_endpoint_type
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def direction(self) -> builtins.str:
-        '''Indicates whether the Resolver endpoint allows inbound or outbound DNS queries:.
-
-        - ``INBOUND`` : allows DNS queries to your VPC from your network
-        - ``OUTBOUND`` : allows DNS queries from your VPC to your network
-        - ``INBOUND_DELEGATION`` : Resolver delegates queries to Route 53 private hosted zones from your network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-direction
-        '''
-        result = self._values.get("direction")
-        assert result is not None, "Required property 'direction' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ip_addresses(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResolverEndpoint.IpAddressRequestProperty]]]:
-        '''The subnets and IP addresses in your VPC that DNS queries originate from (for outbound endpoints) or that you forward DNS queries to (for inbound endpoints).
-
-        The subnet ID uniquely identifies a VPC.
-        .. epigraph::
-
-           Even though the minimum is 1, Route 53 requires that you create at least two.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-ipaddresses
-        '''
-        result = self._values.get("ip_addresses")
-        assert result is not None, "Required property 'ip_addresses' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResolverEndpoint.IpAddressRequestProperty]]], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.List[builtins.str]:
-        '''The ID of one or more security groups that control access to this VPC.
-
-        The security group must include one or more inbound rules (for inbound endpoints) or outbound rules (for outbound endpoints). Inbound and outbound rules must allow TCP and UDP access. For inbound access, open port 53. For outbound access, open the port that you're using for DNS queries on your network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        assert result is not None, "Required property 'security_group_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A friendly name that lets you easily find a configuration in the Resolver dashboard in the Route 53 console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def outpost_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN (Amazon Resource Name) for the Outpost.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-outpostarn
-        '''
-        result = self._values.get("outpost_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def preferred_instance_type(self) -> typing.Optional[builtins.str]:
-        '''The Amazon EC2 instance type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-preferredinstancetype
-        '''
-        result = self._values.get("preferred_instance_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Protocols used for the endpoint. DoH-FIPS is applicable for a default inbound endpoints only.
-
-        For an inbound endpoint you can apply the protocols as follows:
-
-        - Do53 and DoH in combination.
-        - Do53 and DoH-FIPS in combination.
-        - Do53 alone.
-        - DoH alone.
-        - DoH-FIPS alone.
-        - None, which is treated as Do53.
-
-        For a delegation inbound endpoint you can use Do53 only.
-
-        For an outbound endpoint you can apply the protocols as follows:
-
-        - Do53 and DoH in combination.
-        - Do53 alone.
-        - DoH alone.
-        - None, which is treated as Do53.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-protocols
-        '''
-        result = self._values.get("protocols")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def resolver_endpoint_type(self) -> typing.Optional[builtins.str]:
-        '''The Resolver endpoint IP address type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-resolverendpointtype
-        '''
-        result = self._values.get("resolver_endpoint_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Route 53 Resolver doesn't support updating tags through CloudFormation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverendpoint.html#cfn-route53resolver-resolverendpoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IResolverQueryLoggingConfigRef, _ITaggableV2_4e6798f8)
 class CfnResolverQueryLoggingConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3086,6 +4727,12 @@ class CfnResolverQueryLoggingConfig(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigRef")
+    def resolver_query_logging_config_ref(self) -> ResolverQueryLoggingConfigReference:
+        '''A reference to a ResolverQueryLoggingConfig resource.'''
+        return typing.cast(ResolverQueryLoggingConfigReference, jsii.get(self, "resolverQueryLoggingConfigRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="destinationArn")
     def destination_arn(self) -> typing.Optional[builtins.str]:
         '''The ARN of the resource that you want Resolver to send query logs: an Amazon S3 bucket, a CloudWatch Logs log group, or a Kinesis Data Firehose delivery stream.'''
@@ -3125,7 +4772,7 @@ class CfnResolverQueryLoggingConfig(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResolverQueryLoggingConfigAssociationRef)
 class CfnResolverQueryLoggingConfigAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3269,6 +4916,14 @@ class CfnResolverQueryLoggingConfigAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resolverQueryLoggingConfigAssociationRef")
+    def resolver_query_logging_config_association_ref(
+        self,
+    ) -> ResolverQueryLoggingConfigAssociationReference:
+        '''A reference to a ResolverQueryLoggingConfigAssociation resource.'''
+        return typing.cast(ResolverQueryLoggingConfigAssociationReference, jsii.get(self, "resolverQueryLoggingConfigAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="resolverQueryLogConfigId")
     def resolver_query_log_config_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the query logging configuration that a VPC is associated with.'''
@@ -3298,170 +4953,7 @@ class CfnResolverQueryLoggingConfigAssociation(
         jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverQueryLoggingConfigAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resolver_query_log_config_id": "resolverQueryLogConfigId",
-        "resource_id": "resourceId",
-    },
-)
-class CfnResolverQueryLoggingConfigAssociationProps:
-    def __init__(
-        self,
-        *,
-        resolver_query_log_config_id: typing.Optional[builtins.str] = None,
-        resource_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverQueryLoggingConfigAssociation``.
-
-        :param resolver_query_log_config_id: The ID of the query logging configuration that a VPC is associated with.
-        :param resource_id: The ID of the Amazon VPC that is associated with the query logging configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_query_logging_config_association_props = route53resolver.CfnResolverQueryLoggingConfigAssociationProps(
-                resolver_query_log_config_id="resolverQueryLogConfigId",
-                resource_id="resourceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9922d645c66dbe12414cb71b48fbdb1d63b9b6ab9822bdc726d40d6b6d7ec6af)
-            check_type(argname="argument resolver_query_log_config_id", value=resolver_query_log_config_id, expected_type=type_hints["resolver_query_log_config_id"])
-            check_type(argname="argument resource_id", value=resource_id, expected_type=type_hints["resource_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if resolver_query_log_config_id is not None:
-            self._values["resolver_query_log_config_id"] = resolver_query_log_config_id
-        if resource_id is not None:
-            self._values["resource_id"] = resource_id
-
-    @builtins.property
-    def resolver_query_log_config_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the query logging configuration that a VPC is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html#cfn-route53resolver-resolverqueryloggingconfigassociation-resolverquerylogconfigid
-        '''
-        result = self._values.get("resolver_query_log_config_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the Amazon VPC that is associated with the query logging configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfigassociation.html#cfn-route53resolver-resolverqueryloggingconfigassociation-resourceid
-        '''
-        result = self._values.get("resource_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverQueryLoggingConfigAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverQueryLoggingConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={"destination_arn": "destinationArn", "name": "name", "tags": "tags"},
-)
-class CfnResolverQueryLoggingConfigProps:
-    def __init__(
-        self,
-        *,
-        destination_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverQueryLoggingConfig``.
-
-        :param destination_arn: The ARN of the resource that you want Resolver to send query logs: an Amazon S3 bucket, a CloudWatch Logs log group, or a Kinesis Data Firehose delivery stream.
-        :param name: The name of the query logging configuration.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_query_logging_config_props = route53resolver.CfnResolverQueryLoggingConfigProps(
-                destination_arn="destinationArn",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee1cbce67551eb150646abe50220d9cf7ebeceb023635a7a5fafd4c05efa335a)
-            check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if destination_arn is not None:
-            self._values["destination_arn"] = destination_arn
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def destination_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the resource that you want Resolver to send query logs: an Amazon S3 bucket, a CloudWatch Logs log group, or a Kinesis Data Firehose delivery stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-destinationarn
-        '''
-        result = self._values.get("destination_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the query logging configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverqueryloggingconfig.html#cfn-route53resolver-resolverqueryloggingconfig-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverQueryLoggingConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IResolverRuleRef, _ITaggable_36806126)
 class CfnResolverRule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3637,6 +5129,12 @@ class CfnResolverRule(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resolverRuleRef")
+    def resolver_rule_ref(self) -> ResolverRuleReference:
+        '''A reference to a ResolverRule resource.'''
+        return typing.cast(ResolverRuleReference, jsii.get(self, "resolverRuleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3866,7 +5364,7 @@ class CfnResolverRule(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IResolverRuleAssociationRef)
 class CfnResolverRuleAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3991,6 +5489,12 @@ class CfnResolverRuleAssociation(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="resolverRuleAssociationRef")
+    def resolver_rule_association_ref(self) -> ResolverRuleAssociationReference:
+        '''A reference to a ResolverRuleAssociation resource.'''
+        return typing.cast(ResolverRuleAssociationReference, jsii.get(self, "resolverRuleAssociationRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="resolverRuleId")
     def resolver_rule_id(self) -> builtins.str:
         '''The ID of the Resolver rule that you associated with the VPC that is specified by ``VPCId`` .'''
@@ -4030,281 +5534,6 @@ class CfnResolverRuleAssociation(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverRuleAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resolver_rule_id": "resolverRuleId",
-        "vpc_id": "vpcId",
-        "name": "name",
-    },
-)
-class CfnResolverRuleAssociationProps:
-    def __init__(
-        self,
-        *,
-        resolver_rule_id: builtins.str,
-        vpc_id: builtins.str,
-        name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverRuleAssociation``.
-
-        :param resolver_rule_id: The ID of the Resolver rule that you associated with the VPC that is specified by ``VPCId`` .
-        :param vpc_id: The ID of the VPC that you associated the Resolver rule with.
-        :param name: The name of an association between a Resolver rule and a VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_rule_association_props = route53resolver.CfnResolverRuleAssociationProps(
-                resolver_rule_id="resolverRuleId",
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                name="name"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1ae0c865)
-            check_type(argname="argument resolver_rule_id", value=resolver_rule_id, expected_type=type_hints["resolver_rule_id"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resolver_rule_id": resolver_rule_id,
-            "vpc_id": vpc_id,
-        }
-        if name is not None:
-            self._values["name"] = name
-
-    @builtins.property
-    def resolver_rule_id(self) -> builtins.str:
-        '''The ID of the Resolver rule that you associated with the VPC that is specified by ``VPCId`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-resolverruleid
-        '''
-        result = self._values.get("resolver_rule_id")
-        assert result is not None, "Required property 'resolver_rule_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The ID of the VPC that you associated the Resolver rule with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of an association between a Resolver rule and a VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverruleassociation.html#cfn-route53resolver-resolverruleassociation-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverRuleAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_route53resolver.CfnResolverRuleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "rule_type": "ruleType",
-        "delegation_record": "delegationRecord",
-        "domain_name": "domainName",
-        "name": "name",
-        "resolver_endpoint_id": "resolverEndpointId",
-        "tags": "tags",
-        "target_ips": "targetIps",
-    },
-)
-class CfnResolverRuleProps:
-    def __init__(
-        self,
-        *,
-        rule_type: builtins.str,
-        delegation_record: typing.Optional[builtins.str] = None,
-        domain_name: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        resolver_endpoint_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverRule.TargetAddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResolverRule``.
-
-        :param rule_type: When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` . If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com). When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` . For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` . Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
-        :param delegation_record: DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
-        :param domain_name: DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` . If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
-        :param name: The name for the Resolver rule, which you specified when you created the Resolver rule.
-        :param resolver_endpoint_id: The ID of the endpoint that the rule is associated with.
-        :param tags: Tags help organize and categorize your Resolver rules. Each tag consists of a key and an optional value, both of which you define.
-        :param target_ips: An array that contains the IP addresses and ports that an outbound endpoint forwards DNS queries to. Typically, these are the IP addresses of DNS resolvers on your network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_route53resolver as route53resolver
-            
-            cfn_resolver_rule_props = route53resolver.CfnResolverRuleProps(
-                rule_type="ruleType",
-            
-                # the properties below are optional
-                delegation_record="delegationRecord",
-                domain_name="domainName",
-                name="name",
-                resolver_endpoint_id="resolverEndpointId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_ips=[route53resolver.CfnResolverRule.TargetAddressProperty(
-                    ip="ip",
-                    ipv6="ipv6",
-                    port="port",
-                    protocol="protocol",
-                    server_name_indication="serverNameIndication"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec)
-            check_type(argname="argument rule_type", value=rule_type, expected_type=type_hints["rule_type"])
-            check_type(argname="argument delegation_record", value=delegation_record, expected_type=type_hints["delegation_record"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument resolver_endpoint_id", value=resolver_endpoint_id, expected_type=type_hints["resolver_endpoint_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_ips", value=target_ips, expected_type=type_hints["target_ips"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_type": rule_type,
-        }
-        if delegation_record is not None:
-            self._values["delegation_record"] = delegation_record
-        if domain_name is not None:
-            self._values["domain_name"] = domain_name
-        if name is not None:
-            self._values["name"] = name
-        if resolver_endpoint_id is not None:
-            self._values["resolver_endpoint_id"] = resolver_endpoint_id
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_ips is not None:
-            self._values["target_ips"] = target_ips
-
-    @builtins.property
-    def rule_type(self) -> builtins.str:
-        '''When you want to forward DNS queries for specified domain name to resolvers on your network, specify ``FORWARD`` or ``DELEGATE`` .
-
-        If a query matches multiple Resolver rules (example.com and www.example.com), outbound DNS queries are routed using the Resolver rule that contains the most specific domain name (www.example.com).
-
-        When you have a forwarding rule to forward DNS queries for a domain to your network and you want Resolver to process queries for a subdomain of that domain, specify ``SYSTEM`` .
-
-        For example, to forward DNS queries for example.com to resolvers on your network, you create a rule and specify ``FORWARD`` for ``RuleType`` . To then have Resolver process queries for apex.example.com, you create a rule and specify ``SYSTEM`` for ``RuleType`` .
-
-        Currently, only Resolver can create rules that have a value of ``RECURSIVE`` for ``RuleType`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-ruletype
-        '''
-        result = self._values.get("rule_type")
-        assert result is not None, "Required property 'rule_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def delegation_record(self) -> typing.Optional[builtins.str]:
-        '''DNS queries with delegation records that point to this domain name are forwarded to resolvers on your network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-delegationrecord
-        '''
-        result = self._values.get("delegation_record")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def domain_name(self) -> typing.Optional[builtins.str]:
-        '''DNS queries for this domain name are forwarded to the IP addresses that are specified in ``TargetIps`` .
-
-        If a query matches multiple Resolver rules (example.com and www.example.com), the query is routed using the Resolver rule that contains the most specific domain name (www.example.com).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-domainname
-        '''
-        result = self._values.get("domain_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name for the Resolver rule, which you specified when you created the Resolver rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resolver_endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the endpoint that the rule is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-resolverendpointid
-        '''
-        result = self._values.get("resolver_endpoint_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Tags help organize and categorize your Resolver rules.
-
-        Each tag consists of a key and an optional value, both of which you define.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_ips(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResolverRule.TargetAddressProperty]]]]:
-        '''An array that contains the IP addresses and ports that an outbound endpoint forwards DNS queries to.
-
-        Typically, these are the IP addresses of DNS resolvers on your network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53resolver-resolverrule.html#cfn-route53resolver-resolverrule-targetips
-        '''
-        result = self._values.get("target_ips")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResolverRule.TargetAddressProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResolverRuleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnFirewallDomainList",
     "CfnFirewallDomainListProps",
@@ -4328,9 +5557,226 @@ __all__ = [
     "CfnResolverRuleAssociation",
     "CfnResolverRuleAssociationProps",
     "CfnResolverRuleProps",
+    "FirewallDomainListReference",
+    "FirewallRuleGroupAssociationReference",
+    "FirewallRuleGroupReference",
+    "IFirewallDomainListRef",
+    "IFirewallRuleGroupAssociationRef",
+    "IFirewallRuleGroupRef",
+    "IOutpostResolverRef",
+    "IResolverConfigRef",
+    "IResolverDNSSECConfigRef",
+    "IResolverEndpointRef",
+    "IResolverQueryLoggingConfigAssociationRef",
+    "IResolverQueryLoggingConfigRef",
+    "IResolverRuleAssociationRef",
+    "IResolverRuleRef",
+    "OutpostResolverReference",
+    "ResolverConfigReference",
+    "ResolverDNSSECConfigReference",
+    "ResolverEndpointReference",
+    "ResolverQueryLoggingConfigAssociationReference",
+    "ResolverQueryLoggingConfigReference",
+    "ResolverRuleAssociationReference",
+    "ResolverRuleReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__9cf9cc65cbfb33602e70ad9026e1edbeb5f1b4164b0394d3cfdce7740e405780(
+    *,
+    domain_file_url: typing.Optional[builtins.str] = None,
+    domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__715b8023408ad9032f9d4e486688e3bb6a5d34ab729223deee30ce0cd75c46e8(
+    *,
+    firewall_rule_group_id: builtins.str,
+    priority: jsii.Number,
+    vpc_id: builtins.str,
+    mutation_protection: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b614b409c77b0163f669e1c5a722bed570fc73bbd7afce583918c9e4ee2b0436(
+    *,
+    firewall_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b53ebd141bec9bc329c50935d9193d3066583cc585d0abb08ec4a100183f07e1(
+    *,
+    name: builtins.str,
+    outpost_arn: builtins.str,
+    preferred_instance_type: builtins.str,
+    instance_count: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e8a6715c54a3032f85efda72259aecef906caa87b4729b8c9bc48010e591ae1(
+    *,
+    autodefined_reverse_flag: builtins.str,
+    resource_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d1d6cb497f316e5311641ff022dde6f5ae37e4e937722cbf4e49800c7dcf748(
+    *,
+    resource_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3cc09ce842a854995739f051f3b593bc3ded813d2e97260dcb20f39108e8d889(
+    *,
+    direction: builtins.str,
+    ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverEndpoint.IpAddressRequestProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    security_group_ids: typing.Sequence[builtins.str],
+    name: typing.Optional[builtins.str] = None,
+    outpost_arn: typing.Optional[builtins.str] = None,
+    preferred_instance_type: typing.Optional[builtins.str] = None,
+    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resolver_endpoint_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9922d645c66dbe12414cb71b48fbdb1d63b9b6ab9822bdc726d40d6b6d7ec6af(
+    *,
+    resolver_query_log_config_id: typing.Optional[builtins.str] = None,
+    resource_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee1cbce67551eb150646abe50220d9cf7ebeceb023635a7a5fafd4c05efa335a(
+    *,
+    destination_arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1ae0c865(
+    *,
+    resolver_rule_id: builtins.str,
+    vpc_id: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec(
+    *,
+    rule_type: builtins.str,
+    delegation_record: typing.Optional[builtins.str] = None,
+    domain_name: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    resolver_endpoint_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverRule.TargetAddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a8fd2e2e52e6e5e7b6153b943f6139071671338bed614429b2516dc5a614e97(
+    *,
+    firewall_domain_list_arn: builtins.str,
+    firewall_domain_list_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04408ab60a973e38bc7cf251fcf0ceeb9683aae583a08bf84a0ce8784bc72d94(
+    *,
+    firewall_rule_group_association_arn: builtins.str,
+    firewall_rule_group_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0839be08964e79d37454895b81304471208a2526d6c6a06a1be3dd7b1b88c1c9(
+    *,
+    firewall_rule_group_arn: builtins.str,
+    firewall_rule_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__160452db80411b085f53022083a52261b5e9d9b043da65ab155c81bc393ae92d(
+    *,
+    outpost_resolver_arn: builtins.str,
+    outpost_resolver_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__198030d69ee4ad552e7805699a6c2e986ca1901710764103839a8170a874e15b(
+    *,
+    resource_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d3ed502cc7157efd1a4f482760481a0dea5876f6e2d94aafaf00d8912b3a5e0(
+    *,
+    resolver_dnssec_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8a1f6b8dd67d574f610899a78b37472e8a74f05bcc85326a14096d58f43c112(
+    *,
+    resolver_endpoint_arn: builtins.str,
+    resolver_endpoint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e23bac7d360ad7a8b60283651413142cf509ad32acc1f2dedf5082804b7a4470(
+    *,
+    resolver_query_logging_config_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e587e90b579eafe0a77e16c8ea5ba164bfb4150494032afa387c9602fe20f1f(
+    *,
+    resolver_query_logging_config_arn: builtins.str,
+    resolver_query_logging_config_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3cd8d5c0bb52047195eb251d8ec5aa8aa6e18e3d321e650988c04e2a8ae428f(
+    *,
+    resolver_rule_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6686dd5cf9a30953e9ebf395bc574988a08852fb8805ffa0fbfe5a0fc82b1edc(
+    *,
+    resolver_rule_arn: builtins.str,
+    resolver_rule_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__bcc007bdf474ff9b47656099203906368c5f49f4d31157c1bdf719174d13ca40(
     scope: _constructs_77d1e7e8.Construct,
@@ -4376,16 +5822,6 @@ def _typecheckingstub__8645f4358aa1d05bc91526dd122ba90e9cde2f5b7544ed3b380aa0eb8
 
 def _typecheckingstub__f30863ebcd73dd0ef970d69c195c961c38e90666b69b852fe97a3c6de8aa245d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9cf9cc65cbfb33602e70ad9026e1edbeb5f1b4164b0394d3cfdce7740e405780(
-    *,
-    domain_file_url: typing.Optional[builtins.str] = None,
-    domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4511,27 +5947,6 @@ def _typecheckingstub__cd6a12a52fb303ead4db8087ce88b25dc5647283d9c2521b9c57f027d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__715b8023408ad9032f9d4e486688e3bb6a5d34ab729223deee30ce0cd75c46e8(
-    *,
-    firewall_rule_group_id: builtins.str,
-    priority: jsii.Number,
-    vpc_id: builtins.str,
-    mutation_protection: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b614b409c77b0163f669e1c5a722bed570fc73bbd7afce583918c9e4ee2b0436(
-    *,
-    firewall_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallRuleGroup.FirewallRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e699ef3ac9b93d22c3a0a2bd14e42dd65038d4f11d073d6f42b0b7f53984fae0(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4587,17 +6002,6 @@ def _typecheckingstub__02475d33831e277377222b88551dc45e2fde0ce52d8ac89720a064838
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b53ebd141bec9bc329c50935d9193d3066583cc585d0abb08ec4a100183f07e1(
-    *,
-    name: builtins.str,
-    outpost_arn: builtins.str,
-    preferred_instance_type: builtins.str,
-    instance_count: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__35122d782a5f80846e3948e7eb0337b124eee2f562394f9f0ac3811b76027fa7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4632,14 +6036,6 @@ def _typecheckingstub__a88dabe1b002091b3f1b20007f475ad636ceff67622ca0df695d865e5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7e8a6715c54a3032f85efda72259aecef906caa87b4729b8c9bc48010e591ae1(
-    *,
-    autodefined_reverse_flag: builtins.str,
-    resource_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d6638caafa1a9c5bdf9ed48d3577b02e4b40b5d79f1097e2f38ee76bd54e1d00(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4663,13 +6059,6 @@ def _typecheckingstub__500914e8a66667918411304e05cdc48d8739533812eafaae6b25a74ff
 
 def _typecheckingstub__01500aa55167586426473b83ae123cd92339f7e27e6ca9404fe1a1196a1d0708(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d1d6cb497f316e5311641ff022dde6f5ae37e4e937722cbf4e49800c7dcf748(
-    *,
-    resource_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4766,21 +6155,6 @@ def _typecheckingstub__d97f321837e470551bf5db7cc56a0a66e6f3735b27f4874ba4123f7e2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3cc09ce842a854995739f051f3b593bc3ded813d2e97260dcb20f39108e8d889(
-    *,
-    direction: builtins.str,
-    ip_addresses: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverEndpoint.IpAddressRequestProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    security_group_ids: typing.Sequence[builtins.str],
-    name: typing.Optional[builtins.str] = None,
-    outpost_arn: typing.Optional[builtins.str] = None,
-    preferred_instance_type: typing.Optional[builtins.str] = None,
-    protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
-    resolver_endpoint_type: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__24f7f7cd30eb329e550fcb22ab4dcca0511ccbc9db92caea497cb901e8cab5a8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4852,23 +6226,6 @@ def _typecheckingstub__b1db906ade05cdffe0b91a4fd2853b84b934e5cdf736daf38331df97c
 
 def _typecheckingstub__b694d8fb6cb8627d77c3255fc71a59f89d38cc7a25fe9cf461f8580674f323d9(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9922d645c66dbe12414cb71b48fbdb1d63b9b6ab9822bdc726d40d6b6d7ec6af(
-    *,
-    resolver_query_log_config_id: typing.Optional[builtins.str] = None,
-    resource_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee1cbce67551eb150646abe50220d9cf7ebeceb023635a7a5fafd4c05efa335a(
-    *,
-    destination_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4990,28 +6347,6 @@ def _typecheckingstub__3630b9d70d02412653907de27de2ead8c93d153609a25e45e46a1586d
 
 def _typecheckingstub__dbb22cd6829772b1f3226c329a7cb57daf6b212b33815f8279e8d64303e66c7e(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3b7cd1048ae30851b3480dc04a365c7bd487212f9328f80bc61e1bae1ae0c865(
-    *,
-    resolver_rule_id: builtins.str,
-    vpc_id: builtins.str,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fdcaea1870aaf2dc13fe56b2d15a89d6adba2ad5884071fc618c9e4bb2c3ddec(
-    *,
-    rule_type: builtins.str,
-    delegation_record: typing.Optional[builtins.str] = None,
-    domain_name: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    resolver_endpoint_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_ips: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResolverRule.TargetAddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

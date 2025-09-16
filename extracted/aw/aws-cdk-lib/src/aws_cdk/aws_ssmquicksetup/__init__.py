@@ -78,7 +78,223 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmquicksetup.CfnConfigurationManagerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_definitions": "configurationDefinitions",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnConfigurationManagerProps:
+    def __init__(
+        self,
+        *,
+        configuration_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationManager.ConfigurationDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationManager``.
+
+        :param configuration_definitions: The definition of the Quick Setup configuration that the configuration manager deploys.
+        :param description: The description of the configuration.
+        :param name: The name of the configuration.
+        :param tags: Key-value pairs of metadata to assign to the configuration manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmquicksetup as ssmquicksetup
+            
+            cfn_configuration_manager_props = ssmquicksetup.CfnConfigurationManagerProps(
+                configuration_definitions=[ssmquicksetup.CfnConfigurationManager.ConfigurationDefinitionProperty(
+                    parameters={
+                        "parameters_key": "parameters"
+                    },
+                    type="type",
+            
+                    # the properties below are optional
+                    id="id",
+                    local_deployment_administration_role_arn="localDeploymentAdministrationRoleArn",
+                    local_deployment_execution_role_name="localDeploymentExecutionRoleName",
+                    type_version="typeVersion"
+                )],
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bd2e12c3bb5f4087218fbe0db9640c52d608411ab3980220b7dd2ff438750e0)
+            check_type(argname="argument configuration_definitions", value=configuration_definitions, expected_type=type_hints["configuration_definitions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_definitions": configuration_definitions,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration_definitions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationManager.ConfigurationDefinitionProperty"]]]:
+        '''The definition of the Quick Setup configuration that the configuration manager deploys.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-configurationdefinitions
+        '''
+        result = self._values.get("configuration_definitions")
+        assert result is not None, "Required property 'configuration_definitions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationManager.ConfigurationDefinitionProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Key-value pairs of metadata to assign to the configuration manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationManagerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmquicksetup.ConfigurationManagerReference",
+    jsii_struct_bases=[],
+    name_mapping={"manager_arn": "managerArn"},
+)
+class ConfigurationManagerReference:
+    def __init__(self, *, manager_arn: builtins.str) -> None:
+        '''A reference to a ConfigurationManager resource.
+
+        :param manager_arn: The ManagerArn of the ConfigurationManager resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmquicksetup as ssmquicksetup
+            
+            configuration_manager_reference = ssmquicksetup.ConfigurationManagerReference(
+                manager_arn="managerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__605416c7622c4d2af93037d22c1a25b719cc761f49f957bc94aea7a182cf18ca)
+            check_type(argname="argument manager_arn", value=manager_arn, expected_type=type_hints["manager_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "manager_arn": manager_arn,
+        }
+
+    @builtins.property
+    def manager_arn(self) -> builtins.str:
+        '''The ManagerArn of the ConfigurationManager resource.'''
+        result = self._values.get("manager_arn")
+        assert result is not None, "Required property 'manager_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationManagerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssmquicksetup.IConfigurationManagerRef")
+class IConfigurationManagerRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationManager.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationManagerRef")
+    def configuration_manager_ref(self) -> ConfigurationManagerReference:
+        '''(experimental) A reference to a ConfigurationManager resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationManagerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationManager.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssmquicksetup.IConfigurationManagerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationManagerRef")
+    def configuration_manager_ref(self) -> ConfigurationManagerReference:
+        '''(experimental) A reference to a ConfigurationManager resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ConfigurationManagerReference, jsii.get(self, "configurationManagerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationManagerRef).__jsii_proxy_class__ = lambda : _IConfigurationManagerRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IConfigurationManagerRef, _ITaggableV2_4e6798f8)
 class CfnConfigurationManager(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -230,6 +446,12 @@ class CfnConfigurationManager(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationManagerRef")
+    def configuration_manager_ref(self) -> ConfigurationManagerReference:
+        '''A reference to a ConfigurationManager resource.'''
+        return typing.cast(ConfigurationManagerReference, jsii.get(self, "configurationManagerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configurationDefinitions")
@@ -779,136 +1001,31 @@ class CfnConfigurationManager(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssmquicksetup.CfnConfigurationManagerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration_definitions": "configurationDefinitions",
-        "description": "description",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnConfigurationManagerProps:
-    def __init__(
-        self,
-        *,
-        configuration_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationManager.ConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationManager``.
-
-        :param configuration_definitions: The definition of the Quick Setup configuration that the configuration manager deploys.
-        :param description: The description of the configuration.
-        :param name: The name of the configuration.
-        :param tags: Key-value pairs of metadata to assign to the configuration manager.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssmquicksetup as ssmquicksetup
-            
-            cfn_configuration_manager_props = ssmquicksetup.CfnConfigurationManagerProps(
-                configuration_definitions=[ssmquicksetup.CfnConfigurationManager.ConfigurationDefinitionProperty(
-                    parameters={
-                        "parameters_key": "parameters"
-                    },
-                    type="type",
-            
-                    # the properties below are optional
-                    id="id",
-                    local_deployment_administration_role_arn="localDeploymentAdministrationRoleArn",
-                    local_deployment_execution_role_name="localDeploymentExecutionRoleName",
-                    type_version="typeVersion"
-                )],
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bd2e12c3bb5f4087218fbe0db9640c52d608411ab3980220b7dd2ff438750e0)
-            check_type(argname="argument configuration_definitions", value=configuration_definitions, expected_type=type_hints["configuration_definitions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "configuration_definitions": configuration_definitions,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def configuration_definitions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationManager.ConfigurationDefinitionProperty]]]:
-        '''The definition of the Quick Setup configuration that the configuration manager deploys.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-configurationdefinitions
-        '''
-        result = self._values.get("configuration_definitions")
-        assert result is not None, "Required property 'configuration_definitions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigurationManager.ConfigurationDefinitionProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Key-value pairs of metadata to assign to the configuration manager.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmquicksetup-configurationmanager.html#cfn-ssmquicksetup-configurationmanager-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationManagerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnConfigurationManager",
     "CfnConfigurationManagerProps",
+    "ConfigurationManagerReference",
+    "IConfigurationManagerRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__0bd2e12c3bb5f4087218fbe0db9640c52d608411ab3980220b7dd2ff438750e0(
+    *,
+    configuration_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationManager.ConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__605416c7622c4d2af93037d22c1a25b719cc761f49f957bc94aea7a182cf18ca(
+    *,
+    manager_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__12a9f65dcaf9bde5bcf296a113eb81107c3f8fa3375cf583d296e98f6c35b8bc(
     scope: _constructs_77d1e7e8.Construct,
@@ -977,16 +1094,6 @@ def _typecheckingstub__0a15d3717729affa2b751047a4b5b72469d29c10060f85ac60b65e8bc
     status: typing.Optional[builtins.str] = None,
     status_details: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     status_message: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0bd2e12c3bb5f4087218fbe0db9640c52d608411ab3980220b7dd2ff438750e0(
-    *,
-    configuration_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationManager.ConfigurationDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

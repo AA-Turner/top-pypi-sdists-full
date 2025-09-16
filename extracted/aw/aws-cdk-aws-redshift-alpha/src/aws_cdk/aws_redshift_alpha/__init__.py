@@ -1026,7 +1026,7 @@ class ClusterProps:
         default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
         encrypted: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
         logging_properties: typing.Optional[typing.Union["LoggingProperties", typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_track_name: typing.Optional["MaintenanceTrackName"] = None,
@@ -1311,7 +1311,7 @@ class ClusterProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The KMS key to use for encryption of data at rest.
 
         :default: - AWS-managed key, if encryption at rest is enabled
@@ -1319,7 +1319,7 @@ class ClusterProps:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def enhanced_vpc_routing(self) -> typing.Optional[builtins.bool]:
@@ -4361,7 +4361,7 @@ class Cluster(
         default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         elastic_ip: typing.Optional[builtins.str] = None,
         encrypted: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
         logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
         maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
@@ -4958,7 +4958,7 @@ def _typecheckingstub__8184b6f381b827fb337da7fe46dcdf07d3411d00c00a966acf72f7524
     default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
     encrypted: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
     logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,
@@ -5233,7 +5233,7 @@ def _typecheckingstub__fccc3c17caf7412d05e4b1ec5aea8d78637d84be2037a887553088f51
     default_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     elastic_ip: typing.Optional[builtins.str] = None,
     encrypted: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     enhanced_vpc_routing: typing.Optional[builtins.bool] = None,
     logging_properties: typing.Optional[typing.Union[LoggingProperties, typing.Dict[builtins.str, typing.Any]]] = None,
     maintenance_track_name: typing.Optional[MaintenanceTrackName] = None,

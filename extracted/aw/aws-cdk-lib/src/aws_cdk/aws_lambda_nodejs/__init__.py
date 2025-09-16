@@ -109,8 +109,8 @@ With the `@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion` disabled, the runt
 
 ## Lock file
 
-The `NodejsFunction` requires a dependencies lock file (`yarn.lock`, `pnpm-lock.yaml`, `bun.lockb` or
-`package-lock.json`). When bundling in a Docker container, the path containing this lock file is
+The `NodejsFunction` requires a dependencies lock file (`yarn.lock`, `pnpm-lock.yaml`, `bun.lockb`,
+`bun.lock` or `package-lock.json`). When bundling in a Docker container, the path containing this lock file is
 used as the source (`/asset-input`) for the volume mounted in the container.
 
 By default, the construct will try to automatically determine your project lock file.
@@ -200,7 +200,7 @@ nodejs.NodejsFunction(self, "my-handler",
 
 The modules listed in `nodeModules` must be present in the `package.json`'s dependencies or
 installed. The same version will be used for installation. The lock file (`yarn.lock`,
-`pnpm-lock.yaml`, `bun.lockb` or `package-lock.json`) will be used along with the right installer (`yarn`,
+`pnpm-lock.yaml`, `bun.lockb`, `bun.lock` or `package-lock.json`) will be used along with the right installer (`yarn`,
 `pnpm`, `bun` or `npm`).
 
 When working with `nodeModules` using native dependencies, you might want to force bundling in a
@@ -500,7 +500,7 @@ from ..aws_ec2 import (
 from ..aws_iam import (
     IRole as _IRole_235f5d8e, PolicyStatement as _PolicyStatement_0fe33853
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_lambda import (
     AdotInstrumentationConfig as _AdotInstrumentationConfig_7c38d65d,
     ApplicationLogLevel as _ApplicationLogLevel_cd92660a,
@@ -509,7 +509,7 @@ from ..aws_lambda import (
     FileSystem as _FileSystem_a5fa005d,
     Function as _Function_244f85d8,
     FunctionOptions as _FunctionOptions_328f4d39,
-    ICodeSigningConfig as _ICodeSigningConfig_edb41d1f,
+    ICodeSigningConfigRef as _ICodeSigningConfigRef_8e14ef1d,
     IDestination as _IDestination_40f19de4,
     IEventSource as _IEventSource_3686b3f8,
     ILayerVersion as _ILayerVersion_5ac127c8,
@@ -1577,14 +1577,14 @@ class NodejsFunction(
         application_log_level: typing.Optional[builtins.str] = None,
         application_log_level_v2: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
         architecture: typing.Optional[_Architecture_12d5a53f] = None,
-        code_signing_config: typing.Optional[_ICodeSigningConfig_edb41d1f] = None,
+        code_signing_config: typing.Optional[_ICodeSigningConfigRef_8e14ef1d] = None,
         current_version_options: typing.Optional[typing.Union[_VersionOptions_981bb3c0, typing.Dict[builtins.str, typing.Any]]] = None,
         dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
         dead_letter_topic: typing.Optional[_ITopic_9eca4852] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_IKey_5f11635f] = None,
+        environment_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
         ephemeral_storage_size: typing.Optional[_Size_7b441c34] = None,
         events: typing.Optional[typing.Sequence[_IEventSource_3686b3f8]] = None,
         filesystem: typing.Optional[_FileSystem_a5fa005d] = None,
@@ -1627,7 +1627,7 @@ class NodejsFunction(
         :param aws_sdk_connection_reuse: The ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable does not exist in the AWS SDK for JavaScript v3. This prop will be deprecated when the Lambda Node16 runtime is deprecated on June 12, 2024. See https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtime-support-policy Info for Node 16 runtimes / SDK v2 users: Whether to automatically reuse TCP connections when working with the AWS SDK for JavaScript v2. This sets the ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable to ``1``. Default: - false (obsolete) for runtimes >= Node 18, true for runtimes <= Node 16.
         :param bundling: Bundling options. Default: - use default bundling options: no minify, no sourcemap, all modules are bundled.
         :param code: The code that will be deployed to the Lambda Handler. If included, then properties related to bundling of the code are ignored. - If the ``code`` field is specified, then you must include the ``handler`` property. Default: - the code is bundled by esbuild
-        :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json`` file
+        :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json`` file
         :param entry: Path to the entry file (JavaScript or TypeScript). Default: - Derived from the name of the defining file and the construct's id. If the ``NodejsFunction`` is defined in ``stack.ts`` with ``my-handler`` as id (``new NodejsFunction(this, 'my-handler')``), the construct will look at ``stack.my-handler.ts`` and ``stack.my-handler.js``.
         :param handler: The name of the exported handler in the entry file. - If the ``code`` property is supplied, then you must include the ``handler`` property. The handler should be the name of the file that contains the exported handler and the function that should be called when the AWS Lambda is invoked. For example, if you had a file called ``myLambda.js`` and the function to be invoked was ``myHandler``, then you should input ``handler`` property as ``myLambda.myHandler``. - If the ``code`` property is not supplied and the handler input does not contain a ``.``, then the handler is prefixed with ``index.`` (index period). Otherwise, the handler property is not modified. Default: handler
         :param project_root: The path to the directory containing project config files (``package.json`` or ``tsconfig.json``). Default: - the directory containing the ``depsLockFilePath``
@@ -1830,14 +1830,14 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         application_log_level: typing.Optional[builtins.str] = None,
         application_log_level_v2: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
         architecture: typing.Optional[_Architecture_12d5a53f] = None,
-        code_signing_config: typing.Optional[_ICodeSigningConfig_edb41d1f] = None,
+        code_signing_config: typing.Optional[_ICodeSigningConfigRef_8e14ef1d] = None,
         current_version_options: typing.Optional[typing.Union[_VersionOptions_981bb3c0, typing.Dict[builtins.str, typing.Any]]] = None,
         dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
         dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
         dead_letter_topic: typing.Optional[_ITopic_9eca4852] = None,
         description: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        environment_encryption: typing.Optional[_IKey_5f11635f] = None,
+        environment_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
         ephemeral_storage_size: typing.Optional[_Size_7b441c34] = None,
         events: typing.Optional[typing.Sequence[_IEventSource_3686b3f8]] = None,
         filesystem: typing.Optional[_FileSystem_a5fa005d] = None,
@@ -1933,7 +1933,7 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         :param aws_sdk_connection_reuse: The ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable does not exist in the AWS SDK for JavaScript v3. This prop will be deprecated when the Lambda Node16 runtime is deprecated on June 12, 2024. See https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html#runtime-support-policy Info for Node 16 runtimes / SDK v2 users: Whether to automatically reuse TCP connections when working with the AWS SDK for JavaScript v2. This sets the ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable to ``1``. Default: - false (obsolete) for runtimes >= Node 18, true for runtimes <= Node 16.
         :param bundling: Bundling options. Default: - use default bundling options: no minify, no sourcemap, all modules are bundled.
         :param code: The code that will be deployed to the Lambda Handler. If included, then properties related to bundling of the code are ignored. - If the ``code`` field is specified, then you must include the ``handler`` property. Default: - the code is bundled by esbuild
-        :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json`` file
+        :param deps_lock_file_path: The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json``). This will be used as the source for the volume mounted in the Docker container. Modules specified in ``nodeModules`` will be installed using the right installer (``yarn``, ``pnpm``, ``bun`` or ``npm``) along with this lock file. Default: - the path is found by walking up parent directories searching for a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json`` file
         :param entry: Path to the entry file (JavaScript or TypeScript). Default: - Derived from the name of the defining file and the construct's id. If the ``NodejsFunction`` is defined in ``stack.ts`` with ``my-handler`` as id (``new NodejsFunction(this, 'my-handler')``), the construct will look at ``stack.my-handler.ts`` and ``stack.my-handler.js``.
         :param handler: The name of the exported handler in the entry file. - If the ``code`` property is supplied, then you must include the ``handler`` property. The handler should be the name of the file that contains the exported handler and the function that should be called when the AWS Lambda is invoked. For example, if you had a file called ``myLambda.js`` and the function to be invoked was ``myHandler``, then you should input ``handler`` property as ``myLambda.myHandler``. - If the ``code`` property is not supplied and the handler input does not contain a ``.``, then the handler is prefixed with ``index.`` (index period). Otherwise, the handler property is not modified. Default: handler
         :param project_root: The path to the directory containing project config files (``package.json`` or ``tsconfig.json``). Default: - the directory containing the ``depsLockFilePath``
@@ -2274,13 +2274,13 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         return typing.cast(typing.Optional[_Architecture_12d5a53f], result)
 
     @builtins.property
-    def code_signing_config(self) -> typing.Optional[_ICodeSigningConfig_edb41d1f]:
+    def code_signing_config(self) -> typing.Optional[_ICodeSigningConfigRef_8e14ef1d]:
         '''Code signing config associated with this function.
 
         :default: - Not Sign the Code
         '''
         result = self._values.get("code_signing_config")
-        return typing.cast(typing.Optional[_ICodeSigningConfig_edb41d1f], result)
+        return typing.cast(typing.Optional[_ICodeSigningConfigRef_8e14ef1d], result)
 
     @builtins.property
     def current_version_options(self) -> typing.Optional[_VersionOptions_981bb3c0]:
@@ -2351,13 +2351,13 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def environment_encryption(self) -> typing.Optional[_IKey_5f11635f]:
+    def environment_encryption(self) -> typing.Optional[_IKeyRef_1e82344b]:
         '''The AWS KMS key that's used to encrypt your function's environment variables.
 
         :default: - AWS Lambda creates and uses an AWS managed customer master key (CMK).
         '''
         result = self._values.get("environment_encryption")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional[_IKeyRef_1e82344b], result)
 
     @builtins.property
     def ephemeral_storage_size(self) -> typing.Optional[_Size_7b441c34]:
@@ -2811,7 +2811,7 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
 
     @builtins.property
     def deps_lock_file_path(self) -> typing.Optional[builtins.str]:
-        '''The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json``).
+        '''The path to the dependencies lock file (``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json``).
 
         This will be used as the source for the volume mounted in the Docker
         container.
@@ -2822,7 +2822,7 @@ class NodejsFunctionProps(_FunctionOptions_328f4d39):
         :default:
 
         - the path is found by walking up parent directories searching for
-        a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb`` or ``package-lock.json`` file
+        a ``yarn.lock``, ``pnpm-lock.yaml``, ``bun.lockb``, ``bun.lock`` or ``package-lock.json`` file
         '''
         result = self._values.get("deps_lock_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3083,14 +3083,14 @@ def _typecheckingstub__ece177829b26ef102d4080d730f168e29d7d310d1518738839cd3fc82
     application_log_level: typing.Optional[builtins.str] = None,
     application_log_level_v2: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
     architecture: typing.Optional[_Architecture_12d5a53f] = None,
-    code_signing_config: typing.Optional[_ICodeSigningConfig_edb41d1f] = None,
+    code_signing_config: typing.Optional[_ICodeSigningConfigRef_8e14ef1d] = None,
     current_version_options: typing.Optional[typing.Union[_VersionOptions_981bb3c0, typing.Dict[builtins.str, typing.Any]]] = None,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
     dead_letter_topic: typing.Optional[_ITopic_9eca4852] = None,
     description: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    environment_encryption: typing.Optional[_IKey_5f11635f] = None,
+    environment_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
     ephemeral_storage_size: typing.Optional[_Size_7b441c34] = None,
     events: typing.Optional[typing.Sequence[_IEventSource_3686b3f8]] = None,
     filesystem: typing.Optional[_FileSystem_a5fa005d] = None,
@@ -3143,14 +3143,14 @@ def _typecheckingstub__2da45b394f0332be0f6d6b7468d9fb54961953d56265da69955d36ffa
     application_log_level: typing.Optional[builtins.str] = None,
     application_log_level_v2: typing.Optional[_ApplicationLogLevel_cd92660a] = None,
     architecture: typing.Optional[_Architecture_12d5a53f] = None,
-    code_signing_config: typing.Optional[_ICodeSigningConfig_edb41d1f] = None,
+    code_signing_config: typing.Optional[_ICodeSigningConfigRef_8e14ef1d] = None,
     current_version_options: typing.Optional[typing.Union[_VersionOptions_981bb3c0, typing.Dict[builtins.str, typing.Any]]] = None,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     dead_letter_queue_enabled: typing.Optional[builtins.bool] = None,
     dead_letter_topic: typing.Optional[_ITopic_9eca4852] = None,
     description: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    environment_encryption: typing.Optional[_IKey_5f11635f] = None,
+    environment_encryption: typing.Optional[_IKeyRef_1e82344b] = None,
     ephemeral_storage_size: typing.Optional[_Size_7b441c34] = None,
     events: typing.Optional[typing.Sequence[_IEventSource_3686b3f8]] = None,
     filesystem: typing.Optional[_FileSystem_a5fa005d] = None,

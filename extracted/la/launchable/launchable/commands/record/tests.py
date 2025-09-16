@@ -229,6 +229,11 @@ def tests(
 
         is_no_build = False
 
+    if session and links:
+        warn_and_exit_if_fail_fast_mode(
+            "WARNING: `--link` and `--session` are set together.\n--link option can't be used with existing sessions."
+        )
+
     try:
         if is_no_build:
             session_id = "builds/{}/test_sessions/{}".format(NO_BUILD_BUILD_NAME, NO_BUILD_TEST_SESSION_ID)

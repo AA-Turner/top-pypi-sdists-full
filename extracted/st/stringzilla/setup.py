@@ -170,7 +170,6 @@ def sz_target_name() -> str:
     return "stringzilla"
 
 
-using_cibuildwheel: Final[str] = os.environ.get("CIBUILDWHEEL", "0") == "1"
 sz_target: Final[str] = sz_target_name()
 
 
@@ -182,19 +181,33 @@ def get_compiler() -> str:
 
 
 def is_64bit_x86() -> bool:
-    if using_cibuildwheel:
-        if "SZ_IS_64BIT_X86_" in os.environ:
+    override = os.environ.get("SZ_IS_64BIT_X86_") if "SZ_IS_64BIT_X86_" in os.environ else None
+    if override is not None:
+        if override == "0":
+            return False
+        elif override == "1":
             return True
-    arch = platform.machine()
-    return arch in ["x86_64", "x64", "AMD64"]
+        else:
+            raise ValueError("Invalid value for SZ_IS_64BIT_X86_: must be '0' or '1'")
+
+    # Accept common 64-bit x86 identifiers and ensure the Python ABI is 64-bit.
+    arch = platform.machine().lower()
+    return (arch in ("x86_64", "x64", "amd64")) and (sys.maxsize > 2**32)
 
 
 def is_64bit_arm() -> bool:
-    if using_cibuildwheel:
-        if "SZ_IS_64BIT_ARM_" in os.environ:
+    override = os.environ.get("SZ_IS_64BIT_ARM_") if "SZ_IS_64BIT_ARM_" in os.environ else None
+    if override is not None:
+        if override == "0":
+            return False
+        elif override == "1":
             return True
-    arch = platform.machine()
-    return arch in ["arm64", "aarch64", "ARM64"]
+        else:
+            raise ValueError("Invalid value for SZ_IS_64BIT_ARM_: must be '0' or '1'")
+
+    # Accept common 64-bit ARM identifiers and ensure the Python ABI is 64-bit.
+    arch = platform.machine().lower()
+    return (arch in ("arm64", "aarch64")) and (sys.maxsize > 2**32)
 
 
 def is_big_endian() -> bool:
@@ -225,6 +238,9 @@ def linux_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[Tu
     # GCC is our primary compiler, so when packaging the library, even if the current machine
     # doesn't support AVX-512 or SVE, still precompile those.
     macros_args = [
+        ("SZ_IS_BIG_ENDIAN_", "1" if is_big_endian() else "0"),
+        ("SZ_IS_64BIT_X86_", "1" if is_64bit_x86() else "0"),
+        ("SZ_IS_64BIT_ARM_", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_HASWELL", "1" if is_64bit_x86() else "0"),
         ("SZ_USE_SKYLAKE", "1" if is_64bit_x86() else "0"),
         ("SZ_USE_ICE", "1" if is_64bit_x86() else "0"),
@@ -233,7 +249,6 @@ def linux_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[Tu
         ("SZ_USE_SVE", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_SVE2", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_SVE2_AES", "1" if is_64bit_arm() else "0"),
-        ("SZ_DETECT_BIG_ENDIAN", "1" if is_big_endian() else "0"),
     ]
 
     return compile_args, link_args, macros_args
@@ -278,6 +293,8 @@ def darwin_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[T
     # - x86_64: enable Haswell (AVX2) only
     # - arm64: enable NEON only
     macros_args = [
+        ("SZ_IS_64BIT_X86_", "1" if is_64bit_x86() else "0"),
+        ("SZ_IS_64BIT_ARM_", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_HASWELL", "1" if not is_64bit_arm() and is_64bit_x86() else "0"),
         ("SZ_USE_SKYLAKE", "0"),
         ("SZ_USE_ICE", "0"),
@@ -304,6 +321,9 @@ def windows_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[
 
     # When packaging the library, even if the current machine doesn't support AVX-512 or SVE, still precompile those.
     macros_args = [
+        ("SZ_IS_BIG_ENDIAN_", "1" if is_big_endian() else "0"),
+        ("SZ_IS_64BIT_X86_", "1" if is_64bit_x86() else "0"),
+        ("SZ_IS_64BIT_ARM_", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_HASWELL", "1" if is_64bit_x86() else "0"),
         ("SZ_USE_SKYLAKE", "1" if is_64bit_x86() else "0"),
         ("SZ_USE_ICE", "1" if is_64bit_x86() else "0"),
@@ -311,7 +331,6 @@ def windows_settings(use_cpp: bool = False) -> Tuple[List[str], List[str], List[
         ("SZ_USE_NEON_AES", "1" if is_64bit_arm() else "0"),
         ("SZ_USE_SVE", "0"),
         ("SZ_USE_SVE2", "0"),
-        ("SZ_DETECT_BIG_ENDIAN", "1" if is_big_endian() else "0"),
     ]
 
     link_args = []

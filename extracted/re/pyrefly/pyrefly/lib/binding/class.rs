@@ -10,7 +10,6 @@ use std::sync::LazyLock;
 
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
-use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::prelude::SliceExt;
 use regex::Regex;
@@ -115,21 +114,11 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn class_def(&mut self, mut x: StmtClassDef) {
-        if self.module_info.name() == ModuleName::typing() && x.name.as_str() == "Any" {
-            // We special case the definition of `Any`, because it isn't a `SpecialForm`,
-            // but an ordinary `class`.
-            self.bind_definition(
-                &x.name,
-                Binding::Type(Type::type_form(Type::any_explicit())),
-                FlowStyle::Other,
-            );
-            return;
-        }
-
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut pydantic_frozen = None;
         let mut pydantic_config_dict_extra = None;
         let mut pydantic_validate_by_name = false;
+        let mut pydantic_validate_by_alias = true;
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
@@ -265,6 +254,7 @@ impl<'a> BindingsBuilder<'a> {
                                     &mut pydantic_frozen,
                                     &mut pydantic_config_dict_extra,
                                     &mut pydantic_validate_by_name,
+                                    &mut pydantic_validate_by_alias,
                                 );
                                 (
                                     ClassFieldDefinition::AssignedInBody {
@@ -410,6 +400,7 @@ impl<'a> BindingsBuilder<'a> {
                     pydantic_frozen,
                     pydantic_config_dict_extra,
                     pydantic_validate_by_name,
+                    pydantic_validate_by_alias,
                 ),
             },
         );

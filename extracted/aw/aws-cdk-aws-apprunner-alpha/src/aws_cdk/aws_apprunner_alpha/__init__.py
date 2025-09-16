@@ -3532,7 +3532,7 @@ class Service(
         instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         ip_address_type: typing.Optional[IpAddressType] = None,
         is_publicly_accessible: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         memory: typing.Optional[Memory] = None,
         observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
         service_name: typing.Optional[builtins.str] = None,
@@ -3905,7 +3905,7 @@ class ServiceProps:
         instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
         ip_address_type: typing.Optional[IpAddressType] = None,
         is_publicly_accessible: typing.Optional[builtins.bool] = None,
-        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
         memory: typing.Optional[Memory] = None,
         observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
         service_name: typing.Optional[builtins.str] = None,
@@ -4117,7 +4117,7 @@ class ServiceProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def kms_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef]:
         '''(experimental) The customer managed key that AWS App Runner uses to encrypt copies of the source repository and service logs.
 
         :default: - Use an AWS managed key
@@ -4125,7 +4125,7 @@ class ServiceProps:
         :stability: experimental
         '''
         result = self._values.get("kms_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[Memory]:
@@ -6282,7 +6282,7 @@ def _typecheckingstub__79d7d688c20ccfdaf4ead5ff12fa6ddcb24fd014e98a55a23b275e5f1
     instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     is_publicly_accessible: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     memory: typing.Optional[Memory] = None,
     observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
     service_name: typing.Optional[builtins.str] = None,
@@ -6352,7 +6352,7 @@ def _typecheckingstub__2bbb5d2c5a8f10a3d012f0035d55423352f4a7eff0eb19c057f0e1898
     instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     is_publicly_accessible: typing.Optional[builtins.bool] = None,
-    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
     memory: typing.Optional[Memory] = None,
     observability_configuration: typing.Optional[IObservabilityConfiguration] = None,
     service_name: typing.Optional[builtins.str] = None,

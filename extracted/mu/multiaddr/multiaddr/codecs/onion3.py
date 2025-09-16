@@ -1,40 +1,56 @@
-from __future__ import absolute_import
 import base64
-import struct
+import binascii
+from typing import Any
 
-import six
-
+from ..codecs import CodecBase
+from ..exceptions import BinaryParseError
 
 SIZE = 296
 IS_PATH = False
 
 
-def to_bytes(proto, string):
-    addr = string.split(":")
-    if len(addr) != 2:
-        raise ValueError("Does not contain a port number")
+class Codec(CodecBase):
+    SIZE = SIZE
+    IS_PATH = IS_PATH
 
-    # onion3 address without the ".onion" substring
-    if len(addr[0]) != 56:
-        raise ValueError("Invalid onion3 host address length (must be 56 characters)")
-    try:
-        onion3_host_bytes = base64.b32decode(addr[0].upper())
-    except Exception as exc:
-        six.raise_from(ValueError("Cannot decode {0!r} as base32: {1}".format(addr[0], exc)), exc)
+    def to_bytes(self, proto: Any, string: str) -> bytes:
+        try:
+            addr, port = string.split(":", 1)
+            if addr.endswith(".onion"):
+                addr = addr[:-6]
+            if len(addr) != 56:
+                raise ValueError("Invalid onion3 address length")
+            if not port.isdigit():
+                raise ValueError("Invalid onion3 port")
+            port_num = int(port)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid onion3 port range")
+            # onion3 address is standard base32 (lowercase, no padding)
+            try:
+                addr_bytes = base64.b32decode(addr.upper())
+            except binascii.Error:
+                raise ValueError("Invalid base32 encoding")
+            if len(addr_bytes) != 35:
+                raise ValueError("Decoded onion3 address must be 35 bytes")
+            return addr_bytes + port_num.to_bytes(2, byteorder="big")
+        except (ValueError, UnicodeEncodeError, binascii.Error) as e:
+            raise BinaryParseError(str(e), string.encode(), proto)
 
-    # onion3 port number
-    try:
-        port = int(addr[1], 10)
-    except ValueError as exc:
-        six.raise_from(ValueError("Port number is not a base 10 integer"), exc)
-    if port not in range(1, 65536):
-        raise ValueError("Port number is not in range(1, 65536)")
-
-    return b''.join((onion3_host_bytes, struct.pack('>H', port)))
-
-
-def to_string(proto, buf):
-    addr_bytes, port_bytes = (buf[:-2], buf[-2:])
-    addr = base64.b32encode(addr_bytes).decode('ascii').lower()
-    port = six.text_type(struct.unpack('>H', port_bytes)[0])
-    return u':'.join([addr, port])
+    def to_string(self, proto: Any, buf: bytes) -> str:
+        try:
+            if len(buf) != 37:
+                raise ValueError("Invalid onion3 address length")
+            try:
+                addr = base64.b32encode(buf[:35]).decode("ascii").lower()
+            except binascii.Error:
+                raise ValueError("Invalid base32 encoding")
+            # Remove padding
+            addr = addr.rstrip("=")
+            if len(addr) != 56:
+                raise ValueError("Invalid onion3 address length")
+            port = str(int.from_bytes(buf[35:], byteorder="big"))
+            if not 1 <= int(port) <= 65535:
+                raise ValueError("Invalid onion3 port range")
+            return f"{addr}:{port}"
+        except (ValueError, UnicodeDecodeError, binascii.Error) as e:
+            raise BinaryParseError(str(e), buf, proto)

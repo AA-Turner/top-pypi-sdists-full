@@ -56,6 +56,8 @@ class IDTypes(Enum):
     recent_activities = "ract"
     support_requests = "supr"
     experimental_workspaces = "expwrk"
+    workspace_templates = "wstpl"
+    workspace_template_versions = "wtv"
     structured_outputs = "output"
     experimental_integrations = "expint"
     cron_job = "cronjob"
@@ -118,6 +120,7 @@ class IDTypes(Enum):
     machines = "m"
     cluster_log_cloud_resources = "clcr"
     system_cluster_configs = "scc"
+    resource_tags = "rtag"
 
 
 _default_id_length: int = 26

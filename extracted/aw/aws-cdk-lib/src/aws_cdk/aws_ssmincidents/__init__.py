@@ -69,7 +69,521 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmincidents.CfnReplicationSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "regions": "regions",
+        "deletion_protected": "deletionProtected",
+        "tags": "tags",
+    },
+)
+class CfnReplicationSetProps:
+    def __init__(
+        self,
+        *,
+        regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnReplicationSet.ReplicationRegionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        deletion_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationSet``.
+
+        :param regions: Specifies the Regions of the replication set.
+        :param deletion_protected: Determines if the replication set deletion protection is enabled or not. If deletion protection is enabled, you can't delete the last Region in the replication set.
+        :param tags: A list of tags to add to the replication set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmincidents as ssmincidents
+            
+            cfn_replication_set_props = ssmincidents.CfnReplicationSetProps(
+                regions=[ssmincidents.CfnReplicationSet.ReplicationRegionProperty(
+                    region_configuration=ssmincidents.CfnReplicationSet.RegionConfigurationProperty(
+                        sse_kms_key_id="sseKmsKeyId"
+                    ),
+                    region_name="regionName"
+                )],
+            
+                # the properties below are optional
+                deletion_protected=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b81a7e0f0fd7352395746b027c9c8e2f0e388a7b13012e0d9f31e01f104b4e1)
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument deletion_protected", value=deletion_protected, expected_type=type_hints["deletion_protected"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "regions": regions,
+        }
+        if deletion_protected is not None:
+            self._values["deletion_protected"] = deletion_protected
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def regions(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicationSet.ReplicationRegionProperty"]]]:
+        '''Specifies the Regions of the replication set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-regions
+        '''
+        result = self._values.get("regions")
+        assert result is not None, "Required property 'regions' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnReplicationSet.ReplicationRegionProperty"]]], result)
+
+    @builtins.property
+    def deletion_protected(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Determines if the replication set deletion protection is enabled or not.
+
+        If deletion protection is enabled, you can't delete the last Region in the replication set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-deletionprotected
+        '''
+        result = self._values.get("deletion_protected")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of tags to add to the replication set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmincidents.CfnResponsePlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "incident_template": "incidentTemplate",
+        "name": "name",
+        "actions": "actions",
+        "chat_channel": "chatChannel",
+        "display_name": "displayName",
+        "engagements": "engagements",
+        "integrations": "integrations",
+        "tags": "tags",
+    },
+)
+class CfnResponsePlanProps:
+    def __init__(
+        self,
+        *,
+        incident_template: typing.Union[_IResolvable_da3f097b, typing.Union["CfnResponsePlan.IncidentTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResponsePlan.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        chat_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResponsePlan.ChatChannelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        engagements: typing.Optional[typing.Sequence[builtins.str]] = None,
+        integrations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResponsePlan.IntegrationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResponsePlan``.
+
+        :param incident_template: Details used to create an incident when using this response plan.
+        :param name: The name of the response plan.
+        :param actions: The actions that the response plan starts at the beginning of an incident.
+        :param chat_channel: The chat channel used for collaboration during an incident.
+        :param display_name: The human readable name of the response plan.
+        :param engagements: The Amazon Resource Name (ARN) for the contacts and escalation plans that the response plan engages during an incident.
+        :param integrations: Information about third-party services integrated into the response plan.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmincidents as ssmincidents
+            
+            cfn_response_plan_props = ssmincidents.CfnResponsePlanProps(
+                incident_template=ssmincidents.CfnResponsePlan.IncidentTemplateProperty(
+                    impact=123,
+                    title="title",
+            
+                    # the properties below are optional
+                    dedupe_string="dedupeString",
+                    incident_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    notification_targets=[ssmincidents.CfnResponsePlan.NotificationTargetItemProperty(
+                        sns_topic_arn="snsTopicArn"
+                    )],
+                    summary="summary"
+                ),
+                name="name",
+            
+                # the properties below are optional
+                actions=[ssmincidents.CfnResponsePlan.ActionProperty(
+                    ssm_automation=ssmincidents.CfnResponsePlan.SsmAutomationProperty(
+                        document_name="documentName",
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        document_version="documentVersion",
+                        dynamic_parameters=[ssmincidents.CfnResponsePlan.DynamicSsmParameterProperty(
+                            key="key",
+                            value=ssmincidents.CfnResponsePlan.DynamicSsmParameterValueProperty(
+                                variable="variable"
+                            )
+                        )],
+                        parameters=[ssmincidents.CfnResponsePlan.SsmParameterProperty(
+                            key="key",
+                            values=["values"]
+                        )],
+                        target_account="targetAccount"
+                    )
+                )],
+                chat_channel=ssmincidents.CfnResponsePlan.ChatChannelProperty(
+                    chatbot_sns=["chatbotSns"]
+                ),
+                display_name="displayName",
+                engagements=["engagements"],
+                integrations=[ssmincidents.CfnResponsePlan.IntegrationProperty(
+                    pager_duty_configuration=ssmincidents.CfnResponsePlan.PagerDutyConfigurationProperty(
+                        name="name",
+                        pager_duty_incident_configuration=ssmincidents.CfnResponsePlan.PagerDutyIncidentConfigurationProperty(
+                            service_id="serviceId"
+                        ),
+                        secret_id="secretId"
+                    )
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1f26c268436093ece76203185479b0945d65551db0ae26532180e6bf960d557)
+            check_type(argname="argument incident_template", value=incident_template, expected_type=type_hints["incident_template"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument chat_channel", value=chat_channel, expected_type=type_hints["chat_channel"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument engagements", value=engagements, expected_type=type_hints["engagements"])
+            check_type(argname="argument integrations", value=integrations, expected_type=type_hints["integrations"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "incident_template": incident_template,
+            "name": name,
+        }
+        if actions is not None:
+            self._values["actions"] = actions
+        if chat_channel is not None:
+            self._values["chat_channel"] = chat_channel
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if engagements is not None:
+            self._values["engagements"] = engagements
+        if integrations is not None:
+            self._values["integrations"] = integrations
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def incident_template(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.IncidentTemplateProperty"]:
+        '''Details used to create an incident when using this response plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-incidenttemplate
+        '''
+        result = self._values.get("incident_template")
+        assert result is not None, "Required property 'incident_template' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.IncidentTemplateProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the response plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def actions(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.ActionProperty"]]]]:
+        '''The actions that the response plan starts at the beginning of an incident.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-actions
+        '''
+        result = self._values.get("actions")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.ActionProperty"]]]], result)
+
+    @builtins.property
+    def chat_channel(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.ChatChannelProperty"]]:
+        '''The  chat channel used for collaboration during an incident.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-chatchannel
+        '''
+        result = self._values.get("chat_channel")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.ChatChannelProperty"]], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The human readable name of the response plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engagements(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Name (ARN) for the contacts and escalation plans that the response plan engages during an incident.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-engagements
+        '''
+        result = self._values.get("engagements")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def integrations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.IntegrationProperty"]]]]:
+        '''Information about third-party services integrated into the response plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-integrations
+        '''
+        result = self._values.get("integrations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnResponsePlan.IntegrationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResponsePlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssmincidents.IReplicationSetRef")
+class IReplicationSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ReplicationSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationSetRef")
+    def replication_set_ref(self) -> "ReplicationSetReference":
+        '''(experimental) A reference to a ReplicationSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReplicationSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReplicationSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssmincidents.IReplicationSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationSetRef")
+    def replication_set_ref(self) -> "ReplicationSetReference":
+        '''(experimental) A reference to a ReplicationSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReplicationSetReference", jsii.get(self, "replicationSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReplicationSetRef).__jsii_proxy_class__ = lambda : _IReplicationSetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssmincidents.IResponsePlanRef")
+class IResponsePlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ResponsePlan.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="responsePlanRef")
+    def response_plan_ref(self) -> "ResponsePlanReference":
+        '''(experimental) A reference to a ResponsePlan resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResponsePlanRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResponsePlan.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssmincidents.IResponsePlanRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="responsePlanRef")
+    def response_plan_ref(self) -> "ResponsePlanReference":
+        '''(experimental) A reference to a ResponsePlan resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResponsePlanReference", jsii.get(self, "responsePlanRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResponsePlanRef).__jsii_proxy_class__ = lambda : _IResponsePlanRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmincidents.ReplicationSetReference",
+    jsii_struct_bases=[],
+    name_mapping={"replication_set_arn": "replicationSetArn"},
+)
+class ReplicationSetReference:
+    def __init__(self, *, replication_set_arn: builtins.str) -> None:
+        '''A reference to a ReplicationSet resource.
+
+        :param replication_set_arn: The Arn of the ReplicationSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmincidents as ssmincidents
+            
+            replication_set_reference = ssmincidents.ReplicationSetReference(
+                replication_set_arn="replicationSetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72c956c01247da55177c05fef9e4fe8e4a8a2b696f85a8bdd600ef1b7905cbb5)
+            check_type(argname="argument replication_set_arn", value=replication_set_arn, expected_type=type_hints["replication_set_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replication_set_arn": replication_set_arn,
+        }
+
+    @builtins.property
+    def replication_set_arn(self) -> builtins.str:
+        '''The Arn of the ReplicationSet resource.'''
+        result = self._values.get("replication_set_arn")
+        assert result is not None, "Required property 'replication_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReplicationSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssmincidents.ResponsePlanReference",
+    jsii_struct_bases=[],
+    name_mapping={"response_plan_arn": "responsePlanArn"},
+)
+class ResponsePlanReference:
+    def __init__(self, *, response_plan_arn: builtins.str) -> None:
+        '''A reference to a ResponsePlan resource.
+
+        :param response_plan_arn: The Arn of the ResponsePlan resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssmincidents as ssmincidents
+            
+            response_plan_reference = ssmincidents.ResponsePlanReference(
+                response_plan_arn="responsePlanArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd4e3501283f43c0e4523c3239373938e6da1e3a580a49df006a41dfa8729a2d)
+            check_type(argname="argument response_plan_arn", value=response_plan_arn, expected_type=type_hints["response_plan_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "response_plan_arn": response_plan_arn,
+        }
+
+    @builtins.property
+    def response_plan_arn(self) -> builtins.str:
+        '''The Arn of the ResponsePlan resource.'''
+        result = self._values.get("response_plan_arn")
+        assert result is not None, "Required property 'response_plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResponsePlanReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IReplicationSetRef, _ITaggable_36806126)
 class CfnReplicationSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -173,6 +687,12 @@ class CfnReplicationSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationSetRef")
+    def replication_set_ref(self) -> ReplicationSetReference:
+        '''A reference to a ReplicationSet resource.'''
+        return typing.cast(ReplicationSetReference, jsii.get(self, "replicationSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -359,114 +879,7 @@ class CfnReplicationSet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssmincidents.CfnReplicationSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "regions": "regions",
-        "deletion_protected": "deletionProtected",
-        "tags": "tags",
-    },
-)
-class CfnReplicationSetProps:
-    def __init__(
-        self,
-        *,
-        regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationSet.ReplicationRegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        deletion_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicationSet``.
-
-        :param regions: Specifies the Regions of the replication set.
-        :param deletion_protected: Determines if the replication set deletion protection is enabled or not. If deletion protection is enabled, you can't delete the last Region in the replication set.
-        :param tags: A list of tags to add to the replication set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssmincidents as ssmincidents
-            
-            cfn_replication_set_props = ssmincidents.CfnReplicationSetProps(
-                regions=[ssmincidents.CfnReplicationSet.ReplicationRegionProperty(
-                    region_configuration=ssmincidents.CfnReplicationSet.RegionConfigurationProperty(
-                        sse_kms_key_id="sseKmsKeyId"
-                    ),
-                    region_name="regionName"
-                )],
-            
-                # the properties below are optional
-                deletion_protected=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b81a7e0f0fd7352395746b027c9c8e2f0e388a7b13012e0d9f31e01f104b4e1)
-            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
-            check_type(argname="argument deletion_protected", value=deletion_protected, expected_type=type_hints["deletion_protected"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regions": regions,
-        }
-        if deletion_protected is not None:
-            self._values["deletion_protected"] = deletion_protected
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def regions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicationSet.ReplicationRegionProperty]]]:
-        '''Specifies the Regions of the replication set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-regions
-        '''
-        result = self._values.get("regions")
-        assert result is not None, "Required property 'regions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnReplicationSet.ReplicationRegionProperty]]], result)
-
-    @builtins.property
-    def deletion_protected(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Determines if the replication set deletion protection is enabled or not.
-
-        If deletion protection is enabled, you can't delete the last Region in the replication set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-deletionprotected
-        '''
-        result = self._values.get("deletion_protected")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags to add to the replication set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-replicationset.html#cfn-ssmincidents-replicationset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicationSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IResponsePlanRef, _ITaggable_36806126)
 class CfnResponsePlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -630,6 +1043,12 @@ class CfnResponsePlan(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="responsePlanRef")
+    def response_plan_ref(self) -> ResponsePlanReference:
+        '''A reference to a ResponsePlan resource.'''
+        return typing.cast(ResponsePlanReference, jsii.get(self, "responsePlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1687,243 +2106,55 @@ class CfnResponsePlan(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssmincidents.CfnResponsePlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "incident_template": "incidentTemplate",
-        "name": "name",
-        "actions": "actions",
-        "chat_channel": "chatChannel",
-        "display_name": "displayName",
-        "engagements": "engagements",
-        "integrations": "integrations",
-        "tags": "tags",
-    },
-)
-class CfnResponsePlanProps:
-    def __init__(
-        self,
-        *,
-        incident_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IncidentTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        chat_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ChatChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        engagements: typing.Optional[typing.Sequence[builtins.str]] = None,
-        integrations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResponsePlan``.
-
-        :param incident_template: Details used to create an incident when using this response plan.
-        :param name: The name of the response plan.
-        :param actions: The actions that the response plan starts at the beginning of an incident.
-        :param chat_channel: The chat channel used for collaboration during an incident.
-        :param display_name: The human readable name of the response plan.
-        :param engagements: The Amazon Resource Name (ARN) for the contacts and escalation plans that the response plan engages during an incident.
-        :param integrations: Information about third-party services integrated into the response plan.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssmincidents as ssmincidents
-            
-            cfn_response_plan_props = ssmincidents.CfnResponsePlanProps(
-                incident_template=ssmincidents.CfnResponsePlan.IncidentTemplateProperty(
-                    impact=123,
-                    title="title",
-            
-                    # the properties below are optional
-                    dedupe_string="dedupeString",
-                    incident_tags=[CfnTag(
-                        key="key",
-                        value="value"
-                    )],
-                    notification_targets=[ssmincidents.CfnResponsePlan.NotificationTargetItemProperty(
-                        sns_topic_arn="snsTopicArn"
-                    )],
-                    summary="summary"
-                ),
-                name="name",
-            
-                # the properties below are optional
-                actions=[ssmincidents.CfnResponsePlan.ActionProperty(
-                    ssm_automation=ssmincidents.CfnResponsePlan.SsmAutomationProperty(
-                        document_name="documentName",
-                        role_arn="roleArn",
-            
-                        # the properties below are optional
-                        document_version="documentVersion",
-                        dynamic_parameters=[ssmincidents.CfnResponsePlan.DynamicSsmParameterProperty(
-                            key="key",
-                            value=ssmincidents.CfnResponsePlan.DynamicSsmParameterValueProperty(
-                                variable="variable"
-                            )
-                        )],
-                        parameters=[ssmincidents.CfnResponsePlan.SsmParameterProperty(
-                            key="key",
-                            values=["values"]
-                        )],
-                        target_account="targetAccount"
-                    )
-                )],
-                chat_channel=ssmincidents.CfnResponsePlan.ChatChannelProperty(
-                    chatbot_sns=["chatbotSns"]
-                ),
-                display_name="displayName",
-                engagements=["engagements"],
-                integrations=[ssmincidents.CfnResponsePlan.IntegrationProperty(
-                    pager_duty_configuration=ssmincidents.CfnResponsePlan.PagerDutyConfigurationProperty(
-                        name="name",
-                        pager_duty_incident_configuration=ssmincidents.CfnResponsePlan.PagerDutyIncidentConfigurationProperty(
-                            service_id="serviceId"
-                        ),
-                        secret_id="secretId"
-                    )
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1f26c268436093ece76203185479b0945d65551db0ae26532180e6bf960d557)
-            check_type(argname="argument incident_template", value=incident_template, expected_type=type_hints["incident_template"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument chat_channel", value=chat_channel, expected_type=type_hints["chat_channel"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument engagements", value=engagements, expected_type=type_hints["engagements"])
-            check_type(argname="argument integrations", value=integrations, expected_type=type_hints["integrations"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "incident_template": incident_template,
-            "name": name,
-        }
-        if actions is not None:
-            self._values["actions"] = actions
-        if chat_channel is not None:
-            self._values["chat_channel"] = chat_channel
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if engagements is not None:
-            self._values["engagements"] = engagements
-        if integrations is not None:
-            self._values["integrations"] = integrations
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def incident_template(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnResponsePlan.IncidentTemplateProperty]:
-        '''Details used to create an incident when using this response plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-incidenttemplate
-        '''
-        result = self._values.get("incident_template")
-        assert result is not None, "Required property 'incident_template' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnResponsePlan.IncidentTemplateProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the response plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def actions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.ActionProperty]]]]:
-        '''The actions that the response plan starts at the beginning of an incident.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-actions
-        '''
-        result = self._values.get("actions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.ActionProperty]]]], result)
-
-    @builtins.property
-    def chat_channel(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.ChatChannelProperty]]:
-        '''The  chat channel used for collaboration during an incident.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-chatchannel
-        '''
-        result = self._values.get("chat_channel")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.ChatChannelProperty]], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The human readable name of the response plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engagements(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Resource Name (ARN) for the contacts and escalation plans that the response plan engages during an incident.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-engagements
-        '''
-        result = self._values.get("engagements")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def integrations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.IntegrationProperty]]]]:
-        '''Information about third-party services integrated into the response plan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-integrations
-        '''
-        result = self._values.get("integrations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnResponsePlan.IntegrationProperty]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssmincidents-responseplan.html#cfn-ssmincidents-responseplan-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResponsePlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnReplicationSet",
     "CfnReplicationSetProps",
     "CfnResponsePlan",
     "CfnResponsePlanProps",
+    "IReplicationSetRef",
+    "IResponsePlanRef",
+    "ReplicationSetReference",
+    "ResponsePlanReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__2b81a7e0f0fd7352395746b027c9c8e2f0e388a7b13012e0d9f31e01f104b4e1(
+    *,
+    regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationSet.ReplicationRegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    deletion_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1f26c268436093ece76203185479b0945d65551db0ae26532180e6bf960d557(
+    *,
+    incident_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IncidentTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    chat_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ChatChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    engagements: typing.Optional[typing.Sequence[builtins.str]] = None,
+    integrations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72c956c01247da55177c05fef9e4fe8e4a8a2b696f85a8bdd600ef1b7905cbb5(
+    *,
+    replication_set_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd4e3501283f43c0e4523c3239373938e6da1e3a580a49df006a41dfa8729a2d(
+    *,
+    response_plan_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__d35528bb6313604195e4d5ff11ca1837f21dff5fee9feafa483dfb8e20965025(
     scope: _constructs_77d1e7e8.Construct,
@@ -1977,15 +2208,6 @@ def _typecheckingstub__6616868d593bc03da29c35ca4a31fbaa78eaad8929c78b5801f7e2795
     *,
     region_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationSet.RegionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b81a7e0f0fd7352395746b027c9c8e2f0e388a7b13012e0d9f31e01f104b4e1(
-    *,
-    regions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationSet.ReplicationRegionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    deletion_protected: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2153,20 +2375,6 @@ def _typecheckingstub__6fcb3a998fea82127c7c4a298d2b5ecc2327cd2945c6d32ed94ad61d2
     *,
     key: builtins.str,
     values: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e1f26c268436093ece76203185479b0945d65551db0ae26532180e6bf960d557(
-    *,
-    incident_template: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IncidentTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    chat_channel: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.ChatChannelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    engagements: typing.Optional[typing.Sequence[builtins.str]] = None,
-    integrations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponsePlan.IntegrationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

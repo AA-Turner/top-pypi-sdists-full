@@ -79,185 +79,53 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
-class CfnBrowserSettings(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnBrowserSettings",
-):
-    '''This resource specifies browser settings that can be associated with a web portal.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.BrowserSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"browser_settings_arn": "browserSettingsArn"},
+)
+class BrowserSettingsReference:
+    def __init__(self, *, browser_settings_arn: builtins.str) -> None:
+        '''A reference to a BrowserSettings resource.
 
-    Once associated with a web portal, browser settings control how the browser will behave once a user starts a streaming session for the web portal.
+        :param browser_settings_arn: The BrowserSettingsArn of the BrowserSettings resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html
-    :cloudformationResource: AWS::WorkSpacesWeb::BrowserSettings
-    :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=_generated
 
-    Example::
+        Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_workspacesweb as workspacesweb
-        
-        cfn_browser_settings = workspacesweb.CfnBrowserSettings(self, "MyCfnBrowserSettings",
-            additional_encryption_context={
-                "additional_encryption_context_key": "additionalEncryptionContext"
-            },
-            browser_policy="browserPolicy",
-            customer_managed_key="customerManagedKey",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            browser_settings_reference = workspacesweb.BrowserSettingsReference(
+                browser_settings_arn="browserSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9947bb1c5564f1c8983b6830b818356c7f9bd51490f6871599d58fbb9c7a8dfa)
+            check_type(argname="argument browser_settings_arn", value=browser_settings_arn, expected_type=type_hints["browser_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "browser_settings_arn": browser_settings_arn,
+        }
+
+    @builtins.property
+    def browser_settings_arn(self) -> builtins.str:
+        '''The BrowserSettingsArn of the BrowserSettings resource.'''
+        result = self._values.get("browser_settings_arn")
+        assert result is not None, "Required property 'browser_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BrowserSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        browser_policy: typing.Optional[builtins.str] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param additional_encryption_context: Additional encryption context of the browser settings.
-        :param browser_policy: A JSON string containing Chrome Enterprise policies that will be applied to all streaming sessions.
-        :param customer_managed_key: The custom managed key of the browser settings. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
-        :param tags: The tags to add to the browser settings resource. A tag is a key-value pair.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc041bb0f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnBrowserSettingsProps(
-            additional_encryption_context=additional_encryption_context,
-            browser_policy=browser_policy,
-            customer_managed_key=customer_managed_key,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d4203cdc61a30c217fc2abe263c4776ac7f7dc3efdc691f65b8b0f98c469206)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70bab862ee)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAssociatedPortalArns")
-    def attr_associated_portal_arns(self) -> typing.List[builtins.str]:
-        '''A list of web portal ARNs that the browser settings resource is associated with.
-
-        :cloudformationAttribute: AssociatedPortalArns
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedPortalArns"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrBrowserSettingsArn")
-    def attr_browser_settings_arn(self) -> builtins.str:
-        '''The ARN of the browser settings.
-
-        :cloudformationAttribute: BrowserSettingsArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrBrowserSettingsArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="additionalEncryptionContext")
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Additional encryption context of the browser settings.'''
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "additionalEncryptionContext"))
-
-    @additional_encryption_context.setter
-    def additional_encryption_context(
-        self,
-        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="browserPolicy")
-    def browser_policy(self) -> typing.Optional[builtins.str]:
-        '''A JSON string containing Chrome Enterprise policies that will be applied to all streaming sessions.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "browserPolicy"))
-
-    @browser_policy.setter
-    def browser_policy(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1ed58b3fc2a2966bf9a096153c9b38b0a594ab0c629bf8b97e6011a61ebfb79)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "browserPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="customerManagedKey")
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The custom managed key of the browser settings.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedKey"))
-
-    @customer_managed_key.setter
-    def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa22a364c4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the browser settings resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -377,7 +245,2578 @@ class CfnBrowserSettingsProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnDataProtectionSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "additional_encryption_context": "additionalEncryptionContext",
+        "customer_managed_key": "customerManagedKey",
+        "description": "description",
+        "display_name": "displayName",
+        "inline_redaction_configuration": "inlineRedactionConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnDataProtectionSettingsProps:
+    def __init__(
+        self,
+        *,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProtectionSettings.InlineRedactionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataProtectionSettings``.
+
+        :param additional_encryption_context: The additional encryption context of the data protection settings.
+        :param customer_managed_key: The customer managed key used to encrypt sensitive information in the data protection settings.
+        :param description: The description of the data protection settings.
+        :param display_name: The display name of the data protection settings.
+        :param inline_redaction_configuration: The inline redaction configuration for the data protection settings.
+        :param tags: The tags of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_data_protection_settings_props = workspacesweb.CfnDataProtectionSettingsProps(
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                customer_managed_key="customerManagedKey",
+                description="description",
+                display_name="displayName",
+                inline_redaction_configuration=workspacesweb.CfnDataProtectionSettings.InlineRedactionConfigurationProperty(
+                    inline_redaction_patterns=[workspacesweb.CfnDataProtectionSettings.InlineRedactionPatternProperty(
+                        redaction_place_holder=workspacesweb.CfnDataProtectionSettings.RedactionPlaceHolderProperty(
+                            redaction_place_holder_type="redactionPlaceHolderType",
+            
+                            # the properties below are optional
+                            redaction_place_holder_text="redactionPlaceHolderText"
+                        ),
+            
+                        # the properties below are optional
+                        built_in_pattern_id="builtInPatternId",
+                        confidence_level=123,
+                        custom_pattern=workspacesweb.CfnDataProtectionSettings.CustomPatternProperty(
+                            pattern_name="patternName",
+                            pattern_regex="patternRegex",
+            
+                            # the properties below are optional
+                            keyword_regex="keywordRegex",
+                            pattern_description="patternDescription"
+                        ),
+                        enforced_urls=["enforcedUrls"],
+                        exempt_urls=["exemptUrls"]
+                    )],
+            
+                    # the properties below are optional
+                    global_confidence_level=123,
+                    global_enforced_urls=["globalEnforcedUrls"],
+                    global_exempt_urls=["globalExemptUrls"]
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a)
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument inline_redaction_configuration", value=inline_redaction_configuration, expected_type=type_hints["inline_redaction_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if inline_redaction_configuration is not None:
+            self._values["inline_redaction_configuration"] = inline_redaction_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The additional encryption context of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt sensitive information in the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inline_redaction_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]]:
+        '''The inline redaction configuration for the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionconfiguration
+        '''
+        result = self._values.get("inline_redaction_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProtectionSettings.InlineRedactionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataProtectionSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIdentityProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "identity_provider_details": "identityProviderDetails",
+        "identity_provider_name": "identityProviderName",
+        "identity_provider_type": "identityProviderType",
+        "portal_arn": "portalArn",
+        "tags": "tags",
+    },
+)
+class CfnIdentityProviderProps:
+    def __init__(
+        self,
+        *,
+        identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+        identity_provider_name: builtins.str,
+        identity_provider_type: builtins.str,
+        portal_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIdentityProvider``.
+
+        :param identity_provider_details: The identity provider details. The following list describes the provider detail keys for each identity provider type. - For Google and Login with Amazon: - ``client_id`` - ``client_secret`` - ``authorize_scopes`` - For Facebook: - ``client_id`` - ``client_secret`` - ``authorize_scopes`` - ``api_version`` - For Sign in with Apple: - ``client_id`` - ``team_id`` - ``key_id`` - ``private_key`` - ``authorize_scopes`` - For OIDC providers: - ``client_id`` - ``client_secret`` - ``attributes_request_method`` - ``oidc_issuer`` - ``authorize_scopes`` - ``authorize_url`` *if not available from discovery URL specified by oidc_issuer key* - ``token_url`` *if not available from discovery URL specified by oidc_issuer key* - ``attributes_url`` *if not available from discovery URL specified by oidc_issuer key* - ``jwks_uri`` *if not available from discovery URL specified by oidc_issuer key* - For SAML providers: - ``MetadataFile`` OR ``MetadataURL`` - ``IDPSignout`` (boolean) *optional* - ``IDPInit`` (boolean) *optional* - ``RequestSigningAlgorithm`` (string) *optional* - Only accepts ``rsa-sha256`` - ``EncryptedResponses`` (boolean) *optional*
+        :param identity_provider_name: The identity provider name.
+        :param identity_provider_type: The identity provider type.
+        :param portal_arn: The ARN of the identity provider.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_identity_provider_props = workspacesweb.CfnIdentityProviderProps(
+                identity_provider_details={
+                    "identity_provider_details_key": "identityProviderDetails"
+                },
+                identity_provider_name="identityProviderName",
+                identity_provider_type="identityProviderType",
+            
+                # the properties below are optional
+                portal_arn="portalArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d)
+            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
+            check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
+            check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
+            check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_provider_details": identity_provider_details,
+            "identity_provider_name": identity_provider_name,
+            "identity_provider_type": identity_provider_type,
+        }
+        if portal_arn is not None:
+            self._values["portal_arn"] = portal_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def identity_provider_details(
+        self,
+    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]:
+        '''The identity provider details. The following list describes the provider detail keys for each identity provider type.
+
+        - For Google and Login with Amazon:
+        - ``client_id``
+        - ``client_secret``
+        - ``authorize_scopes``
+        - For Facebook:
+        - ``client_id``
+        - ``client_secret``
+        - ``authorize_scopes``
+        - ``api_version``
+        - For Sign in with Apple:
+        - ``client_id``
+        - ``team_id``
+        - ``key_id``
+        - ``private_key``
+        - ``authorize_scopes``
+        - For OIDC providers:
+        - ``client_id``
+        - ``client_secret``
+        - ``attributes_request_method``
+        - ``oidc_issuer``
+        - ``authorize_scopes``
+        - ``authorize_url`` *if not available from discovery URL specified by oidc_issuer key*
+        - ``token_url`` *if not available from discovery URL specified by oidc_issuer key*
+        - ``attributes_url`` *if not available from discovery URL specified by oidc_issuer key*
+        - ``jwks_uri`` *if not available from discovery URL specified by oidc_issuer key*
+        - For SAML providers:
+        - ``MetadataFile`` OR ``MetadataURL``
+        - ``IDPSignout`` (boolean) *optional*
+        - ``IDPInit`` (boolean) *optional*
+        - ``RequestSigningAlgorithm`` (string) *optional* - Only accepts ``rsa-sha256``
+        - ``EncryptedResponses`` (boolean) *optional*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityproviderdetails
+        '''
+        result = self._values.get("identity_provider_details")
+        assert result is not None, "Required property 'identity_provider_details' is missing"
+        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b], result)
+
+    @builtins.property
+    def identity_provider_name(self) -> builtins.str:
+        '''The identity provider name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityprovidername
+        '''
+        result = self._values.get("identity_provider_name")
+        assert result is not None, "Required property 'identity_provider_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def identity_provider_type(self) -> builtins.str:
+        '''The identity provider type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityprovidertype
+        '''
+        result = self._values.get("identity_provider_type")
+        assert result is not None, "Required property 'identity_provider_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def portal_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the identity provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-portalarn
+        '''
+        result = self._values.get("portal_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIdentityProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIpAccessSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ip_rules": "ipRules",
+        "additional_encryption_context": "additionalEncryptionContext",
+        "customer_managed_key": "customerManagedKey",
+        "description": "description",
+        "display_name": "displayName",
+        "tags": "tags",
+    },
+)
+class CfnIpAccessSettingsProps:
+    def __init__(
+        self,
+        *,
+        ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIpAccessSettings.IpRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIpAccessSettings``.
+
+        :param ip_rules: The IP rules of the IP access settings.
+        :param additional_encryption_context: Additional encryption context of the IP access settings.
+        :param customer_managed_key: The custom managed key of the IP access settings. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
+        :param description: The description of the IP access settings.
+        :param display_name: The display name of the IP access settings.
+        :param tags: The tags to add to the IP access settings resource. A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_ip_access_settings_props = workspacesweb.CfnIpAccessSettingsProps(
+                ip_rules=[workspacesweb.CfnIpAccessSettings.IpRuleProperty(
+                    ip_range="ipRange",
+            
+                    # the properties below are optional
+                    description="description"
+                )],
+            
+                # the properties below are optional
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                customer_managed_key="customerManagedKey",
+                description="description",
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475)
+            check_type(argname="argument ip_rules", value=ip_rules, expected_type=type_hints["ip_rules"])
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ip_rules": ip_rules,
+        }
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def ip_rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIpAccessSettings.IpRuleProperty"]]]:
+        '''The IP rules of the IP access settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-iprules
+        '''
+        result = self._values.get("ip_rules")
+        assert result is not None, "Required property 'ip_rules' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIpAccessSettings.IpRuleProperty"]]], result)
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Additional encryption context of the IP access settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The custom managed key of the IP access settings.
+
+        *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the IP access settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the IP access settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the IP access settings resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIpAccessSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnNetworkSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "security_group_ids": "securityGroupIds",
+        "subnet_ids": "subnetIds",
+        "vpc_id": "vpcId",
+        "tags": "tags",
+    },
+)
+class CfnNetworkSettingsProps:
+    def __init__(
+        self,
+        *,
+        security_group_ids: typing.Sequence[builtins.str],
+        subnet_ids: typing.Sequence[builtins.str],
+        vpc_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNetworkSettings``.
+
+        :param security_group_ids: One or more security groups used to control access from streaming instances to your VPC. *Pattern* : ``^[\\w+\\-]+$``
+        :param subnet_ids: The subnets in which network interfaces are created to connect streaming instances to your VPC. At least two of these subnets must be in different availability zones. *Pattern* : ``^subnet-([0-9a-f]{8}|[0-9a-f]{17})$``
+        :param vpc_id: The VPC that streaming instances will connect to. *Pattern* : ``^vpc-[0-9a-z]*$``
+        :param tags: The tags to add to the network settings resource. A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_network_settings_props = workspacesweb.CfnNetworkSettingsProps(
+                security_group_ids=["securityGroupIds"],
+                subnet_ids=["subnetIds"],
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb)
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "security_group_ids": security_group_ids,
+            "subnet_ids": subnet_ids,
+            "vpc_id": vpc_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def security_group_ids(self) -> typing.List[builtins.str]:
+        '''One or more security groups used to control access from streaming instances to your VPC.
+
+        *Pattern* : ``^[\\w+\\-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        assert result is not None, "Required property 'security_group_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''The subnets in which network interfaces are created to connect streaming instances to your VPC.
+
+        At least two of these subnets must be in different availability zones.
+
+        *Pattern* : ``^subnet-([0-9a-f]{8}|[0-9a-f]{17})$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The VPC that streaming instances will connect to.
+
+        *Pattern* : ``^vpc-[0-9a-z]*$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the network settings resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNetworkSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnPortalProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "additional_encryption_context": "additionalEncryptionContext",
+        "authentication_type": "authenticationType",
+        "browser_settings_arn": "browserSettingsArn",
+        "customer_managed_key": "customerManagedKey",
+        "data_protection_settings_arn": "dataProtectionSettingsArn",
+        "display_name": "displayName",
+        "instance_type": "instanceType",
+        "ip_access_settings_arn": "ipAccessSettingsArn",
+        "max_concurrent_sessions": "maxConcurrentSessions",
+        "network_settings_arn": "networkSettingsArn",
+        "session_logger_arn": "sessionLoggerArn",
+        "tags": "tags",
+        "trust_store_arn": "trustStoreArn",
+        "user_access_logging_settings_arn": "userAccessLoggingSettingsArn",
+        "user_settings_arn": "userSettingsArn",
+    },
+)
+class CfnPortalProps:
+    def __init__(
+        self,
+        *,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        authentication_type: typing.Optional[builtins.str] = None,
+        browser_settings_arn: typing.Optional[builtins.str] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        data_protection_settings_arn: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        instance_type: typing.Optional[builtins.str] = None,
+        ip_access_settings_arn: typing.Optional[builtins.str] = None,
+        max_concurrent_sessions: typing.Optional[jsii.Number] = None,
+        network_settings_arn: typing.Optional[builtins.str] = None,
+        session_logger_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        trust_store_arn: typing.Optional[builtins.str] = None,
+        user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
+        user_settings_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPortal``.
+
+        :param additional_encryption_context: The additional encryption context of the portal.
+        :param authentication_type: The type of authentication integration points used when signing into the web portal. Defaults to ``Standard`` . ``Standard`` web portals are authenticated directly through your identity provider (IdP). User and group access to your web portal is controlled through your IdP. You need to include an IdP resource in your template to integrate your IdP with your web portal. Completing the configuration for your IdP requires exchanging WorkSpaces Secure Browser’s SP metadata with your IdP’s IdP metadata. If your IdP requires the SP metadata first before returning the IdP metadata, you should follow these steps: 1. Create and deploy a CloudFormation template with a ``Standard`` portal with no ``IdentityProvider`` resource. 2. Retrieve the SP metadata using ``Fn:GetAtt`` , the WorkSpaces Secure Browser console, or by the calling the ``GetPortalServiceProviderMetadata`` API. 3. Submit the data to your IdP. 4. Add an ``IdentityProvider`` resource to your CloudFormation template. ``IAM Identity Center`` web portals are authenticated through AWS IAM Identity Center . They provide additional features, such as IdP-initiated authentication. Identity sources (including external identity provider integration) and other identity provider information must be configured in IAM Identity Center . User and group assignment must be done through the WorkSpaces Secure Browser console. These cannot be configured in CloudFormation.
+        :param browser_settings_arn: The ARN of the browser settings that is associated with this web portal.
+        :param customer_managed_key: The customer managed key of the web portal. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
+        :param data_protection_settings_arn: The ARN of the data protection settings.
+        :param display_name: The name of the web portal.
+        :param instance_type: The type and resources of the underlying instance.
+        :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
+        :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
+        :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
+        :param session_logger_arn: The ARN of the session logger that is assocaited with the portal.
+        :param tags: The tags to add to the web portal. A tag is a key-value pair.
+        :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
+        :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
+        :param user_settings_arn: The ARN of the user settings that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_portal_props = workspacesweb.CfnPortalProps(
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                authentication_type="authenticationType",
+                browser_settings_arn="browserSettingsArn",
+                customer_managed_key="customerManagedKey",
+                data_protection_settings_arn="dataProtectionSettingsArn",
+                display_name="displayName",
+                instance_type="instanceType",
+                ip_access_settings_arn="ipAccessSettingsArn",
+                max_concurrent_sessions=123,
+                network_settings_arn="networkSettingsArn",
+                session_logger_arn="sessionLoggerArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                trust_store_arn="trustStoreArn",
+                user_access_logging_settings_arn="userAccessLoggingSettingsArn",
+                user_settings_arn="userSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283)
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument browser_settings_arn", value=browser_settings_arn, expected_type=type_hints["browser_settings_arn"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument data_protection_settings_arn", value=data_protection_settings_arn, expected_type=type_hints["data_protection_settings_arn"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
+            check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
+            check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
+            check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+            check_type(argname="argument user_access_logging_settings_arn", value=user_access_logging_settings_arn, expected_type=type_hints["user_access_logging_settings_arn"])
+            check_type(argname="argument user_settings_arn", value=user_settings_arn, expected_type=type_hints["user_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if authentication_type is not None:
+            self._values["authentication_type"] = authentication_type
+        if browser_settings_arn is not None:
+            self._values["browser_settings_arn"] = browser_settings_arn
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if data_protection_settings_arn is not None:
+            self._values["data_protection_settings_arn"] = data_protection_settings_arn
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if instance_type is not None:
+            self._values["instance_type"] = instance_type
+        if ip_access_settings_arn is not None:
+            self._values["ip_access_settings_arn"] = ip_access_settings_arn
+        if max_concurrent_sessions is not None:
+            self._values["max_concurrent_sessions"] = max_concurrent_sessions
+        if network_settings_arn is not None:
+            self._values["network_settings_arn"] = network_settings_arn
+        if session_logger_arn is not None:
+            self._values["session_logger_arn"] = session_logger_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if trust_store_arn is not None:
+            self._values["trust_store_arn"] = trust_store_arn
+        if user_access_logging_settings_arn is not None:
+            self._values["user_access_logging_settings_arn"] = user_access_logging_settings_arn
+        if user_settings_arn is not None:
+            self._values["user_settings_arn"] = user_settings_arn
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The additional encryption context of the portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def authentication_type(self) -> typing.Optional[builtins.str]:
+        '''The type of authentication integration points used when signing into the web portal. Defaults to ``Standard`` .
+
+        ``Standard`` web portals are authenticated directly through your identity provider (IdP). User and group access to your web portal is controlled through your IdP. You need to include an IdP resource in your template to integrate your IdP with your web portal. Completing the configuration for your IdP requires exchanging WorkSpaces Secure Browser’s SP metadata with your IdP’s IdP metadata. If your IdP requires the SP metadata first before returning the IdP metadata, you should follow these steps:
+
+        1. Create and deploy a CloudFormation template with a ``Standard`` portal with no ``IdentityProvider`` resource.
+        2. Retrieve the SP metadata using ``Fn:GetAtt`` , the WorkSpaces Secure Browser console, or by the calling the ``GetPortalServiceProviderMetadata`` API.
+        3. Submit the data to your IdP.
+        4. Add an ``IdentityProvider`` resource to your CloudFormation template.
+
+        ``IAM Identity Center`` web portals are authenticated through AWS IAM Identity Center . They provide additional features, such as IdP-initiated authentication. Identity sources (including external identity provider integration) and other identity provider information must be configured in IAM Identity Center . User and group assignment must be done through the WorkSpaces Secure Browser console. These cannot be configured in CloudFormation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-authenticationtype
+        '''
+        result = self._values.get("authentication_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def browser_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the browser settings that is associated with this web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-browsersettingsarn
+        '''
+        result = self._values.get("browser_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key of the web portal.
+
+        *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_protection_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the data protection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-dataprotectionsettingsarn
+        '''
+        result = self._values.get("data_protection_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_type(self) -> typing.Optional[builtins.str]:
+        '''The type and resources of the underlying instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-instancetype
+        '''
+        result = self._values.get("instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_access_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IP access settings that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-ipaccesssettingsarn
+        '''
+        result = self._values.get("ip_access_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_concurrent_sessions(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of concurrent sessions for the portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-maxconcurrentsessions
+        '''
+        result = self._values.get("max_concurrent_sessions")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def network_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the network settings that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-networksettingsarn
+        '''
+        result = self._values.get("network_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def session_logger_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the session logger that is assocaited with the portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-sessionloggerarn
+        '''
+        result = self._values.get("session_logger_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the web portal.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def trust_store_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the trust store that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-truststorearn
+        '''
+        result = self._values.get("trust_store_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def user_access_logging_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the user access logging settings that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-useraccessloggingsettingsarn
+        '''
+        result = self._values.get("user_access_logging_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def user_settings_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the user settings that is associated with the web portal.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-usersettingsarn
+        '''
+        result = self._values.get("user_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPortalProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLoggerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_filter": "eventFilter",
+        "log_configuration": "logConfiguration",
+        "additional_encryption_context": "additionalEncryptionContext",
+        "customer_managed_key": "customerManagedKey",
+        "display_name": "displayName",
+        "tags": "tags",
+    },
+)
+class CfnSessionLoggerProps:
+    def __init__(
+        self,
+        *,
+        event_filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSessionLogger``.
+
+        :param event_filter: The filter that specifies which events to monitor.
+        :param log_configuration: The configuration that specifies where logs are fowarded.
+        :param additional_encryption_context: The additional encryption context of the session logger.
+        :param customer_managed_key: The custom managed key of the session logger.
+        :param display_name: The human-readable display name.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            # all: Any
+            
+            cfn_session_logger_props = workspacesweb.CfnSessionLoggerProps(
+                event_filter=workspacesweb.CfnSessionLogger.EventFilterProperty(
+                    all=all,
+                    include=["include"]
+                ),
+                log_configuration=workspacesweb.CfnSessionLogger.LogConfigurationProperty(
+                    s3=workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
+                        bucket="bucket",
+                        folder_structure="folderStructure",
+                        log_file_format="logFileFormat",
+            
+                        # the properties below are optional
+                        bucket_owner="bucketOwner",
+                        key_prefix="keyPrefix"
+                    )
+                ),
+            
+                # the properties below are optional
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                customer_managed_key="customerManagedKey",
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3)
+            check_type(argname="argument event_filter", value=event_filter, expected_type=type_hints["event_filter"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_filter": event_filter,
+            "log_configuration": log_configuration,
+        }
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def event_filter(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"]:
+        '''The filter that specifies which events to monitor.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-eventfilter
+        '''
+        result = self._values.get("event_filter")
+        assert result is not None, "Required property 'event_filter' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"]:
+        '''The configuration that specifies where logs are fowarded.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        assert result is not None, "Required property 'log_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"], result)
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The additional encryption context of the session logger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The custom managed key of the session logger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The human-readable display name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSessionLoggerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnTrustStoreProps",
+    jsii_struct_bases=[],
+    name_mapping={"certificate_list": "certificateList", "tags": "tags"},
+)
+class CfnTrustStoreProps:
+    def __init__(
+        self,
+        *,
+        certificate_list: typing.Sequence[builtins.str],
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrustStore``.
+
+        :param certificate_list: A list of CA certificates to be added to the trust store.
+        :param tags: The tags to add to the trust store. A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_trust_store_props = workspacesweb.CfnTrustStoreProps(
+                certificate_list=["certificateList"],
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18)
+            check_type(argname="argument certificate_list", value=certificate_list, expected_type=type_hints["certificate_list"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_list": certificate_list,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def certificate_list(self) -> typing.List[builtins.str]:
+        '''A list of CA certificates to be added to the trust store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html#cfn-workspacesweb-truststore-certificatelist
+        '''
+        result = self._values.get("certificate_list")
+        assert result is not None, "Required property 'certificate_list' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the trust store.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html#cfn-workspacesweb-truststore-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrustStoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserAccessLoggingSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={"kinesis_stream_arn": "kinesisStreamArn", "tags": "tags"},
+)
+class CfnUserAccessLoggingSettingsProps:
+    def __init__(
+        self,
+        *,
+        kinesis_stream_arn: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserAccessLoggingSettings``.
+
+        :param kinesis_stream_arn: The ARN of the Kinesis stream.
+        :param tags: The tags to add to the user access logging settings resource. A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_user_access_logging_settings_props = workspacesweb.CfnUserAccessLoggingSettingsProps(
+                kinesis_stream_arn="kinesisStreamArn",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a)
+            check_type(argname="argument kinesis_stream_arn", value=kinesis_stream_arn, expected_type=type_hints["kinesis_stream_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "kinesis_stream_arn": kinesis_stream_arn,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def kinesis_stream_arn(self) -> builtins.str:
+        '''The ARN of the Kinesis stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html#cfn-workspacesweb-useraccessloggingsettings-kinesisstreamarn
+        '''
+        result = self._values.get("kinesis_stream_arn")
+        assert result is not None, "Required property 'kinesis_stream_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the user access logging settings resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html#cfn-workspacesweb-useraccessloggingsettings-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserAccessLoggingSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserSettingsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "copy_allowed": "copyAllowed",
+        "download_allowed": "downloadAllowed",
+        "paste_allowed": "pasteAllowed",
+        "print_allowed": "printAllowed",
+        "upload_allowed": "uploadAllowed",
+        "additional_encryption_context": "additionalEncryptionContext",
+        "cookie_synchronization_configuration": "cookieSynchronizationConfiguration",
+        "customer_managed_key": "customerManagedKey",
+        "deep_link_allowed": "deepLinkAllowed",
+        "disconnect_timeout_in_minutes": "disconnectTimeoutInMinutes",
+        "idle_disconnect_timeout_in_minutes": "idleDisconnectTimeoutInMinutes",
+        "tags": "tags",
+        "toolbar_configuration": "toolbarConfiguration",
+    },
+)
+class CfnUserSettingsProps:
+    def __init__(
+        self,
+        *,
+        copy_allowed: builtins.str,
+        download_allowed: builtins.str,
+        paste_allowed: builtins.str,
+        print_allowed: builtins.str,
+        upload_allowed: builtins.str,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserSettings.CookieSynchronizationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        deep_link_allowed: typing.Optional[builtins.str] = None,
+        disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserSettings.ToolbarConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserSettings``.
+
+        :param copy_allowed: Specifies whether the user can copy text from the streaming session to the local device.
+        :param download_allowed: Specifies whether the user can download files from the streaming session to the local device.
+        :param paste_allowed: Specifies whether the user can paste text from the local device to the streaming session.
+        :param print_allowed: Specifies whether the user can print to the local device.
+        :param upload_allowed: Specifies whether the user can upload files from the local device to the streaming session.
+        :param additional_encryption_context: The additional encryption context of the user settings.
+        :param cookie_synchronization_configuration: The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
+        :param customer_managed_key: The customer managed key used to encrypt sensitive information in the user settings.
+        :param deep_link_allowed: Specifies whether the user can use deep links that open automatically when connecting to a session.
+        :param disconnect_timeout_in_minutes: The amount of time that a streaming session remains active after users disconnect.
+        :param idle_disconnect_timeout_in_minutes: The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the disconnect timeout interval begins.
+        :param tags: The tags to add to the user settings resource. A tag is a key-value pair.
+        :param toolbar_configuration: The configuration of the toolbar. This allows administrators to select the toolbar type and visual mode, set maximum display resolution for sessions, and choose which items are visible to end users during their sessions. If administrators do not modify these settings, end users retain control over their toolbar preferences.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            cfn_user_settings_props = workspacesweb.CfnUserSettingsProps(
+                copy_allowed="copyAllowed",
+                download_allowed="downloadAllowed",
+                paste_allowed="pasteAllowed",
+                print_allowed="printAllowed",
+                upload_allowed="uploadAllowed",
+            
+                # the properties below are optional
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                cookie_synchronization_configuration=workspacesweb.CfnUserSettings.CookieSynchronizationConfigurationProperty(
+                    allowlist=[workspacesweb.CfnUserSettings.CookieSpecificationProperty(
+                        domain="domain",
+            
+                        # the properties below are optional
+                        name="name",
+                        path="path"
+                    )],
+            
+                    # the properties below are optional
+                    blocklist=[workspacesweb.CfnUserSettings.CookieSpecificationProperty(
+                        domain="domain",
+            
+                        # the properties below are optional
+                        name="name",
+                        path="path"
+                    )]
+                ),
+                customer_managed_key="customerManagedKey",
+                deep_link_allowed="deepLinkAllowed",
+                disconnect_timeout_in_minutes=123,
+                idle_disconnect_timeout_in_minutes=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                toolbar_configuration=workspacesweb.CfnUserSettings.ToolbarConfigurationProperty(
+                    hidden_toolbar_items=["hiddenToolbarItems"],
+                    max_display_resolution="maxDisplayResolution",
+                    toolbar_type="toolbarType",
+                    visual_mode="visualMode"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4)
+            check_type(argname="argument copy_allowed", value=copy_allowed, expected_type=type_hints["copy_allowed"])
+            check_type(argname="argument download_allowed", value=download_allowed, expected_type=type_hints["download_allowed"])
+            check_type(argname="argument paste_allowed", value=paste_allowed, expected_type=type_hints["paste_allowed"])
+            check_type(argname="argument print_allowed", value=print_allowed, expected_type=type_hints["print_allowed"])
+            check_type(argname="argument upload_allowed", value=upload_allowed, expected_type=type_hints["upload_allowed"])
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument cookie_synchronization_configuration", value=cookie_synchronization_configuration, expected_type=type_hints["cookie_synchronization_configuration"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument deep_link_allowed", value=deep_link_allowed, expected_type=type_hints["deep_link_allowed"])
+            check_type(argname="argument disconnect_timeout_in_minutes", value=disconnect_timeout_in_minutes, expected_type=type_hints["disconnect_timeout_in_minutes"])
+            check_type(argname="argument idle_disconnect_timeout_in_minutes", value=idle_disconnect_timeout_in_minutes, expected_type=type_hints["idle_disconnect_timeout_in_minutes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument toolbar_configuration", value=toolbar_configuration, expected_type=type_hints["toolbar_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "copy_allowed": copy_allowed,
+            "download_allowed": download_allowed,
+            "paste_allowed": paste_allowed,
+            "print_allowed": print_allowed,
+            "upload_allowed": upload_allowed,
+        }
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if cookie_synchronization_configuration is not None:
+            self._values["cookie_synchronization_configuration"] = cookie_synchronization_configuration
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if deep_link_allowed is not None:
+            self._values["deep_link_allowed"] = deep_link_allowed
+        if disconnect_timeout_in_minutes is not None:
+            self._values["disconnect_timeout_in_minutes"] = disconnect_timeout_in_minutes
+        if idle_disconnect_timeout_in_minutes is not None:
+            self._values["idle_disconnect_timeout_in_minutes"] = idle_disconnect_timeout_in_minutes
+        if tags is not None:
+            self._values["tags"] = tags
+        if toolbar_configuration is not None:
+            self._values["toolbar_configuration"] = toolbar_configuration
+
+    @builtins.property
+    def copy_allowed(self) -> builtins.str:
+        '''Specifies whether the user can copy text from the streaming session to the local device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-copyallowed
+        '''
+        result = self._values.get("copy_allowed")
+        assert result is not None, "Required property 'copy_allowed' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def download_allowed(self) -> builtins.str:
+        '''Specifies whether the user can download files from the streaming session to the local device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-downloadallowed
+        '''
+        result = self._values.get("download_allowed")
+        assert result is not None, "Required property 'download_allowed' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def paste_allowed(self) -> builtins.str:
+        '''Specifies whether the user can paste text from the local device to the streaming session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-pasteallowed
+        '''
+        result = self._values.get("paste_allowed")
+        assert result is not None, "Required property 'paste_allowed' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def print_allowed(self) -> builtins.str:
+        '''Specifies whether the user can print to the local device.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-printallowed
+        '''
+        result = self._values.get("print_allowed")
+        assert result is not None, "Required property 'print_allowed' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def upload_allowed(self) -> builtins.str:
+        '''Specifies whether the user can upload files from the local device to the streaming session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-uploadallowed
+        '''
+        result = self._values.get("upload_allowed")
+        assert result is not None, "Required property 'upload_allowed' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''The additional encryption context of the user settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def cookie_synchronization_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserSettings.CookieSynchronizationConfigurationProperty"]]:
+        '''The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-cookiesynchronizationconfiguration
+        '''
+        result = self._values.get("cookie_synchronization_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserSettings.CookieSynchronizationConfigurationProperty"]], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The customer managed key used to encrypt sensitive information in the user settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deep_link_allowed(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the user can use deep links that open automatically when connecting to a session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-deeplinkallowed
+        '''
+        result = self._values.get("deep_link_allowed")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disconnect_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time that a streaming session remains active after users disconnect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-disconnecttimeoutinminutes
+        '''
+        result = self._values.get("disconnect_timeout_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def idle_disconnect_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the disconnect timeout interval begins.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-idledisconnecttimeoutinminutes
+        '''
+        result = self._values.get("idle_disconnect_timeout_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the user settings resource.
+
+        A tag is a key-value pair.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def toolbar_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserSettings.ToolbarConfigurationProperty"]]:
+        '''The configuration of the toolbar.
+
+        This allows administrators to select the toolbar type and visual mode, set maximum display resolution for sessions, and choose which items are visible to end users during their sessions. If administrators do not modify these settings, end users retain control over their toolbar preferences.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-toolbarconfiguration
+        '''
+        result = self._values.get("toolbar_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserSettings.ToolbarConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserSettingsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.DataProtectionSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"data_protection_settings_arn": "dataProtectionSettingsArn"},
+)
+class DataProtectionSettingsReference:
+    def __init__(self, *, data_protection_settings_arn: builtins.str) -> None:
+        '''A reference to a DataProtectionSettings resource.
+
+        :param data_protection_settings_arn: The DataProtectionSettingsArn of the DataProtectionSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            data_protection_settings_reference = workspacesweb.DataProtectionSettingsReference(
+                data_protection_settings_arn="dataProtectionSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb2dd8e886fd8c73d9138dee02a759e125fe5963e77c538bf09df2e1308a40e8)
+            check_type(argname="argument data_protection_settings_arn", value=data_protection_settings_arn, expected_type=type_hints["data_protection_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_protection_settings_arn": data_protection_settings_arn,
+        }
+
+    @builtins.property
+    def data_protection_settings_arn(self) -> builtins.str:
+        '''The DataProtectionSettingsArn of the DataProtectionSettings resource.'''
+        result = self._values.get("data_protection_settings_arn")
+        assert result is not None, "Required property 'data_protection_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataProtectionSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IBrowserSettingsRef")
+class IBrowserSettingsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BrowserSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="browserSettingsRef")
+    def browser_settings_ref(self) -> BrowserSettingsReference:
+        '''(experimental) A reference to a BrowserSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBrowserSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BrowserSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IBrowserSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="browserSettingsRef")
+    def browser_settings_ref(self) -> BrowserSettingsReference:
+        '''(experimental) A reference to a BrowserSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BrowserSettingsReference, jsii.get(self, "browserSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBrowserSettingsRef).__jsii_proxy_class__ = lambda : _IBrowserSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IDataProtectionSettingsRef")
+class IDataProtectionSettingsRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataProtectionSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataProtectionSettingsRef")
+    def data_protection_settings_ref(self) -> DataProtectionSettingsReference:
+        '''(experimental) A reference to a DataProtectionSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataProtectionSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataProtectionSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IDataProtectionSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataProtectionSettingsRef")
+    def data_protection_settings_ref(self) -> DataProtectionSettingsReference:
+        '''(experimental) A reference to a DataProtectionSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DataProtectionSettingsReference, jsii.get(self, "dataProtectionSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataProtectionSettingsRef).__jsii_proxy_class__ = lambda : _IDataProtectionSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IIdentityProviderRef")
+class IIdentityProviderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a IdentityProvider.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviderRef")
+    def identity_provider_ref(self) -> "IdentityProviderReference":
+        '''(experimental) A reference to a IdentityProvider resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIdentityProviderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IdentityProvider.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IIdentityProviderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="identityProviderRef")
+    def identity_provider_ref(self) -> "IdentityProviderReference":
+        '''(experimental) A reference to a IdentityProvider resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IdentityProviderReference", jsii.get(self, "identityProviderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIdentityProviderRef).__jsii_proxy_class__ = lambda : _IIdentityProviderRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IIpAccessSettingsRef")
+class IIpAccessSettingsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a IpAccessSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAccessSettingsRef")
+    def ip_access_settings_ref(self) -> "IpAccessSettingsReference":
+        '''(experimental) A reference to a IpAccessSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIpAccessSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IpAccessSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IIpAccessSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAccessSettingsRef")
+    def ip_access_settings_ref(self) -> "IpAccessSettingsReference":
+        '''(experimental) A reference to a IpAccessSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IpAccessSettingsReference", jsii.get(self, "ipAccessSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIpAccessSettingsRef).__jsii_proxy_class__ = lambda : _IIpAccessSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.INetworkSettingsRef")
+class INetworkSettingsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a NetworkSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="networkSettingsRef")
+    def network_settings_ref(self) -> "NetworkSettingsReference":
+        '''(experimental) A reference to a NetworkSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INetworkSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NetworkSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.INetworkSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="networkSettingsRef")
+    def network_settings_ref(self) -> "NetworkSettingsReference":
+        '''(experimental) A reference to a NetworkSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NetworkSettingsReference", jsii.get(self, "networkSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INetworkSettingsRef).__jsii_proxy_class__ = lambda : _INetworkSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IPortalRef")
+class IPortalRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Portal.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> "PortalReference":
+        '''(experimental) A reference to a Portal resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortalRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Portal.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IPortalRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> "PortalReference":
+        '''(experimental) A reference to a Portal resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortalReference", jsii.get(self, "portalRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortalRef).__jsii_proxy_class__ = lambda : _IPortalRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.ISessionLoggerRef")
+class ISessionLoggerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SessionLogger.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionLoggerRef")
+    def session_logger_ref(self) -> "SessionLoggerReference":
+        '''(experimental) A reference to a SessionLogger resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISessionLoggerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SessionLogger.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.ISessionLoggerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionLoggerRef")
+    def session_logger_ref(self) -> "SessionLoggerReference":
+        '''(experimental) A reference to a SessionLogger resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SessionLoggerReference", jsii.get(self, "sessionLoggerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISessionLoggerRef).__jsii_proxy_class__ = lambda : _ISessionLoggerRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.ITrustStoreRef")
+class ITrustStoreRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStore.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> "TrustStoreReference":
+        '''(experimental) A reference to a TrustStore resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITrustStoreRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TrustStore.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.ITrustStoreRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> "TrustStoreReference":
+        '''(experimental) A reference to a TrustStore resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TrustStoreReference", jsii.get(self, "trustStoreRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITrustStoreRef).__jsii_proxy_class__ = lambda : _ITrustStoreRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.IUserAccessLoggingSettingsRef"
+)
+class IUserAccessLoggingSettingsRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserAccessLoggingSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userAccessLoggingSettingsRef")
+    def user_access_logging_settings_ref(self) -> "UserAccessLoggingSettingsReference":
+        '''(experimental) A reference to a UserAccessLoggingSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserAccessLoggingSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserAccessLoggingSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IUserAccessLoggingSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userAccessLoggingSettingsRef")
+    def user_access_logging_settings_ref(self) -> "UserAccessLoggingSettingsReference":
+        '''(experimental) A reference to a UserAccessLoggingSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserAccessLoggingSettingsReference", jsii.get(self, "userAccessLoggingSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserAccessLoggingSettingsRef).__jsii_proxy_class__ = lambda : _IUserAccessLoggingSettingsRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_workspacesweb.IUserSettingsRef")
+class IUserSettingsRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a UserSettings.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userSettingsRef")
+    def user_settings_ref(self) -> "UserSettingsReference":
+        '''(experimental) A reference to a UserSettings resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserSettingsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserSettings.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_workspacesweb.IUserSettingsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userSettingsRef")
+    def user_settings_ref(self) -> "UserSettingsReference":
+        '''(experimental) A reference to a UserSettings resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserSettingsReference", jsii.get(self, "userSettingsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserSettingsRef).__jsii_proxy_class__ = lambda : _IUserSettingsRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.IdentityProviderReference",
+    jsii_struct_bases=[],
+    name_mapping={"identity_provider_arn": "identityProviderArn"},
+)
+class IdentityProviderReference:
+    def __init__(self, *, identity_provider_arn: builtins.str) -> None:
+        '''A reference to a IdentityProvider resource.
+
+        :param identity_provider_arn: The IdentityProviderArn of the IdentityProvider resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            identity_provider_reference = workspacesweb.IdentityProviderReference(
+                identity_provider_arn="identityProviderArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b6ef3f16a85194637b44467998c138db830a0b331237f64a411c68adea74223)
+            check_type(argname="argument identity_provider_arn", value=identity_provider_arn, expected_type=type_hints["identity_provider_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "identity_provider_arn": identity_provider_arn,
+        }
+
+    @builtins.property
+    def identity_provider_arn(self) -> builtins.str:
+        '''The IdentityProviderArn of the IdentityProvider resource.'''
+        result = self._values.get("identity_provider_arn")
+        assert result is not None, "Required property 'identity_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IdentityProviderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.IpAccessSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"ip_access_settings_arn": "ipAccessSettingsArn"},
+)
+class IpAccessSettingsReference:
+    def __init__(self, *, ip_access_settings_arn: builtins.str) -> None:
+        '''A reference to a IpAccessSettings resource.
+
+        :param ip_access_settings_arn: The IpAccessSettingsArn of the IpAccessSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            ip_access_settings_reference = workspacesweb.IpAccessSettingsReference(
+                ip_access_settings_arn="ipAccessSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__013038767f186801c7cf6eb1e8d522acc8c166bde74a8099ee134572759782f8)
+            check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ip_access_settings_arn": ip_access_settings_arn,
+        }
+
+    @builtins.property
+    def ip_access_settings_arn(self) -> builtins.str:
+        '''The IpAccessSettingsArn of the IpAccessSettings resource.'''
+        result = self._values.get("ip_access_settings_arn")
+        assert result is not None, "Required property 'ip_access_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IpAccessSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.NetworkSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"network_settings_arn": "networkSettingsArn"},
+)
+class NetworkSettingsReference:
+    def __init__(self, *, network_settings_arn: builtins.str) -> None:
+        '''A reference to a NetworkSettings resource.
+
+        :param network_settings_arn: The NetworkSettingsArn of the NetworkSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            network_settings_reference = workspacesweb.NetworkSettingsReference(
+                network_settings_arn="networkSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__15cb632d2b57754fec442d4fd61d4c6e8124d26e49e6c51be689ebe2986d37b5)
+            check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "network_settings_arn": network_settings_arn,
+        }
+
+    @builtins.property
+    def network_settings_arn(self) -> builtins.str:
+        '''The NetworkSettingsArn of the NetworkSettings resource.'''
+        result = self._values.get("network_settings_arn")
+        assert result is not None, "Required property 'network_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NetworkSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.PortalReference",
+    jsii_struct_bases=[],
+    name_mapping={"portal_arn": "portalArn"},
+)
+class PortalReference:
+    def __init__(self, *, portal_arn: builtins.str) -> None:
+        '''A reference to a Portal resource.
+
+        :param portal_arn: The PortalArn of the Portal resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            portal_reference = workspacesweb.PortalReference(
+                portal_arn="portalArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__790b0b4f41a0a722121a1157a92cb6208691c4e3cb22e04b46d70c7019e2679e)
+            check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portal_arn": portal_arn,
+        }
+
+    @builtins.property
+    def portal_arn(self) -> builtins.str:
+        '''The PortalArn of the Portal resource.'''
+        result = self._values.get("portal_arn")
+        assert result is not None, "Required property 'portal_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortalReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.SessionLoggerReference",
+    jsii_struct_bases=[],
+    name_mapping={"session_logger_arn": "sessionLoggerArn"},
+)
+class SessionLoggerReference:
+    def __init__(self, *, session_logger_arn: builtins.str) -> None:
+        '''A reference to a SessionLogger resource.
+
+        :param session_logger_arn: The SessionLoggerArn of the SessionLogger resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            session_logger_reference = workspacesweb.SessionLoggerReference(
+                session_logger_arn="sessionLoggerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e404ab81bee9259b584e37eec7272cbe610d2f75198df59886550d17c76fa5ea)
+            check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "session_logger_arn": session_logger_arn,
+        }
+
+    @builtins.property
+    def session_logger_arn(self) -> builtins.str:
+        '''The SessionLoggerArn of the SessionLogger resource.'''
+        result = self._values.get("session_logger_arn")
+        assert result is not None, "Required property 'session_logger_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SessionLoggerReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.TrustStoreReference",
+    jsii_struct_bases=[],
+    name_mapping={"trust_store_arn": "trustStoreArn"},
+)
+class TrustStoreReference:
+    def __init__(self, *, trust_store_arn: builtins.str) -> None:
+        '''A reference to a TrustStore resource.
+
+        :param trust_store_arn: The TrustStoreArn of the TrustStore resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            trust_store_reference = workspacesweb.TrustStoreReference(
+                trust_store_arn="trustStoreArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be2a906eb93d7db90b17a4c4b76ce5dcb07b8fe1f32313985a59ac3aedf157ef)
+            check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "trust_store_arn": trust_store_arn,
+        }
+
+    @builtins.property
+    def trust_store_arn(self) -> builtins.str:
+        '''The TrustStoreArn of the TrustStore resource.'''
+        result = self._values.get("trust_store_arn")
+        assert result is not None, "Required property 'trust_store_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TrustStoreReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.UserAccessLoggingSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_access_logging_settings_arn": "userAccessLoggingSettingsArn"},
+)
+class UserAccessLoggingSettingsReference:
+    def __init__(self, *, user_access_logging_settings_arn: builtins.str) -> None:
+        '''A reference to a UserAccessLoggingSettings resource.
+
+        :param user_access_logging_settings_arn: The UserAccessLoggingSettingsArn of the UserAccessLoggingSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            user_access_logging_settings_reference = workspacesweb.UserAccessLoggingSettingsReference(
+                user_access_logging_settings_arn="userAccessLoggingSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3ff3af1a2d6b578de98f30a2101a8856030b359f05aaf2083cff617d3f0e390)
+            check_type(argname="argument user_access_logging_settings_arn", value=user_access_logging_settings_arn, expected_type=type_hints["user_access_logging_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_access_logging_settings_arn": user_access_logging_settings_arn,
+        }
+
+    @builtins.property
+    def user_access_logging_settings_arn(self) -> builtins.str:
+        '''The UserAccessLoggingSettingsArn of the UserAccessLoggingSettings resource.'''
+        result = self._values.get("user_access_logging_settings_arn")
+        assert result is not None, "Required property 'user_access_logging_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserAccessLoggingSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.UserSettingsReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_settings_arn": "userSettingsArn"},
+)
+class UserSettingsReference:
+    def __init__(self, *, user_settings_arn: builtins.str) -> None:
+        '''A reference to a UserSettings resource.
+
+        :param user_settings_arn: The UserSettingsArn of the UserSettings resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            user_settings_reference = workspacesweb.UserSettingsReference(
+                user_settings_arn="userSettingsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baa837e8ce94fa70d44273f31f4161687d81758abbc94e0916863fb7e4c75c36)
+            check_type(argname="argument user_settings_arn", value=user_settings_arn, expected_type=type_hints["user_settings_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_settings_arn": user_settings_arn,
+        }
+
+    @builtins.property
+    def user_settings_arn(self) -> builtins.str:
+        '''The UserSettingsArn of the UserSettings resource.'''
+        result = self._values.get("user_settings_arn")
+        assert result is not None, "Required property 'user_settings_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserSettingsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IBrowserSettingsRef, _ITaggableV2_4e6798f8)
+class CfnBrowserSettings(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnBrowserSettings",
+):
+    '''This resource specifies browser settings that can be associated with a web portal.
+
+    Once associated with a web portal, browser settings control how the browser will behave once a user starts a streaming session for the web portal.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-browsersettings.html
+    :cloudformationResource: AWS::WorkSpacesWeb::BrowserSettings
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_workspacesweb as workspacesweb
+        
+        cfn_browser_settings = workspacesweb.CfnBrowserSettings(self, "MyCfnBrowserSettings",
+            additional_encryption_context={
+                "additional_encryption_context_key": "additionalEncryptionContext"
+            },
+            browser_policy="browserPolicy",
+            customer_managed_key="customerManagedKey",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        browser_policy: typing.Optional[builtins.str] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param additional_encryption_context: Additional encryption context of the browser settings.
+        :param browser_policy: A JSON string containing Chrome Enterprise policies that will be applied to all streaming sessions.
+        :param customer_managed_key: The custom managed key of the browser settings. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
+        :param tags: The tags to add to the browser settings resource. A tag is a key-value pair.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc041bb0f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBrowserSettingsProps(
+            additional_encryption_context=additional_encryption_context,
+            browser_policy=browser_policy,
+            customer_managed_key=customer_managed_key,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d4203cdc61a30c217fc2abe263c4776ac7f7dc3efdc691f65b8b0f98c469206)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4cab7e5af66cb2aa7162f6b46ea25dc53695260ce84c6550f897b70bab862ee)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedPortalArns")
+    def attr_associated_portal_arns(self) -> typing.List[builtins.str]:
+        '''A list of web portal ARNs that the browser settings resource is associated with.
+
+        :cloudformationAttribute: AssociatedPortalArns
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedPortalArns"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBrowserSettingsArn")
+    def attr_browser_settings_arn(self) -> builtins.str:
+        '''The ARN of the browser settings.
+
+        :cloudformationAttribute: BrowserSettingsArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBrowserSettingsArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="browserSettingsRef")
+    def browser_settings_ref(self) -> BrowserSettingsReference:
+        '''A reference to a BrowserSettings resource.'''
+        return typing.cast(BrowserSettingsReference, jsii.get(self, "browserSettingsRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalEncryptionContext")
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Additional encryption context of the browser settings.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "additionalEncryptionContext"))
+
+    @additional_encryption_context.setter
+    def additional_encryption_context(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70de4dee5d14f114274fd7960c64b6accb0ec49e02c002b5521af87f035095c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="browserPolicy")
+    def browser_policy(self) -> typing.Optional[builtins.str]:
+        '''A JSON string containing Chrome Enterprise policies that will be applied to all streaming sessions.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "browserPolicy"))
+
+    @browser_policy.setter
+    def browser_policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1ed58b3fc2a2966bf9a096153c9b38b0a594ab0c629bf8b97e6011a61ebfb79)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "browserPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customerManagedKey")
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''The custom managed key of the browser settings.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedKey"))
+
+    @customer_managed_key.setter
+    def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa22a364c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to add to the browser settings resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IDataProtectionSettingsRef, _ITaggableV2_4e6798f8)
 class CfnDataProtectionSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -542,6 +2981,12 @@ class CfnDataProtectionSettings(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataProtectionSettingsRef")
+    def data_protection_settings_ref(self) -> DataProtectionSettingsReference:
+        '''A reference to a DataProtectionSettings resource.'''
+        return typing.cast(DataProtectionSettingsReference, jsii.get(self, "dataProtectionSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="additionalEncryptionContext")
@@ -1123,182 +3568,7 @@ class CfnDataProtectionSettings(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnDataProtectionSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "additional_encryption_context": "additionalEncryptionContext",
-        "customer_managed_key": "customerManagedKey",
-        "description": "description",
-        "display_name": "displayName",
-        "inline_redaction_configuration": "inlineRedactionConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnDataProtectionSettingsProps:
-    def __init__(
-        self,
-        *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataProtectionSettings``.
-
-        :param additional_encryption_context: The additional encryption context of the data protection settings.
-        :param customer_managed_key: The customer managed key used to encrypt sensitive information in the data protection settings.
-        :param description: The description of the data protection settings.
-        :param display_name: The display name of the data protection settings.
-        :param inline_redaction_configuration: The inline redaction configuration for the data protection settings.
-        :param tags: The tags of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_data_protection_settings_props = workspacesweb.CfnDataProtectionSettingsProps(
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                customer_managed_key="customerManagedKey",
-                description="description",
-                display_name="displayName",
-                inline_redaction_configuration=workspacesweb.CfnDataProtectionSettings.InlineRedactionConfigurationProperty(
-                    inline_redaction_patterns=[workspacesweb.CfnDataProtectionSettings.InlineRedactionPatternProperty(
-                        redaction_place_holder=workspacesweb.CfnDataProtectionSettings.RedactionPlaceHolderProperty(
-                            redaction_place_holder_type="redactionPlaceHolderType",
-            
-                            # the properties below are optional
-                            redaction_place_holder_text="redactionPlaceHolderText"
-                        ),
-            
-                        # the properties below are optional
-                        built_in_pattern_id="builtInPatternId",
-                        confidence_level=123,
-                        custom_pattern=workspacesweb.CfnDataProtectionSettings.CustomPatternProperty(
-                            pattern_name="patternName",
-                            pattern_regex="patternRegex",
-            
-                            # the properties below are optional
-                            keyword_regex="keywordRegex",
-                            pattern_description="patternDescription"
-                        ),
-                        enforced_urls=["enforcedUrls"],
-                        exempt_urls=["exemptUrls"]
-                    )],
-            
-                    # the properties below are optional
-                    global_confidence_level=123,
-                    global_enforced_urls=["globalEnforcedUrls"],
-                    global_exempt_urls=["globalExemptUrls"]
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a)
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument inline_redaction_configuration", value=inline_redaction_configuration, expected_type=type_hints["inline_redaction_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if customer_managed_key is not None:
-            self._values["customer_managed_key"] = customer_managed_key
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if inline_redaction_configuration is not None:
-            self._values["inline_redaction_configuration"] = inline_redaction_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The additional encryption context of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The customer managed key used to encrypt sensitive information in the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-customermanagedkey
-        '''
-        result = self._values.get("customer_managed_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def inline_redaction_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataProtectionSettings.InlineRedactionConfigurationProperty]]:
-        '''The inline redaction configuration for the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-inlineredactionconfiguration
-        '''
-        result = self._values.get("inline_redaction_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataProtectionSettings.InlineRedactionConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-dataprotectionsettings.html#cfn-workspacesweb-dataprotectionsettings-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataProtectionSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IIdentityProviderRef, _ITaggableV2_4e6798f8)
 class CfnIdentityProvider(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1419,6 +3689,12 @@ class CfnIdentityProvider(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="identityProviderRef")
+    def identity_provider_ref(self) -> IdentityProviderReference:
+        '''A reference to a IdentityProvider resource.'''
+        return typing.cast(IdentityProviderReference, jsii.get(self, "identityProviderRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="identityProviderDetails")
     def identity_provider_details(
         self,
@@ -1491,170 +3767,7 @@ class CfnIdentityProvider(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIdentityProviderProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "identity_provider_details": "identityProviderDetails",
-        "identity_provider_name": "identityProviderName",
-        "identity_provider_type": "identityProviderType",
-        "portal_arn": "portalArn",
-        "tags": "tags",
-    },
-)
-class CfnIdentityProviderProps:
-    def __init__(
-        self,
-        *,
-        identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
-        identity_provider_name: builtins.str,
-        identity_provider_type: builtins.str,
-        portal_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIdentityProvider``.
-
-        :param identity_provider_details: The identity provider details. The following list describes the provider detail keys for each identity provider type. - For Google and Login with Amazon: - ``client_id`` - ``client_secret`` - ``authorize_scopes`` - For Facebook: - ``client_id`` - ``client_secret`` - ``authorize_scopes`` - ``api_version`` - For Sign in with Apple: - ``client_id`` - ``team_id`` - ``key_id`` - ``private_key`` - ``authorize_scopes`` - For OIDC providers: - ``client_id`` - ``client_secret`` - ``attributes_request_method`` - ``oidc_issuer`` - ``authorize_scopes`` - ``authorize_url`` *if not available from discovery URL specified by oidc_issuer key* - ``token_url`` *if not available from discovery URL specified by oidc_issuer key* - ``attributes_url`` *if not available from discovery URL specified by oidc_issuer key* - ``jwks_uri`` *if not available from discovery URL specified by oidc_issuer key* - For SAML providers: - ``MetadataFile`` OR ``MetadataURL`` - ``IDPSignout`` (boolean) *optional* - ``IDPInit`` (boolean) *optional* - ``RequestSigningAlgorithm`` (string) *optional* - Only accepts ``rsa-sha256`` - ``EncryptedResponses`` (boolean) *optional*
-        :param identity_provider_name: The identity provider name.
-        :param identity_provider_type: The identity provider type.
-        :param portal_arn: The ARN of the identity provider.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_identity_provider_props = workspacesweb.CfnIdentityProviderProps(
-                identity_provider_details={
-                    "identity_provider_details_key": "identityProviderDetails"
-                },
-                identity_provider_name="identityProviderName",
-                identity_provider_type="identityProviderType",
-            
-                # the properties below are optional
-                portal_arn="portalArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d)
-            check_type(argname="argument identity_provider_details", value=identity_provider_details, expected_type=type_hints["identity_provider_details"])
-            check_type(argname="argument identity_provider_name", value=identity_provider_name, expected_type=type_hints["identity_provider_name"])
-            check_type(argname="argument identity_provider_type", value=identity_provider_type, expected_type=type_hints["identity_provider_type"])
-            check_type(argname="argument portal_arn", value=portal_arn, expected_type=type_hints["portal_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "identity_provider_details": identity_provider_details,
-            "identity_provider_name": identity_provider_name,
-            "identity_provider_type": identity_provider_type,
-        }
-        if portal_arn is not None:
-            self._values["portal_arn"] = portal_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def identity_provider_details(
-        self,
-    ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]:
-        '''The identity provider details. The following list describes the provider detail keys for each identity provider type.
-
-        - For Google and Login with Amazon:
-        - ``client_id``
-        - ``client_secret``
-        - ``authorize_scopes``
-        - For Facebook:
-        - ``client_id``
-        - ``client_secret``
-        - ``authorize_scopes``
-        - ``api_version``
-        - For Sign in with Apple:
-        - ``client_id``
-        - ``team_id``
-        - ``key_id``
-        - ``private_key``
-        - ``authorize_scopes``
-        - For OIDC providers:
-        - ``client_id``
-        - ``client_secret``
-        - ``attributes_request_method``
-        - ``oidc_issuer``
-        - ``authorize_scopes``
-        - ``authorize_url`` *if not available from discovery URL specified by oidc_issuer key*
-        - ``token_url`` *if not available from discovery URL specified by oidc_issuer key*
-        - ``attributes_url`` *if not available from discovery URL specified by oidc_issuer key*
-        - ``jwks_uri`` *if not available from discovery URL specified by oidc_issuer key*
-        - For SAML providers:
-        - ``MetadataFile`` OR ``MetadataURL``
-        - ``IDPSignout`` (boolean) *optional*
-        - ``IDPInit`` (boolean) *optional*
-        - ``RequestSigningAlgorithm`` (string) *optional* - Only accepts ``rsa-sha256``
-        - ``EncryptedResponses`` (boolean) *optional*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityproviderdetails
-        '''
-        result = self._values.get("identity_provider_details")
-        assert result is not None, "Required property 'identity_provider_details' is missing"
-        return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def identity_provider_name(self) -> builtins.str:
-        '''The identity provider name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityprovidername
-        '''
-        result = self._values.get("identity_provider_name")
-        assert result is not None, "Required property 'identity_provider_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def identity_provider_type(self) -> builtins.str:
-        '''The identity provider type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-identityprovidertype
-        '''
-        result = self._values.get("identity_provider_type")
-        assert result is not None, "Required property 'identity_provider_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def portal_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the identity provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-portalarn
-        '''
-        result = self._values.get("portal_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-identityprovider.html#cfn-workspacesweb-identityprovider-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIdentityProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IIpAccessSettingsRef, _ITaggableV2_4e6798f8)
 class CfnIpAccessSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1800,6 +3913,12 @@ class CfnIpAccessSettings(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAccessSettingsRef")
+    def ip_access_settings_ref(self) -> IpAccessSettingsReference:
+        '''A reference to a IpAccessSettings resource.'''
+        return typing.cast(IpAccessSettingsReference, jsii.get(self, "ipAccessSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="ipRules")
@@ -1965,166 +4084,7 @@ class CfnIpAccessSettings(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnIpAccessSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ip_rules": "ipRules",
-        "additional_encryption_context": "additionalEncryptionContext",
-        "customer_managed_key": "customerManagedKey",
-        "description": "description",
-        "display_name": "displayName",
-        "tags": "tags",
-    },
-)
-class CfnIpAccessSettingsProps:
-    def __init__(
-        self,
-        *,
-        ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIpAccessSettings``.
-
-        :param ip_rules: The IP rules of the IP access settings.
-        :param additional_encryption_context: Additional encryption context of the IP access settings.
-        :param customer_managed_key: The custom managed key of the IP access settings. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
-        :param description: The description of the IP access settings.
-        :param display_name: The display name of the IP access settings.
-        :param tags: The tags to add to the IP access settings resource. A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_ip_access_settings_props = workspacesweb.CfnIpAccessSettingsProps(
-                ip_rules=[workspacesweb.CfnIpAccessSettings.IpRuleProperty(
-                    ip_range="ipRange",
-            
-                    # the properties below are optional
-                    description="description"
-                )],
-            
-                # the properties below are optional
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                customer_managed_key="customerManagedKey",
-                description="description",
-                display_name="displayName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475)
-            check_type(argname="argument ip_rules", value=ip_rules, expected_type=type_hints["ip_rules"])
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ip_rules": ip_rules,
-        }
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if customer_managed_key is not None:
-            self._values["customer_managed_key"] = customer_managed_key
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def ip_rules(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIpAccessSettings.IpRuleProperty]]]:
-        '''The IP rules of the IP access settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-iprules
-        '''
-        result = self._values.get("ip_rules")
-        assert result is not None, "Required property 'ip_rules' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIpAccessSettings.IpRuleProperty]]], result)
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''Additional encryption context of the IP access settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The custom managed key of the IP access settings.
-
-        *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-customermanagedkey
-        '''
-        result = self._values.get("customer_managed_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the IP access settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the IP access settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the IP access settings resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-ipaccesssettings.html#cfn-workspacesweb-ipaccesssettings-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIpAccessSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, INetworkSettingsRef, _ITaggableV2_4e6798f8)
 class CfnNetworkSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2252,6 +4212,12 @@ class CfnNetworkSettings(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="networkSettingsRef")
+    def network_settings_ref(self) -> NetworkSettingsReference:
+        '''A reference to a NetworkSettings resource.'''
+        return typing.cast(NetworkSettingsReference, jsii.get(self, "networkSettingsRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
     def security_group_ids(self) -> typing.List[builtins.str]:
         '''One or more security groups used to control access from streaming instances to your VPC.'''
@@ -2304,129 +4270,7 @@ class CfnNetworkSettings(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnNetworkSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "security_group_ids": "securityGroupIds",
-        "subnet_ids": "subnetIds",
-        "vpc_id": "vpcId",
-        "tags": "tags",
-    },
-)
-class CfnNetworkSettingsProps:
-    def __init__(
-        self,
-        *,
-        security_group_ids: typing.Sequence[builtins.str],
-        subnet_ids: typing.Sequence[builtins.str],
-        vpc_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnNetworkSettings``.
-
-        :param security_group_ids: One or more security groups used to control access from streaming instances to your VPC. *Pattern* : ``^[\\w+\\-]+$``
-        :param subnet_ids: The subnets in which network interfaces are created to connect streaming instances to your VPC. At least two of these subnets must be in different availability zones. *Pattern* : ``^subnet-([0-9a-f]{8}|[0-9a-f]{17})$``
-        :param vpc_id: The VPC that streaming instances will connect to. *Pattern* : ``^vpc-[0-9a-z]*$``
-        :param tags: The tags to add to the network settings resource. A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_network_settings_props = workspacesweb.CfnNetworkSettingsProps(
-                security_group_ids=["securityGroupIds"],
-                subnet_ids=["subnetIds"],
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb)
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "security_group_ids": security_group_ids,
-            "subnet_ids": subnet_ids,
-            "vpc_id": vpc_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def security_group_ids(self) -> typing.List[builtins.str]:
-        '''One or more security groups used to control access from streaming instances to your VPC.
-
-        *Pattern* : ``^[\\w+\\-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        assert result is not None, "Required property 'security_group_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''The subnets in which network interfaces are created to connect streaming instances to your VPC.
-
-        At least two of these subnets must be in different availability zones.
-
-        *Pattern* : ``^subnet-([0-9a-f]{8}|[0-9a-f]{17})$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The VPC that streaming instances will connect to.
-
-        *Pattern* : ``^vpc-[0-9a-z]*$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-vpcid
-        '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the network settings resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-networksettings.html#cfn-workspacesweb-networksettings-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNetworkSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IPortalRef, _ITaggableV2_4e6798f8)
 class CfnPortal(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2650,6 +4494,12 @@ class CfnPortal(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="portalRef")
+    def portal_ref(self) -> PortalReference:
+        '''A reference to a Portal resource.'''
+        return typing.cast(PortalReference, jsii.get(self, "portalRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="additionalEncryptionContext")
     def additional_encryption_context(
         self,
@@ -2859,309 +4709,7 @@ class CfnPortal(
         jsii.set(self, "userSettingsArn", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnPortalProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "additional_encryption_context": "additionalEncryptionContext",
-        "authentication_type": "authenticationType",
-        "browser_settings_arn": "browserSettingsArn",
-        "customer_managed_key": "customerManagedKey",
-        "data_protection_settings_arn": "dataProtectionSettingsArn",
-        "display_name": "displayName",
-        "instance_type": "instanceType",
-        "ip_access_settings_arn": "ipAccessSettingsArn",
-        "max_concurrent_sessions": "maxConcurrentSessions",
-        "network_settings_arn": "networkSettingsArn",
-        "session_logger_arn": "sessionLoggerArn",
-        "tags": "tags",
-        "trust_store_arn": "trustStoreArn",
-        "user_access_logging_settings_arn": "userAccessLoggingSettingsArn",
-        "user_settings_arn": "userSettingsArn",
-    },
-)
-class CfnPortalProps:
-    def __init__(
-        self,
-        *,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        authentication_type: typing.Optional[builtins.str] = None,
-        browser_settings_arn: typing.Optional[builtins.str] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        data_protection_settings_arn: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        instance_type: typing.Optional[builtins.str] = None,
-        ip_access_settings_arn: typing.Optional[builtins.str] = None,
-        max_concurrent_sessions: typing.Optional[jsii.Number] = None,
-        network_settings_arn: typing.Optional[builtins.str] = None,
-        session_logger_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        trust_store_arn: typing.Optional[builtins.str] = None,
-        user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
-        user_settings_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPortal``.
-
-        :param additional_encryption_context: The additional encryption context of the portal.
-        :param authentication_type: The type of authentication integration points used when signing into the web portal. Defaults to ``Standard`` . ``Standard`` web portals are authenticated directly through your identity provider (IdP). User and group access to your web portal is controlled through your IdP. You need to include an IdP resource in your template to integrate your IdP with your web portal. Completing the configuration for your IdP requires exchanging WorkSpaces Secure Browser’s SP metadata with your IdP’s IdP metadata. If your IdP requires the SP metadata first before returning the IdP metadata, you should follow these steps: 1. Create and deploy a CloudFormation template with a ``Standard`` portal with no ``IdentityProvider`` resource. 2. Retrieve the SP metadata using ``Fn:GetAtt`` , the WorkSpaces Secure Browser console, or by the calling the ``GetPortalServiceProviderMetadata`` API. 3. Submit the data to your IdP. 4. Add an ``IdentityProvider`` resource to your CloudFormation template. ``IAM Identity Center`` web portals are authenticated through AWS IAM Identity Center . They provide additional features, such as IdP-initiated authentication. Identity sources (including external identity provider integration) and other identity provider information must be configured in IAM Identity Center . User and group assignment must be done through the WorkSpaces Secure Browser console. These cannot be configured in CloudFormation.
-        :param browser_settings_arn: The ARN of the browser settings that is associated with this web portal.
-        :param customer_managed_key: The customer managed key of the web portal. *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
-        :param data_protection_settings_arn: The ARN of the data protection settings.
-        :param display_name: The name of the web portal.
-        :param instance_type: The type and resources of the underlying instance.
-        :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
-        :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
-        :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
-        :param session_logger_arn: The ARN of the session logger that is assocaited with the portal.
-        :param tags: The tags to add to the web portal. A tag is a key-value pair.
-        :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
-        :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
-        :param user_settings_arn: The ARN of the user settings that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_portal_props = workspacesweb.CfnPortalProps(
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                authentication_type="authenticationType",
-                browser_settings_arn="browserSettingsArn",
-                customer_managed_key="customerManagedKey",
-                data_protection_settings_arn="dataProtectionSettingsArn",
-                display_name="displayName",
-                instance_type="instanceType",
-                ip_access_settings_arn="ipAccessSettingsArn",
-                max_concurrent_sessions=123,
-                network_settings_arn="networkSettingsArn",
-                session_logger_arn="sessionLoggerArn",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                trust_store_arn="trustStoreArn",
-                user_access_logging_settings_arn="userAccessLoggingSettingsArn",
-                user_settings_arn="userSettingsArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283)
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
-            check_type(argname="argument browser_settings_arn", value=browser_settings_arn, expected_type=type_hints["browser_settings_arn"])
-            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
-            check_type(argname="argument data_protection_settings_arn", value=data_protection_settings_arn, expected_type=type_hints["data_protection_settings_arn"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
-            check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
-            check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
-            check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
-            check_type(argname="argument user_access_logging_settings_arn", value=user_access_logging_settings_arn, expected_type=type_hints["user_access_logging_settings_arn"])
-            check_type(argname="argument user_settings_arn", value=user_settings_arn, expected_type=type_hints["user_settings_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if authentication_type is not None:
-            self._values["authentication_type"] = authentication_type
-        if browser_settings_arn is not None:
-            self._values["browser_settings_arn"] = browser_settings_arn
-        if customer_managed_key is not None:
-            self._values["customer_managed_key"] = customer_managed_key
-        if data_protection_settings_arn is not None:
-            self._values["data_protection_settings_arn"] = data_protection_settings_arn
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if instance_type is not None:
-            self._values["instance_type"] = instance_type
-        if ip_access_settings_arn is not None:
-            self._values["ip_access_settings_arn"] = ip_access_settings_arn
-        if max_concurrent_sessions is not None:
-            self._values["max_concurrent_sessions"] = max_concurrent_sessions
-        if network_settings_arn is not None:
-            self._values["network_settings_arn"] = network_settings_arn
-        if session_logger_arn is not None:
-            self._values["session_logger_arn"] = session_logger_arn
-        if tags is not None:
-            self._values["tags"] = tags
-        if trust_store_arn is not None:
-            self._values["trust_store_arn"] = trust_store_arn
-        if user_access_logging_settings_arn is not None:
-            self._values["user_access_logging_settings_arn"] = user_access_logging_settings_arn
-        if user_settings_arn is not None:
-            self._values["user_settings_arn"] = user_settings_arn
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The additional encryption context of the portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''The type of authentication integration points used when signing into the web portal. Defaults to ``Standard`` .
-
-        ``Standard`` web portals are authenticated directly through your identity provider (IdP). User and group access to your web portal is controlled through your IdP. You need to include an IdP resource in your template to integrate your IdP with your web portal. Completing the configuration for your IdP requires exchanging WorkSpaces Secure Browser’s SP metadata with your IdP’s IdP metadata. If your IdP requires the SP metadata first before returning the IdP metadata, you should follow these steps:
-
-        1. Create and deploy a CloudFormation template with a ``Standard`` portal with no ``IdentityProvider`` resource.
-        2. Retrieve the SP metadata using ``Fn:GetAtt`` , the WorkSpaces Secure Browser console, or by the calling the ``GetPortalServiceProviderMetadata`` API.
-        3. Submit the data to your IdP.
-        4. Add an ``IdentityProvider`` resource to your CloudFormation template.
-
-        ``IAM Identity Center`` web portals are authenticated through AWS IAM Identity Center . They provide additional features, such as IdP-initiated authentication. Identity sources (including external identity provider integration) and other identity provider information must be configured in IAM Identity Center . User and group assignment must be done through the WorkSpaces Secure Browser console. These cannot be configured in CloudFormation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-authenticationtype
-        '''
-        result = self._values.get("authentication_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def browser_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the browser settings that is associated with this web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-browsersettingsarn
-        '''
-        result = self._values.get("browser_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The customer managed key of the web portal.
-
-        *Pattern* : ``^arn:[\\w+=\\/,.@-]+:kms:[a-zA-Z0-9\\-]*:[a-zA-Z0-9]{1,12}:key\\/[a-zA-Z0-9-]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-customermanagedkey
-        '''
-        result = self._values.get("customer_managed_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_protection_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the data protection settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-dataprotectionsettingsarn
-        '''
-        result = self._values.get("data_protection_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_type(self) -> typing.Optional[builtins.str]:
-        '''The type and resources of the underlying instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-instancetype
-        '''
-        result = self._values.get("instance_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ip_access_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the IP access settings that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-ipaccesssettingsarn
-        '''
-        result = self._values.get("ip_access_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_concurrent_sessions(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of concurrent sessions for the portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-maxconcurrentsessions
-        '''
-        result = self._values.get("max_concurrent_sessions")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def network_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the network settings that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-networksettingsarn
-        '''
-        result = self._values.get("network_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def session_logger_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the session logger that is assocaited with the portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-sessionloggerarn
-        '''
-        result = self._values.get("session_logger_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the web portal.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def trust_store_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the trust store that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-truststorearn
-        '''
-        result = self._values.get("trust_store_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def user_access_logging_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the user access logging settings that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-useraccessloggingsettingsarn
-        '''
-        result = self._values.get("user_access_logging_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def user_settings_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the user settings that is associated with the web portal.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-usersettingsarn
-        '''
-        result = self._values.get("user_settings_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPortalProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ISessionLoggerRef, _ITaggableV2_4e6798f8)
 class CfnSessionLogger(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3315,6 +4863,12 @@ class CfnSessionLogger(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionLoggerRef")
+    def session_logger_ref(self) -> SessionLoggerReference:
+        '''A reference to a SessionLogger resource.'''
+        return typing.cast(SessionLoggerReference, jsii.get(self, "sessionLoggerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="eventFilter")
@@ -3674,173 +5228,7 @@ class CfnSessionLogger(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLoggerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "event_filter": "eventFilter",
-        "log_configuration": "logConfiguration",
-        "additional_encryption_context": "additionalEncryptionContext",
-        "customer_managed_key": "customerManagedKey",
-        "display_name": "displayName",
-        "tags": "tags",
-    },
-)
-class CfnSessionLoggerProps:
-    def __init__(
-        self,
-        *,
-        event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
-        log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSessionLogger``.
-
-        :param event_filter: The filter that specifies which events to monitor.
-        :param log_configuration: The configuration that specifies where logs are fowarded.
-        :param additional_encryption_context: The additional encryption context of the session logger.
-        :param customer_managed_key: The custom managed key of the session logger.
-        :param display_name: The human-readable display name.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            # all: Any
-            
-            cfn_session_logger_props = workspacesweb.CfnSessionLoggerProps(
-                event_filter=workspacesweb.CfnSessionLogger.EventFilterProperty(
-                    all=all,
-                    include=["include"]
-                ),
-                log_configuration=workspacesweb.CfnSessionLogger.LogConfigurationProperty(
-                    s3=workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
-                        bucket="bucket",
-                        folder_structure="folderStructure",
-                        log_file_format="logFileFormat",
-            
-                        # the properties below are optional
-                        bucket_owner="bucketOwner",
-                        key_prefix="keyPrefix"
-                    )
-                ),
-            
-                # the properties below are optional
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                customer_managed_key="customerManagedKey",
-                display_name="displayName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3)
-            check_type(argname="argument event_filter", value=event_filter, expected_type=type_hints["event_filter"])
-            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_filter": event_filter,
-            "log_configuration": log_configuration,
-        }
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if customer_managed_key is not None:
-            self._values["customer_managed_key"] = customer_managed_key
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def event_filter(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty]:
-        '''The filter that specifies which events to monitor.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-eventfilter
-        '''
-        result = self._values.get("event_filter")
-        assert result is not None, "Required property 'event_filter' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty], result)
-
-    @builtins.property
-    def log_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty]:
-        '''The configuration that specifies where logs are fowarded.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-logconfiguration
-        '''
-        result = self._values.get("log_configuration")
-        assert result is not None, "Required property 'log_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty], result)
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The additional encryption context of the session logger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The custom managed key of the session logger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-customermanagedkey
-        '''
-        result = self._values.get("customer_managed_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The human-readable display name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSessionLoggerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, ITrustStoreRef, _ITaggableV2_4e6798f8)
 class CfnTrustStore(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3953,6 +5341,12 @@ class CfnTrustStore(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="trustStoreRef")
+    def trust_store_ref(self) -> TrustStoreReference:
+        '''A reference to a TrustStore resource.'''
+        return typing.cast(TrustStoreReference, jsii.get(self, "trustStoreRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="certificateList")
     def certificate_list(self) -> typing.List[builtins.str]:
         '''A list of CA certificates to be added to the trust store.'''
@@ -3979,86 +5373,7 @@ class CfnTrustStore(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnTrustStoreProps",
-    jsii_struct_bases=[],
-    name_mapping={"certificate_list": "certificateList", "tags": "tags"},
-)
-class CfnTrustStoreProps:
-    def __init__(
-        self,
-        *,
-        certificate_list: typing.Sequence[builtins.str],
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTrustStore``.
-
-        :param certificate_list: A list of CA certificates to be added to the trust store.
-        :param tags: The tags to add to the trust store. A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_trust_store_props = workspacesweb.CfnTrustStoreProps(
-                certificate_list=["certificateList"],
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18)
-            check_type(argname="argument certificate_list", value=certificate_list, expected_type=type_hints["certificate_list"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_list": certificate_list,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def certificate_list(self) -> typing.List[builtins.str]:
-        '''A list of CA certificates to be added to the trust store.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html#cfn-workspacesweb-truststore-certificatelist
-        '''
-        result = self._values.get("certificate_list")
-        assert result is not None, "Required property 'certificate_list' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the trust store.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-truststore.html#cfn-workspacesweb-truststore-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTrustStoreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IUserAccessLoggingSettingsRef, _ITaggableV2_4e6798f8)
 class CfnUserAccessLoggingSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4177,6 +5492,12 @@ class CfnUserAccessLoggingSettings(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="userAccessLoggingSettingsRef")
+    def user_access_logging_settings_ref(self) -> UserAccessLoggingSettingsReference:
+        '''A reference to a UserAccessLoggingSettings resource.'''
+        return typing.cast(UserAccessLoggingSettingsReference, jsii.get(self, "userAccessLoggingSettingsRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="kinesisStreamArn")
     def kinesis_stream_arn(self) -> builtins.str:
         '''The ARN of the Kinesis stream.'''
@@ -4203,86 +5524,7 @@ class CfnUserAccessLoggingSettings(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserAccessLoggingSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={"kinesis_stream_arn": "kinesisStreamArn", "tags": "tags"},
-)
-class CfnUserAccessLoggingSettingsProps:
-    def __init__(
-        self,
-        *,
-        kinesis_stream_arn: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUserAccessLoggingSettings``.
-
-        :param kinesis_stream_arn: The ARN of the Kinesis stream.
-        :param tags: The tags to add to the user access logging settings resource. A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_user_access_logging_settings_props = workspacesweb.CfnUserAccessLoggingSettingsProps(
-                kinesis_stream_arn="kinesisStreamArn",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a)
-            check_type(argname="argument kinesis_stream_arn", value=kinesis_stream_arn, expected_type=type_hints["kinesis_stream_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "kinesis_stream_arn": kinesis_stream_arn,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def kinesis_stream_arn(self) -> builtins.str:
-        '''The ARN of the Kinesis stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html#cfn-workspacesweb-useraccessloggingsettings-kinesisstreamarn
-        '''
-        result = self._values.get("kinesis_stream_arn")
-        assert result is not None, "Required property 'kinesis_stream_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the user access logging settings resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-useraccessloggingsettings.html#cfn-workspacesweb-useraccessloggingsettings-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserAccessLoggingSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IUserSettingsRef, _ITaggableV2_4e6798f8)
 class CfnUserSettings(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4464,6 +5706,12 @@ class CfnUserSettings(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userSettingsRef")
+    def user_settings_ref(self) -> UserSettingsReference:
+        '''A reference to a UserSettings resource.'''
+        return typing.cast(UserSettingsReference, jsii.get(self, "userSettingsRef"))
 
     @builtins.property
     @jsii.member(jsii_name="copyAllowed")
@@ -4940,297 +6188,8 @@ class CfnUserSettings(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnUserSettingsProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "copy_allowed": "copyAllowed",
-        "download_allowed": "downloadAllowed",
-        "paste_allowed": "pasteAllowed",
-        "print_allowed": "printAllowed",
-        "upload_allowed": "uploadAllowed",
-        "additional_encryption_context": "additionalEncryptionContext",
-        "cookie_synchronization_configuration": "cookieSynchronizationConfiguration",
-        "customer_managed_key": "customerManagedKey",
-        "deep_link_allowed": "deepLinkAllowed",
-        "disconnect_timeout_in_minutes": "disconnectTimeoutInMinutes",
-        "idle_disconnect_timeout_in_minutes": "idleDisconnectTimeoutInMinutes",
-        "tags": "tags",
-        "toolbar_configuration": "toolbarConfiguration",
-    },
-)
-class CfnUserSettingsProps:
-    def __init__(
-        self,
-        *,
-        copy_allowed: builtins.str,
-        download_allowed: builtins.str,
-        paste_allowed: builtins.str,
-        print_allowed: builtins.str,
-        upload_allowed: builtins.str,
-        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-        cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        customer_managed_key: typing.Optional[builtins.str] = None,
-        deep_link_allowed: typing.Optional[builtins.str] = None,
-        disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-        idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnUserSettings``.
-
-        :param copy_allowed: Specifies whether the user can copy text from the streaming session to the local device.
-        :param download_allowed: Specifies whether the user can download files from the streaming session to the local device.
-        :param paste_allowed: Specifies whether the user can paste text from the local device to the streaming session.
-        :param print_allowed: Specifies whether the user can print to the local device.
-        :param upload_allowed: Specifies whether the user can upload files from the local device to the streaming session.
-        :param additional_encryption_context: The additional encryption context of the user settings.
-        :param cookie_synchronization_configuration: The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
-        :param customer_managed_key: The customer managed key used to encrypt sensitive information in the user settings.
-        :param deep_link_allowed: Specifies whether the user can use deep links that open automatically when connecting to a session.
-        :param disconnect_timeout_in_minutes: The amount of time that a streaming session remains active after users disconnect.
-        :param idle_disconnect_timeout_in_minutes: The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the disconnect timeout interval begins.
-        :param tags: The tags to add to the user settings resource. A tag is a key-value pair.
-        :param toolbar_configuration: The configuration of the toolbar. This allows administrators to select the toolbar type and visual mode, set maximum display resolution for sessions, and choose which items are visible to end users during their sessions. If administrators do not modify these settings, end users retain control over their toolbar preferences.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_workspacesweb as workspacesweb
-            
-            cfn_user_settings_props = workspacesweb.CfnUserSettingsProps(
-                copy_allowed="copyAllowed",
-                download_allowed="downloadAllowed",
-                paste_allowed="pasteAllowed",
-                print_allowed="printAllowed",
-                upload_allowed="uploadAllowed",
-            
-                # the properties below are optional
-                additional_encryption_context={
-                    "additional_encryption_context_key": "additionalEncryptionContext"
-                },
-                cookie_synchronization_configuration=workspacesweb.CfnUserSettings.CookieSynchronizationConfigurationProperty(
-                    allowlist=[workspacesweb.CfnUserSettings.CookieSpecificationProperty(
-                        domain="domain",
-            
-                        # the properties below are optional
-                        name="name",
-                        path="path"
-                    )],
-            
-                    # the properties below are optional
-                    blocklist=[workspacesweb.CfnUserSettings.CookieSpecificationProperty(
-                        domain="domain",
-            
-                        # the properties below are optional
-                        name="name",
-                        path="path"
-                    )]
-                ),
-                customer_managed_key="customerManagedKey",
-                deep_link_allowed="deepLinkAllowed",
-                disconnect_timeout_in_minutes=123,
-                idle_disconnect_timeout_in_minutes=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                toolbar_configuration=workspacesweb.CfnUserSettings.ToolbarConfigurationProperty(
-                    hidden_toolbar_items=["hiddenToolbarItems"],
-                    max_display_resolution="maxDisplayResolution",
-                    toolbar_type="toolbarType",
-                    visual_mode="visualMode"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4)
-            check_type(argname="argument copy_allowed", value=copy_allowed, expected_type=type_hints["copy_allowed"])
-            check_type(argname="argument download_allowed", value=download_allowed, expected_type=type_hints["download_allowed"])
-            check_type(argname="argument paste_allowed", value=paste_allowed, expected_type=type_hints["paste_allowed"])
-            check_type(argname="argument print_allowed", value=print_allowed, expected_type=type_hints["print_allowed"])
-            check_type(argname="argument upload_allowed", value=upload_allowed, expected_type=type_hints["upload_allowed"])
-            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
-            check_type(argname="argument cookie_synchronization_configuration", value=cookie_synchronization_configuration, expected_type=type_hints["cookie_synchronization_configuration"])
-            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
-            check_type(argname="argument deep_link_allowed", value=deep_link_allowed, expected_type=type_hints["deep_link_allowed"])
-            check_type(argname="argument disconnect_timeout_in_minutes", value=disconnect_timeout_in_minutes, expected_type=type_hints["disconnect_timeout_in_minutes"])
-            check_type(argname="argument idle_disconnect_timeout_in_minutes", value=idle_disconnect_timeout_in_minutes, expected_type=type_hints["idle_disconnect_timeout_in_minutes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument toolbar_configuration", value=toolbar_configuration, expected_type=type_hints["toolbar_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "copy_allowed": copy_allowed,
-            "download_allowed": download_allowed,
-            "paste_allowed": paste_allowed,
-            "print_allowed": print_allowed,
-            "upload_allowed": upload_allowed,
-        }
-        if additional_encryption_context is not None:
-            self._values["additional_encryption_context"] = additional_encryption_context
-        if cookie_synchronization_configuration is not None:
-            self._values["cookie_synchronization_configuration"] = cookie_synchronization_configuration
-        if customer_managed_key is not None:
-            self._values["customer_managed_key"] = customer_managed_key
-        if deep_link_allowed is not None:
-            self._values["deep_link_allowed"] = deep_link_allowed
-        if disconnect_timeout_in_minutes is not None:
-            self._values["disconnect_timeout_in_minutes"] = disconnect_timeout_in_minutes
-        if idle_disconnect_timeout_in_minutes is not None:
-            self._values["idle_disconnect_timeout_in_minutes"] = idle_disconnect_timeout_in_minutes
-        if tags is not None:
-            self._values["tags"] = tags
-        if toolbar_configuration is not None:
-            self._values["toolbar_configuration"] = toolbar_configuration
-
-    @builtins.property
-    def copy_allowed(self) -> builtins.str:
-        '''Specifies whether the user can copy text from the streaming session to the local device.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-copyallowed
-        '''
-        result = self._values.get("copy_allowed")
-        assert result is not None, "Required property 'copy_allowed' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def download_allowed(self) -> builtins.str:
-        '''Specifies whether the user can download files from the streaming session to the local device.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-downloadallowed
-        '''
-        result = self._values.get("download_allowed")
-        assert result is not None, "Required property 'download_allowed' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def paste_allowed(self) -> builtins.str:
-        '''Specifies whether the user can paste text from the local device to the streaming session.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-pasteallowed
-        '''
-        result = self._values.get("paste_allowed")
-        assert result is not None, "Required property 'paste_allowed' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def print_allowed(self) -> builtins.str:
-        '''Specifies whether the user can print to the local device.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-printallowed
-        '''
-        result = self._values.get("print_allowed")
-        assert result is not None, "Required property 'print_allowed' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def upload_allowed(self) -> builtins.str:
-        '''Specifies whether the user can upload files from the local device to the streaming session.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-uploadallowed
-        '''
-        result = self._values.get("upload_allowed")
-        assert result is not None, "Required property 'upload_allowed' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def additional_encryption_context(
-        self,
-    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-        '''The additional encryption context of the user settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-additionalencryptioncontext
-        '''
-        result = self._values.get("additional_encryption_context")
-        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def cookie_synchronization_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.CookieSynchronizationConfigurationProperty]]:
-        '''The configuration that specifies which cookies should be synchronized from the end user's local browser to the remote browser.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-cookiesynchronizationconfiguration
-        '''
-        result = self._values.get("cookie_synchronization_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.CookieSynchronizationConfigurationProperty]], result)
-
-    @builtins.property
-    def customer_managed_key(self) -> typing.Optional[builtins.str]:
-        '''The customer managed key used to encrypt sensitive information in the user settings.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-customermanagedkey
-        '''
-        result = self._values.get("customer_managed_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def deep_link_allowed(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether the user can use deep links that open automatically when connecting to a session.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-deeplinkallowed
-        '''
-        result = self._values.get("deep_link_allowed")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def disconnect_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The amount of time that a streaming session remains active after users disconnect.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-disconnecttimeoutinminutes
-        '''
-        result = self._values.get("disconnect_timeout_in_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def idle_disconnect_timeout_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The amount of time that users can be idle (inactive) before they are disconnected from their streaming session and the disconnect timeout interval begins.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-idledisconnecttimeoutinminutes
-        '''
-        result = self._values.get("idle_disconnect_timeout_in_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the user settings resource.
-
-        A tag is a key-value pair.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def toolbar_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.ToolbarConfigurationProperty]]:
-        '''The configuration of the toolbar.
-
-        This allows administrators to select the toolbar type and visual mode, set maximum display resolution for sessions, and choose which items are visible to end users during their sessions. If administrators do not modify these settings, end users retain control over their toolbar preferences.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-usersettings.html#cfn-workspacesweb-usersettings-toolbarconfiguration
-        '''
-        result = self._values.get("toolbar_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserSettings.ToolbarConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnUserSettingsProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BrowserSettingsReference",
     "CfnBrowserSettings",
     "CfnBrowserSettingsProps",
     "CfnDataProtectionSettings",
@@ -5251,9 +6210,221 @@ __all__ = [
     "CfnUserAccessLoggingSettingsProps",
     "CfnUserSettings",
     "CfnUserSettingsProps",
+    "DataProtectionSettingsReference",
+    "IBrowserSettingsRef",
+    "IDataProtectionSettingsRef",
+    "IIdentityProviderRef",
+    "IIpAccessSettingsRef",
+    "INetworkSettingsRef",
+    "IPortalRef",
+    "ISessionLoggerRef",
+    "ITrustStoreRef",
+    "IUserAccessLoggingSettingsRef",
+    "IUserSettingsRef",
+    "IdentityProviderReference",
+    "IpAccessSettingsReference",
+    "NetworkSettingsReference",
+    "PortalReference",
+    "SessionLoggerReference",
+    "TrustStoreReference",
+    "UserAccessLoggingSettingsReference",
+    "UserSettingsReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__9947bb1c5564f1c8983b6830b818356c7f9bd51490f6871599d58fbb9c7a8dfa(
+    *,
+    browser_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3(
+    *,
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    browser_policy: typing.Optional[builtins.str] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a(
+    *,
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d(
+    *,
+    identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    identity_provider_name: builtins.str,
+    identity_provider_type: builtins.str,
+    portal_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475(
+    *,
+    ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283(
+    *,
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    authentication_type: typing.Optional[builtins.str] = None,
+    browser_settings_arn: typing.Optional[builtins.str] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    data_protection_settings_arn: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    instance_type: typing.Optional[builtins.str] = None,
+    ip_access_settings_arn: typing.Optional[builtins.str] = None,
+    max_concurrent_sessions: typing.Optional[jsii.Number] = None,
+    network_settings_arn: typing.Optional[builtins.str] = None,
+    session_logger_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    trust_store_arn: typing.Optional[builtins.str] = None,
+    user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
+    user_settings_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3(
+    *,
+    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18(
+    *,
+    certificate_list: typing.Sequence[builtins.str],
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a(
+    *,
+    kinesis_stream_arn: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4(
+    *,
+    copy_allowed: builtins.str,
+    download_allowed: builtins.str,
+    paste_allowed: builtins.str,
+    print_allowed: builtins.str,
+    upload_allowed: builtins.str,
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    deep_link_allowed: typing.Optional[builtins.str] = None,
+    disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb2dd8e886fd8c73d9138dee02a759e125fe5963e77c538bf09df2e1308a40e8(
+    *,
+    data_protection_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b6ef3f16a85194637b44467998c138db830a0b331237f64a411c68adea74223(
+    *,
+    identity_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__013038767f186801c7cf6eb1e8d522acc8c166bde74a8099ee134572759782f8(
+    *,
+    ip_access_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15cb632d2b57754fec442d4fd61d4c6e8124d26e49e6c51be689ebe2986d37b5(
+    *,
+    network_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__790b0b4f41a0a722121a1157a92cb6208691c4e3cb22e04b46d70c7019e2679e(
+    *,
+    portal_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e404ab81bee9259b584e37eec7272cbe610d2f75198df59886550d17c76fa5ea(
+    *,
+    session_logger_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be2a906eb93d7db90b17a4c4b76ce5dcb07b8fe1f32313985a59ac3aedf157ef(
+    *,
+    trust_store_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3ff3af1a2d6b578de98f30a2101a8856030b359f05aaf2083cff617d3f0e390(
+    *,
+    user_access_logging_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baa837e8ce94fa70d44273f31f4161687d81758abbc94e0916863fb7e4c75c36(
+    *,
+    user_settings_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__bddcc45afa30e005718c5da3d3034bff6b9c0453326851818da6294dc041bb0f(
     scope: _constructs_77d1e7e8.Construct,
@@ -5299,16 +6470,6 @@ def _typecheckingstub__eed13ab23af9a957ff225aff9f958ae8f40efe7f9c0aa02be45034aa2
 
 def _typecheckingstub__488a7e6081f5fbb5bf5af995cdb747f920d592e19ef88a222e5aa2f1c21d8a53(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f99c227d497f6d51d01cc19398b94784835fab55afca7c6488466bb1cc1420b3(
-    *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    browser_policy: typing.Optional[builtins.str] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5415,18 +6576,6 @@ def _typecheckingstub__93e3fa90dfeb5ed27de42632610186e3eec8e8ee42bce56d7f8dcb07d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9bd186c92264d6b6332cc9ff86b6f530f1f3d30da79101020cac77924b86ea5a(
-    *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    inline_redaction_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProtectionSettings.InlineRedactionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__439cd32d129b1f0a69c13fb5a494170084be122497b619a7175debec51c3635e(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5478,17 +6627,6 @@ def _typecheckingstub__f17f07edd6f61424250e1f5f7df6f6cee024beb494ee700c6419c5642
 
 def _typecheckingstub__f529ceae5ebe64b079470ab15dfc0b78fc406f1eaba9be1f4902b355cd6e363f(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc73238ea7aab35d7f7ec21a88a98c698e64b413b81129270666c830ae963a4d(
-    *,
-    identity_provider_details: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
-    identity_provider_name: builtins.str,
-    identity_provider_type: builtins.str,
-    portal_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5563,18 +6701,6 @@ def _typecheckingstub__6ef91a56d003f837ee2a6f8431647b2dcdd5ff9d72afb0d6f7cb1c50c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__332b0cacbcd242c5add5b067133a69e3ee9f775e64856bf6ae48c84e34d0b475(
-    *,
-    ip_rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIpAccessSettings.IpRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__95a61d7b0b1452fb7a5fdde6d41bbab0a1737a4628bbe5a201c16ce50a3e8a67(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5619,16 +6745,6 @@ def _typecheckingstub__e298ee4542dc4160ff007ee478b4d24dff6a5105564e454a0eacb28ac
 
 def _typecheckingstub__07819661df503a5395aeb2f48e629b4742564eaa4d650197b66c74bb51c0efc3(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a17459072d5b9aee15fcf087fb12a82a751a074de0d02647ae22fed9a82fb2cb(
-    *,
-    security_group_ids: typing.Sequence[builtins.str],
-    subnet_ids: typing.Sequence[builtins.str],
-    vpc_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5758,27 +6874,6 @@ def _typecheckingstub__e3c9a5aba1f82c8cb8d06dba7c424aabe0b4a862dd045ea1515145403
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39e89f283(
-    *,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    authentication_type: typing.Optional[builtins.str] = None,
-    browser_settings_arn: typing.Optional[builtins.str] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    data_protection_settings_arn: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    instance_type: typing.Optional[builtins.str] = None,
-    ip_access_settings_arn: typing.Optional[builtins.str] = None,
-    max_concurrent_sessions: typing.Optional[jsii.Number] = None,
-    network_settings_arn: typing.Optional[builtins.str] = None,
-    session_logger_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    trust_store_arn: typing.Optional[builtins.str] = None,
-    user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
-    user_settings_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d0085a29(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5867,18 +6962,6 @@ def _typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3(
-    *,
-    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
-    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__cc9c8ead0938c5ad416a02ff1511be2c3cbf2519166e43c80e65e581fac2cab7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5913,14 +6996,6 @@ def _typecheckingstub__413cb334bb35253edc995584173eeea4b9dcaddccf8f42db23cff1eb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7f61f2140f6607d292f5333bbaa4cf73f35e92dd28f8d49fc35bdca25eb8fa18(
-    *,
-    certificate_list: typing.Sequence[builtins.str],
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__aad2c57d166d3f137cf451bac17a21ea9bd59a5dafc004c63b60db12312c6ea6(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5951,14 +7026,6 @@ def _typecheckingstub__c9da0f05e734af1b537d4f6612a6e7f940d1c43dfc9bbc4879e3d9257
 
 def _typecheckingstub__5891d11f0a657ca8579858eed7e0c8861e02aad2584f2928aa6f75f7966d4830(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1fbbe0ac8cc8b93ca9250852f294b49e6126c8e1f9bcbdc057c5f6fbfcc7115a(
-    *,
-    kinesis_stream_arn: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6097,25 +7164,6 @@ def _typecheckingstub__2c34b0e8a8ab7ac6d4c9c7ebda522c320d7e5fd5dd3569da4020209d9
     max_display_resolution: typing.Optional[builtins.str] = None,
     toolbar_type: typing.Optional[builtins.str] = None,
     visual_mode: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f5fdddc739ee6575c152d4edd4b1958f0aed7897d0804077cf3ed5b5829d55a4(
-    *,
-    copy_allowed: builtins.str,
-    download_allowed: builtins.str,
-    paste_allowed: builtins.str,
-    print_allowed: builtins.str,
-    upload_allowed: builtins.str,
-    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-    cookie_synchronization_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.CookieSynchronizationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    customer_managed_key: typing.Optional[builtins.str] = None,
-    deep_link_allowed: typing.Optional[builtins.str] = None,
-    disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    idle_disconnect_timeout_in_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    toolbar_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserSettings.ToolbarConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

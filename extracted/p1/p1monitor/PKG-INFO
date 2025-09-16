@@ -1,29 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: p1monitor
-Version: 3.1.0
+Version: 3.2.0
 Summary: Asynchronous Python client for the P1 Monitor
-Home-page: https://github.com/klaasnicolaas/python-p1monitor
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: p1,monitor,power,energy,api,async,client
 Author: Klaas Schoute
-Author-email: hello@student-techlife.com
+Author-email: <hello@student-techlife.com>
 Maintainer: Klaas Schoute
-Maintainer-email: hello@student-techlife.com
-Requires-Python: >=3.11,<4.0
+Maintainer-email: <hello@student-techlife.com>
+Requires-Python: >=3.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: aiohttp (>=3.0.0)
 Requires-Dist: yarl (>=1.6.0)
 Project-URL: Bug Tracker, https://github.com/klaasnicolaas/python-p1monitor/issues
 Project-URL: Changelog, https://github.com/klaasnicolaas/python-p1monitor/releases
 Project-URL: Documentation, https://github.com/klaasnicolaas/python-p1monitor
+Project-URL: Homepage, https://github.com/klaasnicolaas/python-p1monitor
 Project-URL: Repository, https://github.com/klaasnicolaas/python-p1monitor
 Description-Content-Type: text/markdown
 
@@ -155,37 +157,35 @@ You need at least:
 - Python 3.11+
 - [Poetry][poetry-install]
 
+### Installation
+
 Install all packages, including all development requirements:
 
 ```bash
 poetry install
 ```
 
-Poetry creates by default an virtual environment where it installs all
-necessary pip packages, to enter or exit the venv run the following commands:
+_Poetry creates by default an virtual environment where it installs all
+necessary pip packages_.
+
+### Pre-commit
+
+This repository uses the [pre-commit][pre-commit] framework, all changes
+are linted and tested with each commit. To setup the pre-commit check, run:
 
 ```bash
-poetry shell
-exit
+poetry run pre-commit install
 ```
 
-Setup the pre-commit check, you must run this inside the virtual environment:
-
-```bash
-pre-commit install
-```
-
-*Now you're all set to get started!*
-
-As this repository uses the [pre-commit][pre-commit] framework, all changes
-are linted and tested with each commit. You can run all checks and tests
-manually, using the following command:
+And to run all checks and tests manually, use the following command:
 
 ```bash
 poetry run pre-commit run --all-files
 ```
 
-To run just the Python tests:
+### Testing
+
+It uses [pytest](https://docs.pytest.org/en/stable/) as the test framework. To run the tests:
 
 ```bash
 poetry run pytest
@@ -201,7 +201,7 @@ poetry run pytest --snapshot-update
 
 MIT License
 
-Copyright (c) 2021-2024 Klaas Schoute
+Copyright (c) 2021-2025 Klaas Schoute
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -234,7 +234,7 @@ SOFTWARE.
 [downloads-url]: https://pypistats.org/packages/p1monitor
 [license-shield]: https://img.shields.io/github/license/klaasnicolaas/python-p1monitor.svg
 [last-commit-shield]: https://img.shields.io/github/last-commit/klaasnicolaas/python-p1monitor.svg
-[maintenance-shield]: https://img.shields.io/maintenance/yes/2024.svg
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2025.svg
 [maintainability-shield]: https://api.codeclimate.com/v1/badges/443c476612a574d82467/maintainability
 [maintainability-url]: https://codeclimate.com/github/klaasnicolaas/python-p1monitor/maintainability
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-production%20ready-brightgreen.svg

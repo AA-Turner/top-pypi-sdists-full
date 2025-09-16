@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_observabilityadmin.literals import DestinationTypeType
+    from types_boto3_observabilityadmin.literals import CentralizationFailureReasonType
 
-    data: DestinationTypeType = "cloud-watch-logs"
+    data: CentralizationFailureReasonType = "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION"
     ```
 """
 
@@ -22,8 +22,13 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CentralizationFailureReasonType",
     "CloudWatchObservabilityAdminServiceServiceName",
     "DestinationTypeType",
+    "EncryptedLogGroupStrategyType",
+    "EncryptionConflictResolutionStrategyType",
+    "EncryptionStrategyType",
+    "ListCentralizationRulesForOrganizationPaginatorName",
     "ListResourceTelemetryForOrganizationPaginatorName",
     "ListResourceTelemetryPaginatorName",
     "ListTelemetryRulesForOrganizationPaginatorName",
@@ -31,13 +36,23 @@ __all__ = (
     "PaginatorName",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RuleHealthType",
     "ServiceName",
     "StatusType",
     "TelemetryStateType",
     "TelemetryTypeType",
 )
 
+CentralizationFailureReasonType = Literal[
+    "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
+]
 DestinationTypeType = Literal["cloud-watch-logs"]
+EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
+EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
+EncryptionStrategyType = Literal["AWS_OWNED", "CUSTOMER_MANAGED"]
+ListCentralizationRulesForOrganizationPaginatorName = Literal[
+    "list_centralization_rules_for_organization"
+]
 ListResourceTelemetryForOrganizationPaginatorName = Literal[
     "list_resource_telemetry_for_organization"
 ]
@@ -45,6 +60,7 @@ ListResourceTelemetryPaginatorName = Literal["list_resource_telemetry"]
 ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_for_organization"]
 ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
 ResourceTypeType = Literal["AWS::EC2::Instance", "AWS::EC2::VPC", "AWS::Lambda::Function"]
+RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
 ]
@@ -416,7 +432,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -470,6 +485,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_centralization_rules_for_organization",
     "list_resource_telemetry",
     "list_resource_telemetry_for_organization",
     "list_telemetry_rules",

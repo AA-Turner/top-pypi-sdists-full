@@ -536,7 +536,7 @@ static PyObject *t_collator_getSortKey(t_collator *self, PyObject *args)
     UnicodeString *u;
     UnicodeString _u;
     int len, size;
-    uint8_t *buf;
+    std::unique_ptr<uint8_t[]> buf;
     PyObject *key;
 
     switch (PyTuple_Size(args)) {
@@ -544,21 +544,18 @@ static PyObject *t_collator_getSortKey(t_collator *self, PyObject *args)
         if (!parseArgs(args, arg::S(&u, &_u)))
         {
             len = u->length() * 4 + 8;
-            buf = (uint8_t *) malloc(len);
+            buf.reset(new uint8_t[len]);
           retry:
-            if (buf == NULL)
+            if (!buf.get())
                 return PyErr_NoMemory();
 
-            size = self->object->getSortKey(*u, buf, len);
+            size = self->object->getSortKey(*u, buf.get(), len);
             if (size <= len)
-            {
-                key = PyBytes_FromStringAndSize((char *) buf, size);
-                free(buf);
-            }
+                key = PyBytes_FromStringAndSize((char *) buf.get(), size);
             else
             {
                 len = size;
-                buf = (uint8_t *) realloc(buf, len);
+                buf.reset(new uint8_t[len]);
                 goto retry;
             }
 
@@ -568,13 +565,12 @@ static PyObject *t_collator_getSortKey(t_collator *self, PyObject *args)
       case 2:
         if (!parseArgs(args, arg::S(&u, &_u), arg::i(&len)))
         {
-            buf = (uint8_t *) calloc(len, 1);
-            if (buf == NULL)
+            buf.reset(new uint8_t[len]);
+            if (!buf.get())
                 return PyErr_NoMemory();
 
-            len = self->object->getSortKey(*u, buf, len);
-            key = PyBytes_FromStringAndSize((char *) buf, len);
-            free(buf);
+            len = self->object->getSortKey(*u, buf.get(), len);
+            key = PyBytes_FromStringAndSize((char *) buf.get(), len);
 
             return key;
         }

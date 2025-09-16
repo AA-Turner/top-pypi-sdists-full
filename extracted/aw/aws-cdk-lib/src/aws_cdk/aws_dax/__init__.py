@@ -68,7 +68,795 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.CfnClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "iam_role_arn": "iamRoleArn",
+        "node_type": "nodeType",
+        "replication_factor": "replicationFactor",
+        "availability_zones": "availabilityZones",
+        "cluster_endpoint_encryption_type": "clusterEndpointEncryptionType",
+        "cluster_name": "clusterName",
+        "description": "description",
+        "network_type": "networkType",
+        "notification_topic_arn": "notificationTopicArn",
+        "parameter_group_name": "parameterGroupName",
+        "preferred_maintenance_window": "preferredMaintenanceWindow",
+        "security_group_ids": "securityGroupIds",
+        "sse_specification": "sseSpecification",
+        "subnet_group_name": "subnetGroupName",
+        "tags": "tags",
+    },
+)
+class CfnClusterProps:
+    def __init__(
+        self,
+        *,
+        iam_role_arn: builtins.str,
+        node_type: builtins.str,
+        replication_factor: jsii.Number,
+        availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        notification_topic_arn: typing.Optional[builtins.str] = None,
+        parameter_group_name: typing.Optional[builtins.str] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        subnet_group_name: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCluster``.
+
+        :param iam_role_arn: A valid Amazon Resource Name (ARN) that identifies an IAM role. At runtime, DAX will assume this role and use the role's permissions to access DynamoDB on your behalf.
+        :param node_type: The node type for the nodes in the cluster. (All nodes in a DAX cluster are of the same type.)
+        :param replication_factor: The number of nodes in the DAX cluster. A replication factor of 1 will create a single-node cluster, without any read replicas. For additional fault tolerance, you can create a multiple node cluster with one or more read replicas. To do this, set ``ReplicationFactor`` to a number between 3 (one primary and two read replicas) and 10 (one primary and nine read replicas). ``If the AvailabilityZones`` parameter is provided, its length must equal the ``ReplicationFactor`` . .. epigraph:: AWS recommends that you have at least two read replicas per cluster.
+        :param availability_zones: The Availability Zones (AZs) in which the cluster nodes will reside after the cluster has been created or updated. If provided, the length of this list must equal the ``ReplicationFactor`` parameter. If you omit this parameter, DAX will spread the nodes across Availability Zones for the highest availability.
+        :param cluster_endpoint_encryption_type: The encryption type of the cluster's endpoint. Available values are:. - ``NONE`` - The cluster's endpoint will be unencrypted. - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication. The default value is ``NONE`` .
+        :param cluster_name: The name of the DAX cluster.
+        :param description: The description of the cluster.
+        :param network_type: 
+        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent. .. epigraph:: The Amazon SNS topic owner must be same as the DAX cluster owner.
+        :param parameter_group_name: The parameter group to be associated with the DAX cluster.
+        :param preferred_maintenance_window: A range of time when maintenance of DAX cluster software will be performed. For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
+        :param security_group_ids: A list of security group IDs to be assigned to each node in the DAX cluster. (Each of the security group ID is system-generated.) If this parameter is not specified, DAX assigns the default VPC security group to each node.
+        :param sse_specification: Represents the settings used to enable server-side encryption on the cluster.
+        :param subnet_group_name: The name of the subnet group to be used for the replication group. .. epigraph:: DAX clusters can only run in an Amazon VPC environment. All of the subnets that you specify in a subnet group must exist in the same VPC.
+        :param tags: A set of tags to associate with the DAX cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            # tags: Any
+            
+            cfn_cluster_props = dax.CfnClusterProps(
+                iam_role_arn="iamRoleArn",
+                node_type="nodeType",
+                replication_factor=123,
+            
+                # the properties below are optional
+                availability_zones=["availabilityZones"],
+                cluster_endpoint_encryption_type="clusterEndpointEncryptionType",
+                cluster_name="clusterName",
+                description="description",
+                network_type="networkType",
+                notification_topic_arn="notificationTopicArn",
+                parameter_group_name="parameterGroupName",
+                preferred_maintenance_window="preferredMaintenanceWindow",
+                security_group_ids=["securityGroupIds"],
+                sse_specification=dax.CfnCluster.SSESpecificationProperty(
+                    sse_enabled=False
+                ),
+                subnet_group_name="subnetGroupName",
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ece2ee11399f77b699021f70d8286031a08ea0aa17f1c2afcda136bb9f1269b8)
+            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
+            check_type(argname="argument replication_factor", value=replication_factor, expected_type=type_hints["replication_factor"])
+            check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
+            check_type(argname="argument cluster_endpoint_encryption_type", value=cluster_endpoint_encryption_type, expected_type=type_hints["cluster_endpoint_encryption_type"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument notification_topic_arn", value=notification_topic_arn, expected_type=type_hints["notification_topic_arn"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "iam_role_arn": iam_role_arn,
+            "node_type": node_type,
+            "replication_factor": replication_factor,
+        }
+        if availability_zones is not None:
+            self._values["availability_zones"] = availability_zones
+        if cluster_endpoint_encryption_type is not None:
+            self._values["cluster_endpoint_encryption_type"] = cluster_endpoint_encryption_type
+        if cluster_name is not None:
+            self._values["cluster_name"] = cluster_name
+        if description is not None:
+            self._values["description"] = description
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if notification_topic_arn is not None:
+            self._values["notification_topic_arn"] = notification_topic_arn
+        if parameter_group_name is not None:
+            self._values["parameter_group_name"] = parameter_group_name
+        if preferred_maintenance_window is not None:
+            self._values["preferred_maintenance_window"] = preferred_maintenance_window
+        if security_group_ids is not None:
+            self._values["security_group_ids"] = security_group_ids
+        if sse_specification is not None:
+            self._values["sse_specification"] = sse_specification
+        if subnet_group_name is not None:
+            self._values["subnet_group_name"] = subnet_group_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def iam_role_arn(self) -> builtins.str:
+        '''A valid Amazon Resource Name (ARN) that identifies an IAM role.
+
+        At runtime, DAX will assume this role and use the role's permissions to access DynamoDB on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-iamrolearn
+        '''
+        result = self._values.get("iam_role_arn")
+        assert result is not None, "Required property 'iam_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def node_type(self) -> builtins.str:
+        '''The node type for the nodes in the cluster.
+
+        (All nodes in a DAX cluster are of the same type.)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-nodetype
+        '''
+        result = self._values.get("node_type")
+        assert result is not None, "Required property 'node_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_factor(self) -> jsii.Number:
+        '''The number of nodes in the DAX cluster.
+
+        A replication factor of 1 will create a single-node cluster, without any read replicas. For additional fault tolerance, you can create a multiple node cluster with one or more read replicas. To do this, set ``ReplicationFactor`` to a number between 3 (one primary and two read replicas) and 10 (one primary and nine read replicas). ``If the AvailabilityZones`` parameter is provided, its length must equal the ``ReplicationFactor`` .
+        .. epigraph::
+
+           AWS recommends that you have at least two read replicas per cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-replicationfactor
+        '''
+        result = self._values.get("replication_factor")
+        assert result is not None, "Required property 'replication_factor' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Availability Zones (AZs) in which the cluster nodes will reside after the cluster has been created or updated.
+
+        If provided, the length of this list must equal the ``ReplicationFactor`` parameter. If you omit this parameter, DAX will spread the nodes across Availability Zones for the highest availability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-availabilityzones
+        '''
+        result = self._values.get("availability_zones")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cluster_endpoint_encryption_type(self) -> typing.Optional[builtins.str]:
+        '''The encryption type of the cluster's endpoint. Available values are:.
+
+        - ``NONE`` - The cluster's endpoint will be unencrypted.
+        - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication.
+
+        The default value is ``NONE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-clusterendpointencryptiontype
+        '''
+        result = self._values.get("cluster_endpoint_encryption_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cluster_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the DAX cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-clustername
+        '''
+        result = self._values.get("cluster_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def notification_topic_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent.
+
+        .. epigraph::
+
+           The Amazon SNS topic owner must be same as the DAX cluster owner.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-notificationtopicarn
+        '''
+        result = self._values.get("notification_topic_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The parameter group to be associated with the DAX cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-parametergroupname
+        '''
+        result = self._values.get("parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''A range of time when maintenance of DAX cluster software will be performed.
+
+        For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-preferredmaintenancewindow
+        '''
+        result = self._values.get("preferred_maintenance_window")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of security group IDs to be assigned to each node in the DAX cluster.
+
+        (Each of the security group ID is system-generated.)
+
+        If this parameter is not specified, DAX assigns the default VPC security group to each node.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def sse_specification(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.SSESpecificationProperty"]]:
+        '''Represents the settings used to enable server-side encryption on the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-ssespecification
+        '''
+        result = self._values.get("sse_specification")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.SSESpecificationProperty"]], result)
+
+    @builtins.property
+    def subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the subnet group to be used for the replication group.
+
+        .. epigraph::
+
+           DAX clusters can only run in an Amazon VPC environment. All of the subnets that you specify in a subnet group must exist in the same VPC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-subnetgroupname
+        '''
+        result = self._values.get("subnet_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''A set of tags to associate with the DAX cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.CfnParameterGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "parameter_group_name": "parameterGroupName",
+        "parameter_name_values": "parameterNameValues",
+    },
+)
+class CfnParameterGroupProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        parameter_group_name: typing.Optional[builtins.str] = None,
+        parameter_name_values: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnParameterGroup``.
+
+        :param description: A description of the parameter group.
+        :param parameter_group_name: The name of the parameter group.
+        :param parameter_name_values: An array of name-value pairs for the parameters in the group. Each element in the array represents a single parameter. .. epigraph:: ``record-ttl-millis`` and ``query-ttl-millis`` are the only supported parameter names. For more details, see `Configuring TTL Settings <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.cluster-management.html#DAX.cluster-management.custom-settings.ttl>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            # parameter_name_values: Any
+            
+            cfn_parameter_group_props = dax.CfnParameterGroupProps(
+                description="description",
+                parameter_group_name="parameterGroupName",
+                parameter_name_values=parameter_name_values
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4491dae1cabd7717750afcb42defd554be706d191983437cf2d1cccca64615d2)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
+            check_type(argname="argument parameter_name_values", value=parameter_name_values, expected_type=type_hints["parameter_name_values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if parameter_group_name is not None:
+            self._values["parameter_group_name"] = parameter_group_name
+        if parameter_name_values is not None:
+            self._values["parameter_name_values"] = parameter_name_values
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-parametergroupname
+        '''
+        result = self._values.get("parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_name_values(self) -> typing.Any:
+        '''An array of name-value pairs for the parameters in the group.
+
+        Each element in the array represents a single parameter.
+        .. epigraph::
+
+           ``record-ttl-millis`` and ``query-ttl-millis`` are the only supported parameter names. For more details, see `Configuring TTL Settings <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.cluster-management.html#DAX.cluster-management.custom-settings.ttl>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-parameternamevalues
+        '''
+        result = self._values.get("parameter_name_values")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnParameterGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.CfnSubnetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "subnet_ids": "subnetIds",
+        "description": "description",
+        "subnet_group_name": "subnetGroupName",
+    },
+)
+class CfnSubnetGroupProps:
+    def __init__(
+        self,
+        *,
+        subnet_ids: typing.Sequence[builtins.str],
+        description: typing.Optional[builtins.str] = None,
+        subnet_group_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSubnetGroup``.
+
+        :param subnet_ids: A list of VPC subnet IDs for the subnet group.
+        :param description: The description of the subnet group.
+        :param subnet_group_name: The name of the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            cfn_subnet_group_props = dax.CfnSubnetGroupProps(
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                description="description",
+                subnet_group_name="subnetGroupName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2a634e35853b0d535a4301ce03172062663607e6b5c0a2d367871acce1292a4)
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subnet_ids": subnet_ids,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if subnet_group_name is not None:
+            self._values["subnet_group_name"] = subnet_group_name
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''A list of VPC subnet IDs for the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subnet_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-subnetgroupname
+        '''
+        result = self._values.get("subnet_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSubnetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.ClusterReference",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_arn": "clusterArn", "cluster_id": "clusterId"},
+)
+class ClusterReference:
+    def __init__(self, *, cluster_arn: builtins.str, cluster_id: builtins.str) -> None:
+        '''A reference to a Cluster resource.
+
+        :param cluster_arn: The ARN of the Cluster resource.
+        :param cluster_id: The Id of the Cluster resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            cluster_reference = dax.ClusterReference(
+                cluster_arn="clusterArn",
+                cluster_id="clusterId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__370ff2bfb36608cb19f37657c9fa04099b3827c2a2fc0166329dd271138ddb41)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "cluster_id": cluster_id,
+        }
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The ARN of the Cluster resource.'''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cluster_id(self) -> builtins.str:
+        '''The Id of the Cluster resource.'''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ClusterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dax.IClusterRef")
+class IClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IClusterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Cluster.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dax.IClusterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''(experimental) A reference to a Cluster resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dax.IParameterGroupRef")
+class IParameterGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ParameterGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterGroupRef")
+    def parameter_group_ref(self) -> "ParameterGroupReference":
+        '''(experimental) A reference to a ParameterGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IParameterGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ParameterGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dax.IParameterGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterGroupRef")
+    def parameter_group_ref(self) -> "ParameterGroupReference":
+        '''(experimental) A reference to a ParameterGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ParameterGroupReference", jsii.get(self, "parameterGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IParameterGroupRef).__jsii_proxy_class__ = lambda : _IParameterGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_dax.ISubnetGroupRef")
+class ISubnetGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a SubnetGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetGroupRef")
+    def subnet_group_ref(self) -> "SubnetGroupReference":
+        '''(experimental) A reference to a SubnetGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISubnetGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SubnetGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dax.ISubnetGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetGroupRef")
+    def subnet_group_ref(self) -> "SubnetGroupReference":
+        '''(experimental) A reference to a SubnetGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SubnetGroupReference", jsii.get(self, "subnetGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISubnetGroupRef).__jsii_proxy_class__ = lambda : _ISubnetGroupRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.ParameterGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"parameter_group_id": "parameterGroupId"},
+)
+class ParameterGroupReference:
+    def __init__(self, *, parameter_group_id: builtins.str) -> None:
+        '''A reference to a ParameterGroup resource.
+
+        :param parameter_group_id: The Id of the ParameterGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            parameter_group_reference = dax.ParameterGroupReference(
+                parameter_group_id="parameterGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4018e88f129051f9d26edd533f768c2a0f473d927c1aa95437d8b56ec404deed)
+            check_type(argname="argument parameter_group_id", value=parameter_group_id, expected_type=type_hints["parameter_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_group_id": parameter_group_id,
+        }
+
+    @builtins.property
+    def parameter_group_id(self) -> builtins.str:
+        '''The Id of the ParameterGroup resource.'''
+        result = self._values.get("parameter_group_id")
+        assert result is not None, "Required property 'parameter_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ParameterGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dax.SubnetGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"subnet_group_id": "subnetGroupId"},
+)
+class SubnetGroupReference:
+    def __init__(self, *, subnet_group_id: builtins.str) -> None:
+        '''A reference to a SubnetGroup resource.
+
+        :param subnet_group_id: The Id of the SubnetGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dax as dax
+            
+            subnet_group_reference = dax.SubnetGroupReference(
+                subnet_group_id="subnetGroupId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a38c1c9a0e2c47bbd068c410b8b3096411c0c1b7ec952f3328489617a5882772)
+            check_type(argname="argument subnet_group_id", value=subnet_group_id, expected_type=type_hints["subnet_group_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "subnet_group_id": subnet_group_id,
+        }
+
+    @builtins.property
+    def subnet_group_id(self) -> builtins.str:
+        '''The Id of the SubnetGroup resource.'''
+        result = self._values.get("subnet_group_id")
+        assert result is not None, "Required property 'subnet_group_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SubnetGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IClusterRef, _ITaggable_36806126)
 class CfnCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -258,6 +1046,12 @@ class CfnCluster(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterRef")
+    def cluster_ref(self) -> ClusterReference:
+        '''A reference to a Cluster resource.'''
+        return typing.cast(ClusterReference, jsii.get(self, "clusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -537,327 +1331,7 @@ class CfnCluster(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dax.CfnClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "iam_role_arn": "iamRoleArn",
-        "node_type": "nodeType",
-        "replication_factor": "replicationFactor",
-        "availability_zones": "availabilityZones",
-        "cluster_endpoint_encryption_type": "clusterEndpointEncryptionType",
-        "cluster_name": "clusterName",
-        "description": "description",
-        "network_type": "networkType",
-        "notification_topic_arn": "notificationTopicArn",
-        "parameter_group_name": "parameterGroupName",
-        "preferred_maintenance_window": "preferredMaintenanceWindow",
-        "security_group_ids": "securityGroupIds",
-        "sse_specification": "sseSpecification",
-        "subnet_group_name": "subnetGroupName",
-        "tags": "tags",
-    },
-)
-class CfnClusterProps:
-    def __init__(
-        self,
-        *,
-        iam_role_arn: builtins.str,
-        node_type: builtins.str,
-        replication_factor: jsii.Number,
-        availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
-        cluster_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        notification_topic_arn: typing.Optional[builtins.str] = None,
-        parameter_group_name: typing.Optional[builtins.str] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        subnet_group_name: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCluster``.
-
-        :param iam_role_arn: A valid Amazon Resource Name (ARN) that identifies an IAM role. At runtime, DAX will assume this role and use the role's permissions to access DynamoDB on your behalf.
-        :param node_type: The node type for the nodes in the cluster. (All nodes in a DAX cluster are of the same type.)
-        :param replication_factor: The number of nodes in the DAX cluster. A replication factor of 1 will create a single-node cluster, without any read replicas. For additional fault tolerance, you can create a multiple node cluster with one or more read replicas. To do this, set ``ReplicationFactor`` to a number between 3 (one primary and two read replicas) and 10 (one primary and nine read replicas). ``If the AvailabilityZones`` parameter is provided, its length must equal the ``ReplicationFactor`` . .. epigraph:: AWS recommends that you have at least two read replicas per cluster.
-        :param availability_zones: The Availability Zones (AZs) in which the cluster nodes will reside after the cluster has been created or updated. If provided, the length of this list must equal the ``ReplicationFactor`` parameter. If you omit this parameter, DAX will spread the nodes across Availability Zones for the highest availability.
-        :param cluster_endpoint_encryption_type: The encryption type of the cluster's endpoint. Available values are:. - ``NONE`` - The cluster's endpoint will be unencrypted. - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication. The default value is ``NONE`` .
-        :param cluster_name: The name of the DAX cluster.
-        :param description: The description of the cluster.
-        :param network_type: 
-        :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent. .. epigraph:: The Amazon SNS topic owner must be same as the DAX cluster owner.
-        :param parameter_group_name: The parameter group to be associated with the DAX cluster.
-        :param preferred_maintenance_window: A range of time when maintenance of DAX cluster software will be performed. For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
-        :param security_group_ids: A list of security group IDs to be assigned to each node in the DAX cluster. (Each of the security group ID is system-generated.) If this parameter is not specified, DAX assigns the default VPC security group to each node.
-        :param sse_specification: Represents the settings used to enable server-side encryption on the cluster.
-        :param subnet_group_name: The name of the subnet group to be used for the replication group. .. epigraph:: DAX clusters can only run in an Amazon VPC environment. All of the subnets that you specify in a subnet group must exist in the same VPC.
-        :param tags: A set of tags to associate with the DAX cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dax as dax
-            
-            # tags: Any
-            
-            cfn_cluster_props = dax.CfnClusterProps(
-                iam_role_arn="iamRoleArn",
-                node_type="nodeType",
-                replication_factor=123,
-            
-                # the properties below are optional
-                availability_zones=["availabilityZones"],
-                cluster_endpoint_encryption_type="clusterEndpointEncryptionType",
-                cluster_name="clusterName",
-                description="description",
-                network_type="networkType",
-                notification_topic_arn="notificationTopicArn",
-                parameter_group_name="parameterGroupName",
-                preferred_maintenance_window="preferredMaintenanceWindow",
-                security_group_ids=["securityGroupIds"],
-                sse_specification=dax.CfnCluster.SSESpecificationProperty(
-                    sse_enabled=False
-                ),
-                subnet_group_name="subnetGroupName",
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ece2ee11399f77b699021f70d8286031a08ea0aa17f1c2afcda136bb9f1269b8)
-            check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
-            check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
-            check_type(argname="argument replication_factor", value=replication_factor, expected_type=type_hints["replication_factor"])
-            check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
-            check_type(argname="argument cluster_endpoint_encryption_type", value=cluster_endpoint_encryption_type, expected_type=type_hints["cluster_endpoint_encryption_type"])
-            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument notification_topic_arn", value=notification_topic_arn, expected_type=type_hints["notification_topic_arn"])
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "iam_role_arn": iam_role_arn,
-            "node_type": node_type,
-            "replication_factor": replication_factor,
-        }
-        if availability_zones is not None:
-            self._values["availability_zones"] = availability_zones
-        if cluster_endpoint_encryption_type is not None:
-            self._values["cluster_endpoint_encryption_type"] = cluster_endpoint_encryption_type
-        if cluster_name is not None:
-            self._values["cluster_name"] = cluster_name
-        if description is not None:
-            self._values["description"] = description
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if notification_topic_arn is not None:
-            self._values["notification_topic_arn"] = notification_topic_arn
-        if parameter_group_name is not None:
-            self._values["parameter_group_name"] = parameter_group_name
-        if preferred_maintenance_window is not None:
-            self._values["preferred_maintenance_window"] = preferred_maintenance_window
-        if security_group_ids is not None:
-            self._values["security_group_ids"] = security_group_ids
-        if sse_specification is not None:
-            self._values["sse_specification"] = sse_specification
-        if subnet_group_name is not None:
-            self._values["subnet_group_name"] = subnet_group_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def iam_role_arn(self) -> builtins.str:
-        '''A valid Amazon Resource Name (ARN) that identifies an IAM role.
-
-        At runtime, DAX will assume this role and use the role's permissions to access DynamoDB on your behalf.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-iamrolearn
-        '''
-        result = self._values.get("iam_role_arn")
-        assert result is not None, "Required property 'iam_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def node_type(self) -> builtins.str:
-        '''The node type for the nodes in the cluster.
-
-        (All nodes in a DAX cluster are of the same type.)
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-nodetype
-        '''
-        result = self._values.get("node_type")
-        assert result is not None, "Required property 'node_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replication_factor(self) -> jsii.Number:
-        '''The number of nodes in the DAX cluster.
-
-        A replication factor of 1 will create a single-node cluster, without any read replicas. For additional fault tolerance, you can create a multiple node cluster with one or more read replicas. To do this, set ``ReplicationFactor`` to a number between 3 (one primary and two read replicas) and 10 (one primary and nine read replicas). ``If the AvailabilityZones`` parameter is provided, its length must equal the ``ReplicationFactor`` .
-        .. epigraph::
-
-           AWS recommends that you have at least two read replicas per cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-replicationfactor
-        '''
-        result = self._values.get("replication_factor")
-        assert result is not None, "Required property 'replication_factor' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Availability Zones (AZs) in which the cluster nodes will reside after the cluster has been created or updated.
-
-        If provided, the length of this list must equal the ``ReplicationFactor`` parameter. If you omit this parameter, DAX will spread the nodes across Availability Zones for the highest availability.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-availabilityzones
-        '''
-        result = self._values.get("availability_zones")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def cluster_endpoint_encryption_type(self) -> typing.Optional[builtins.str]:
-        '''The encryption type of the cluster's endpoint. Available values are:.
-
-        - ``NONE`` - The cluster's endpoint will be unencrypted.
-        - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication.
-
-        The default value is ``NONE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-clusterendpointencryptiontype
-        '''
-        result = self._values.get("cluster_endpoint_encryption_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cluster_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the DAX cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-clustername
-        '''
-        result = self._values.get("cluster_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def notification_topic_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent.
-
-        .. epigraph::
-
-           The Amazon SNS topic owner must be same as the DAX cluster owner.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-notificationtopicarn
-        '''
-        result = self._values.get("notification_topic_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The parameter group to be associated with the DAX cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-parametergroupname
-        '''
-        result = self._values.get("parameter_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''A range of time when maintenance of DAX cluster software will be performed.
-
-        For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-preferredmaintenancewindow
-        '''
-        result = self._values.get("preferred_maintenance_window")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of security group IDs to be assigned to each node in the DAX cluster.
-
-        (Each of the security group ID is system-generated.)
-
-        If this parameter is not specified, DAX assigns the default VPC security group to each node.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def sse_specification(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.SSESpecificationProperty]]:
-        '''Represents the settings used to enable server-side encryption on the cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-ssespecification
-        '''
-        result = self._values.get("sse_specification")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.SSESpecificationProperty]], result)
-
-    @builtins.property
-    def subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the subnet group to be used for the replication group.
-
-        .. epigraph::
-
-           DAX clusters can only run in an Amazon VPC environment. All of the subnets that you specify in a subnet group must exist in the same VPC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-subnetgroupname
-        '''
-        result = self._values.get("subnet_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''A set of tags to associate with the DAX cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IParameterGroupRef)
 class CfnParameterGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -956,6 +1430,12 @@ class CfnParameterGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="parameterGroupRef")
+    def parameter_group_ref(self) -> ParameterGroupReference:
+        '''A reference to a ParameterGroup resource.'''
+        return typing.cast(ParameterGroupReference, jsii.get(self, "parameterGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the parameter group.'''
@@ -995,104 +1475,7 @@ class CfnParameterGroup(
         jsii.set(self, "parameterNameValues", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dax.CfnParameterGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "parameter_group_name": "parameterGroupName",
-        "parameter_name_values": "parameterNameValues",
-    },
-)
-class CfnParameterGroupProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        parameter_group_name: typing.Optional[builtins.str] = None,
-        parameter_name_values: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnParameterGroup``.
-
-        :param description: A description of the parameter group.
-        :param parameter_group_name: The name of the parameter group.
-        :param parameter_name_values: An array of name-value pairs for the parameters in the group. Each element in the array represents a single parameter. .. epigraph:: ``record-ttl-millis`` and ``query-ttl-millis`` are the only supported parameter names. For more details, see `Configuring TTL Settings <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.cluster-management.html#DAX.cluster-management.custom-settings.ttl>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dax as dax
-            
-            # parameter_name_values: Any
-            
-            cfn_parameter_group_props = dax.CfnParameterGroupProps(
-                description="description",
-                parameter_group_name="parameterGroupName",
-                parameter_name_values=parameter_name_values
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4491dae1cabd7717750afcb42defd554be706d191983437cf2d1cccca64615d2)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
-            check_type(argname="argument parameter_name_values", value=parameter_name_values, expected_type=type_hints["parameter_name_values"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if parameter_group_name is not None:
-            self._values["parameter_group_name"] = parameter_group_name
-        if parameter_name_values is not None:
-            self._values["parameter_name_values"] = parameter_name_values
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the parameter group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-parametergroupname
-        '''
-        result = self._values.get("parameter_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_name_values(self) -> typing.Any:
-        '''An array of name-value pairs for the parameters in the group.
-
-        Each element in the array represents a single parameter.
-        .. epigraph::
-
-           ``record-ttl-millis`` and ``query-ttl-millis`` are the only supported parameter names. For more details, see `Configuring TTL Settings <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.cluster-management.html#DAX.cluster-management.custom-settings.ttl>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-parametergroup.html#cfn-dax-parametergroup-parameternamevalues
-        '''
-        result = self._values.get("parameter_name_values")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnParameterGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, ISubnetGroupRef)
 class CfnSubnetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1191,6 +1574,12 @@ class CfnSubnetGroup(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="subnetGroupRef")
+    def subnet_group_ref(self) -> SubnetGroupReference:
+        '''A reference to a SubnetGroup resource.'''
+        return typing.cast(SubnetGroupReference, jsii.get(self, "subnetGroupRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="subnetIds")
     def subnet_ids(self) -> typing.List[builtins.str]:
         '''A list of VPC subnet IDs for the subnet group.'''
@@ -1230,99 +1619,6 @@ class CfnSubnetGroup(
         jsii.set(self, "subnetGroupName", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dax.CfnSubnetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "subnet_ids": "subnetIds",
-        "description": "description",
-        "subnet_group_name": "subnetGroupName",
-    },
-)
-class CfnSubnetGroupProps:
-    def __init__(
-        self,
-        *,
-        subnet_ids: typing.Sequence[builtins.str],
-        description: typing.Optional[builtins.str] = None,
-        subnet_group_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSubnetGroup``.
-
-        :param subnet_ids: A list of VPC subnet IDs for the subnet group.
-        :param description: The description of the subnet group.
-        :param subnet_group_name: The name of the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dax as dax
-            
-            cfn_subnet_group_props = dax.CfnSubnetGroupProps(
-                subnet_ids=["subnetIds"],
-            
-                # the properties below are optional
-                description="description",
-                subnet_group_name="subnetGroupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2a634e35853b0d535a4301ce03172062663607e6b5c0a2d367871acce1292a4)
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument subnet_group_name", value=subnet_group_name, expected_type=type_hints["subnet_group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subnet_ids": subnet_ids,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if subnet_group_name is not None:
-            self._values["subnet_group_name"] = subnet_group_name
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''A list of VPC subnet IDs for the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subnet_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-subnetgroup.html#cfn-dax-subnetgroup-subnetgroupname
-        '''
-        result = self._values.get("subnet_group_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSubnetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnCluster",
     "CfnClusterProps",
@@ -1330,9 +1626,76 @@ __all__ = [
     "CfnParameterGroupProps",
     "CfnSubnetGroup",
     "CfnSubnetGroupProps",
+    "ClusterReference",
+    "IClusterRef",
+    "IParameterGroupRef",
+    "ISubnetGroupRef",
+    "ParameterGroupReference",
+    "SubnetGroupReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ece2ee11399f77b699021f70d8286031a08ea0aa17f1c2afcda136bb9f1269b8(
+    *,
+    iam_role_arn: builtins.str,
+    node_type: builtins.str,
+    replication_factor: jsii.Number,
+    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
+    cluster_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    notification_topic_arn: typing.Optional[builtins.str] = None,
+    parameter_group_name: typing.Optional[builtins.str] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subnet_group_name: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4491dae1cabd7717750afcb42defd554be706d191983437cf2d1cccca64615d2(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    parameter_group_name: typing.Optional[builtins.str] = None,
+    parameter_name_values: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2a634e35853b0d535a4301ce03172062663607e6b5c0a2d367871acce1292a4(
+    *,
+    subnet_ids: typing.Sequence[builtins.str],
+    description: typing.Optional[builtins.str] = None,
+    subnet_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__370ff2bfb36608cb19f37657c9fa04099b3827c2a2fc0166329dd271138ddb41(
+    *,
+    cluster_arn: builtins.str,
+    cluster_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4018e88f129051f9d26edd533f768c2a0f473d927c1aa95437d8b56ec404deed(
+    *,
+    parameter_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a38c1c9a0e2c47bbd068c410b8b3096411c0c1b7ec952f3328489617a5882772(
+    *,
+    subnet_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__324ad6077b574145119496cf9145399149504cf843373d16080bbfc26bdf337c(
     scope: _constructs_77d1e7e8.Construct,
@@ -1466,27 +1829,6 @@ def _typecheckingstub__e519d3094d95ddc323860984c5b5c2702e16db8b3e7a7fd08b117de03
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ece2ee11399f77b699021f70d8286031a08ea0aa17f1c2afcda136bb9f1269b8(
-    *,
-    iam_role_arn: builtins.str,
-    node_type: builtins.str,
-    replication_factor: jsii.Number,
-    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
-    cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
-    cluster_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    notification_topic_arn: typing.Optional[builtins.str] = None,
-    parameter_group_name: typing.Optional[builtins.str] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    subnet_group_name: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__57163a266c7ddaa448bd986af45e05e85c86557e3ddab63ad97ececcea717676(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1528,15 +1870,6 @@ def _typecheckingstub__debcae534ba3b42bfd314c77f9ee5a02478b2fdc28d91af155cd6ef12
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4491dae1cabd7717750afcb42defd554be706d191983437cf2d1cccca64615d2(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    parameter_group_name: typing.Optional[builtins.str] = None,
-    parameter_name_values: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__83031360ae2c1b57012ac874ff39a0718c041d983e9345fa429f3eff1d27a78d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1574,15 +1907,6 @@ def _typecheckingstub__631477a917e513577c5d75fd3744b03476a5a0d4c798c9fe66d1c319a
 
 def _typecheckingstub__7f155103d3d1c304714ba9aeac35a7b6fa637436e6c85878763b22c643099102(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2a634e35853b0d535a4301ce03172062663607e6b5c0a2d367871acce1292a4(
-    *,
-    subnet_ids: typing.Sequence[builtins.str],
-    description: typing.Optional[builtins.str] = None,
-    subnet_group_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

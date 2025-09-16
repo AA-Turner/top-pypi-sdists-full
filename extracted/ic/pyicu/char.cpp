@@ -1,5 +1,5 @@
 /* ====================================================================
- * Copyright (c) 2004-2024 Open Source Applications Foundation.
+ * Copyright (c) 2004-2025 Open Source Applications Foundation.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -1166,6 +1166,7 @@ void _init_char(PyObject *m)
     INSTALL_ENUM(UProperty, "BIDI_MIRRORED", UCHAR_BIDI_MIRRORED);
     INSTALL_ENUM(UProperty, "DASH", UCHAR_DASH);
     INSTALL_ENUM(UProperty, "DEFAULT_IGNORABLE_CODE_POINT", UCHAR_DEFAULT_IGNORABLE_CODE_POINT);
+    INSTALL_ENUM(UProperty, "DEPRECATED", UCHAR_DEPRECATED);
     INSTALL_ENUM(UProperty, "DIACRITIC", UCHAR_DIACRITIC);
     INSTALL_ENUM(UProperty, "EXTENDER", UCHAR_EXTENDER);
     INSTALL_ENUM(UProperty, "FULL_COMPOSITION_EXCLUSION", UCHAR_FULL_COMPOSITION_EXCLUSION);
@@ -1305,7 +1306,7 @@ void _init_char(PyObject *m)
     INSTALL_ENUM(UProperty, "IDENTIFIER_STATUS", UCHAR_IDENTIFIER_STATUS);
     INSTALL_ENUM(UProperty, "IDENTIFIER_TYPE", UCHAR_IDENTIFIER_TYPE);
 #endif
-    INSTALL_ENUM(UProperty, "INVALID_CODE ", UCHAR_INVALID_CODE );
+    INSTALL_ENUM(UProperty, "INVALID_CODE", UCHAR_INVALID_CODE);
 
     INSTALL_ENUM(UCharDirection, "LEFT_TO_RIGHT", U_LEFT_TO_RIGHT);
     INSTALL_ENUM(UCharDirection, "RIGHT_TO_LEFT", U_RIGHT_TO_LEFT);

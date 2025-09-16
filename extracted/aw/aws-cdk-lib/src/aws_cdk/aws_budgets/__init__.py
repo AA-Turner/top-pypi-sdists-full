@@ -68,7 +68,612 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_budgets.BudgetReference",
+    jsii_struct_bases=[],
+    name_mapping={"budget_id": "budgetId"},
+)
+class BudgetReference:
+    def __init__(self, *, budget_id: builtins.str) -> None:
+        '''A reference to a Budget resource.
+
+        :param budget_id: The Id of the Budget resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_budgets as budgets
+            
+            budget_reference = budgets.BudgetReference(
+                budget_id="budgetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d3046339d2043452402a5457e517c8d5bc21932ad977a91264076718b3abe9c)
+            check_type(argname="argument budget_id", value=budget_id, expected_type=type_hints["budget_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "budget_id": budget_id,
+        }
+
+    @builtins.property
+    def budget_id(self) -> builtins.str:
+        '''The Id of the Budget resource.'''
+        result = self._values.get("budget_id")
+        assert result is not None, "Required property 'budget_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BudgetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_budgets.BudgetsActionReference",
+    jsii_struct_bases=[],
+    name_mapping={"action_id": "actionId", "budget_name": "budgetName"},
+)
+class BudgetsActionReference:
+    def __init__(self, *, action_id: builtins.str, budget_name: builtins.str) -> None:
+        '''A reference to a BudgetsAction resource.
+
+        :param action_id: The ActionId of the BudgetsAction resource.
+        :param budget_name: The BudgetName of the BudgetsAction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_budgets as budgets
+            
+            budgets_action_reference = budgets.BudgetsActionReference(
+                action_id="actionId",
+                budget_name="budgetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e96c13dbb7518cca903413970ba55b228a1efd00d5953b5c6ed530dbd79fa235)
+            check_type(argname="argument action_id", value=action_id, expected_type=type_hints["action_id"])
+            check_type(argname="argument budget_name", value=budget_name, expected_type=type_hints["budget_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_id": action_id,
+            "budget_name": budget_name,
+        }
+
+    @builtins.property
+    def action_id(self) -> builtins.str:
+        '''The ActionId of the BudgetsAction resource.'''
+        result = self._values.get("action_id")
+        assert result is not None, "Required property 'action_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def budget_name(self) -> builtins.str:
+        '''The BudgetName of the BudgetsAction resource.'''
+        result = self._values.get("budget_name")
+        assert result is not None, "Required property 'budget_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BudgetsActionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "budget": "budget",
+        "notifications_with_subscribers": "notificationsWithSubscribers",
+        "resource_tags": "resourceTags",
+    },
+)
+class CfnBudgetProps:
+    def __init__(
+        self,
+        *,
+        budget: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBudget``.
+
+        :param budget: The budget object that you want to create.
+        :param notifications_with_subscribers: A notification that you want to associate with a budget. A budget can have up to five notifications, and each notification can have one SNS subscriber and up to 10 email subscribers. If you include notifications and subscribers in your ``CreateBudget`` call, AWS creates the notifications and subscribers for you.
+        :param resource_tags: An optional list of tags to associate with the specified budget. Each tag consists of a key and a value, and each key must be unique for the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_budgets as budgets
+            
+            # cost_filters: Any
+            # expression_property_: budgets.CfnBudget.ExpressionProperty
+            # planned_budget_limits: Any
+            
+            cfn_budget_props = budgets.CfnBudgetProps(
+                budget=budgets.CfnBudget.BudgetDataProperty(
+                    budget_type="budgetType",
+                    time_unit="timeUnit",
+            
+                    # the properties below are optional
+                    auto_adjust_data=budgets.CfnBudget.AutoAdjustDataProperty(
+                        auto_adjust_type="autoAdjustType",
+            
+                        # the properties below are optional
+                        historical_options=budgets.CfnBudget.HistoricalOptionsProperty(
+                            budget_adjustment_period=123
+                        )
+                    ),
+                    billing_view_arn="billingViewArn",
+                    budget_limit=budgets.CfnBudget.SpendProperty(
+                        amount=123,
+                        unit="unit"
+                    ),
+                    budget_name="budgetName",
+                    cost_filters=cost_filters,
+                    cost_types=budgets.CfnBudget.CostTypesProperty(
+                        include_credit=False,
+                        include_discount=False,
+                        include_other_subscription=False,
+                        include_recurring=False,
+                        include_refund=False,
+                        include_subscription=False,
+                        include_support=False,
+                        include_tax=False,
+                        include_upfront=False,
+                        use_amortized=False,
+                        use_blended=False
+                    ),
+                    filter_expression=budgets.CfnBudget.ExpressionProperty(
+                        and=[expression_property_],
+                        cost_categories=budgets.CfnBudget.CostCategoryValuesProperty(
+                            key="key",
+                            match_options=["matchOptions"],
+                            values=["values"]
+                        ),
+                        dimensions=budgets.CfnBudget.ExpressionDimensionValuesProperty(
+                            key="key",
+                            match_options=["matchOptions"],
+                            values=["values"]
+                        ),
+                        not=expression_property_,
+                        or=[expression_property_],
+                        tags=budgets.CfnBudget.TagValuesProperty(
+                            key="key",
+                            match_options=["matchOptions"],
+                            values=["values"]
+                        )
+                    ),
+                    metrics=["metrics"],
+                    planned_budget_limits=planned_budget_limits,
+                    time_period=budgets.CfnBudget.TimePeriodProperty(
+                        end="end",
+                        start="start"
+                    )
+                ),
+            
+                # the properties below are optional
+                notifications_with_subscribers=[budgets.CfnBudget.NotificationWithSubscribersProperty(
+                    notification=budgets.CfnBudget.NotificationProperty(
+                        comparison_operator="comparisonOperator",
+                        notification_type="notificationType",
+                        threshold=123,
+            
+                        # the properties below are optional
+                        threshold_type="thresholdType"
+                    ),
+                    subscribers=[budgets.CfnBudget.SubscriberProperty(
+                        address="address",
+                        subscription_type="subscriptionType"
+                    )]
+                )],
+                resource_tags=[budgets.CfnBudget.ResourceTagProperty(
+                    key="key",
+            
+                    # the properties below are optional
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02)
+            check_type(argname="argument budget", value=budget, expected_type=type_hints["budget"])
+            check_type(argname="argument notifications_with_subscribers", value=notifications_with_subscribers, expected_type=type_hints["notifications_with_subscribers"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "budget": budget,
+        }
+        if notifications_with_subscribers is not None:
+            self._values["notifications_with_subscribers"] = notifications_with_subscribers
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+
+    @builtins.property
+    def budget(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnBudget.BudgetDataProperty"]:
+        '''The budget object that you want to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-budget
+        '''
+        result = self._values.get("budget")
+        assert result is not None, "Required property 'budget' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBudget.BudgetDataProperty"], result)
+
+    @builtins.property
+    def notifications_with_subscribers(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudget.NotificationWithSubscribersProperty"]]]]:
+        '''A notification that you want to associate with a budget.
+
+        A budget can have up to five notifications, and each notification can have one SNS subscriber and up to 10 email subscribers. If you include notifications and subscribers in your ``CreateBudget`` call, AWS creates the notifications and subscribers for you.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-notificationswithsubscribers
+        '''
+        result = self._values.get("notifications_with_subscribers")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudget.NotificationWithSubscribersProperty"]]]], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudget.ResourceTagProperty"]]]]:
+        '''An optional list of tags to associate with the specified budget.
+
+        Each tag consists of a key and a value, and each key must be unique for the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudget.ResourceTagProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBudgetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetsActionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action_threshold": "actionThreshold",
+        "action_type": "actionType",
+        "budget_name": "budgetName",
+        "definition": "definition",
+        "execution_role_arn": "executionRoleArn",
+        "notification_type": "notificationType",
+        "subscribers": "subscribers",
+        "approval_model": "approvalModel",
+        "resource_tags": "resourceTags",
+    },
+)
+class CfnBudgetsActionProps:
+    def __init__(
+        self,
+        *,
+        action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudgetsAction.ActionThresholdProperty", typing.Dict[builtins.str, typing.Any]]],
+        action_type: builtins.str,
+        budget_name: builtins.str,
+        definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudgetsAction.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: builtins.str,
+        notification_type: builtins.str,
+        subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBudgetsAction.SubscriberProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        approval_model: typing.Optional[builtins.str] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnBudgetsAction.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBudgetsAction``.
+
+        :param action_threshold: The trigger threshold of the action.
+        :param action_type: The type of action. This defines the type of tasks that can be carried out by this action. This field also determines the format for definition.
+        :param budget_name: A string that represents the budget name. ":" and "" characters aren't allowed.
+        :param definition: Specifies all of the type-specific parameters.
+        :param execution_role_arn: The role passed for action execution and reversion. Roles and actions must be in the same account.
+        :param notification_type: The type of a notification.
+        :param subscribers: A list of subscribers.
+        :param approval_model: This specifies if the action needs manual or automatic approval.
+        :param resource_tags: An optional list of tags to associate with the specified budget action. Each tag consists of a key and a value, and each key must be unique for the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_budgets as budgets
+            
+            cfn_budgets_action_props = budgets.CfnBudgetsActionProps(
+                action_threshold=budgets.CfnBudgetsAction.ActionThresholdProperty(
+                    type="type",
+                    value=123
+                ),
+                action_type="actionType",
+                budget_name="budgetName",
+                definition=budgets.CfnBudgetsAction.DefinitionProperty(
+                    iam_action_definition=budgets.CfnBudgetsAction.IamActionDefinitionProperty(
+                        policy_arn="policyArn",
+            
+                        # the properties below are optional
+                        groups=["groups"],
+                        roles=["roles"],
+                        users=["users"]
+                    ),
+                    scp_action_definition=budgets.CfnBudgetsAction.ScpActionDefinitionProperty(
+                        policy_id="policyId",
+                        target_ids=["targetIds"]
+                    ),
+                    ssm_action_definition=budgets.CfnBudgetsAction.SsmActionDefinitionProperty(
+                        instance_ids=["instanceIds"],
+                        region="region",
+                        subtype="subtype"
+                    )
+                ),
+                execution_role_arn="executionRoleArn",
+                notification_type="notificationType",
+                subscribers=[budgets.CfnBudgetsAction.SubscriberProperty(
+                    address="address",
+                    type="type"
+                )],
+            
+                # the properties below are optional
+                approval_model="approvalModel",
+                resource_tags=[budgets.CfnBudgetsAction.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5)
+            check_type(argname="argument action_threshold", value=action_threshold, expected_type=type_hints["action_threshold"])
+            check_type(argname="argument action_type", value=action_type, expected_type=type_hints["action_type"])
+            check_type(argname="argument budget_name", value=budget_name, expected_type=type_hints["budget_name"])
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument notification_type", value=notification_type, expected_type=type_hints["notification_type"])
+            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
+            check_type(argname="argument approval_model", value=approval_model, expected_type=type_hints["approval_model"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_threshold": action_threshold,
+            "action_type": action_type,
+            "budget_name": budget_name,
+            "definition": definition,
+            "execution_role_arn": execution_role_arn,
+            "notification_type": notification_type,
+            "subscribers": subscribers,
+        }
+        if approval_model is not None:
+            self._values["approval_model"] = approval_model
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
+
+    @builtins.property
+    def action_threshold(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.ActionThresholdProperty"]:
+        '''The trigger threshold of the action.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-actionthreshold
+        '''
+        result = self._values.get("action_threshold")
+        assert result is not None, "Required property 'action_threshold' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.ActionThresholdProperty"], result)
+
+    @builtins.property
+    def action_type(self) -> builtins.str:
+        '''The type of action.
+
+        This defines the type of tasks that can be carried out by this action. This field also determines the format for definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-actiontype
+        '''
+        result = self._values.get("action_type")
+        assert result is not None, "Required property 'action_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def budget_name(self) -> builtins.str:
+        '''A string that represents the budget name.
+
+        ":" and "" characters aren't allowed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-budgetname
+        '''
+        result = self._values.get("budget_name")
+        assert result is not None, "Required property 'budget_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def definition(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.DefinitionProperty"]:
+        '''Specifies all of the type-specific parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-definition
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.DefinitionProperty"], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> builtins.str:
+        '''The role passed for action execution and reversion.
+
+        Roles and actions must be in the same account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        assert result is not None, "Required property 'execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def notification_type(self) -> builtins.str:
+        '''The type of a notification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-notificationtype
+        '''
+        result = self._values.get("notification_type")
+        assert result is not None, "Required property 'notification_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subscribers(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.SubscriberProperty"]]]:
+        '''A list of subscribers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-subscribers
+        '''
+        result = self._values.get("subscribers")
+        assert result is not None, "Required property 'subscribers' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBudgetsAction.SubscriberProperty"]]], result)
+
+    @builtins.property
+    def approval_model(self) -> typing.Optional[builtins.str]:
+        '''This specifies if the action needs manual or automatic approval.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-approvalmodel
+        '''
+        result = self._values.get("approval_model")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnBudgetsAction.ResourceTagProperty"]]:
+        '''An optional list of tags to associate with the specified budget action.
+
+        Each tag consists of a key and a value, and each key must be unique for the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.List["CfnBudgetsAction.ResourceTagProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBudgetsActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_budgets.IBudgetRef")
+class IBudgetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Budget.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> BudgetReference:
+        '''(experimental) A reference to a Budget resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBudgetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Budget.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_budgets.IBudgetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> BudgetReference:
+        '''(experimental) A reference to a Budget resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BudgetReference, jsii.get(self, "budgetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBudgetRef).__jsii_proxy_class__ = lambda : _IBudgetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_budgets.IBudgetsActionRef")
+class IBudgetsActionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BudgetsAction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetsActionRef")
+    def budgets_action_ref(self) -> BudgetsActionReference:
+        '''(experimental) A reference to a BudgetsAction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBudgetsActionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BudgetsAction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_budgets.IBudgetsActionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetsActionRef")
+    def budgets_action_ref(self) -> BudgetsActionReference:
+        '''(experimental) A reference to a BudgetsAction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BudgetsActionReference, jsii.get(self, "budgetsActionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBudgetsActionRef).__jsii_proxy_class__ = lambda : _IBudgetsActionRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IBudgetRef)
 class CfnBudget(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -243,6 +848,12 @@ class CfnBudget(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetRef")
+    def budget_ref(self) -> BudgetReference:
+        '''A reference to a Budget resource.'''
+        return typing.cast(BudgetReference, jsii.get(self, "budgetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1995,191 +2606,7 @@ class CfnBudget(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "budget": "budget",
-        "notifications_with_subscribers": "notificationsWithSubscribers",
-        "resource_tags": "resourceTags",
-    },
-)
-class CfnBudgetProps:
-    def __init__(
-        self,
-        *,
-        budget: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
-        notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBudget``.
-
-        :param budget: The budget object that you want to create.
-        :param notifications_with_subscribers: A notification that you want to associate with a budget. A budget can have up to five notifications, and each notification can have one SNS subscriber and up to 10 email subscribers. If you include notifications and subscribers in your ``CreateBudget`` call, AWS creates the notifications and subscribers for you.
-        :param resource_tags: An optional list of tags to associate with the specified budget. Each tag consists of a key and a value, and each key must be unique for the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_budgets as budgets
-            
-            # cost_filters: Any
-            # expression_property_: budgets.CfnBudget.ExpressionProperty
-            # planned_budget_limits: Any
-            
-            cfn_budget_props = budgets.CfnBudgetProps(
-                budget=budgets.CfnBudget.BudgetDataProperty(
-                    budget_type="budgetType",
-                    time_unit="timeUnit",
-            
-                    # the properties below are optional
-                    auto_adjust_data=budgets.CfnBudget.AutoAdjustDataProperty(
-                        auto_adjust_type="autoAdjustType",
-            
-                        # the properties below are optional
-                        historical_options=budgets.CfnBudget.HistoricalOptionsProperty(
-                            budget_adjustment_period=123
-                        )
-                    ),
-                    billing_view_arn="billingViewArn",
-                    budget_limit=budgets.CfnBudget.SpendProperty(
-                        amount=123,
-                        unit="unit"
-                    ),
-                    budget_name="budgetName",
-                    cost_filters=cost_filters,
-                    cost_types=budgets.CfnBudget.CostTypesProperty(
-                        include_credit=False,
-                        include_discount=False,
-                        include_other_subscription=False,
-                        include_recurring=False,
-                        include_refund=False,
-                        include_subscription=False,
-                        include_support=False,
-                        include_tax=False,
-                        include_upfront=False,
-                        use_amortized=False,
-                        use_blended=False
-                    ),
-                    filter_expression=budgets.CfnBudget.ExpressionProperty(
-                        and=[expression_property_],
-                        cost_categories=budgets.CfnBudget.CostCategoryValuesProperty(
-                            key="key",
-                            match_options=["matchOptions"],
-                            values=["values"]
-                        ),
-                        dimensions=budgets.CfnBudget.ExpressionDimensionValuesProperty(
-                            key="key",
-                            match_options=["matchOptions"],
-                            values=["values"]
-                        ),
-                        not=expression_property_,
-                        or=[expression_property_],
-                        tags=budgets.CfnBudget.TagValuesProperty(
-                            key="key",
-                            match_options=["matchOptions"],
-                            values=["values"]
-                        )
-                    ),
-                    metrics=["metrics"],
-                    planned_budget_limits=planned_budget_limits,
-                    time_period=budgets.CfnBudget.TimePeriodProperty(
-                        end="end",
-                        start="start"
-                    )
-                ),
-            
-                # the properties below are optional
-                notifications_with_subscribers=[budgets.CfnBudget.NotificationWithSubscribersProperty(
-                    notification=budgets.CfnBudget.NotificationProperty(
-                        comparison_operator="comparisonOperator",
-                        notification_type="notificationType",
-                        threshold=123,
-            
-                        # the properties below are optional
-                        threshold_type="thresholdType"
-                    ),
-                    subscribers=[budgets.CfnBudget.SubscriberProperty(
-                        address="address",
-                        subscription_type="subscriptionType"
-                    )]
-                )],
-                resource_tags=[budgets.CfnBudget.ResourceTagProperty(
-                    key="key",
-            
-                    # the properties below are optional
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02)
-            check_type(argname="argument budget", value=budget, expected_type=type_hints["budget"])
-            check_type(argname="argument notifications_with_subscribers", value=notifications_with_subscribers, expected_type=type_hints["notifications_with_subscribers"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "budget": budget,
-        }
-        if notifications_with_subscribers is not None:
-            self._values["notifications_with_subscribers"] = notifications_with_subscribers
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-
-    @builtins.property
-    def budget(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnBudget.BudgetDataProperty]:
-        '''The budget object that you want to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-budget
-        '''
-        result = self._values.get("budget")
-        assert result is not None, "Required property 'budget' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnBudget.BudgetDataProperty], result)
-
-    @builtins.property
-    def notifications_with_subscribers(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.NotificationWithSubscribersProperty]]]]:
-        '''A notification that you want to associate with a budget.
-
-        A budget can have up to five notifications, and each notification can have one SNS subscriber and up to 10 email subscribers. If you include notifications and subscribers in your ``CreateBudget`` call, AWS creates the notifications and subscribers for you.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-notificationswithsubscribers
-        '''
-        result = self._values.get("notifications_with_subscribers")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.NotificationWithSubscribersProperty]]]], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.ResourceTagProperty]]]]:
-        '''An optional list of tags to associate with the specified budget.
-
-        Each tag consists of a key and a value, and each key must be unique for the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudget.ResourceTagProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBudgetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IBudgetsActionRef, _ITaggableV2_4e6798f8)
 class CfnBudgetsAction(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2325,6 +2752,12 @@ class CfnBudgetsAction(
         :cloudformationAttribute: ActionId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrActionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="budgetsActionRef")
+    def budgets_action_ref(self) -> BudgetsActionReference:
+        '''A reference to a BudgetsAction resource.'''
+        return typing.cast(BudgetsActionReference, jsii.get(self, "budgetsActionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -3066,246 +3499,57 @@ class CfnBudgetsAction(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetsActionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "action_threshold": "actionThreshold",
-        "action_type": "actionType",
-        "budget_name": "budgetName",
-        "definition": "definition",
-        "execution_role_arn": "executionRoleArn",
-        "notification_type": "notificationType",
-        "subscribers": "subscribers",
-        "approval_model": "approvalModel",
-        "resource_tags": "resourceTags",
-    },
-)
-class CfnBudgetsActionProps:
-    def __init__(
-        self,
-        *,
-        action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
-        action_type: builtins.str,
-        budget_name: builtins.str,
-        definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: builtins.str,
-        notification_type: builtins.str,
-        subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        approval_model: typing.Optional[builtins.str] = None,
-        resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudgetsAction.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBudgetsAction``.
-
-        :param action_threshold: The trigger threshold of the action.
-        :param action_type: The type of action. This defines the type of tasks that can be carried out by this action. This field also determines the format for definition.
-        :param budget_name: A string that represents the budget name. ":" and "" characters aren't allowed.
-        :param definition: Specifies all of the type-specific parameters.
-        :param execution_role_arn: The role passed for action execution and reversion. Roles and actions must be in the same account.
-        :param notification_type: The type of a notification.
-        :param subscribers: A list of subscribers.
-        :param approval_model: This specifies if the action needs manual or automatic approval.
-        :param resource_tags: An optional list of tags to associate with the specified budget action. Each tag consists of a key and a value, and each key must be unique for the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_budgets as budgets
-            
-            cfn_budgets_action_props = budgets.CfnBudgetsActionProps(
-                action_threshold=budgets.CfnBudgetsAction.ActionThresholdProperty(
-                    type="type",
-                    value=123
-                ),
-                action_type="actionType",
-                budget_name="budgetName",
-                definition=budgets.CfnBudgetsAction.DefinitionProperty(
-                    iam_action_definition=budgets.CfnBudgetsAction.IamActionDefinitionProperty(
-                        policy_arn="policyArn",
-            
-                        # the properties below are optional
-                        groups=["groups"],
-                        roles=["roles"],
-                        users=["users"]
-                    ),
-                    scp_action_definition=budgets.CfnBudgetsAction.ScpActionDefinitionProperty(
-                        policy_id="policyId",
-                        target_ids=["targetIds"]
-                    ),
-                    ssm_action_definition=budgets.CfnBudgetsAction.SsmActionDefinitionProperty(
-                        instance_ids=["instanceIds"],
-                        region="region",
-                        subtype="subtype"
-                    )
-                ),
-                execution_role_arn="executionRoleArn",
-                notification_type="notificationType",
-                subscribers=[budgets.CfnBudgetsAction.SubscriberProperty(
-                    address="address",
-                    type="type"
-                )],
-            
-                # the properties below are optional
-                approval_model="approvalModel",
-                resource_tags=[budgets.CfnBudgetsAction.ResourceTagProperty(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5)
-            check_type(argname="argument action_threshold", value=action_threshold, expected_type=type_hints["action_threshold"])
-            check_type(argname="argument action_type", value=action_type, expected_type=type_hints["action_type"])
-            check_type(argname="argument budget_name", value=budget_name, expected_type=type_hints["budget_name"])
-            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
-            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
-            check_type(argname="argument notification_type", value=notification_type, expected_type=type_hints["notification_type"])
-            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
-            check_type(argname="argument approval_model", value=approval_model, expected_type=type_hints["approval_model"])
-            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "action_threshold": action_threshold,
-            "action_type": action_type,
-            "budget_name": budget_name,
-            "definition": definition,
-            "execution_role_arn": execution_role_arn,
-            "notification_type": notification_type,
-            "subscribers": subscribers,
-        }
-        if approval_model is not None:
-            self._values["approval_model"] = approval_model
-        if resource_tags is not None:
-            self._values["resource_tags"] = resource_tags
-
-    @builtins.property
-    def action_threshold(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.ActionThresholdProperty]:
-        '''The trigger threshold of the action.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-actionthreshold
-        '''
-        result = self._values.get("action_threshold")
-        assert result is not None, "Required property 'action_threshold' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.ActionThresholdProperty], result)
-
-    @builtins.property
-    def action_type(self) -> builtins.str:
-        '''The type of action.
-
-        This defines the type of tasks that can be carried out by this action. This field also determines the format for definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-actiontype
-        '''
-        result = self._values.get("action_type")
-        assert result is not None, "Required property 'action_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def budget_name(self) -> builtins.str:
-        '''A string that represents the budget name.
-
-        ":" and "" characters aren't allowed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-budgetname
-        '''
-        result = self._values.get("budget_name")
-        assert result is not None, "Required property 'budget_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def definition(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.DefinitionProperty]:
-        '''Specifies all of the type-specific parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-definition
-        '''
-        result = self._values.get("definition")
-        assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.DefinitionProperty], result)
-
-    @builtins.property
-    def execution_role_arn(self) -> builtins.str:
-        '''The role passed for action execution and reversion.
-
-        Roles and actions must be in the same account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-executionrolearn
-        '''
-        result = self._values.get("execution_role_arn")
-        assert result is not None, "Required property 'execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def notification_type(self) -> builtins.str:
-        '''The type of a notification.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-notificationtype
-        '''
-        result = self._values.get("notification_type")
-        assert result is not None, "Required property 'notification_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subscribers(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.SubscriberProperty]]]:
-        '''A list of subscribers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-subscribers
-        '''
-        result = self._values.get("subscribers")
-        assert result is not None, "Required property 'subscribers' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBudgetsAction.SubscriberProperty]]], result)
-
-    @builtins.property
-    def approval_model(self) -> typing.Optional[builtins.str]:
-        '''This specifies if the action needs manual or automatic approval.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-approvalmodel
-        '''
-        result = self._values.get("approval_model")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_tags(
-        self,
-    ) -> typing.Optional[typing.List[CfnBudgetsAction.ResourceTagProperty]]:
-        '''An optional list of tags to associate with the specified budget action.
-
-        Each tag consists of a key and a value, and each key must be unique for the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budgetsaction.html#cfn-budgets-budgetsaction-resourcetags
-        '''
-        result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.List[CfnBudgetsAction.ResourceTagProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBudgetsActionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BudgetReference",
+    "BudgetsActionReference",
     "CfnBudget",
     "CfnBudgetProps",
     "CfnBudgetsAction",
     "CfnBudgetsActionProps",
+    "IBudgetRef",
+    "IBudgetsActionRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__4d3046339d2043452402a5457e517c8d5bc21932ad977a91264076718b3abe9c(
+    *,
+    budget_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e96c13dbb7518cca903413970ba55b228a1efd00d5953b5c6ed530dbd79fa235(
+    *,
+    action_id: builtins.str,
+    budget_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02(
+    *,
+    budget: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5(
+    *,
+    action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
+    action_type: builtins.str,
+    budget_name: builtins.str,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role_arn: builtins.str,
+    notification_type: builtins.str,
+    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    approval_model: typing.Optional[builtins.str] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudgetsAction.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__fcf9a7d2538a7b213b0959a8dca9ebac8bd9adbb67b3989e4ad2e983d215ccb6(
     scope: _constructs_77d1e7e8.Construct,
@@ -3487,15 +3731,6 @@ def _typecheckingstub__77f51cb94a1e5a0ae65deee87b45596400f57823b1add7660a12635b0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88e303d02(
-    *,
-    budget: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
-    notifications_with_subscribers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5feaf1ccce7286d2cae539317638953135d21b7e897f0ded2f3a275d0516a886(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3635,21 +3870,6 @@ def _typecheckingstub__53b54f7e3522aacd600ff090e6221f615565664782c185bdcb801f95f
     *,
     address: builtins.str,
     type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2bf8a3fb960018ac6b97a0b01c3bd29dd4bf1acba7443236249ad39f7ced10a5(
-    *,
-    action_threshold: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.ActionThresholdProperty, typing.Dict[builtins.str, typing.Any]]],
-    action_type: builtins.str,
-    budget_name: builtins.str,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.DefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: builtins.str,
-    notification_type: builtins.str,
-    subscribers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBudgetsAction.SubscriberProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    approval_model: typing.Optional[builtins.str] = None,
-    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudgetsAction.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

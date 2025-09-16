@@ -74,7 +74,352 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloud9.CfnEnvironmentEC2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "image_id": "imageId",
+        "instance_type": "instanceType",
+        "automatic_stop_time_minutes": "automaticStopTimeMinutes",
+        "connection_type": "connectionType",
+        "description": "description",
+        "name": "name",
+        "owner_arn": "ownerArn",
+        "repositories": "repositories",
+        "subnet_id": "subnetId",
+        "tags": "tags",
+    },
+)
+class CfnEnvironmentEC2Props:
+    def __init__(
+        self,
+        *,
+        image_id: builtins.str,
+        instance_type: builtins.str,
+        automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
+        connection_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        owner_arn: typing.Optional[builtins.str] = None,
+        repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironmentEC2.RepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subnet_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnvironmentEC2``.
+
+        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
+        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
+        :param automatic_stop_time_minutes: The number of minutes until the running instance is shut down after the environment was last used.
+        :param connection_type: The connection type used for connecting to an Amazon EC2 environment. Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
+        :param description: The description of the environment to create.
+        :param name: The name of the environment.
+        :param owner_arn: The Amazon Resource Name (ARN) of the environment owner. This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
+        :param repositories: Any AWS CodeCommit source code repositories to be cloned into the development environment.
+        :param subnet_id: The ID of the subnet in Amazon Virtual Private Cloud (Amazon VPC) that AWS Cloud9 will use to communicate with the Amazon Elastic Compute Cloud (Amazon EC2) instance.
+        :param tags: An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloud9 as cloud9
+            
+            cfn_environment_eC2_props = cloud9.CfnEnvironmentEC2Props(
+                image_id="imageId",
+                instance_type="instanceType",
+            
+                # the properties below are optional
+                automatic_stop_time_minutes=123,
+                connection_type="connectionType",
+                description="description",
+                name="name",
+                owner_arn="ownerArn",
+                repositories=[cloud9.CfnEnvironmentEC2.RepositoryProperty(
+                    path_component="pathComponent",
+                    repository_url="repositoryUrl"
+                )],
+                subnet_id="subnetId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca)
+            check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument automatic_stop_time_minutes", value=automatic_stop_time_minutes, expected_type=type_hints["automatic_stop_time_minutes"])
+            check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument owner_arn", value=owner_arn, expected_type=type_hints["owner_arn"])
+            check_type(argname="argument repositories", value=repositories, expected_type=type_hints["repositories"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "image_id": image_id,
+            "instance_type": instance_type,
+        }
+        if automatic_stop_time_minutes is not None:
+            self._values["automatic_stop_time_minutes"] = automatic_stop_time_minutes
+        if connection_type is not None:
+            self._values["connection_type"] = connection_type
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if owner_arn is not None:
+            self._values["owner_arn"] = owner_arn
+        if repositories is not None:
+            self._values["repositories"] = repositories
+        if subnet_id is not None:
+            self._values["subnet_id"] = subnet_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def image_id(self) -> builtins.str:
+        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.
+
+        To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path.
+
+        From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users.
+
+        Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04.
+
+        *AMI aliases*
+
+        - Amazon Linux 2: ``amazonlinux-2-x86_64``
+        - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64``
+        - Ubuntu 18.04: ``ubuntu-18.04-x86_64``
+        - Ubuntu 22.04: ``ubuntu-22.04-x86_64``
+
+        *SSM paths*
+
+        - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64``
+        - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64``
+        - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64``
+        - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-imageid
+        '''
+        result = self._values.get("image_id")
+        assert result is not None, "Required property 'image_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_type(self) -> builtins.str:
+        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-instancetype
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def automatic_stop_time_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The number of minutes until the running instance is shut down after the environment was last used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-automaticstoptimeminutes
+        '''
+        result = self._values.get("automatic_stop_time_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def connection_type(self) -> typing.Optional[builtins.str]:
+        '''The connection type used for connecting to an Amazon EC2 environment.
+
+        Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-connectiontype
+        '''
+        result = self._values.get("connection_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the environment to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def owner_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the environment owner.
+
+        This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-ownerarn
+        '''
+        result = self._values.get("owner_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def repositories(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironmentEC2.RepositoryProperty"]]]]:
+        '''Any AWS CodeCommit source code repositories to be cloned into the development environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-repositories
+        '''
+        result = self._values.get("repositories")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironmentEC2.RepositoryProperty"]]]], result)
+
+    @builtins.property
+    def subnet_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the subnet in Amazon Virtual Private Cloud (Amazon VPC) that AWS Cloud9 will use to communicate with the Amazon Elastic Compute Cloud (Amazon EC2) instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-subnetid
+        '''
+        result = self._values.get("subnet_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnvironmentEC2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloud9.EnvironmentEC2Reference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment_ec2_arn": "environmentEc2Arn",
+        "environment_ec2_id": "environmentEc2Id",
+    },
+)
+class EnvironmentEC2Reference:
+    def __init__(
+        self,
+        *,
+        environment_ec2_arn: builtins.str,
+        environment_ec2_id: builtins.str,
+    ) -> None:
+        '''A reference to a EnvironmentEC2 resource.
+
+        :param environment_ec2_arn: The ARN of the EnvironmentEC2 resource.
+        :param environment_ec2_id: The Id of the EnvironmentEC2 resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloud9 as cloud9
+            
+            environment_eC2_reference = cloud9.EnvironmentEC2Reference(
+                environment_ec2_arn="environmentEc2Arn",
+                environment_ec2_id="environmentEc2Id"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a64e0a2ffe6f7a85fe45a8ed4795a45f03fd098bffa03dc0bebaf7682dd642b9)
+            check_type(argname="argument environment_ec2_arn", value=environment_ec2_arn, expected_type=type_hints["environment_ec2_arn"])
+            check_type(argname="argument environment_ec2_id", value=environment_ec2_id, expected_type=type_hints["environment_ec2_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment_ec2_arn": environment_ec2_arn,
+            "environment_ec2_id": environment_ec2_id,
+        }
+
+    @builtins.property
+    def environment_ec2_arn(self) -> builtins.str:
+        '''The ARN of the EnvironmentEC2 resource.'''
+        result = self._values.get("environment_ec2_arn")
+        assert result is not None, "Required property 'environment_ec2_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment_ec2_id(self) -> builtins.str:
+        '''The Id of the EnvironmentEC2 resource.'''
+        result = self._values.get("environment_ec2_id")
+        assert result is not None, "Required property 'environment_ec2_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnvironmentEC2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_cloud9.IEnvironmentEC2Ref")
+class IEnvironmentEC2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a EnvironmentEC2.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentEc2Ref")
+    def environment_ec2_ref(self) -> EnvironmentEC2Reference:
+        '''(experimental) A reference to a EnvironmentEC2 resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEnvironmentEC2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a EnvironmentEC2.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_cloud9.IEnvironmentEC2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentEc2Ref")
+    def environment_ec2_ref(self) -> EnvironmentEC2Reference:
+        '''(experimental) A reference to a EnvironmentEC2 resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(EnvironmentEC2Reference, jsii.get(self, "environmentEc2Ref"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEnvironmentEC2Ref).__jsii_proxy_class__ = lambda : _IEnvironmentEC2RefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IEnvironmentEC2Ref, _ITaggable_36806126)
 class CfnEnvironmentEC2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -225,6 +570,12 @@ class CfnEnvironmentEC2(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentEc2Ref")
+    def environment_ec2_ref(self) -> EnvironmentEC2Reference:
+        '''A reference to a EnvironmentEC2 resource.'''
+        return typing.cast(EnvironmentEC2Reference, jsii.get(self, "environmentEc2Ref"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -446,249 +797,38 @@ class CfnEnvironmentEC2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_cloud9.CfnEnvironmentEC2Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "image_id": "imageId",
-        "instance_type": "instanceType",
-        "automatic_stop_time_minutes": "automaticStopTimeMinutes",
-        "connection_type": "connectionType",
-        "description": "description",
-        "name": "name",
-        "owner_arn": "ownerArn",
-        "repositories": "repositories",
-        "subnet_id": "subnetId",
-        "tags": "tags",
-    },
-)
-class CfnEnvironmentEC2Props:
-    def __init__(
-        self,
-        *,
-        image_id: builtins.str,
-        instance_type: builtins.str,
-        automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
-        connection_type: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        owner_arn: typing.Optional[builtins.str] = None,
-        repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subnet_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnvironmentEC2``.
-
-        :param image_id: The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance. To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path. From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users. Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04. *AMI aliases* - Amazon Linux 2: ``amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``ubuntu-22.04-x86_64`` *SSM paths* - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64`` - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64`` - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64`` - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
-        :param instance_type: The type of instance to connect to the environment (for example, ``t2.micro`` ).
-        :param automatic_stop_time_minutes: The number of minutes until the running instance is shut down after the environment was last used.
-        :param connection_type: The connection type used for connecting to an Amazon EC2 environment. Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
-        :param description: The description of the environment to create.
-        :param name: The name of the environment.
-        :param owner_arn: The Amazon Resource Name (ARN) of the environment owner. This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
-        :param repositories: Any AWS CodeCommit source code repositories to be cloned into the development environment.
-        :param subnet_id: The ID of the subnet in Amazon Virtual Private Cloud (Amazon VPC) that AWS Cloud9 will use to communicate with the Amazon Elastic Compute Cloud (Amazon EC2) instance.
-        :param tags: An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_cloud9 as cloud9
-            
-            cfn_environment_eC2_props = cloud9.CfnEnvironmentEC2Props(
-                image_id="imageId",
-                instance_type="instanceType",
-            
-                # the properties below are optional
-                automatic_stop_time_minutes=123,
-                connection_type="connectionType",
-                description="description",
-                name="name",
-                owner_arn="ownerArn",
-                repositories=[cloud9.CfnEnvironmentEC2.RepositoryProperty(
-                    path_component="pathComponent",
-                    repository_url="repositoryUrl"
-                )],
-                subnet_id="subnetId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca)
-            check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
-            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
-            check_type(argname="argument automatic_stop_time_minutes", value=automatic_stop_time_minutes, expected_type=type_hints["automatic_stop_time_minutes"])
-            check_type(argname="argument connection_type", value=connection_type, expected_type=type_hints["connection_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument owner_arn", value=owner_arn, expected_type=type_hints["owner_arn"])
-            check_type(argname="argument repositories", value=repositories, expected_type=type_hints["repositories"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "image_id": image_id,
-            "instance_type": instance_type,
-        }
-        if automatic_stop_time_minutes is not None:
-            self._values["automatic_stop_time_minutes"] = automatic_stop_time_minutes
-        if connection_type is not None:
-            self._values["connection_type"] = connection_type
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if owner_arn is not None:
-            self._values["owner_arn"] = owner_arn
-        if repositories is not None:
-            self._values["repositories"] = repositories
-        if subnet_id is not None:
-            self._values["subnet_id"] = subnet_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def image_id(self) -> builtins.str:
-        '''The identifier for the Amazon Machine Image (AMI) that's used to create the EC2 instance.
-
-        To choose an AMI for the instance, you must specify a valid AMI alias or a valid AWS Systems Manager path.
-
-        From December 04, 2023, you will be required to include the ``ImageId`` parameter for the ``CreateEnvironmentEC2`` action. This change will be reflected across all direct methods of communicating with the API, such as AWS SDK, AWS CLI and AWS CloudFormation. This change will only affect direct API consumers, and not AWS Cloud9 console users.
-
-        Since Ubuntu 18.04 has ended standard support as of May 31, 2023, we recommend you choose Ubuntu 22.04.
-
-        *AMI aliases*
-
-        - Amazon Linux 2: ``amazonlinux-2-x86_64``
-        - Amazon Linux 2023 (recommended): ``amazonlinux-2023-x86_64``
-        - Ubuntu 18.04: ``ubuntu-18.04-x86_64``
-        - Ubuntu 22.04: ``ubuntu-22.04-x86_64``
-
-        *SSM paths*
-
-        - Amazon Linux 2: ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2-x86_64``
-        - Amazon Linux 2023 (recommended): ``resolve:ssm:/aws/service/cloud9/amis/amazonlinux-2023-x86_64``
-        - Ubuntu 18.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-18.04-x86_64``
-        - Ubuntu 22.04: ``resolve:ssm:/aws/service/cloud9/amis/ubuntu-22.04-x86_64``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-imageid
-        '''
-        result = self._values.get("image_id")
-        assert result is not None, "Required property 'image_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_type(self) -> builtins.str:
-        '''The type of instance to connect to the environment (for example, ``t2.micro`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-instancetype
-        '''
-        result = self._values.get("instance_type")
-        assert result is not None, "Required property 'instance_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def automatic_stop_time_minutes(self) -> typing.Optional[jsii.Number]:
-        '''The number of minutes until the running instance is shut down after the environment was last used.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-automaticstoptimeminutes
-        '''
-        result = self._values.get("automatic_stop_time_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def connection_type(self) -> typing.Optional[builtins.str]:
-        '''The connection type used for connecting to an Amazon EC2 environment.
-
-        Valid values are ``CONNECT_SSH`` (default) and ``CONNECT_SSM`` (connected through AWS Systems Manager ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-connectiontype
-        '''
-        result = self._values.get("connection_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the environment to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def owner_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the environment owner.
-
-        This ARN can be the ARN of any AWS Identity and Access Management principal. If this value is not specified, the ARN defaults to this environment's creator.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-ownerarn
-        '''
-        result = self._values.get("owner_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def repositories(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironmentEC2.RepositoryProperty]]]]:
-        '''Any AWS CodeCommit source code repositories to be cloned into the development environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-repositories
-        '''
-        result = self._values.get("repositories")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEnvironmentEC2.RepositoryProperty]]]], result)
-
-    @builtins.property
-    def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the subnet in Amazon Virtual Private Cloud (Amazon VPC) that AWS Cloud9 will use to communicate with the Amazon Elastic Compute Cloud (Amazon EC2) instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-subnetid
-        '''
-        result = self._values.get("subnet_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs that will be associated with the new AWS Cloud9 development environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloud9-environmentec2.html#cfn-cloud9-environmentec2-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnvironmentEC2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnEnvironmentEC2",
     "CfnEnvironmentEC2Props",
+    "EnvironmentEC2Reference",
+    "IEnvironmentEC2Ref",
 ]
 
 publication.publish()
+
+def _typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca(
+    *,
+    image_id: builtins.str,
+    instance_type: builtins.str,
+    automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
+    connection_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    owner_arn: typing.Optional[builtins.str] = None,
+    repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subnet_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a64e0a2ffe6f7a85fe45a8ed4795a45f03fd098bffa03dc0bebaf7682dd642b9(
+    *,
+    environment_ec2_arn: builtins.str,
+    environment_ec2_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f20e60d53a3580dabcd8f88a1195a515fcbefe92a9ea846ab6ed1b1bce8546b4(
     scope: _constructs_77d1e7e8.Construct,
@@ -784,22 +924,6 @@ def _typecheckingstub__1f170b124bae07e704d39551c1b3c66810f3a968e777ec40f4c806bb7
     *,
     path_component: builtins.str,
     repository_url: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__403dfb9cb8cd675259c0bc90a981409f45ae842c0991cd0ff175e88f5bd60fca(
-    *,
-    image_id: builtins.str,
-    instance_type: builtins.str,
-    automatic_stop_time_minutes: typing.Optional[jsii.Number] = None,
-    connection_type: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    owner_arn: typing.Optional[builtins.str] = None,
-    repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironmentEC2.RepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subnet_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

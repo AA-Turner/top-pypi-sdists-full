@@ -37,12 +37,13 @@ from reflex.constants import (
     PageNames,
 )
 from reflex.constants.compiler import SpecialAttributes
-from reflex.constants.state import FRONTEND_EVENT_STATE, MEMO_MARKER
+from reflex.constants.state import CAMEL_CASE_MEMO_MARKER, FRONTEND_EVENT_STATE
 from reflex.event import (
     EventCallback,
     EventChain,
     EventHandler,
     EventSpec,
+    args_specs_from_fields,
     no_args_event_spec,
     parse_args_spec,
     pointer_event_spec,
@@ -142,14 +143,6 @@ class BaseComponentMeta(FieldBasedMeta, ABCMeta):
         _own_fields: Mapping[str, ComponentField]
         _fields: Mapping[str, ComponentField]
         _js_fields: Mapping[str, ComponentField]
-
-    @classmethod
-    def _resolve_annotations(
-        cls, namespace: dict[str, Any], name: str
-    ) -> dict[str, Any]:
-        return types.resolve_annotations(
-            namespace.get("__annotations__", {}), namespace["__module__"]
-        )
 
     @classmethod
     def _process_annotated_fields(
@@ -909,18 +902,7 @@ class Component(BaseComponent, ABC):
         """
         # Look for component specific triggers,
         # e.g. variable declared as EventHandler types.
-        return DEFAULT_TRIGGERS | {
-            name: (
-                metadata[0]
-                if (
-                    (metadata := getattr(field.annotated_type, "__metadata__", None))
-                    is not None
-                )
-                else no_args_event_spec
-            )
-            for name, field in cls.get_fields().items()
-            if field.type_origin is EventHandler
-        }  # pyright: ignore [reportOperatorIssue]
+        return DEFAULT_TRIGGERS | args_specs_from_fields(cls.get_fields())  # pyright: ignore [reportOperatorIssue]
 
     def __repr__(self) -> str:
         """Represent the component in React.
@@ -1983,7 +1965,7 @@ class CustomComponent(Component):
 
         super()._post_init(
             event_triggers={
-                key + MEMO_MARKER: EventChain.create(
+                key: EventChain.create(
                     value=props[key],
                     args_spec=get_args_spec(key),
                     key=key,
@@ -1994,9 +1976,7 @@ class CustomComponent(Component):
         )
 
         to_camel_cased_props = {
-            format.to_camel_case(key + MEMO_MARKER): None
-            for key in props
-            if key not in event_types
+            format.to_camel_case(key): None for key in props if key not in event_types
         }
         self.get_props = lambda: to_camel_cased_props  # pyright: ignore [reportIncompatibleVariableOverride]
 
@@ -2011,7 +1991,7 @@ class CustomComponent(Component):
             if key not in props_types:
                 continue
 
-            camel_cased_key = format.to_camel_case(key + MEMO_MARKER)
+            camel_cased_key = format.to_camel_case(key)
 
             # Get the type based on the annotation.
             type_ = props_types[key]
@@ -2101,11 +2081,13 @@ class CustomComponent(Component):
         """
         return [
             Var(
-                _js_expr=name,
+                _js_expr=name + CAMEL_CASE_MEMO_MARKER,
                 _var_type=(prop._var_type if isinstance(prop, Var) else type(prop)),
             ).guess_type()
             if isinstance(prop, Var) or not isinstance(prop, EventChain)
-            else CustomComponent._get_event_spec_from_args_spec(name, prop)
+            else CustomComponent._get_event_spec_from_args_spec(
+                name + CAMEL_CASE_MEMO_MARKER, prop
+            )
             for name, prop in self.props.items()
         ]
 

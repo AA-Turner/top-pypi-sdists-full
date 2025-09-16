@@ -66,7 +66,2829 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.BridgeOutputReference",
+    jsii_struct_bases=[],
+    name_mapping={"bridge_arn": "bridgeArn", "bridge_output_name": "bridgeOutputName"},
+)
+class BridgeOutputReference:
+    def __init__(
+        self,
+        *,
+        bridge_arn: builtins.str,
+        bridge_output_name: builtins.str,
+    ) -> None:
+        '''A reference to a BridgeOutput resource.
+
+        :param bridge_arn: The BridgeArn of the BridgeOutput resource.
+        :param bridge_output_name: The Name of the BridgeOutput resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            bridge_output_reference = mediaconnect.BridgeOutputReference(
+                bridge_arn="bridgeArn",
+                bridge_output_name="bridgeOutputName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__980f9ae5f1e85bf0fad50041ed2696210b45584059098a87aa5cfecfb0eebcc4)
+            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
+            check_type(argname="argument bridge_output_name", value=bridge_output_name, expected_type=type_hints["bridge_output_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bridge_arn": bridge_arn,
+            "bridge_output_name": bridge_output_name,
+        }
+
+    @builtins.property
+    def bridge_arn(self) -> builtins.str:
+        '''The BridgeArn of the BridgeOutput resource.'''
+        result = self._values.get("bridge_arn")
+        assert result is not None, "Required property 'bridge_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bridge_output_name(self) -> builtins.str:
+        '''The Name of the BridgeOutput resource.'''
+        result = self._values.get("bridge_output_name")
+        assert result is not None, "Required property 'bridge_output_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BridgeOutputReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.BridgeReference",
+    jsii_struct_bases=[],
+    name_mapping={"bridge_arn": "bridgeArn"},
+)
+class BridgeReference:
+    def __init__(self, *, bridge_arn: builtins.str) -> None:
+        '''A reference to a Bridge resource.
+
+        :param bridge_arn: The BridgeArn of the Bridge resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            bridge_reference = mediaconnect.BridgeReference(
+                bridge_arn="bridgeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45c1dbf0fd0f1d58abf87acee25dc813c6728d13bedac10cf4a68fea9a52a172)
+            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bridge_arn": bridge_arn,
+        }
+
+    @builtins.property
+    def bridge_arn(self) -> builtins.str:
+        '''The BridgeArn of the Bridge resource.'''
+        result = self._values.get("bridge_arn")
+        assert result is not None, "Required property 'bridge_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BridgeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.BridgeSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"bridge_arn": "bridgeArn", "bridge_source_name": "bridgeSourceName"},
+)
+class BridgeSourceReference:
+    def __init__(
+        self,
+        *,
+        bridge_arn: builtins.str,
+        bridge_source_name: builtins.str,
+    ) -> None:
+        '''A reference to a BridgeSource resource.
+
+        :param bridge_arn: The BridgeArn of the BridgeSource resource.
+        :param bridge_source_name: The Name of the BridgeSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            bridge_source_reference = mediaconnect.BridgeSourceReference(
+                bridge_arn="bridgeArn",
+                bridge_source_name="bridgeSourceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60993cfa949a30bf71f61ad3375667b6c5812a51b2bd974984b69f088e638e14)
+            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
+            check_type(argname="argument bridge_source_name", value=bridge_source_name, expected_type=type_hints["bridge_source_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bridge_arn": bridge_arn,
+            "bridge_source_name": bridge_source_name,
+        }
+
+    @builtins.property
+    def bridge_arn(self) -> builtins.str:
+        '''The BridgeArn of the BridgeSource resource.'''
+        result = self._values.get("bridge_arn")
+        assert result is not None, "Required property 'bridge_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bridge_source_name(self) -> builtins.str:
+        '''The Name of the BridgeSource resource.'''
+        result = self._values.get("bridge_source_name")
+        assert result is not None, "Required property 'bridge_source_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BridgeSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeOutputProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bridge_arn": "bridgeArn",
+        "name": "name",
+        "network_output": "networkOutput",
+    },
+)
+class CfnBridgeOutputProps:
+    def __init__(
+        self,
+        *,
+        bridge_arn: builtins.str,
+        name: builtins.str,
+        network_output: typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridgeOutput.BridgeNetworkOutputProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnBridgeOutput``.
+
+        :param bridge_arn: The Amazon Resource Name (ARN) of the bridge that you want to update.
+        :param name: The network output name. This name is used to reference the output and must be unique among outputs in this bridge.
+        :param network_output: The network output of the bridge. A network output is delivered to your premises.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_bridge_output_props = mediaconnect.CfnBridgeOutputProps(
+                bridge_arn="bridgeArn",
+                name="name",
+                network_output=mediaconnect.CfnBridgeOutput.BridgeNetworkOutputProperty(
+                    ip_address="ipAddress",
+                    network_name="networkName",
+                    port=123,
+                    protocol="protocol",
+                    ttl=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a)
+            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_output", value=network_output, expected_type=type_hints["network_output"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bridge_arn": bridge_arn,
+            "name": name,
+            "network_output": network_output,
+        }
+
+    @builtins.property
+    def bridge_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the bridge that you want to update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-bridgearn
+        '''
+        result = self._values.get("bridge_arn")
+        assert result is not None, "Required property 'bridge_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The network output name.
+
+        This name is used to reference the output and must be unique among outputs in this bridge.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def network_output(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnBridgeOutput.BridgeNetworkOutputProperty"]:
+        '''The network output of the bridge.
+
+        A network output is delivered to your premises.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-networkoutput
+        '''
+        result = self._values.get("network_output")
+        assert result is not None, "Required property 'network_output' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnBridgeOutput.BridgeNetworkOutputProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBridgeOutputProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "placement_arn": "placementArn",
+        "sources": "sources",
+        "egress_gateway_bridge": "egressGatewayBridge",
+        "ingress_gateway_bridge": "ingressGatewayBridge",
+        "outputs": "outputs",
+        "source_failover_config": "sourceFailoverConfig",
+    },
+)
+class CfnBridgeProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        placement_arn: builtins.str,
+        sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridge.BridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridge.EgressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridge.IngressGatewayBridgeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridge.BridgeOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridge.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBridge``.
+
+        :param name: The name of the bridge. This name can not be modified after the bridge is created.
+        :param placement_arn: The bridge placement Amazon Resource Number (ARN).
+        :param sources: The sources that you want to add to this bridge.
+        :param egress_gateway_bridge: An egress bridge is a cloud-to-ground bridge. The content comes from an existing MediaConnect flow and is delivered to your premises.
+        :param ingress_gateway_bridge: An ingress bridge is a ground-to-cloud bridge. The content originates at your premises and is delivered to the cloud.
+        :param outputs: The outputs that you want to add to this bridge.
+        :param source_failover_config: The settings for source failover.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_bridge_props = mediaconnect.CfnBridgeProps(
+                name="name",
+                placement_arn="placementArn",
+                sources=[mediaconnect.CfnBridge.BridgeSourceProperty(
+                    flow_source=mediaconnect.CfnBridge.BridgeFlowSourceProperty(
+                        flow_arn="flowArn",
+                        name="name",
+            
+                        # the properties below are optional
+                        flow_vpc_interface_attachment=mediaconnect.CfnBridge.VpcInterfaceAttachmentProperty(
+                            vpc_interface_name="vpcInterfaceName"
+                        )
+                    ),
+                    network_source=mediaconnect.CfnBridge.BridgeNetworkSourceProperty(
+                        multicast_ip="multicastIp",
+                        name="name",
+                        network_name="networkName",
+                        port=123,
+                        protocol="protocol",
+            
+                        # the properties below are optional
+                        multicast_source_settings=mediaconnect.CfnBridge.MulticastSourceSettingsProperty(
+                            multicast_source_ip="multicastSourceIp"
+                        )
+                    )
+                )],
+            
+                # the properties below are optional
+                egress_gateway_bridge=mediaconnect.CfnBridge.EgressGatewayBridgeProperty(
+                    max_bitrate=123
+                ),
+                ingress_gateway_bridge=mediaconnect.CfnBridge.IngressGatewayBridgeProperty(
+                    max_bitrate=123,
+                    max_outputs=123
+                ),
+                outputs=[mediaconnect.CfnBridge.BridgeOutputProperty(
+                    network_output=mediaconnect.CfnBridge.BridgeNetworkOutputProperty(
+                        ip_address="ipAddress",
+                        name="name",
+                        network_name="networkName",
+                        port=123,
+                        protocol="protocol",
+                        ttl=123
+                    )
+                )],
+                source_failover_config=mediaconnect.CfnBridge.FailoverConfigProperty(
+                    failover_mode="failoverMode",
+            
+                    # the properties below are optional
+                    source_priority=mediaconnect.CfnBridge.SourcePriorityProperty(
+                        primary_source="primarySource"
+                    ),
+                    state="state"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument placement_arn", value=placement_arn, expected_type=type_hints["placement_arn"])
+            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            check_type(argname="argument egress_gateway_bridge", value=egress_gateway_bridge, expected_type=type_hints["egress_gateway_bridge"])
+            check_type(argname="argument ingress_gateway_bridge", value=ingress_gateway_bridge, expected_type=type_hints["ingress_gateway_bridge"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument source_failover_config", value=source_failover_config, expected_type=type_hints["source_failover_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "placement_arn": placement_arn,
+            "sources": sources,
+        }
+        if egress_gateway_bridge is not None:
+            self._values["egress_gateway_bridge"] = egress_gateway_bridge
+        if ingress_gateway_bridge is not None:
+            self._values["ingress_gateway_bridge"] = ingress_gateway_bridge
+        if outputs is not None:
+            self._values["outputs"] = outputs
+        if source_failover_config is not None:
+            self._values["source_failover_config"] = source_failover_config
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the bridge.
+
+        This name can not be modified after the bridge is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def placement_arn(self) -> builtins.str:
+        '''The bridge placement Amazon Resource Number (ARN).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-placementarn
+        '''
+        result = self._values.get("placement_arn")
+        assert result is not None, "Required property 'placement_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sources(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBridge.BridgeSourceProperty"]]]:
+        '''The sources that you want to add to this bridge.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sources
+        '''
+        result = self._values.get("sources")
+        assert result is not None, "Required property 'sources' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBridge.BridgeSourceProperty"]]], result)
+
+    @builtins.property
+    def egress_gateway_bridge(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.EgressGatewayBridgeProperty"]]:
+        '''An egress bridge is a cloud-to-ground bridge.
+
+        The content comes from an existing MediaConnect flow and is delivered to your premises.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-egressgatewaybridge
+        '''
+        result = self._values.get("egress_gateway_bridge")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.EgressGatewayBridgeProperty"]], result)
+
+    @builtins.property
+    def ingress_gateway_bridge(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.IngressGatewayBridgeProperty"]]:
+        '''An ingress bridge is a ground-to-cloud bridge.
+
+        The content originates at your premises and is delivered to the cloud.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-ingressgatewaybridge
+        '''
+        result = self._values.get("ingress_gateway_bridge")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.IngressGatewayBridgeProperty"]], result)
+
+    @builtins.property
+    def outputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBridge.BridgeOutputProperty"]]]]:
+        '''The outputs that you want to add to this bridge.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-outputs
+        '''
+        result = self._values.get("outputs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBridge.BridgeOutputProperty"]]]], result)
+
+    @builtins.property
+    def source_failover_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.FailoverConfigProperty"]]:
+        '''The settings for source failover.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sourcefailoverconfig
+        '''
+        result = self._values.get("source_failover_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridge.FailoverConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBridgeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bridge_arn": "bridgeArn",
+        "name": "name",
+        "flow_source": "flowSource",
+        "network_source": "networkSource",
+    },
+)
+class CfnBridgeSourceProps:
+    def __init__(
+        self,
+        *,
+        bridge_arn: builtins.str,
+        name: builtins.str,
+        flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridgeSource.BridgeFlowSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnBridgeSource.BridgeNetworkSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBridgeSource``.
+
+        :param bridge_arn: The ARN of the bridge feeding this flow.
+        :param name: The name of the flow source. This name is used to reference the source and must be unique among sources in this bridge.
+        :param flow_source: The source of the flow.
+        :param network_source: The source of the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_bridge_source_props = mediaconnect.CfnBridgeSourceProps(
+                bridge_arn="bridgeArn",
+                name="name",
+            
+                # the properties below are optional
+                flow_source=mediaconnect.CfnBridgeSource.BridgeFlowSourceProperty(
+                    flow_arn="flowArn",
+            
+                    # the properties below are optional
+                    flow_vpc_interface_attachment=mediaconnect.CfnBridgeSource.VpcInterfaceAttachmentProperty(
+                        vpc_interface_name="vpcInterfaceName"
+                    )
+                ),
+                network_source=mediaconnect.CfnBridgeSource.BridgeNetworkSourceProperty(
+                    multicast_ip="multicastIp",
+                    network_name="networkName",
+                    port=123,
+                    protocol="protocol",
+            
+                    # the properties below are optional
+                    multicast_source_settings=mediaconnect.CfnBridgeSource.MulticastSourceSettingsProperty(
+                        multicast_source_ip="multicastSourceIp"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23)
+            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument flow_source", value=flow_source, expected_type=type_hints["flow_source"])
+            check_type(argname="argument network_source", value=network_source, expected_type=type_hints["network_source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bridge_arn": bridge_arn,
+            "name": name,
+        }
+        if flow_source is not None:
+            self._values["flow_source"] = flow_source
+        if network_source is not None:
+            self._values["network_source"] = network_source
+
+    @builtins.property
+    def bridge_arn(self) -> builtins.str:
+        '''The ARN of the bridge feeding this flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-bridgearn
+        '''
+        result = self._values.get("bridge_arn")
+        assert result is not None, "Required property 'bridge_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the flow source.
+
+        This name is used to reference the source and must be unique among sources in this bridge.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridgeSource.BridgeFlowSourceProperty"]]:
+        '''The source of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-flowsource
+        '''
+        result = self._values.get("flow_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridgeSource.BridgeFlowSourceProperty"]], result)
+
+    @builtins.property
+    def network_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridgeSource.BridgeNetworkSourceProperty"]]:
+        '''The source of the network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-networksource
+        '''
+        result = self._values.get("network_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnBridgeSource.BridgeNetworkSourceProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBridgeSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowEntitlementProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "flow_arn": "flowArn",
+        "name": "name",
+        "subscribers": "subscribers",
+        "data_transfer_subscriber_fee_percent": "dataTransferSubscriberFeePercent",
+        "encryption": "encryption",
+        "entitlement_status": "entitlementStatus",
+    },
+)
+class CfnFlowEntitlementProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        flow_arn: builtins.str,
+        name: builtins.str,
+        subscribers: typing.Sequence[builtins.str],
+        data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
+        encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        entitlement_status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowEntitlement``.
+
+        :param description: A description of the entitlement. This description appears only on the MediaConnect console and is not visible outside of the current AWS account.
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow.
+        :param name: The name of the entitlement. This value must be unique within the current flow.
+        :param subscribers: The AWS account IDs that you want to share your content with. The receiving accounts (subscribers) will be allowed to create their own flows using your content as the source.
+        :param data_transfer_subscriber_fee_percent: The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for. Default: - 0
+        :param encryption: Information about the encryption of the flow.
+        :param entitlement_status: An indication of whether the new entitlement should be enabled or disabled as soon as it is created. If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_entitlement_props = mediaconnect.CfnFlowEntitlementProps(
+                description="description",
+                flow_arn="flowArn",
+                name="name",
+                subscribers=["subscribers"],
+            
+                # the properties below are optional
+                data_transfer_subscriber_fee_percent=123,
+                encryption=mediaconnect.CfnFlowEntitlement.EncryptionProperty(
+                    algorithm="algorithm",
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    constant_initialization_vector="constantInitializationVector",
+                    device_id="deviceId",
+                    key_type="keyType",
+                    region="region",
+                    resource_id="resourceId",
+                    secret_arn="secretArn",
+                    url="url"
+                ),
+                entitlement_status="entitlementStatus"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
+            check_type(argname="argument data_transfer_subscriber_fee_percent", value=data_transfer_subscriber_fee_percent, expected_type=type_hints["data_transfer_subscriber_fee_percent"])
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+            check_type(argname="argument entitlement_status", value=entitlement_status, expected_type=type_hints["entitlement_status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "flow_arn": flow_arn,
+            "name": name,
+            "subscribers": subscribers,
+        }
+        if data_transfer_subscriber_fee_percent is not None:
+            self._values["data_transfer_subscriber_fee_percent"] = data_transfer_subscriber_fee_percent
+        if encryption is not None:
+            self._values["encryption"] = encryption
+        if entitlement_status is not None:
+            self._values["entitlement_status"] = entitlement_status
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description of the entitlement.
+
+        This description appears only on the MediaConnect console and is not visible outside of the current AWS account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the entitlement.
+
+        This value must be unique within the current flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subscribers(self) -> typing.List[builtins.str]:
+        '''The AWS account IDs that you want to share your content with.
+
+        The receiving accounts (subscribers) will be allowed to create their own flows using your content as the source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-subscribers
+        '''
+        result = self._values.get("subscribers")
+        assert result is not None, "Required property 'subscribers' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def data_transfer_subscriber_fee_percent(self) -> typing.Optional[jsii.Number]:
+        '''The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for.
+
+        :default: - 0
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-datatransfersubscriberfeepercent
+        '''
+        result = self._values.get("data_transfer_subscriber_fee_percent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def encryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowEntitlement.EncryptionProperty"]]:
+        '''Information about the encryption of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-encryption
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowEntitlement.EncryptionProperty"]], result)
+
+    @builtins.property
+    def entitlement_status(self) -> typing.Optional[builtins.str]:
+        '''An indication of whether the new entitlement should be enabled or disabled as soon as it is created.
+
+        If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-entitlementstatus
+        '''
+        result = self._values.get("entitlement_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowEntitlementProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutputProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flow_arn": "flowArn",
+        "protocol": "protocol",
+        "cidr_allow_list": "cidrAllowList",
+        "description": "description",
+        "destination": "destination",
+        "encryption": "encryption",
+        "max_latency": "maxLatency",
+        "media_stream_output_configurations": "mediaStreamOutputConfigurations",
+        "min_latency": "minLatency",
+        "name": "name",
+        "ndi_program_name": "ndiProgramName",
+        "ndi_speed_hq_quality": "ndiSpeedHqQuality",
+        "output_status": "outputStatus",
+        "port": "port",
+        "remote_id": "remoteId",
+        "smoothing_latency": "smoothingLatency",
+        "stream_id": "streamId",
+        "vpc_interface_attachment": "vpcInterfaceAttachment",
+    },
+)
+class CfnFlowOutputProps:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        protocol: builtins.str,
+        cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        destination: typing.Optional[builtins.str] = None,
+        encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowOutput.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        max_latency: typing.Optional[jsii.Number] = None,
+        media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        min_latency: typing.Optional[jsii.Number] = None,
+        name: typing.Optional[builtins.str] = None,
+        ndi_program_name: typing.Optional[builtins.str] = None,
+        ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
+        output_status: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        remote_id: typing.Optional[builtins.str] = None,
+        smoothing_latency: typing.Optional[jsii.Number] = None,
+        stream_id: typing.Optional[builtins.str] = None,
+        vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowOutput``.
+
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow this output is attached to.
+        :param protocol: The protocol to use for the output. .. epigraph:: AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
+        :param cidr_allow_list: The range of IP addresses that should be allowed to initiate output requests to this flow. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+        :param description: A description of the output. This description appears only on the MediaConnect console and will not be seen by the end user.
+        :param destination: The IP address where you want to send the output.
+        :param encryption: The type of key used for the encryption. If no ``keyType`` is provided, the service will use the default setting (static-key). Allowable encryption types: static-key.
+        :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
+        :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
+        :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
+        :param name: The name of the bridge's output.
+        :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
+        :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
+        :param output_status: An indication of whether the output should transmit data or not.
+        :param port: The port to use when content is distributed to this output.
+        :param remote_id: The remote ID for the Zixi-pull stream.
+        :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
+        :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param vpc_interface_attachment: The name of the VPC interface attachment to use for this output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_output_props = mediaconnect.CfnFlowOutputProps(
+                flow_arn="flowArn",
+                protocol="protocol",
+            
+                # the properties below are optional
+                cidr_allow_list=["cidrAllowList"],
+                description="description",
+                destination="destination",
+                encryption=mediaconnect.CfnFlowOutput.EncryptionProperty(
+                    role_arn="roleArn",
+                    secret_arn="secretArn",
+            
+                    # the properties below are optional
+                    algorithm="algorithm",
+                    key_type="keyType"
+                ),
+                max_latency=123,
+                media_stream_output_configurations=[mediaconnect.CfnFlowOutput.MediaStreamOutputConfigurationProperty(
+                    encoding_name="encodingName",
+                    media_stream_name="mediaStreamName",
+            
+                    # the properties below are optional
+                    destination_configurations=[mediaconnect.CfnFlowOutput.DestinationConfigurationProperty(
+                        destination_ip="destinationIp",
+                        destination_port=123,
+                        interface=mediaconnect.CfnFlowOutput.InterfaceProperty(
+                            name="name"
+                        )
+                    )],
+                    encoding_parameters=mediaconnect.CfnFlowOutput.EncodingParametersProperty(
+                        compression_factor=123,
+            
+                        # the properties below are optional
+                        encoder_profile="encoderProfile"
+                    )
+                )],
+                min_latency=123,
+                name="name",
+                ndi_program_name="ndiProgramName",
+                ndi_speed_hq_quality=123,
+                output_status="outputStatus",
+                port=123,
+                remote_id="remoteId",
+                smoothing_latency=123,
+                stream_id="streamId",
+                vpc_interface_attachment=mediaconnect.CfnFlowOutput.VpcInterfaceAttachmentProperty(
+                    vpc_interface_name="vpcInterfaceName"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument cidr_allow_list", value=cidr_allow_list, expected_type=type_hints["cidr_allow_list"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+            check_type(argname="argument max_latency", value=max_latency, expected_type=type_hints["max_latency"])
+            check_type(argname="argument media_stream_output_configurations", value=media_stream_output_configurations, expected_type=type_hints["media_stream_output_configurations"])
+            check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument ndi_program_name", value=ndi_program_name, expected_type=type_hints["ndi_program_name"])
+            check_type(argname="argument ndi_speed_hq_quality", value=ndi_speed_hq_quality, expected_type=type_hints["ndi_speed_hq_quality"])
+            check_type(argname="argument output_status", value=output_status, expected_type=type_hints["output_status"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument remote_id", value=remote_id, expected_type=type_hints["remote_id"])
+            check_type(argname="argument smoothing_latency", value=smoothing_latency, expected_type=type_hints["smoothing_latency"])
+            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument vpc_interface_attachment", value=vpc_interface_attachment, expected_type=type_hints["vpc_interface_attachment"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "protocol": protocol,
+        }
+        if cidr_allow_list is not None:
+            self._values["cidr_allow_list"] = cidr_allow_list
+        if description is not None:
+            self._values["description"] = description
+        if destination is not None:
+            self._values["destination"] = destination
+        if encryption is not None:
+            self._values["encryption"] = encryption
+        if max_latency is not None:
+            self._values["max_latency"] = max_latency
+        if media_stream_output_configurations is not None:
+            self._values["media_stream_output_configurations"] = media_stream_output_configurations
+        if min_latency is not None:
+            self._values["min_latency"] = min_latency
+        if name is not None:
+            self._values["name"] = name
+        if ndi_program_name is not None:
+            self._values["ndi_program_name"] = ndi_program_name
+        if ndi_speed_hq_quality is not None:
+            self._values["ndi_speed_hq_quality"] = ndi_speed_hq_quality
+        if output_status is not None:
+            self._values["output_status"] = output_status
+        if port is not None:
+            self._values["port"] = port
+        if remote_id is not None:
+            self._values["remote_id"] = remote_id
+        if smoothing_latency is not None:
+            self._values["smoothing_latency"] = smoothing_latency
+        if stream_id is not None:
+            self._values["stream_id"] = stream_id
+        if vpc_interface_attachment is not None:
+            self._values["vpc_interface_attachment"] = vpc_interface_attachment
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow this output is attached to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def protocol(self) -> builtins.str:
+        '''The protocol to use for the output.
+
+        .. epigraph::
+
+           AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-protocol
+        '''
+        result = self._values.get("protocol")
+        assert result is not None, "Required property 'protocol' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cidr_allow_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The range of IP addresses that should be allowed to initiate output requests to this flow.
+
+        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-cidrallowlist
+        '''
+        result = self._values.get("cidr_allow_list")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the output.
+
+        This description appears only on the MediaConnect console and will not be seen by the end user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination(self) -> typing.Optional[builtins.str]:
+        '''The IP address where you want to send the output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-destination
+        '''
+        result = self._values.get("destination")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.EncryptionProperty"]]:
+        '''The type of key used for the encryption.
+
+        If no ``keyType`` is provided, the service will use the default setting (static-key). Allowable encryption types: static-key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-encryption
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.EncryptionProperty"]], result)
+
+    @builtins.property
+    def max_latency(self) -> typing.Optional[jsii.Number]:
+        '''The maximum latency in milliseconds.
+
+        This parameter applies only to RIST-based and Zixi-based streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-maxlatency
+        '''
+        result = self._values.get("max_latency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def media_stream_output_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]]:
+        '''The media streams that are associated with the output, and the parameters for those associations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-mediastreamoutputconfigurations
+        '''
+        result = self._values.get("media_stream_output_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.MediaStreamOutputConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def min_latency(self) -> typing.Optional[jsii.Number]:
+        '''The minimum latency in milliseconds for SRT-based streams.
+
+        In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-minlatency
+        '''
+        result = self._values.get("min_latency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the bridge's output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ndi_program_name(self) -> typing.Optional[builtins.str]:
+        '''A suffix for the names of the NDI sources that the flow creates.
+
+        If a custom name isn't specified, MediaConnect uses the output name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndiprogramname
+        '''
+        result = self._values.get("ndi_program_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ndi_speed_hq_quality(self) -> typing.Optional[jsii.Number]:
+        '''A quality setting for the NDI Speed HQ encoder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndispeedhqquality
+        '''
+        result = self._values.get("ndi_speed_hq_quality")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def output_status(self) -> typing.Optional[builtins.str]:
+        '''An indication of whether the output should transmit data or not.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-outputstatus
+        '''
+        result = self._values.get("output_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port to use when content is distributed to this output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def remote_id(self) -> typing.Optional[builtins.str]:
+        '''The remote ID for the Zixi-pull stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-remoteid
+        '''
+        result = self._values.get("remote_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def smoothing_latency(self) -> typing.Optional[jsii.Number]:
+        '''The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-smoothinglatency
+        '''
+        result = self._values.get("smoothing_latency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def stream_id(self) -> typing.Optional[builtins.str]:
+        '''The stream ID that you want to use for this transport.
+
+        This parameter applies only to Zixi and SRT caller-based streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-streamid
+        '''
+        result = self._values.get("stream_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_interface_attachment(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
+        '''The name of the VPC interface attachment to use for this output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-vpcinterfaceattachment
+        '''
+        result = self._values.get("vpc_interface_attachment")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowOutput.VpcInterfaceAttachmentProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowOutputProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "source": "source",
+        "availability_zone": "availabilityZone",
+        "flow_size": "flowSize",
+        "maintenance": "maintenance",
+        "media_streams": "mediaStreams",
+        "ndi_config": "ndiConfig",
+        "source_failover_config": "sourceFailoverConfig",
+        "source_monitoring_config": "sourceMonitoringConfig",
+        "vpc_interfaces": "vpcInterfaces",
+    },
+)
+class CfnFlowProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        availability_zone: typing.Optional[builtins.str] = None,
+        flow_size: typing.Optional[builtins.str] = None,
+        maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlow``.
+
+        :param name: The name of the flow.
+        :param source: The settings for the source that you want to use for the new flow.
+        :param availability_zone: The Availability Zone that you want to create the flow in. These options are limited to the Availability Zones within the current AWS Region.
+        :param flow_size: Determines the processing capacity and feature set of the flow. Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
+        :param maintenance: The maintenance settings you want to use for the flow.
+        :param media_streams: The media streams that are associated with the flow. After you associate a media stream with a source, you can also associate it with outputs on the flow.
+        :param ndi_config: Specifies the configuration settings for NDI outputs. Required when the flow includes NDI outputs.
+        :param source_failover_config: The settings for source failover.
+        :param source_monitoring_config: The settings for source monitoring.
+        :param vpc_interfaces: The VPC Interfaces for this flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_props = mediaconnect.CfnFlowProps(
+                name="name",
+                source=mediaconnect.CfnFlow.SourceProperty(
+                    decryption=mediaconnect.CfnFlow.EncryptionProperty(
+                        role_arn="roleArn",
+            
+                        # the properties below are optional
+                        algorithm="algorithm",
+                        constant_initialization_vector="constantInitializationVector",
+                        device_id="deviceId",
+                        key_type="keyType",
+                        region="region",
+                        resource_id="resourceId",
+                        secret_arn="secretArn",
+                        url="url"
+                    ),
+                    description="description",
+                    entitlement_arn="entitlementArn",
+                    gateway_bridge_source=mediaconnect.CfnFlow.GatewayBridgeSourceProperty(
+                        bridge_arn="bridgeArn",
+            
+                        # the properties below are optional
+                        vpc_interface_attachment=mediaconnect.CfnFlow.VpcInterfaceAttachmentProperty(
+                            vpc_interface_name="vpcInterfaceName"
+                        )
+                    ),
+                    ingest_ip="ingestIp",
+                    ingest_port=123,
+                    max_bitrate=123,
+                    max_latency=123,
+                    max_sync_buffer=123,
+                    media_stream_source_configurations=[mediaconnect.CfnFlow.MediaStreamSourceConfigurationProperty(
+                        encoding_name="encodingName",
+                        media_stream_name="mediaStreamName",
+            
+                        # the properties below are optional
+                        input_configurations=[mediaconnect.CfnFlow.InputConfigurationProperty(
+                            input_port=123,
+                            interface=mediaconnect.CfnFlow.InterfaceProperty(
+                                name="name"
+                            )
+                        )]
+                    )],
+                    min_latency=123,
+                    name="name",
+                    protocol="protocol",
+                    sender_control_port=123,
+                    sender_ip_address="senderIpAddress",
+                    source_arn="sourceArn",
+                    source_ingest_port="sourceIngestPort",
+                    source_listener_address="sourceListenerAddress",
+                    source_listener_port=123,
+                    stream_id="streamId",
+                    vpc_interface_name="vpcInterfaceName",
+                    whitelist_cidr="whitelistCidr"
+                ),
+            
+                # the properties below are optional
+                availability_zone="availabilityZone",
+                flow_size="flowSize",
+                maintenance=mediaconnect.CfnFlow.MaintenanceProperty(
+                    maintenance_day="maintenanceDay",
+                    maintenance_start_hour="maintenanceStartHour"
+                ),
+                media_streams=[mediaconnect.CfnFlow.MediaStreamProperty(
+                    media_stream_id=123,
+                    media_stream_name="mediaStreamName",
+                    media_stream_type="mediaStreamType",
+            
+                    # the properties below are optional
+                    attributes=mediaconnect.CfnFlow.MediaStreamAttributesProperty(
+                        fmtp=mediaconnect.CfnFlow.FmtpProperty(
+                            channel_order="channelOrder",
+                            colorimetry="colorimetry",
+                            exact_framerate="exactFramerate",
+                            par="par",
+                            range="range",
+                            scan_mode="scanMode",
+                            tcs="tcs"
+                        ),
+                        lang="lang"
+                    ),
+                    clock_rate=123,
+                    description="description",
+                    fmt=123,
+                    video_format="videoFormat"
+                )],
+                ndi_config=mediaconnect.CfnFlow.NdiConfigProperty(
+                    machine_name="machineName",
+                    ndi_discovery_servers=[mediaconnect.CfnFlow.NdiDiscoveryServerConfigProperty(
+                        discovery_server_address="discoveryServerAddress",
+                        vpc_interface_adapter="vpcInterfaceAdapter",
+            
+                        # the properties below are optional
+                        discovery_server_port=123
+                    )],
+                    ndi_state="ndiState"
+                ),
+                source_failover_config=mediaconnect.CfnFlow.FailoverConfigProperty(
+                    failover_mode="failoverMode",
+                    recovery_window=123,
+                    source_priority=mediaconnect.CfnFlow.SourcePriorityProperty(
+                        primary_source="primarySource"
+                    ),
+                    state="state"
+                ),
+                source_monitoring_config=mediaconnect.CfnFlow.SourceMonitoringConfigProperty(
+                    audio_monitoring_settings=[mediaconnect.CfnFlow.AudioMonitoringSettingProperty(
+                        silent_audio=mediaconnect.CfnFlow.SilentAudioProperty(
+                            state="state",
+                            threshold_seconds=123
+                        )
+                    )],
+                    content_quality_analysis_state="contentQualityAnalysisState",
+                    thumbnail_state="thumbnailState",
+                    video_monitoring_settings=[mediaconnect.CfnFlow.VideoMonitoringSettingProperty(
+                        black_frames=mediaconnect.CfnFlow.BlackFramesProperty(
+                            state="state",
+                            threshold_seconds=123
+                        ),
+                        frozen_frames=mediaconnect.CfnFlow.FrozenFramesProperty(
+                            state="state",
+                            threshold_seconds=123
+                        )
+                    )]
+                ),
+                vpc_interfaces=[mediaconnect.CfnFlow.VpcInterfaceProperty(
+                    name="name",
+                    role_arn="roleArn",
+                    security_group_ids=["securityGroupIds"],
+                    subnet_id="subnetId",
+            
+                    # the properties below are optional
+                    network_interface_ids=["networkInterfaceIds"],
+                    network_interface_type="networkInterfaceType"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument flow_size", value=flow_size, expected_type=type_hints["flow_size"])
+            check_type(argname="argument maintenance", value=maintenance, expected_type=type_hints["maintenance"])
+            check_type(argname="argument media_streams", value=media_streams, expected_type=type_hints["media_streams"])
+            check_type(argname="argument ndi_config", value=ndi_config, expected_type=type_hints["ndi_config"])
+            check_type(argname="argument source_failover_config", value=source_failover_config, expected_type=type_hints["source_failover_config"])
+            check_type(argname="argument source_monitoring_config", value=source_monitoring_config, expected_type=type_hints["source_monitoring_config"])
+            check_type(argname="argument vpc_interfaces", value=vpc_interfaces, expected_type=type_hints["vpc_interfaces"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "source": source,
+        }
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if flow_size is not None:
+            self._values["flow_size"] = flow_size
+        if maintenance is not None:
+            self._values["maintenance"] = maintenance
+        if media_streams is not None:
+            self._values["media_streams"] = media_streams
+        if ndi_config is not None:
+            self._values["ndi_config"] = ndi_config
+        if source_failover_config is not None:
+            self._values["source_failover_config"] = source_failover_config
+        if source_monitoring_config is not None:
+            self._values["source_monitoring_config"] = source_monitoring_config
+        if vpc_interfaces is not None:
+            self._values["vpc_interfaces"] = vpc_interfaces
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(self) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceProperty"]:
+        '''The settings for the source that you want to use for the new flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceProperty"], result)
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Availability Zone that you want to create the flow in.
+
+        These options are limited to the Availability Zones within the current AWS Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flow_size(self) -> typing.Optional[builtins.str]:
+        '''Determines the processing capacity and feature set of the flow.
+
+        Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-flowsize
+        '''
+        result = self._values.get("flow_size")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def maintenance(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MaintenanceProperty"]]:
+        '''The maintenance settings you want to use for the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-maintenance
+        '''
+        result = self._values.get("maintenance")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MaintenanceProperty"]], result)
+
+    @builtins.property
+    def media_streams(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.MediaStreamProperty"]]]]:
+        '''The media streams that are associated with the flow.
+
+        After you associate a media stream with a source, you can also associate it with outputs on the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-mediastreams
+        '''
+        result = self._values.get("media_streams")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.MediaStreamProperty"]]]], result)
+
+    @builtins.property
+    def ndi_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.NdiConfigProperty"]]:
+        '''Specifies the configuration settings for NDI outputs.
+
+        Required when the flow includes NDI outputs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-ndiconfig
+        '''
+        result = self._values.get("ndi_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.NdiConfigProperty"]], result)
+
+    @builtins.property
+    def source_failover_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.FailoverConfigProperty"]]:
+        '''The settings for source failover.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcefailoverconfig
+        '''
+        result = self._values.get("source_failover_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.FailoverConfigProperty"]], result)
+
+    @builtins.property
+    def source_monitoring_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceMonitoringConfigProperty"]]:
+        '''The settings for source monitoring.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcemonitoringconfig
+        '''
+        result = self._values.get("source_monitoring_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.SourceMonitoringConfigProperty"]], result)
+
+    @builtins.property
+    def vpc_interfaces(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.VpcInterfaceProperty"]]]]:
+        '''The VPC Interfaces for this flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-vpcinterfaces
+        '''
+        result = self._values.get("vpc_interfaces")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.VpcInterfaceProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "decryption": "decryption",
+        "entitlement_arn": "entitlementArn",
+        "flow_arn": "flowArn",
+        "gateway_bridge_source": "gatewayBridgeSource",
+        "ingest_port": "ingestPort",
+        "max_bitrate": "maxBitrate",
+        "max_latency": "maxLatency",
+        "min_latency": "minLatency",
+        "protocol": "protocol",
+        "sender_control_port": "senderControlPort",
+        "sender_ip_address": "senderIpAddress",
+        "source_listener_address": "sourceListenerAddress",
+        "source_listener_port": "sourceListenerPort",
+        "stream_id": "streamId",
+        "vpc_interface_name": "vpcInterfaceName",
+        "whitelist_cidr": "whitelistCidr",
+    },
+)
+class CfnFlowSourceProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        name: builtins.str,
+        decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        entitlement_arn: typing.Optional[builtins.str] = None,
+        flow_arn: typing.Optional[builtins.str] = None,
+        gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ingest_port: typing.Optional[jsii.Number] = None,
+        max_bitrate: typing.Optional[jsii.Number] = None,
+        max_latency: typing.Optional[jsii.Number] = None,
+        min_latency: typing.Optional[jsii.Number] = None,
+        protocol: typing.Optional[builtins.str] = None,
+        sender_control_port: typing.Optional[jsii.Number] = None,
+        sender_ip_address: typing.Optional[builtins.str] = None,
+        source_listener_address: typing.Optional[builtins.str] = None,
+        source_listener_port: typing.Optional[jsii.Number] = None,
+        stream_id: typing.Optional[builtins.str] = None,
+        vpc_interface_name: typing.Optional[builtins.str] = None,
+        whitelist_cidr: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowSource``.
+
+        :param description: A description for the source. This value is not used or seen outside of the current MediaConnect account.
+        :param name: The name of the source.
+        :param decryption: The type of encryption that is used on the content ingested from this source. Allowable encryption types: static-key.
+        :param entitlement_arn: The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
+        :param gateway_bridge_source: The bridge's source.
+        :param ingest_port: The port that the flow listens on for incoming content. If the protocol of the source is Zixi, the port must be set to 2088.
+        :param max_bitrate: The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
+        :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
+        :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
+        :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
+        :param sender_control_port: The port that the flow uses to send outbound requests to initiate connection with the sender.
+        :param sender_ip_address: The IP address that the flow communicates with to initiate connection with the sender.
+        :param source_listener_address: Source IP or domain name for SRT-caller protocol.
+        :param source_listener_port: Source port for SRT-caller protocol.
+        :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param vpc_interface_name: The name of the VPC interface to use for this source.
+        :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_source_props = mediaconnect.CfnFlowSourceProps(
+                description="description",
+                name="name",
+            
+                # the properties below are optional
+                decryption=mediaconnect.CfnFlowSource.EncryptionProperty(
+                    role_arn="roleArn",
+            
+                    # the properties below are optional
+                    algorithm="algorithm",
+                    constant_initialization_vector="constantInitializationVector",
+                    device_id="deviceId",
+                    key_type="keyType",
+                    region="region",
+                    resource_id="resourceId",
+                    secret_arn="secretArn",
+                    url="url"
+                ),
+                entitlement_arn="entitlementArn",
+                flow_arn="flowArn",
+                gateway_bridge_source=mediaconnect.CfnFlowSource.GatewayBridgeSourceProperty(
+                    bridge_arn="bridgeArn",
+            
+                    # the properties below are optional
+                    vpc_interface_attachment=mediaconnect.CfnFlowSource.VpcInterfaceAttachmentProperty(
+                        vpc_interface_name="vpcInterfaceName"
+                    )
+                ),
+                ingest_port=123,
+                max_bitrate=123,
+                max_latency=123,
+                min_latency=123,
+                protocol="protocol",
+                sender_control_port=123,
+                sender_ip_address="senderIpAddress",
+                source_listener_address="sourceListenerAddress",
+                source_listener_port=123,
+                stream_id="streamId",
+                vpc_interface_name="vpcInterfaceName",
+                whitelist_cidr="whitelistCidr"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument decryption", value=decryption, expected_type=type_hints["decryption"])
+            check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument gateway_bridge_source", value=gateway_bridge_source, expected_type=type_hints["gateway_bridge_source"])
+            check_type(argname="argument ingest_port", value=ingest_port, expected_type=type_hints["ingest_port"])
+            check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
+            check_type(argname="argument max_latency", value=max_latency, expected_type=type_hints["max_latency"])
+            check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+            check_type(argname="argument sender_control_port", value=sender_control_port, expected_type=type_hints["sender_control_port"])
+            check_type(argname="argument sender_ip_address", value=sender_ip_address, expected_type=type_hints["sender_ip_address"])
+            check_type(argname="argument source_listener_address", value=source_listener_address, expected_type=type_hints["source_listener_address"])
+            check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
+            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
+            check_type(argname="argument whitelist_cidr", value=whitelist_cidr, expected_type=type_hints["whitelist_cidr"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "name": name,
+        }
+        if decryption is not None:
+            self._values["decryption"] = decryption
+        if entitlement_arn is not None:
+            self._values["entitlement_arn"] = entitlement_arn
+        if flow_arn is not None:
+            self._values["flow_arn"] = flow_arn
+        if gateway_bridge_source is not None:
+            self._values["gateway_bridge_source"] = gateway_bridge_source
+        if ingest_port is not None:
+            self._values["ingest_port"] = ingest_port
+        if max_bitrate is not None:
+            self._values["max_bitrate"] = max_bitrate
+        if max_latency is not None:
+            self._values["max_latency"] = max_latency
+        if min_latency is not None:
+            self._values["min_latency"] = min_latency
+        if protocol is not None:
+            self._values["protocol"] = protocol
+        if sender_control_port is not None:
+            self._values["sender_control_port"] = sender_control_port
+        if sender_ip_address is not None:
+            self._values["sender_ip_address"] = sender_ip_address
+        if source_listener_address is not None:
+            self._values["source_listener_address"] = source_listener_address
+        if source_listener_port is not None:
+            self._values["source_listener_port"] = source_listener_port
+        if stream_id is not None:
+            self._values["stream_id"] = stream_id
+        if vpc_interface_name is not None:
+            self._values["vpc_interface_name"] = vpc_interface_name
+        if whitelist_cidr is not None:
+            self._values["whitelist_cidr"] = whitelist_cidr
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A description for the source.
+
+        This value is not used or seen outside of the current MediaConnect account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def decryption(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowSource.EncryptionProperty"]]:
+        '''The type of encryption that is used on the content ingested from this source.
+
+        Allowable encryption types: static-key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-decryption
+        '''
+        result = self._values.get("decryption")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowSource.EncryptionProperty"]], result)
+
+    @builtins.property
+    def entitlement_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the entitlement that allows you to subscribe to this flow.
+
+        The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-entitlementarn
+        '''
+        result = self._values.get("entitlement_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def flow_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the flow this source is connected to.
+
+        The flow must have Failover enabled to add an additional source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def gateway_bridge_source(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowSource.GatewayBridgeSourceProperty"]]:
+        '''The bridge's source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-gatewaybridgesource
+        '''
+        result = self._values.get("gateway_bridge_source")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowSource.GatewayBridgeSourceProperty"]], result)
+
+    @builtins.property
+    def ingest_port(self) -> typing.Optional[jsii.Number]:
+        '''The port that the flow listens on for incoming content.
+
+        If the protocol of the source is Zixi, the port must be set to 2088.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-ingestport
+        '''
+        result = self._values.get("ingest_port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_bitrate(self) -> typing.Optional[jsii.Number]:
+        '''The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-maxbitrate
+        '''
+        result = self._values.get("max_bitrate")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_latency(self) -> typing.Optional[jsii.Number]:
+        '''The maximum latency in milliseconds.
+
+        This parameter applies only to RIST-based and Zixi-based streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-maxlatency
+        '''
+        result = self._values.get("max_latency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def min_latency(self) -> typing.Optional[jsii.Number]:
+        '''The minimum latency in milliseconds for SRT-based streams.
+
+        In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-minlatency
+        '''
+        result = self._values.get("min_latency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def protocol(self) -> typing.Optional[builtins.str]:
+        '''The protocol that the source uses to deliver the content to MediaConnect.
+
+        Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols.
+
+        If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-protocol
+        '''
+        result = self._values.get("protocol")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sender_control_port(self) -> typing.Optional[jsii.Number]:
+        '''The port that the flow uses to send outbound requests to initiate connection with the sender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sendercontrolport
+        '''
+        result = self._values.get("sender_control_port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def sender_ip_address(self) -> typing.Optional[builtins.str]:
+        '''The IP address that the flow communicates with to initiate connection with the sender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-senderipaddress
+        '''
+        result = self._values.get("sender_ip_address")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_listener_address(self) -> typing.Optional[builtins.str]:
+        '''Source IP or domain name for SRT-caller protocol.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sourcelisteneraddress
+        '''
+        result = self._values.get("source_listener_address")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_listener_port(self) -> typing.Optional[jsii.Number]:
+        '''Source port for SRT-caller protocol.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sourcelistenerport
+        '''
+        result = self._values.get("source_listener_port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def stream_id(self) -> typing.Optional[builtins.str]:
+        '''The stream ID that you want to use for this transport.
+
+        This parameter applies only to Zixi and SRT caller-based streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-streamid
+        '''
+        result = self._values.get("stream_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_interface_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the VPC interface to use for this source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-vpcinterfacename
+        '''
+        result = self._values.get("vpc_interface_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def whitelist_cidr(self) -> typing.Optional[builtins.str]:
+        '''The range of IP addresses that should be allowed to contribute content to your source.
+
+        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-whitelistcidr
+        '''
+        result = self._values.get("whitelist_cidr")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowVpcInterfaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flow_arn": "flowArn",
+        "name": "name",
+        "role_arn": "roleArn",
+        "security_group_ids": "securityGroupIds",
+        "subnet_id": "subnetId",
+    },
+)
+class CfnFlowVpcInterfaceProps:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        security_group_ids: typing.Sequence[builtins.str],
+        subnet_id: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnFlowVpcInterface``.
+
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow.
+        :param name: The name for the VPC interface. This name must be unique within the flow.
+        :param role_arn: The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
+        :param security_group_ids: A virtual firewall to control inbound and outbound traffic.
+        :param subnet_id: The subnet IDs that you want to use for your VPC interface. A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_flow_vpc_interface_props = mediaconnect.CfnFlowVpcInterfaceProps(
+                flow_arn="flowArn",
+                name="name",
+                role_arn="roleArn",
+                security_group_ids=["securityGroupIds"],
+                subnet_id="subnetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "name": name,
+            "role_arn": role_arn,
+            "security_group_ids": security_group_ids,
+            "subnet_id": subnet_id,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name for the VPC interface.
+
+        This name must be unique within the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_group_ids(self) -> typing.List[builtins.str]:
+        '''A virtual firewall to control inbound and outbound traffic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-securitygroupids
+        '''
+        result = self._values.get("security_group_ids")
+        assert result is not None, "Required property 'security_group_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def subnet_id(self) -> builtins.str:
+        '''The subnet IDs that you want to use for your VPC interface.
+
+        A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-subnetid
+        '''
+        result = self._values.get("subnet_id")
+        assert result is not None, "Required property 'subnet_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFlowVpcInterfaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnGatewayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "egress_cidr_blocks": "egressCidrBlocks",
+        "name": "name",
+        "networks": "networks",
+    },
+)
+class CfnGatewayProps:
+    def __init__(
+        self,
+        *,
+        egress_cidr_blocks: typing.Sequence[builtins.str],
+        name: builtins.str,
+        networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGateway.GatewayNetworkProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnGateway``.
+
+        :param egress_cidr_blocks: The range of IP addresses that are allowed to contribute content or initiate output requests for flows communicating with this gateway. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+        :param name: The name of the gateway. This name can not be modified after the gateway is created.
+        :param networks: The list of networks in the gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            cfn_gateway_props = mediaconnect.CfnGatewayProps(
+                egress_cidr_blocks=["egressCidrBlocks"],
+                name="name",
+                networks=[mediaconnect.CfnGateway.GatewayNetworkProperty(
+                    cidr_block="cidrBlock",
+                    name="name"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450)
+            check_type(argname="argument egress_cidr_blocks", value=egress_cidr_blocks, expected_type=type_hints["egress_cidr_blocks"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument networks", value=networks, expected_type=type_hints["networks"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "egress_cidr_blocks": egress_cidr_blocks,
+            "name": name,
+            "networks": networks,
+        }
+
+    @builtins.property
+    def egress_cidr_blocks(self) -> typing.List[builtins.str]:
+        '''The range of IP addresses that are allowed to contribute content or initiate output requests for flows communicating with this gateway.
+
+        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-egresscidrblocks
+        '''
+        result = self._values.get("egress_cidr_blocks")
+        assert result is not None, "Required property 'egress_cidr_blocks' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the gateway.
+
+        This name can not be modified after the gateway is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def networks(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayNetworkProperty"]]]:
+        '''The list of networks in the gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-networks
+        '''
+        result = self._values.get("networks")
+        assert result is not None, "Required property 'networks' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGateway.GatewayNetworkProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGatewayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.FlowEntitlementReference",
+    jsii_struct_bases=[],
+    name_mapping={"entitlement_arn": "entitlementArn"},
+)
+class FlowEntitlementReference:
+    def __init__(self, *, entitlement_arn: builtins.str) -> None:
+        '''A reference to a FlowEntitlement resource.
+
+        :param entitlement_arn: The EntitlementArn of the FlowEntitlement resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            flow_entitlement_reference = mediaconnect.FlowEntitlementReference(
+                entitlement_arn="entitlementArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4e9d8865ba77a6f0b983af71732799e41125720b1e2d65d316d0dd95368e882)
+            check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "entitlement_arn": entitlement_arn,
+        }
+
+    @builtins.property
+    def entitlement_arn(self) -> builtins.str:
+        '''The EntitlementArn of the FlowEntitlement resource.'''
+        result = self._values.get("entitlement_arn")
+        assert result is not None, "Required property 'entitlement_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowEntitlementReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.FlowOutputReference",
+    jsii_struct_bases=[],
+    name_mapping={"output_arn": "outputArn"},
+)
+class FlowOutputReference:
+    def __init__(self, *, output_arn: builtins.str) -> None:
+        '''A reference to a FlowOutput resource.
+
+        :param output_arn: The OutputArn of the FlowOutput resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            flow_output_reference = mediaconnect.FlowOutputReference(
+                output_arn="outputArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__750bb1de653aad694552684bccaadbff578418a0294c90d61b0c53a5476a4d20)
+            check_type(argname="argument output_arn", value=output_arn, expected_type=type_hints["output_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "output_arn": output_arn,
+        }
+
+    @builtins.property
+    def output_arn(self) -> builtins.str:
+        '''The OutputArn of the FlowOutput resource.'''
+        result = self._values.get("output_arn")
+        assert result is not None, "Required property 'output_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowOutputReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.FlowReference",
+    jsii_struct_bases=[],
+    name_mapping={"flow_arn": "flowArn"},
+)
+class FlowReference:
+    def __init__(self, *, flow_arn: builtins.str) -> None:
+        '''A reference to a Flow resource.
+
+        :param flow_arn: The FlowArn of the Flow resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            flow_reference = mediaconnect.FlowReference(
+                flow_arn="flowArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a90821e269d9af23677c5a59883f1d6a989fdaaaa6f91fdf2b12d62a1f6ca077)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The FlowArn of the Flow resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.FlowSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={"source_arn": "sourceArn"},
+)
+class FlowSourceReference:
+    def __init__(self, *, source_arn: builtins.str) -> None:
+        '''A reference to a FlowSource resource.
+
+        :param source_arn: The SourceArn of the FlowSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            flow_source_reference = mediaconnect.FlowSourceReference(
+                source_arn="sourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b705ea3ffcc558c06e587e79efe930b7c21b40a713fd3c0200b0cf215c269dfb)
+            check_type(argname="argument source_arn", value=source_arn, expected_type=type_hints["source_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "source_arn": source_arn,
+        }
+
+    @builtins.property
+    def source_arn(self) -> builtins.str:
+        '''The SourceArn of the FlowSource resource.'''
+        result = self._values.get("source_arn")
+        assert result is not None, "Required property 'source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.FlowVpcInterfaceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "flow_arn": "flowArn",
+        "flow_vpc_interface_name": "flowVpcInterfaceName",
+    },
+)
+class FlowVpcInterfaceReference:
+    def __init__(
+        self,
+        *,
+        flow_arn: builtins.str,
+        flow_vpc_interface_name: builtins.str,
+    ) -> None:
+        '''A reference to a FlowVpcInterface resource.
+
+        :param flow_arn: The FlowArn of the FlowVpcInterface resource.
+        :param flow_vpc_interface_name: The Name of the FlowVpcInterface resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            flow_vpc_interface_reference = mediaconnect.FlowVpcInterfaceReference(
+                flow_arn="flowArn",
+                flow_vpc_interface_name="flowVpcInterfaceName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b64fb13f45daeb5a518af616dad85d86bf304f5e0a9c0ebe360820638c046b57)
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
+            check_type(argname="argument flow_vpc_interface_name", value=flow_vpc_interface_name, expected_type=type_hints["flow_vpc_interface_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "flow_arn": flow_arn,
+            "flow_vpc_interface_name": flow_vpc_interface_name,
+        }
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The FlowArn of the FlowVpcInterface resource.'''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_vpc_interface_name(self) -> builtins.str:
+        '''The Name of the FlowVpcInterface resource.'''
+        result = self._values.get("flow_vpc_interface_name")
+        assert result is not None, "Required property 'flow_vpc_interface_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FlowVpcInterfaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconnect.GatewayReference",
+    jsii_struct_bases=[],
+    name_mapping={"gateway_arn": "gatewayArn"},
+)
+class GatewayReference:
+    def __init__(self, *, gateway_arn: builtins.str) -> None:
+        '''A reference to a Gateway resource.
+
+        :param gateway_arn: The GatewayArn of the Gateway resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconnect as mediaconnect
+            
+            gateway_reference = mediaconnect.GatewayReference(
+                gateway_arn="gatewayArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63304f39201cff53420239bc4c23242c7dcba17ca9f02737e000438658ac49bb)
+            check_type(argname="argument gateway_arn", value=gateway_arn, expected_type=type_hints["gateway_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "gateway_arn": gateway_arn,
+        }
+
+    @builtins.property
+    def gateway_arn(self) -> builtins.str:
+        '''The GatewayArn of the Gateway resource.'''
+        result = self._values.get("gateway_arn")
+        assert result is not None, "Required property 'gateway_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GatewayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IBridgeOutputRef")
+class IBridgeOutputRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BridgeOutput.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeOutputRef")
+    def bridge_output_ref(self) -> BridgeOutputReference:
+        '''(experimental) A reference to a BridgeOutput resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBridgeOutputRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BridgeOutput.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IBridgeOutputRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeOutputRef")
+    def bridge_output_ref(self) -> BridgeOutputReference:
+        '''(experimental) A reference to a BridgeOutput resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BridgeOutputReference, jsii.get(self, "bridgeOutputRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBridgeOutputRef).__jsii_proxy_class__ = lambda : _IBridgeOutputRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IBridgeRef")
+class IBridgeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Bridge.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeRef")
+    def bridge_ref(self) -> BridgeReference:
+        '''(experimental) A reference to a Bridge resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBridgeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Bridge.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IBridgeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeRef")
+    def bridge_ref(self) -> BridgeReference:
+        '''(experimental) A reference to a Bridge resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BridgeReference, jsii.get(self, "bridgeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBridgeRef).__jsii_proxy_class__ = lambda : _IBridgeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IBridgeSourceRef")
+class IBridgeSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a BridgeSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeSourceRef")
+    def bridge_source_ref(self) -> BridgeSourceReference:
+        '''(experimental) A reference to a BridgeSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBridgeSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BridgeSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IBridgeSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeSourceRef")
+    def bridge_source_ref(self) -> BridgeSourceReference:
+        '''(experimental) A reference to a BridgeSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(BridgeSourceReference, jsii.get(self, "bridgeSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBridgeSourceRef).__jsii_proxy_class__ = lambda : _IBridgeSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IFlowEntitlementRef")
+class IFlowEntitlementRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowEntitlement.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowEntitlementRef")
+    def flow_entitlement_ref(self) -> FlowEntitlementReference:
+        '''(experimental) A reference to a FlowEntitlement resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowEntitlementRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowEntitlement.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IFlowEntitlementRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowEntitlementRef")
+    def flow_entitlement_ref(self) -> FlowEntitlementReference:
+        '''(experimental) A reference to a FlowEntitlement resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowEntitlementReference, jsii.get(self, "flowEntitlementRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowEntitlementRef).__jsii_proxy_class__ = lambda : _IFlowEntitlementRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IFlowOutputRef")
+class IFlowOutputRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowOutput.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowOutputRef")
+    def flow_output_ref(self) -> FlowOutputReference:
+        '''(experimental) A reference to a FlowOutput resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowOutputRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowOutput.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IFlowOutputRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowOutputRef")
+    def flow_output_ref(self) -> FlowOutputReference:
+        '''(experimental) A reference to a FlowOutput resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowOutputReference, jsii.get(self, "flowOutputRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowOutputRef).__jsii_proxy_class__ = lambda : _IFlowOutputRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IFlowRef")
+class IFlowRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Flow.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IFlowRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''(experimental) A reference to a Flow resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowRef).__jsii_proxy_class__ = lambda : _IFlowRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IFlowSourceRef")
+class IFlowSourceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowSourceRef")
+    def flow_source_ref(self) -> FlowSourceReference:
+        '''(experimental) A reference to a FlowSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IFlowSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowSourceRef")
+    def flow_source_ref(self) -> FlowSourceReference:
+        '''(experimental) A reference to a FlowSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowSourceReference, jsii.get(self, "flowSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowSourceRef).__jsii_proxy_class__ = lambda : _IFlowSourceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IFlowVpcInterfaceRef")
+class IFlowVpcInterfaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a FlowVpcInterface.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flowVpcInterfaceRef")
+    def flow_vpc_interface_ref(self) -> FlowVpcInterfaceReference:
+        '''(experimental) A reference to a FlowVpcInterface resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IFlowVpcInterfaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a FlowVpcInterface.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IFlowVpcInterfaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="flowVpcInterfaceRef")
+    def flow_vpc_interface_ref(self) -> FlowVpcInterfaceReference:
+        '''(experimental) A reference to a FlowVpcInterface resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(FlowVpcInterfaceReference, jsii.get(self, "flowVpcInterfaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IFlowVpcInterfaceRef).__jsii_proxy_class__ = lambda : _IFlowVpcInterfaceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconnect.IGatewayRef")
+class IGatewayRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGatewayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Gateway.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconnect.IGatewayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''(experimental) A reference to a Gateway resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(GatewayReference, jsii.get(self, "gatewayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IBridgeRef)
 class CfnBridge(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -232,6 +3054,12 @@ class CfnBridge(
         :cloudformationAttribute: BridgeState
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrBridgeState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeRef")
+    def bridge_ref(self) -> BridgeReference:
+        '''A reference to a Bridge resource.'''
+        return typing.cast(BridgeReference, jsii.get(self, "bridgeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1306,7 +4134,7 @@ class CfnBridge(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBridgeOutputRef)
 class CfnBridgeOutput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1392,6 +4220,12 @@ class CfnBridgeOutput(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeOutputRef")
+    def bridge_output_ref(self) -> BridgeOutputReference:
+        '''A reference to a BridgeOutput resource.'''
+        return typing.cast(BridgeOutputReference, jsii.get(self, "bridgeOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1571,327 +4405,7 @@ class CfnBridgeOutput(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeOutputProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bridge_arn": "bridgeArn",
-        "name": "name",
-        "network_output": "networkOutput",
-    },
-)
-class CfnBridgeOutputProps:
-    def __init__(
-        self,
-        *,
-        bridge_arn: builtins.str,
-        name: builtins.str,
-        network_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnBridgeOutput``.
-
-        :param bridge_arn: The Amazon Resource Name (ARN) of the bridge that you want to update.
-        :param name: The network output name. This name is used to reference the output and must be unique among outputs in this bridge.
-        :param network_output: The network output of the bridge. A network output is delivered to your premises.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_bridge_output_props = mediaconnect.CfnBridgeOutputProps(
-                bridge_arn="bridgeArn",
-                name="name",
-                network_output=mediaconnect.CfnBridgeOutput.BridgeNetworkOutputProperty(
-                    ip_address="ipAddress",
-                    network_name="networkName",
-                    port=123,
-                    protocol="protocol",
-                    ttl=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a)
-            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_output", value=network_output, expected_type=type_hints["network_output"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bridge_arn": bridge_arn,
-            "name": name,
-            "network_output": network_output,
-        }
-
-    @builtins.property
-    def bridge_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the bridge that you want to update.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-bridgearn
-        '''
-        result = self._values.get("bridge_arn")
-        assert result is not None, "Required property 'bridge_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The network output name.
-
-        This name is used to reference the output and must be unique among outputs in this bridge.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def network_output(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnBridgeOutput.BridgeNetworkOutputProperty]:
-        '''The network output of the bridge.
-
-        A network output is delivered to your premises.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgeoutput.html#cfn-mediaconnect-bridgeoutput-networkoutput
-        '''
-        result = self._values.get("network_output")
-        assert result is not None, "Required property 'network_output' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnBridgeOutput.BridgeNetworkOutputProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBridgeOutputProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "placement_arn": "placementArn",
-        "sources": "sources",
-        "egress_gateway_bridge": "egressGatewayBridge",
-        "ingress_gateway_bridge": "ingressGatewayBridge",
-        "outputs": "outputs",
-        "source_failover_config": "sourceFailoverConfig",
-    },
-)
-class CfnBridgeProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        placement_arn: builtins.str,
-        sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBridge``.
-
-        :param name: The name of the bridge. This name can not be modified after the bridge is created.
-        :param placement_arn: The bridge placement Amazon Resource Number (ARN).
-        :param sources: The sources that you want to add to this bridge.
-        :param egress_gateway_bridge: An egress bridge is a cloud-to-ground bridge. The content comes from an existing MediaConnect flow and is delivered to your premises.
-        :param ingress_gateway_bridge: An ingress bridge is a ground-to-cloud bridge. The content originates at your premises and is delivered to the cloud.
-        :param outputs: The outputs that you want to add to this bridge.
-        :param source_failover_config: The settings for source failover.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_bridge_props = mediaconnect.CfnBridgeProps(
-                name="name",
-                placement_arn="placementArn",
-                sources=[mediaconnect.CfnBridge.BridgeSourceProperty(
-                    flow_source=mediaconnect.CfnBridge.BridgeFlowSourceProperty(
-                        flow_arn="flowArn",
-                        name="name",
-            
-                        # the properties below are optional
-                        flow_vpc_interface_attachment=mediaconnect.CfnBridge.VpcInterfaceAttachmentProperty(
-                            vpc_interface_name="vpcInterfaceName"
-                        )
-                    ),
-                    network_source=mediaconnect.CfnBridge.BridgeNetworkSourceProperty(
-                        multicast_ip="multicastIp",
-                        name="name",
-                        network_name="networkName",
-                        port=123,
-                        protocol="protocol",
-            
-                        # the properties below are optional
-                        multicast_source_settings=mediaconnect.CfnBridge.MulticastSourceSettingsProperty(
-                            multicast_source_ip="multicastSourceIp"
-                        )
-                    )
-                )],
-            
-                # the properties below are optional
-                egress_gateway_bridge=mediaconnect.CfnBridge.EgressGatewayBridgeProperty(
-                    max_bitrate=123
-                ),
-                ingress_gateway_bridge=mediaconnect.CfnBridge.IngressGatewayBridgeProperty(
-                    max_bitrate=123,
-                    max_outputs=123
-                ),
-                outputs=[mediaconnect.CfnBridge.BridgeOutputProperty(
-                    network_output=mediaconnect.CfnBridge.BridgeNetworkOutputProperty(
-                        ip_address="ipAddress",
-                        name="name",
-                        network_name="networkName",
-                        port=123,
-                        protocol="protocol",
-                        ttl=123
-                    )
-                )],
-                source_failover_config=mediaconnect.CfnBridge.FailoverConfigProperty(
-                    failover_mode="failoverMode",
-            
-                    # the properties below are optional
-                    source_priority=mediaconnect.CfnBridge.SourcePriorityProperty(
-                        primary_source="primarySource"
-                    ),
-                    state="state"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument placement_arn", value=placement_arn, expected_type=type_hints["placement_arn"])
-            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
-            check_type(argname="argument egress_gateway_bridge", value=egress_gateway_bridge, expected_type=type_hints["egress_gateway_bridge"])
-            check_type(argname="argument ingress_gateway_bridge", value=ingress_gateway_bridge, expected_type=type_hints["ingress_gateway_bridge"])
-            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
-            check_type(argname="argument source_failover_config", value=source_failover_config, expected_type=type_hints["source_failover_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "placement_arn": placement_arn,
-            "sources": sources,
-        }
-        if egress_gateway_bridge is not None:
-            self._values["egress_gateway_bridge"] = egress_gateway_bridge
-        if ingress_gateway_bridge is not None:
-            self._values["ingress_gateway_bridge"] = ingress_gateway_bridge
-        if outputs is not None:
-            self._values["outputs"] = outputs
-        if source_failover_config is not None:
-            self._values["source_failover_config"] = source_failover_config
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the bridge.
-
-        This name can not be modified after the bridge is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def placement_arn(self) -> builtins.str:
-        '''The bridge placement Amazon Resource Number (ARN).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-placementarn
-        '''
-        result = self._values.get("placement_arn")
-        assert result is not None, "Required property 'placement_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sources(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeSourceProperty]]]:
-        '''The sources that you want to add to this bridge.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sources
-        '''
-        result = self._values.get("sources")
-        assert result is not None, "Required property 'sources' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeSourceProperty]]], result)
-
-    @builtins.property
-    def egress_gateway_bridge(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.EgressGatewayBridgeProperty]]:
-        '''An egress bridge is a cloud-to-ground bridge.
-
-        The content comes from an existing MediaConnect flow and is delivered to your premises.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-egressgatewaybridge
-        '''
-        result = self._values.get("egress_gateway_bridge")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.EgressGatewayBridgeProperty]], result)
-
-    @builtins.property
-    def ingress_gateway_bridge(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.IngressGatewayBridgeProperty]]:
-        '''An ingress bridge is a ground-to-cloud bridge.
-
-        The content originates at your premises and is delivered to the cloud.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-ingressgatewaybridge
-        '''
-        result = self._values.get("ingress_gateway_bridge")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.IngressGatewayBridgeProperty]], result)
-
-    @builtins.property
-    def outputs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeOutputProperty]]]]:
-        '''The outputs that you want to add to this bridge.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-outputs
-        '''
-        result = self._values.get("outputs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBridge.BridgeOutputProperty]]]], result)
-
-    @builtins.property
-    def source_failover_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.FailoverConfigProperty]]:
-        '''The settings for source failover.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridge.html#cfn-mediaconnect-bridge-sourcefailoverconfig
-        '''
-        result = self._values.get("source_failover_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridge.FailoverConfigProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBridgeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IBridgeSourceRef)
 class CfnBridgeSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1996,6 +4510,12 @@ class CfnBridgeSource(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bridgeSourceRef")
+    def bridge_source_ref(self) -> BridgeSourceReference:
+        '''A reference to a BridgeSource resource.'''
+        return typing.cast(BridgeSourceReference, jsii.get(self, "bridgeSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2391,139 +4911,7 @@ class CfnBridgeSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "bridge_arn": "bridgeArn",
-        "name": "name",
-        "flow_source": "flowSource",
-        "network_source": "networkSource",
-    },
-)
-class CfnBridgeSourceProps:
-    def __init__(
-        self,
-        *,
-        bridge_arn: builtins.str,
-        name: builtins.str,
-        flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnBridgeSource``.
-
-        :param bridge_arn: The ARN of the bridge feeding this flow.
-        :param name: The name of the flow source. This name is used to reference the source and must be unique among sources in this bridge.
-        :param flow_source: The source of the flow.
-        :param network_source: The source of the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_bridge_source_props = mediaconnect.CfnBridgeSourceProps(
-                bridge_arn="bridgeArn",
-                name="name",
-            
-                # the properties below are optional
-                flow_source=mediaconnect.CfnBridgeSource.BridgeFlowSourceProperty(
-                    flow_arn="flowArn",
-            
-                    # the properties below are optional
-                    flow_vpc_interface_attachment=mediaconnect.CfnBridgeSource.VpcInterfaceAttachmentProperty(
-                        vpc_interface_name="vpcInterfaceName"
-                    )
-                ),
-                network_source=mediaconnect.CfnBridgeSource.BridgeNetworkSourceProperty(
-                    multicast_ip="multicastIp",
-                    network_name="networkName",
-                    port=123,
-                    protocol="protocol",
-            
-                    # the properties below are optional
-                    multicast_source_settings=mediaconnect.CfnBridgeSource.MulticastSourceSettingsProperty(
-                        multicast_source_ip="multicastSourceIp"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23)
-            check_type(argname="argument bridge_arn", value=bridge_arn, expected_type=type_hints["bridge_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument flow_source", value=flow_source, expected_type=type_hints["flow_source"])
-            check_type(argname="argument network_source", value=network_source, expected_type=type_hints["network_source"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "bridge_arn": bridge_arn,
-            "name": name,
-        }
-        if flow_source is not None:
-            self._values["flow_source"] = flow_source
-        if network_source is not None:
-            self._values["network_source"] = network_source
-
-    @builtins.property
-    def bridge_arn(self) -> builtins.str:
-        '''The ARN of the bridge feeding this flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-bridgearn
-        '''
-        result = self._values.get("bridge_arn")
-        assert result is not None, "Required property 'bridge_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the flow source.
-
-        This name is used to reference the source and must be unique among sources in this bridge.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def flow_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeFlowSourceProperty]]:
-        '''The source of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-flowsource
-        '''
-        result = self._values.get("flow_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeFlowSourceProperty]], result)
-
-    @builtins.property
-    def network_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeNetworkSourceProperty]]:
-        '''The source of the network.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-bridgesource.html#cfn-mediaconnect-bridgesource-networksource
-        '''
-        result = self._values.get("network_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnBridgeSource.BridgeNetworkSourceProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnBridgeSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowRef)
 class CfnFlow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2834,6 +5222,12 @@ class CfnFlow(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowRef")
+    def flow_ref(self) -> FlowReference:
+        '''A reference to a Flow resource.'''
+        return typing.cast(FlowReference, jsii.get(self, "flowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5519,7 +7913,7 @@ class CfnFlow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowEntitlementRef)
 class CfnFlowEntitlement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5647,6 +8041,12 @@ class CfnFlowEntitlement(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowEntitlementRef")
+    def flow_entitlement_ref(self) -> FlowEntitlementReference:
+        '''A reference to a FlowEntitlement resource.'''
+        return typing.cast(FlowEntitlementReference, jsii.get(self, "flowEntitlementRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5954,188 +8354,7 @@ class CfnFlowEntitlement(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowEntitlementProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "flow_arn": "flowArn",
-        "name": "name",
-        "subscribers": "subscribers",
-        "data_transfer_subscriber_fee_percent": "dataTransferSubscriberFeePercent",
-        "encryption": "encryption",
-        "entitlement_status": "entitlementStatus",
-    },
-)
-class CfnFlowEntitlementProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        flow_arn: builtins.str,
-        name: builtins.str,
-        subscribers: typing.Sequence[builtins.str],
-        data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-        encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        entitlement_status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowEntitlement``.
-
-        :param description: A description of the entitlement. This description appears only on the MediaConnect console and is not visible outside of the current AWS account.
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow.
-        :param name: The name of the entitlement. This value must be unique within the current flow.
-        :param subscribers: The AWS account IDs that you want to share your content with. The receiving accounts (subscribers) will be allowed to create their own flows using your content as the source.
-        :param data_transfer_subscriber_fee_percent: The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for. Default: - 0
-        :param encryption: Information about the encryption of the flow.
-        :param entitlement_status: An indication of whether the new entitlement should be enabled or disabled as soon as it is created. If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_flow_entitlement_props = mediaconnect.CfnFlowEntitlementProps(
-                description="description",
-                flow_arn="flowArn",
-                name="name",
-                subscribers=["subscribers"],
-            
-                # the properties below are optional
-                data_transfer_subscriber_fee_percent=123,
-                encryption=mediaconnect.CfnFlowEntitlement.EncryptionProperty(
-                    algorithm="algorithm",
-                    role_arn="roleArn",
-            
-                    # the properties below are optional
-                    constant_initialization_vector="constantInitializationVector",
-                    device_id="deviceId",
-                    key_type="keyType",
-                    region="region",
-                    resource_id="resourceId",
-                    secret_arn="secretArn",
-                    url="url"
-                ),
-                entitlement_status="entitlementStatus"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument subscribers", value=subscribers, expected_type=type_hints["subscribers"])
-            check_type(argname="argument data_transfer_subscriber_fee_percent", value=data_transfer_subscriber_fee_percent, expected_type=type_hints["data_transfer_subscriber_fee_percent"])
-            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
-            check_type(argname="argument entitlement_status", value=entitlement_status, expected_type=type_hints["entitlement_status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "flow_arn": flow_arn,
-            "name": name,
-            "subscribers": subscribers,
-        }
-        if data_transfer_subscriber_fee_percent is not None:
-            self._values["data_transfer_subscriber_fee_percent"] = data_transfer_subscriber_fee_percent
-        if encryption is not None:
-            self._values["encryption"] = encryption
-        if entitlement_status is not None:
-            self._values["entitlement_status"] = entitlement_status
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description of the entitlement.
-
-        This description appears only on the MediaConnect console and is not visible outside of the current AWS account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def flow_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        assert result is not None, "Required property 'flow_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the entitlement.
-
-        This value must be unique within the current flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subscribers(self) -> typing.List[builtins.str]:
-        '''The AWS account IDs that you want to share your content with.
-
-        The receiving accounts (subscribers) will be allowed to create their own flows using your content as the source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-subscribers
-        '''
-        result = self._values.get("subscribers")
-        assert result is not None, "Required property 'subscribers' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def data_transfer_subscriber_fee_percent(self) -> typing.Optional[jsii.Number]:
-        '''The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for.
-
-        :default: - 0
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-datatransfersubscriberfeepercent
-        '''
-        result = self._values.get("data_transfer_subscriber_fee_percent")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def encryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowEntitlement.EncryptionProperty]]:
-        '''Information about the encryption of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-encryption
-        '''
-        result = self._values.get("encryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowEntitlement.EncryptionProperty]], result)
-
-    @builtins.property
-    def entitlement_status(self) -> typing.Optional[builtins.str]:
-        '''An indication of whether the new entitlement should be enabled or disabled as soon as it is created.
-
-        If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-entitlementstatus
-        '''
-        result = self._values.get("entitlement_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowEntitlementProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowOutputRef)
 class CfnFlowOutput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6322,6 +8541,12 @@ class CfnFlowOutput(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowOutputRef")
+    def flow_output_ref(self) -> FlowOutputReference:
+        '''A reference to a FlowOutput resource.'''
+        return typing.cast(FlowOutputReference, jsii.get(self, "flowOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -7102,739 +9327,7 @@ class CfnFlowOutput(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutputProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "flow_arn": "flowArn",
-        "protocol": "protocol",
-        "cidr_allow_list": "cidrAllowList",
-        "description": "description",
-        "destination": "destination",
-        "encryption": "encryption",
-        "max_latency": "maxLatency",
-        "media_stream_output_configurations": "mediaStreamOutputConfigurations",
-        "min_latency": "minLatency",
-        "name": "name",
-        "ndi_program_name": "ndiProgramName",
-        "ndi_speed_hq_quality": "ndiSpeedHqQuality",
-        "output_status": "outputStatus",
-        "port": "port",
-        "remote_id": "remoteId",
-        "smoothing_latency": "smoothingLatency",
-        "stream_id": "streamId",
-        "vpc_interface_attachment": "vpcInterfaceAttachment",
-    },
-)
-class CfnFlowOutputProps:
-    def __init__(
-        self,
-        *,
-        flow_arn: builtins.str,
-        protocol: builtins.str,
-        cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        destination: typing.Optional[builtins.str] = None,
-        encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        max_latency: typing.Optional[jsii.Number] = None,
-        media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        min_latency: typing.Optional[jsii.Number] = None,
-        name: typing.Optional[builtins.str] = None,
-        ndi_program_name: typing.Optional[builtins.str] = None,
-        ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
-        output_status: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        remote_id: typing.Optional[builtins.str] = None,
-        smoothing_latency: typing.Optional[jsii.Number] = None,
-        stream_id: typing.Optional[builtins.str] = None,
-        vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowOutput``.
-
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow this output is attached to.
-        :param protocol: The protocol to use for the output. .. epigraph:: AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
-        :param cidr_allow_list: The range of IP addresses that should be allowed to initiate output requests to this flow. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-        :param description: A description of the output. This description appears only on the MediaConnect console and will not be seen by the end user.
-        :param destination: The IP address where you want to send the output.
-        :param encryption: The type of key used for the encryption. If no ``keyType`` is provided, the service will use the default setting (static-key). Allowable encryption types: static-key.
-        :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
-        :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
-        :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
-        :param name: The name of the bridge's output.
-        :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
-        :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
-        :param output_status: An indication of whether the output should transmit data or not.
-        :param port: The port to use when content is distributed to this output.
-        :param remote_id: The remote ID for the Zixi-pull stream.
-        :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
-        :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
-        :param vpc_interface_attachment: The name of the VPC interface attachment to use for this output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_flow_output_props = mediaconnect.CfnFlowOutputProps(
-                flow_arn="flowArn",
-                protocol="protocol",
-            
-                # the properties below are optional
-                cidr_allow_list=["cidrAllowList"],
-                description="description",
-                destination="destination",
-                encryption=mediaconnect.CfnFlowOutput.EncryptionProperty(
-                    role_arn="roleArn",
-                    secret_arn="secretArn",
-            
-                    # the properties below are optional
-                    algorithm="algorithm",
-                    key_type="keyType"
-                ),
-                max_latency=123,
-                media_stream_output_configurations=[mediaconnect.CfnFlowOutput.MediaStreamOutputConfigurationProperty(
-                    encoding_name="encodingName",
-                    media_stream_name="mediaStreamName",
-            
-                    # the properties below are optional
-                    destination_configurations=[mediaconnect.CfnFlowOutput.DestinationConfigurationProperty(
-                        destination_ip="destinationIp",
-                        destination_port=123,
-                        interface=mediaconnect.CfnFlowOutput.InterfaceProperty(
-                            name="name"
-                        )
-                    )],
-                    encoding_parameters=mediaconnect.CfnFlowOutput.EncodingParametersProperty(
-                        compression_factor=123,
-            
-                        # the properties below are optional
-                        encoder_profile="encoderProfile"
-                    )
-                )],
-                min_latency=123,
-                name="name",
-                ndi_program_name="ndiProgramName",
-                ndi_speed_hq_quality=123,
-                output_status="outputStatus",
-                port=123,
-                remote_id="remoteId",
-                smoothing_latency=123,
-                stream_id="streamId",
-                vpc_interface_attachment=mediaconnect.CfnFlowOutput.VpcInterfaceAttachmentProperty(
-                    vpc_interface_name="vpcInterfaceName"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d)
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument cidr_allow_list", value=cidr_allow_list, expected_type=type_hints["cidr_allow_list"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
-            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
-            check_type(argname="argument max_latency", value=max_latency, expected_type=type_hints["max_latency"])
-            check_type(argname="argument media_stream_output_configurations", value=media_stream_output_configurations, expected_type=type_hints["media_stream_output_configurations"])
-            check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument ndi_program_name", value=ndi_program_name, expected_type=type_hints["ndi_program_name"])
-            check_type(argname="argument ndi_speed_hq_quality", value=ndi_speed_hq_quality, expected_type=type_hints["ndi_speed_hq_quality"])
-            check_type(argname="argument output_status", value=output_status, expected_type=type_hints["output_status"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument remote_id", value=remote_id, expected_type=type_hints["remote_id"])
-            check_type(argname="argument smoothing_latency", value=smoothing_latency, expected_type=type_hints["smoothing_latency"])
-            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
-            check_type(argname="argument vpc_interface_attachment", value=vpc_interface_attachment, expected_type=type_hints["vpc_interface_attachment"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "flow_arn": flow_arn,
-            "protocol": protocol,
-        }
-        if cidr_allow_list is not None:
-            self._values["cidr_allow_list"] = cidr_allow_list
-        if description is not None:
-            self._values["description"] = description
-        if destination is not None:
-            self._values["destination"] = destination
-        if encryption is not None:
-            self._values["encryption"] = encryption
-        if max_latency is not None:
-            self._values["max_latency"] = max_latency
-        if media_stream_output_configurations is not None:
-            self._values["media_stream_output_configurations"] = media_stream_output_configurations
-        if min_latency is not None:
-            self._values["min_latency"] = min_latency
-        if name is not None:
-            self._values["name"] = name
-        if ndi_program_name is not None:
-            self._values["ndi_program_name"] = ndi_program_name
-        if ndi_speed_hq_quality is not None:
-            self._values["ndi_speed_hq_quality"] = ndi_speed_hq_quality
-        if output_status is not None:
-            self._values["output_status"] = output_status
-        if port is not None:
-            self._values["port"] = port
-        if remote_id is not None:
-            self._values["remote_id"] = remote_id
-        if smoothing_latency is not None:
-            self._values["smoothing_latency"] = smoothing_latency
-        if stream_id is not None:
-            self._values["stream_id"] = stream_id
-        if vpc_interface_attachment is not None:
-            self._values["vpc_interface_attachment"] = vpc_interface_attachment
-
-    @builtins.property
-    def flow_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the flow this output is attached to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        assert result is not None, "Required property 'flow_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def protocol(self) -> builtins.str:
-        '''The protocol to use for the output.
-
-        .. epigraph::
-
-           AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-protocol
-        '''
-        result = self._values.get("protocol")
-        assert result is not None, "Required property 'protocol' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cidr_allow_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The range of IP addresses that should be allowed to initiate output requests to this flow.
-
-        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-cidrallowlist
-        '''
-        result = self._values.get("cidr_allow_list")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the output.
-
-        This description appears only on the MediaConnect console and will not be seen by the end user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def destination(self) -> typing.Optional[builtins.str]:
-        '''The IP address where you want to send the output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-destination
-        '''
-        result = self._values.get("destination")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.EncryptionProperty]]:
-        '''The type of key used for the encryption.
-
-        If no ``keyType`` is provided, the service will use the default setting (static-key). Allowable encryption types: static-key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-encryption
-        '''
-        result = self._values.get("encryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.EncryptionProperty]], result)
-
-    @builtins.property
-    def max_latency(self) -> typing.Optional[jsii.Number]:
-        '''The maximum latency in milliseconds.
-
-        This parameter applies only to RIST-based and Zixi-based streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-maxlatency
-        '''
-        result = self._values.get("max_latency")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def media_stream_output_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.MediaStreamOutputConfigurationProperty]]]]:
-        '''The media streams that are associated with the output, and the parameters for those associations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-mediastreamoutputconfigurations
-        '''
-        result = self._values.get("media_stream_output_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.MediaStreamOutputConfigurationProperty]]]], result)
-
-    @builtins.property
-    def min_latency(self) -> typing.Optional[jsii.Number]:
-        '''The minimum latency in milliseconds for SRT-based streams.
-
-        In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-minlatency
-        '''
-        result = self._values.get("min_latency")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the bridge's output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ndi_program_name(self) -> typing.Optional[builtins.str]:
-        '''A suffix for the names of the NDI sources that the flow creates.
-
-        If a custom name isn't specified, MediaConnect uses the output name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndiprogramname
-        '''
-        result = self._values.get("ndi_program_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ndi_speed_hq_quality(self) -> typing.Optional[jsii.Number]:
-        '''A quality setting for the NDI Speed HQ encoder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndispeedhqquality
-        '''
-        result = self._values.get("ndi_speed_hq_quality")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def output_status(self) -> typing.Optional[builtins.str]:
-        '''An indication of whether the output should transmit data or not.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-outputstatus
-        '''
-        result = self._values.get("output_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port to use when content is distributed to this output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def remote_id(self) -> typing.Optional[builtins.str]:
-        '''The remote ID for the Zixi-pull stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-remoteid
-        '''
-        result = self._values.get("remote_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def smoothing_latency(self) -> typing.Optional[jsii.Number]:
-        '''The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-smoothinglatency
-        '''
-        result = self._values.get("smoothing_latency")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def stream_id(self) -> typing.Optional[builtins.str]:
-        '''The stream ID that you want to use for this transport.
-
-        This parameter applies only to Zixi and SRT caller-based streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-streamid
-        '''
-        result = self._values.get("stream_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_interface_attachment(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.VpcInterfaceAttachmentProperty]]:
-        '''The name of the VPC interface attachment to use for this output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-vpcinterfaceattachment
-        '''
-        result = self._values.get("vpc_interface_attachment")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.VpcInterfaceAttachmentProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowOutputProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "source": "source",
-        "availability_zone": "availabilityZone",
-        "flow_size": "flowSize",
-        "maintenance": "maintenance",
-        "media_streams": "mediaStreams",
-        "ndi_config": "ndiConfig",
-        "source_failover_config": "sourceFailoverConfig",
-        "source_monitoring_config": "sourceMonitoringConfig",
-        "vpc_interfaces": "vpcInterfaces",
-    },
-)
-class CfnFlowProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
-        availability_zone: typing.Optional[builtins.str] = None,
-        flow_size: typing.Optional[builtins.str] = None,
-        maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlow``.
-
-        :param name: The name of the flow.
-        :param source: The settings for the source that you want to use for the new flow.
-        :param availability_zone: The Availability Zone that you want to create the flow in. These options are limited to the Availability Zones within the current AWS Region.
-        :param flow_size: Determines the processing capacity and feature set of the flow. Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
-        :param maintenance: The maintenance settings you want to use for the flow.
-        :param media_streams: The media streams that are associated with the flow. After you associate a media stream with a source, you can also associate it with outputs on the flow.
-        :param ndi_config: Specifies the configuration settings for NDI outputs. Required when the flow includes NDI outputs.
-        :param source_failover_config: The settings for source failover.
-        :param source_monitoring_config: The settings for source monitoring.
-        :param vpc_interfaces: The VPC Interfaces for this flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_flow_props = mediaconnect.CfnFlowProps(
-                name="name",
-                source=mediaconnect.CfnFlow.SourceProperty(
-                    decryption=mediaconnect.CfnFlow.EncryptionProperty(
-                        role_arn="roleArn",
-            
-                        # the properties below are optional
-                        algorithm="algorithm",
-                        constant_initialization_vector="constantInitializationVector",
-                        device_id="deviceId",
-                        key_type="keyType",
-                        region="region",
-                        resource_id="resourceId",
-                        secret_arn="secretArn",
-                        url="url"
-                    ),
-                    description="description",
-                    entitlement_arn="entitlementArn",
-                    gateway_bridge_source=mediaconnect.CfnFlow.GatewayBridgeSourceProperty(
-                        bridge_arn="bridgeArn",
-            
-                        # the properties below are optional
-                        vpc_interface_attachment=mediaconnect.CfnFlow.VpcInterfaceAttachmentProperty(
-                            vpc_interface_name="vpcInterfaceName"
-                        )
-                    ),
-                    ingest_ip="ingestIp",
-                    ingest_port=123,
-                    max_bitrate=123,
-                    max_latency=123,
-                    max_sync_buffer=123,
-                    media_stream_source_configurations=[mediaconnect.CfnFlow.MediaStreamSourceConfigurationProperty(
-                        encoding_name="encodingName",
-                        media_stream_name="mediaStreamName",
-            
-                        # the properties below are optional
-                        input_configurations=[mediaconnect.CfnFlow.InputConfigurationProperty(
-                            input_port=123,
-                            interface=mediaconnect.CfnFlow.InterfaceProperty(
-                                name="name"
-                            )
-                        )]
-                    )],
-                    min_latency=123,
-                    name="name",
-                    protocol="protocol",
-                    sender_control_port=123,
-                    sender_ip_address="senderIpAddress",
-                    source_arn="sourceArn",
-                    source_ingest_port="sourceIngestPort",
-                    source_listener_address="sourceListenerAddress",
-                    source_listener_port=123,
-                    stream_id="streamId",
-                    vpc_interface_name="vpcInterfaceName",
-                    whitelist_cidr="whitelistCidr"
-                ),
-            
-                # the properties below are optional
-                availability_zone="availabilityZone",
-                flow_size="flowSize",
-                maintenance=mediaconnect.CfnFlow.MaintenanceProperty(
-                    maintenance_day="maintenanceDay",
-                    maintenance_start_hour="maintenanceStartHour"
-                ),
-                media_streams=[mediaconnect.CfnFlow.MediaStreamProperty(
-                    media_stream_id=123,
-                    media_stream_name="mediaStreamName",
-                    media_stream_type="mediaStreamType",
-            
-                    # the properties below are optional
-                    attributes=mediaconnect.CfnFlow.MediaStreamAttributesProperty(
-                        fmtp=mediaconnect.CfnFlow.FmtpProperty(
-                            channel_order="channelOrder",
-                            colorimetry="colorimetry",
-                            exact_framerate="exactFramerate",
-                            par="par",
-                            range="range",
-                            scan_mode="scanMode",
-                            tcs="tcs"
-                        ),
-                        lang="lang"
-                    ),
-                    clock_rate=123,
-                    description="description",
-                    fmt=123,
-                    video_format="videoFormat"
-                )],
-                ndi_config=mediaconnect.CfnFlow.NdiConfigProperty(
-                    machine_name="machineName",
-                    ndi_discovery_servers=[mediaconnect.CfnFlow.NdiDiscoveryServerConfigProperty(
-                        discovery_server_address="discoveryServerAddress",
-                        vpc_interface_adapter="vpcInterfaceAdapter",
-            
-                        # the properties below are optional
-                        discovery_server_port=123
-                    )],
-                    ndi_state="ndiState"
-                ),
-                source_failover_config=mediaconnect.CfnFlow.FailoverConfigProperty(
-                    failover_mode="failoverMode",
-                    recovery_window=123,
-                    source_priority=mediaconnect.CfnFlow.SourcePriorityProperty(
-                        primary_source="primarySource"
-                    ),
-                    state="state"
-                ),
-                source_monitoring_config=mediaconnect.CfnFlow.SourceMonitoringConfigProperty(
-                    audio_monitoring_settings=[mediaconnect.CfnFlow.AudioMonitoringSettingProperty(
-                        silent_audio=mediaconnect.CfnFlow.SilentAudioProperty(
-                            state="state",
-                            threshold_seconds=123
-                        )
-                    )],
-                    content_quality_analysis_state="contentQualityAnalysisState",
-                    thumbnail_state="thumbnailState",
-                    video_monitoring_settings=[mediaconnect.CfnFlow.VideoMonitoringSettingProperty(
-                        black_frames=mediaconnect.CfnFlow.BlackFramesProperty(
-                            state="state",
-                            threshold_seconds=123
-                        ),
-                        frozen_frames=mediaconnect.CfnFlow.FrozenFramesProperty(
-                            state="state",
-                            threshold_seconds=123
-                        )
-                    )]
-                ),
-                vpc_interfaces=[mediaconnect.CfnFlow.VpcInterfaceProperty(
-                    name="name",
-                    role_arn="roleArn",
-                    security_group_ids=["securityGroupIds"],
-                    subnet_id="subnetId",
-            
-                    # the properties below are optional
-                    network_interface_ids=["networkInterfaceIds"],
-                    network_interface_type="networkInterfaceType"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument flow_size", value=flow_size, expected_type=type_hints["flow_size"])
-            check_type(argname="argument maintenance", value=maintenance, expected_type=type_hints["maintenance"])
-            check_type(argname="argument media_streams", value=media_streams, expected_type=type_hints["media_streams"])
-            check_type(argname="argument ndi_config", value=ndi_config, expected_type=type_hints["ndi_config"])
-            check_type(argname="argument source_failover_config", value=source_failover_config, expected_type=type_hints["source_failover_config"])
-            check_type(argname="argument source_monitoring_config", value=source_monitoring_config, expected_type=type_hints["source_monitoring_config"])
-            check_type(argname="argument vpc_interfaces", value=vpc_interfaces, expected_type=type_hints["vpc_interfaces"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "source": source,
-        }
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if flow_size is not None:
-            self._values["flow_size"] = flow_size
-        if maintenance is not None:
-            self._values["maintenance"] = maintenance
-        if media_streams is not None:
-            self._values["media_streams"] = media_streams
-        if ndi_config is not None:
-            self._values["ndi_config"] = ndi_config
-        if source_failover_config is not None:
-            self._values["source_failover_config"] = source_failover_config
-        if source_monitoring_config is not None:
-            self._values["source_monitoring_config"] = source_monitoring_config
-        if vpc_interfaces is not None:
-            self._values["vpc_interfaces"] = vpc_interfaces
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source(self) -> typing.Union[_IResolvable_da3f097b, CfnFlow.SourceProperty]:
-        '''The settings for the source that you want to use for the new flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-source
-        '''
-        result = self._values.get("source")
-        assert result is not None, "Required property 'source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnFlow.SourceProperty], result)
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone that you want to create the flow in.
-
-        These options are limited to the Availability Zones within the current AWS Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def flow_size(self) -> typing.Optional[builtins.str]:
-        '''Determines the processing capacity and feature set of the flow.
-
-        Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-flowsize
-        '''
-        result = self._values.get("flow_size")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def maintenance(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MaintenanceProperty]]:
-        '''The maintenance settings you want to use for the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-maintenance
-        '''
-        result = self._values.get("maintenance")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.MaintenanceProperty]], result)
-
-    @builtins.property
-    def media_streams(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.MediaStreamProperty]]]]:
-        '''The media streams that are associated with the flow.
-
-        After you associate a media stream with a source, you can also associate it with outputs on the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-mediastreams
-        '''
-        result = self._values.get("media_streams")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.MediaStreamProperty]]]], result)
-
-    @builtins.property
-    def ndi_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.NdiConfigProperty]]:
-        '''Specifies the configuration settings for NDI outputs.
-
-        Required when the flow includes NDI outputs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-ndiconfig
-        '''
-        result = self._values.get("ndi_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.NdiConfigProperty]], result)
-
-    @builtins.property
-    def source_failover_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.FailoverConfigProperty]]:
-        '''The settings for source failover.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcefailoverconfig
-        '''
-        result = self._values.get("source_failover_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.FailoverConfigProperty]], result)
-
-    @builtins.property
-    def source_monitoring_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.SourceMonitoringConfigProperty]]:
-        '''The settings for source monitoring.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-sourcemonitoringconfig
-        '''
-        result = self._values.get("source_monitoring_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.SourceMonitoringConfigProperty]], result)
-
-    @builtins.property
-    def vpc_interfaces(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.VpcInterfaceProperty]]]]:
-        '''The VPC Interfaces for this flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-vpcinterfaces
-        '''
-        result = self._values.get("vpc_interfaces")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.VpcInterfaceProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowSourceRef)
 class CfnFlowSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8033,6 +9526,12 @@ class CfnFlowSource(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flowSourceRef")
+    def flow_source_ref(self) -> FlowSourceReference:
+        '''A reference to a FlowSource resource.'''
+        return typing.cast(FlowSourceReference, jsii.get(self, "flowSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -8620,385 +10119,7 @@ class CfnFlowSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "name": "name",
-        "decryption": "decryption",
-        "entitlement_arn": "entitlementArn",
-        "flow_arn": "flowArn",
-        "gateway_bridge_source": "gatewayBridgeSource",
-        "ingest_port": "ingestPort",
-        "max_bitrate": "maxBitrate",
-        "max_latency": "maxLatency",
-        "min_latency": "minLatency",
-        "protocol": "protocol",
-        "sender_control_port": "senderControlPort",
-        "sender_ip_address": "senderIpAddress",
-        "source_listener_address": "sourceListenerAddress",
-        "source_listener_port": "sourceListenerPort",
-        "stream_id": "streamId",
-        "vpc_interface_name": "vpcInterfaceName",
-        "whitelist_cidr": "whitelistCidr",
-    },
-)
-class CfnFlowSourceProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        name: builtins.str,
-        decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        entitlement_arn: typing.Optional[builtins.str] = None,
-        flow_arn: typing.Optional[builtins.str] = None,
-        gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ingest_port: typing.Optional[jsii.Number] = None,
-        max_bitrate: typing.Optional[jsii.Number] = None,
-        max_latency: typing.Optional[jsii.Number] = None,
-        min_latency: typing.Optional[jsii.Number] = None,
-        protocol: typing.Optional[builtins.str] = None,
-        sender_control_port: typing.Optional[jsii.Number] = None,
-        sender_ip_address: typing.Optional[builtins.str] = None,
-        source_listener_address: typing.Optional[builtins.str] = None,
-        source_listener_port: typing.Optional[jsii.Number] = None,
-        stream_id: typing.Optional[builtins.str] = None,
-        vpc_interface_name: typing.Optional[builtins.str] = None,
-        whitelist_cidr: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowSource``.
-
-        :param description: A description for the source. This value is not used or seen outside of the current MediaConnect account.
-        :param name: The name of the source.
-        :param decryption: The type of encryption that is used on the content ingested from this source. Allowable encryption types: static-key.
-        :param entitlement_arn: The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
-        :param gateway_bridge_source: The bridge's source.
-        :param ingest_port: The port that the flow listens on for incoming content. If the protocol of the source is Zixi, the port must be set to 2088.
-        :param max_bitrate: The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
-        :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
-        :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
-        :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
-        :param sender_control_port: The port that the flow uses to send outbound requests to initiate connection with the sender.
-        :param sender_ip_address: The IP address that the flow communicates with to initiate connection with the sender.
-        :param source_listener_address: Source IP or domain name for SRT-caller protocol.
-        :param source_listener_port: Source port for SRT-caller protocol.
-        :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
-        :param vpc_interface_name: The name of the VPC interface to use for this source.
-        :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_flow_source_props = mediaconnect.CfnFlowSourceProps(
-                description="description",
-                name="name",
-            
-                # the properties below are optional
-                decryption=mediaconnect.CfnFlowSource.EncryptionProperty(
-                    role_arn="roleArn",
-            
-                    # the properties below are optional
-                    algorithm="algorithm",
-                    constant_initialization_vector="constantInitializationVector",
-                    device_id="deviceId",
-                    key_type="keyType",
-                    region="region",
-                    resource_id="resourceId",
-                    secret_arn="secretArn",
-                    url="url"
-                ),
-                entitlement_arn="entitlementArn",
-                flow_arn="flowArn",
-                gateway_bridge_source=mediaconnect.CfnFlowSource.GatewayBridgeSourceProperty(
-                    bridge_arn="bridgeArn",
-            
-                    # the properties below are optional
-                    vpc_interface_attachment=mediaconnect.CfnFlowSource.VpcInterfaceAttachmentProperty(
-                        vpc_interface_name="vpcInterfaceName"
-                    )
-                ),
-                ingest_port=123,
-                max_bitrate=123,
-                max_latency=123,
-                min_latency=123,
-                protocol="protocol",
-                sender_control_port=123,
-                sender_ip_address="senderIpAddress",
-                source_listener_address="sourceListenerAddress",
-                source_listener_port=123,
-                stream_id="streamId",
-                vpc_interface_name="vpcInterfaceName",
-                whitelist_cidr="whitelistCidr"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument decryption", value=decryption, expected_type=type_hints["decryption"])
-            check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument gateway_bridge_source", value=gateway_bridge_source, expected_type=type_hints["gateway_bridge_source"])
-            check_type(argname="argument ingest_port", value=ingest_port, expected_type=type_hints["ingest_port"])
-            check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
-            check_type(argname="argument max_latency", value=max_latency, expected_type=type_hints["max_latency"])
-            check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
-            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
-            check_type(argname="argument sender_control_port", value=sender_control_port, expected_type=type_hints["sender_control_port"])
-            check_type(argname="argument sender_ip_address", value=sender_ip_address, expected_type=type_hints["sender_ip_address"])
-            check_type(argname="argument source_listener_address", value=source_listener_address, expected_type=type_hints["source_listener_address"])
-            check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
-            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
-            check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
-            check_type(argname="argument whitelist_cidr", value=whitelist_cidr, expected_type=type_hints["whitelist_cidr"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "name": name,
-        }
-        if decryption is not None:
-            self._values["decryption"] = decryption
-        if entitlement_arn is not None:
-            self._values["entitlement_arn"] = entitlement_arn
-        if flow_arn is not None:
-            self._values["flow_arn"] = flow_arn
-        if gateway_bridge_source is not None:
-            self._values["gateway_bridge_source"] = gateway_bridge_source
-        if ingest_port is not None:
-            self._values["ingest_port"] = ingest_port
-        if max_bitrate is not None:
-            self._values["max_bitrate"] = max_bitrate
-        if max_latency is not None:
-            self._values["max_latency"] = max_latency
-        if min_latency is not None:
-            self._values["min_latency"] = min_latency
-        if protocol is not None:
-            self._values["protocol"] = protocol
-        if sender_control_port is not None:
-            self._values["sender_control_port"] = sender_control_port
-        if sender_ip_address is not None:
-            self._values["sender_ip_address"] = sender_ip_address
-        if source_listener_address is not None:
-            self._values["source_listener_address"] = source_listener_address
-        if source_listener_port is not None:
-            self._values["source_listener_port"] = source_listener_port
-        if stream_id is not None:
-            self._values["stream_id"] = stream_id
-        if vpc_interface_name is not None:
-            self._values["vpc_interface_name"] = vpc_interface_name
-        if whitelist_cidr is not None:
-            self._values["whitelist_cidr"] = whitelist_cidr
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A description for the source.
-
-        This value is not used or seen outside of the current MediaConnect account.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def decryption(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.EncryptionProperty]]:
-        '''The type of encryption that is used on the content ingested from this source.
-
-        Allowable encryption types: static-key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-decryption
-        '''
-        result = self._values.get("decryption")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.EncryptionProperty]], result)
-
-    @builtins.property
-    def entitlement_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the entitlement that allows you to subscribe to this flow.
-
-        The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-entitlementarn
-        '''
-        result = self._values.get("entitlement_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def flow_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the flow this source is connected to.
-
-        The flow must have Failover enabled to add an additional source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def gateway_bridge_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.GatewayBridgeSourceProperty]]:
-        '''The bridge's source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-gatewaybridgesource
-        '''
-        result = self._values.get("gateway_bridge_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowSource.GatewayBridgeSourceProperty]], result)
-
-    @builtins.property
-    def ingest_port(self) -> typing.Optional[jsii.Number]:
-        '''The port that the flow listens on for incoming content.
-
-        If the protocol of the source is Zixi, the port must be set to 2088.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-ingestport
-        '''
-        result = self._values.get("ingest_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_bitrate(self) -> typing.Optional[jsii.Number]:
-        '''The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-maxbitrate
-        '''
-        result = self._values.get("max_bitrate")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_latency(self) -> typing.Optional[jsii.Number]:
-        '''The maximum latency in milliseconds.
-
-        This parameter applies only to RIST-based and Zixi-based streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-maxlatency
-        '''
-        result = self._values.get("max_latency")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def min_latency(self) -> typing.Optional[jsii.Number]:
-        '''The minimum latency in milliseconds for SRT-based streams.
-
-        In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-minlatency
-        '''
-        result = self._values.get("min_latency")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def protocol(self) -> typing.Optional[builtins.str]:
-        '''The protocol that the source uses to deliver the content to MediaConnect.
-
-        Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols.
-
-        If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-protocol
-        '''
-        result = self._values.get("protocol")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sender_control_port(self) -> typing.Optional[jsii.Number]:
-        '''The port that the flow uses to send outbound requests to initiate connection with the sender.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sendercontrolport
-        '''
-        result = self._values.get("sender_control_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def sender_ip_address(self) -> typing.Optional[builtins.str]:
-        '''The IP address that the flow communicates with to initiate connection with the sender.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-senderipaddress
-        '''
-        result = self._values.get("sender_ip_address")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_listener_address(self) -> typing.Optional[builtins.str]:
-        '''Source IP or domain name for SRT-caller protocol.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sourcelisteneraddress
-        '''
-        result = self._values.get("source_listener_address")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_listener_port(self) -> typing.Optional[jsii.Number]:
-        '''Source port for SRT-caller protocol.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sourcelistenerport
-        '''
-        result = self._values.get("source_listener_port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def stream_id(self) -> typing.Optional[builtins.str]:
-        '''The stream ID that you want to use for this transport.
-
-        This parameter applies only to Zixi and SRT caller-based streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-streamid
-        '''
-        result = self._values.get("stream_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_interface_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the VPC interface to use for this source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-vpcinterfacename
-        '''
-        result = self._values.get("vpc_interface_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def whitelist_cidr(self) -> typing.Optional[builtins.str]:
-        '''The range of IP addresses that should be allowed to contribute content to your source.
-
-        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-whitelistcidr
-        '''
-        result = self._values.get("whitelist_cidr")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IFlowVpcInterfaceRef)
 class CfnFlowVpcInterface(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9116,6 +10237,12 @@ class CfnFlowVpcInterface(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="flowVpcInterfaceRef")
+    def flow_vpc_interface_ref(self) -> FlowVpcInterfaceReference:
+        '''A reference to a FlowVpcInterface resource.'''
+        return typing.cast(FlowVpcInterfaceReference, jsii.get(self, "flowVpcInterfaceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="flowArn")
     def flow_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the flow.'''
@@ -9181,134 +10308,7 @@ class CfnFlowVpcInterface(
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowVpcInterfaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "flow_arn": "flowArn",
-        "name": "name",
-        "role_arn": "roleArn",
-        "security_group_ids": "securityGroupIds",
-        "subnet_id": "subnetId",
-    },
-)
-class CfnFlowVpcInterfaceProps:
-    def __init__(
-        self,
-        *,
-        flow_arn: builtins.str,
-        name: builtins.str,
-        role_arn: builtins.str,
-        security_group_ids: typing.Sequence[builtins.str],
-        subnet_id: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnFlowVpcInterface``.
-
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow.
-        :param name: The name for the VPC interface. This name must be unique within the flow.
-        :param role_arn: The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
-        :param security_group_ids: A virtual firewall to control inbound and outbound traffic.
-        :param subnet_id: The subnet IDs that you want to use for your VPC interface. A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_flow_vpc_interface_props = mediaconnect.CfnFlowVpcInterfaceProps(
-                flow_arn="flowArn",
-                name="name",
-                role_arn="roleArn",
-                security_group_ids=["securityGroupIds"],
-                subnet_id="subnetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410)
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "flow_arn": flow_arn,
-            "name": name,
-            "role_arn": role_arn,
-            "security_group_ids": security_group_ids,
-            "subnet_id": subnet_id,
-        }
-
-    @builtins.property
-    def flow_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-flowarn
-        '''
-        result = self._values.get("flow_arn")
-        assert result is not None, "Required property 'flow_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name for the VPC interface.
-
-        This name must be unique within the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the role that you created when you set up MediaConnect as a trusted service.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_group_ids(self) -> typing.List[builtins.str]:
-        '''A virtual firewall to control inbound and outbound traffic.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-securitygroupids
-        '''
-        result = self._values.get("security_group_ids")
-        assert result is not None, "Required property 'security_group_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def subnet_id(self) -> builtins.str:
-        '''The subnet IDs that you want to use for your VPC interface.
-
-        A range of IP addresses in your VPC. When you create your VPC, you specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. This is the primary CIDR block for your VPC. When you create a subnet for your VPC, you specify the CIDR block for the subnet, which is a subset of the VPC CIDR block. The subnets that you use across all VPC interfaces on the flow must be in the same Availability Zone as the flow.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowvpcinterface.html#cfn-mediaconnect-flowvpcinterface-subnetid
-        '''
-        result = self._values.get("subnet_id")
-        assert result is not None, "Required property 'subnet_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFlowVpcInterfaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IGatewayRef)
 class CfnGateway(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9418,6 +10418,12 @@ class CfnGateway(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayRef")
+    def gateway_ref(self) -> GatewayReference:
+        '''A reference to a Gateway resource.'''
+        return typing.cast(GatewayReference, jsii.get(self, "gatewayRef"))
 
     @builtins.property
     @jsii.member(jsii_name="egressCidrBlocks")
@@ -9534,107 +10540,10 @@ class CfnGateway(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconnect.CfnGatewayProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "egress_cidr_blocks": "egressCidrBlocks",
-        "name": "name",
-        "networks": "networks",
-    },
-)
-class CfnGatewayProps:
-    def __init__(
-        self,
-        *,
-        egress_cidr_blocks: typing.Sequence[builtins.str],
-        name: builtins.str,
-        networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnGateway``.
-
-        :param egress_cidr_blocks: The range of IP addresses that are allowed to contribute content or initiate output requests for flows communicating with this gateway. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-        :param name: The name of the gateway. This name can not be modified after the gateway is created.
-        :param networks: The list of networks in the gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconnect as mediaconnect
-            
-            cfn_gateway_props = mediaconnect.CfnGatewayProps(
-                egress_cidr_blocks=["egressCidrBlocks"],
-                name="name",
-                networks=[mediaconnect.CfnGateway.GatewayNetworkProperty(
-                    cidr_block="cidrBlock",
-                    name="name"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450)
-            check_type(argname="argument egress_cidr_blocks", value=egress_cidr_blocks, expected_type=type_hints["egress_cidr_blocks"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument networks", value=networks, expected_type=type_hints["networks"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "egress_cidr_blocks": egress_cidr_blocks,
-            "name": name,
-            "networks": networks,
-        }
-
-    @builtins.property
-    def egress_cidr_blocks(self) -> typing.List[builtins.str]:
-        '''The range of IP addresses that are allowed to contribute content or initiate output requests for flows communicating with this gateway.
-
-        These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-egresscidrblocks
-        '''
-        result = self._values.get("egress_cidr_blocks")
-        assert result is not None, "Required property 'egress_cidr_blocks' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the gateway.
-
-        This name can not be modified after the gateway is created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def networks(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayNetworkProperty]]]:
-        '''The list of networks in the gateway.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-gateway.html#cfn-mediaconnect-gateway-networks
-        '''
-        result = self._values.get("networks")
-        assert result is not None, "Required property 'networks' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayNetworkProperty]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnGatewayProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "BridgeOutputReference",
+    "BridgeReference",
+    "BridgeSourceReference",
     "CfnBridge",
     "CfnBridgeOutput",
     "CfnBridgeOutputProps",
@@ -9653,9 +10562,219 @@ __all__ = [
     "CfnFlowVpcInterfaceProps",
     "CfnGateway",
     "CfnGatewayProps",
+    "FlowEntitlementReference",
+    "FlowOutputReference",
+    "FlowReference",
+    "FlowSourceReference",
+    "FlowVpcInterfaceReference",
+    "GatewayReference",
+    "IBridgeOutputRef",
+    "IBridgeRef",
+    "IBridgeSourceRef",
+    "IFlowEntitlementRef",
+    "IFlowOutputRef",
+    "IFlowRef",
+    "IFlowSourceRef",
+    "IFlowVpcInterfaceRef",
+    "IGatewayRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__980f9ae5f1e85bf0fad50041ed2696210b45584059098a87aa5cfecfb0eebcc4(
+    *,
+    bridge_arn: builtins.str,
+    bridge_output_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45c1dbf0fd0f1d58abf87acee25dc813c6728d13bedac10cf4a68fea9a52a172(
+    *,
+    bridge_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60993cfa949a30bf71f61ad3375667b6c5812a51b2bd974984b69f088e638e14(
+    *,
+    bridge_arn: builtins.str,
+    bridge_source_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a(
+    *,
+    bridge_arn: builtins.str,
+    name: builtins.str,
+    network_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef(
+    *,
+    name: builtins.str,
+    placement_arn: builtins.str,
+    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23(
+    *,
+    bridge_arn: builtins.str,
+    name: builtins.str,
+    flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055(
+    *,
+    description: builtins.str,
+    flow_arn: builtins.str,
+    name: builtins.str,
+    subscribers: typing.Sequence[builtins.str],
+    data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
+    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entitlement_status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d(
+    *,
+    flow_arn: builtins.str,
+    protocol: builtins.str,
+    cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    destination: typing.Optional[builtins.str] = None,
+    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_latency: typing.Optional[jsii.Number] = None,
+    media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    min_latency: typing.Optional[jsii.Number] = None,
+    name: typing.Optional[builtins.str] = None,
+    ndi_program_name: typing.Optional[builtins.str] = None,
+    ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
+    output_status: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    remote_id: typing.Optional[builtins.str] = None,
+    smoothing_latency: typing.Optional[jsii.Number] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24(
+    *,
+    name: builtins.str,
+    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    availability_zone: typing.Optional[builtins.str] = None,
+    flow_size: typing.Optional[builtins.str] = None,
+    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1(
+    *,
+    description: builtins.str,
+    name: builtins.str,
+    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    entitlement_arn: typing.Optional[builtins.str] = None,
+    flow_arn: typing.Optional[builtins.str] = None,
+    gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ingest_port: typing.Optional[jsii.Number] = None,
+    max_bitrate: typing.Optional[jsii.Number] = None,
+    max_latency: typing.Optional[jsii.Number] = None,
+    min_latency: typing.Optional[jsii.Number] = None,
+    protocol: typing.Optional[builtins.str] = None,
+    sender_control_port: typing.Optional[jsii.Number] = None,
+    sender_ip_address: typing.Optional[builtins.str] = None,
+    source_listener_address: typing.Optional[builtins.str] = None,
+    source_listener_port: typing.Optional[jsii.Number] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+    vpc_interface_name: typing.Optional[builtins.str] = None,
+    whitelist_cidr: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410(
+    *,
+    flow_arn: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnet_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450(
+    *,
+    egress_cidr_blocks: typing.Sequence[builtins.str],
+    name: builtins.str,
+    networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4e9d8865ba77a6f0b983af71732799e41125720b1e2d65d316d0dd95368e882(
+    *,
+    entitlement_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__750bb1de653aad694552684bccaadbff578418a0294c90d61b0c53a5476a4d20(
+    *,
+    output_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a90821e269d9af23677c5a59883f1d6a989fdaaaa6f91fdf2b12d62a1f6ca077(
+    *,
+    flow_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b705ea3ffcc558c06e587e79efe930b7c21b40a713fd3c0200b0cf215c269dfb(
+    *,
+    source_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b64fb13f45daeb5a518af616dad85d86bf304f5e0a9c0ebe360820638c046b57(
+    *,
+    flow_arn: builtins.str,
+    flow_vpc_interface_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63304f39201cff53420239bc4c23242c7dcba17ca9f02737e000438658ac49bb(
+    *,
+    gateway_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__21d1f093ae6c3ef104fbfbb93b13b3338230662ddb218fed6d74e5040acf931c(
     scope: _constructs_77d1e7e8.Construct,
@@ -9871,28 +10990,6 @@ def _typecheckingstub__2c8d614c4eaf3e7a9715a54c7d8f6d68001dfdd34bed46af49b236cf9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__96c246f60ce4e5ad45fa8b46aaba3a5dc86b8fbceb04cd700ed6ecc964f18f2a(
-    *,
-    bridge_arn: builtins.str,
-    name: builtins.str,
-    network_output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeOutput.BridgeNetworkOutputProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__73e5019972892e93be93b465cdd4743483355d6d745af2863fcbd2ab360c88ef(
-    *,
-    name: builtins.str,
-    placement_arn: builtins.str,
-    sources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    egress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.EgressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingress_gateway_bridge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.IngressGatewayBridgeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.BridgeOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridge.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e36e10c04a0f01de7ebc0521a5800daea1daa62e3bd343704ff6e84525f6f408(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9970,16 +11067,6 @@ def _typecheckingstub__43fa91d86269952c92522f3e880b2f507aa1cc51cd5dbe28fb9249f61
 def _typecheckingstub__e6d9b48314e46735258c941180d8e92fa25af944c2b991fb6827ccc97fa800b4(
     *,
     vpc_interface_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f2a15e5c2c97898000fd91706ed5ee02d0a7d5d31640d04f545d4db3c27ec23(
-    *,
-    bridge_arn: builtins.str,
-    name: builtins.str,
-    flow_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeFlowSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    network_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBridgeSource.BridgeNetworkSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10379,19 +11466,6 @@ def _typecheckingstub__a86c4f896040118c2a4fab234e2a7101cc609c650cf5a8c91892db664
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f015b5055(
-    *,
-    description: builtins.str,
-    flow_arn: builtins.str,
-    name: builtins.str,
-    subscribers: typing.Sequence[builtins.str],
-    data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    entitlement_status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e9dd9bf1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10589,46 +11663,6 @@ def _typecheckingstub__7072f99adeda4341a6581cacf2975b777cc5b063364d5416156250ca7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda5251a2c34d(
-    *,
-    flow_arn: builtins.str,
-    protocol: builtins.str,
-    cidr_allow_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    destination: typing.Optional[builtins.str] = None,
-    encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    max_latency: typing.Optional[jsii.Number] = None,
-    media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    min_latency: typing.Optional[jsii.Number] = None,
-    name: typing.Optional[builtins.str] = None,
-    ndi_program_name: typing.Optional[builtins.str] = None,
-    ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
-    output_status: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    remote_id: typing.Optional[builtins.str] = None,
-    smoothing_latency: typing.Optional[jsii.Number] = None,
-    stream_id: typing.Optional[builtins.str] = None,
-    vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde65f0c24(
-    *,
-    name: builtins.str,
-    source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    availability_zone: typing.Optional[builtins.str] = None,
-    flow_size: typing.Optional[builtins.str] = None,
-    maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb193c6d3f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10805,30 +11839,6 @@ def _typecheckingstub__91f29aa73d1270b98bef9297507fc5368a6213455c4fab06ce8231754
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1(
-    *,
-    description: builtins.str,
-    name: builtins.str,
-    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    entitlement_arn: typing.Optional[builtins.str] = None,
-    flow_arn: typing.Optional[builtins.str] = None,
-    gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ingest_port: typing.Optional[jsii.Number] = None,
-    max_bitrate: typing.Optional[jsii.Number] = None,
-    max_latency: typing.Optional[jsii.Number] = None,
-    min_latency: typing.Optional[jsii.Number] = None,
-    protocol: typing.Optional[builtins.str] = None,
-    sender_control_port: typing.Optional[jsii.Number] = None,
-    sender_ip_address: typing.Optional[builtins.str] = None,
-    source_listener_address: typing.Optional[builtins.str] = None,
-    source_listener_port: typing.Optional[jsii.Number] = None,
-    stream_id: typing.Optional[builtins.str] = None,
-    vpc_interface_name: typing.Optional[builtins.str] = None,
-    whitelist_cidr: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__dbdfc221c828cffa79a57d6d84dccb050776de58319678209806d7b3bc310582(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10884,17 +11894,6 @@ def _typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4407e3345806447ad15e49eb19ee87fc76290919c1ac77d7b46df8daf4909410(
-    *,
-    flow_arn: builtins.str,
-    name: builtins.str,
-    role_arn: builtins.str,
-    security_group_ids: typing.Sequence[builtins.str],
-    subnet_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4a889ede67aac65e3ba7da8735ec09aa46c53edb047800db832cc8f049ee063d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10940,15 +11939,6 @@ def _typecheckingstub__f67f020f764410bf45106fcabf15d8329d4bbbd3768cac4cd170ba103
     *,
     cidr_block: builtins.str,
     name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87c57a9fbadb9701c4e8bd3f97f24fe63b6ebd3d8f830d826fedc59b0e40f450(
-    *,
-    egress_cidr_blocks: typing.Sequence[builtins.str],
-    name: builtins.str,
-    networks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayNetworkProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass

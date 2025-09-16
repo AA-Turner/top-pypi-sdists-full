@@ -627,133 +627,63 @@ from ..aws_iam import (
     IGrantable as _IGrantable_71c4f5de,
     IGroup as _IGroup_96daf542,
     IRole as _IRole_235f5d8e,
+    IRoleRef as _IRoleRef_613dafc2,
     IUser as _IUser_c32311f7,
 )
-from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_kms import IKeyRef as _IKeyRef_1e82344b
 from ..aws_s3 import IBucket as _IBucket_42e086fd
 from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
 from ..aws_s3_deployment import ServerSideEncryption as _ServerSideEncryption_50ddf705
 from ..aws_sns import ITopic as _ITopic_9eca4852
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnAcceptedPortfolioShare(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnAcceptedPortfolioShare",
-):
-    '''Accepts an offer to share the specified portfolio.
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.AcceptedPortfolioShareReference",
+    jsii_struct_bases=[],
+    name_mapping={"accepted_portfolio_share_id": "acceptedPortfolioShareId"},
+)
+class AcceptedPortfolioShareReference:
+    def __init__(self, *, accepted_portfolio_share_id: builtins.str) -> None:
+        '''A reference to a AcceptedPortfolioShare resource.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-acceptedportfolioshare.html
-    :cloudformationResource: AWS::ServiceCatalog::AcceptedPortfolioShare
-    :exampleMetadata: fixture=_generated
+        :param accepted_portfolio_share_id: The Id of the AcceptedPortfolioShare resource.
 
-    Example::
+        :exampleMetadata: fixture=_generated
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_accepted_portfolio_share = servicecatalog.CfnAcceptedPortfolioShare(self, "MyCfnAcceptedPortfolioShare",
-            portfolio_id="portfolioId",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage"
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            accepted_portfolio_share_reference = servicecatalog.AcceptedPortfolioShareReference(
+                accepted_portfolio_share_id="acceptedPortfolioShareId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86a93b5ea489be85aefc9f4812246d480ed3664652ec6a4f0a6b830b489ec59c)
+            check_type(argname="argument accepted_portfolio_share_id", value=accepted_portfolio_share_id, expected_type=type_hints["accepted_portfolio_share_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "accepted_portfolio_share_id": accepted_portfolio_share_id,
+        }
+
+    @builtins.property
+    def accepted_portfolio_share_id(self) -> builtins.str:
+        '''The Id of the AcceptedPortfolioShare resource.'''
+        result = self._values.get("accepted_portfolio_share_id")
+        assert result is not None, "Required property 'accepted_portfolio_share_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AcceptedPortfolioShareReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
         )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3aa97377e67e5de00f1b94453a16c1e9712dfe055beb7707fe1196cdf9a51a7)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAcceptedPortfolioShareProps(
-            portfolio_id=portfolio_id, accept_language=accept_language
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6451f68b36b48991fe882611b7b025fa7b6c61da949d847ed3ffbeb5565b5060)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9dad6b073d0fd4a483e68170a9146471e28d899c1dfbe09a943cd63e57f01ad)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7977da1b6d9898fac62e20f5e37ae382c3e30535d1937a55a123bf9d3c201241)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__007477064bf18ea62d6ca00353686fcb2c4328f51ee561a3a7d896e21d9ca995)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -833,778 +763,6 @@ class CfnAcceptedPortfolioShareProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnCloudFormationProduct(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct",
-):
-    '''Specifies a product.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html
-    :cloudformationResource: AWS::ServiceCatalog::CloudFormationProduct
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        # info: Any
-        
-        cfn_cloud_formation_product = servicecatalog.CfnCloudFormationProduct(self, "MyCfnCloudFormationProduct",
-            name="name",
-            owner="owner",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description",
-            distributor="distributor",
-            product_type="productType",
-            provisioning_artifact_parameters=[servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty(
-                info=info,
-        
-                # the properties below are optional
-                description="description",
-                disable_template_validation=False,
-                name="name",
-                type="type"
-            )],
-            replace_provisioning_artifacts=False,
-            source_connection=servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty(
-                connection_parameters=servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
-                    code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
-                        artifact_path="artifactPath",
-                        branch="branch",
-                        connection_arn="connectionArn",
-                        repository="repository"
-                    )
-                ),
-                type="type"
-            ),
-            support_description="supportDescription",
-            support_email="supportEmail",
-            support_url="supportUrl",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        owner: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        distributor: typing.Optional[builtins.str] = None,
-        product_type: typing.Optional[builtins.str] = None,
-        provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        support_description: typing.Optional[builtins.str] = None,
-        support_email: typing.Optional[builtins.str] = None,
-        support_url: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: The name of the product.
-        :param owner: The owner of the product.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the product.
-        :param distributor: The distributor of the product.
-        :param product_type: The type of product.
-        :param provisioning_artifact_parameters: The configuration of the provisioning artifact (also known as a version).
-        :param replace_provisioning_artifacts: This property is turned off by default. If turned off, you can update provisioning artifacts or product attributes (such as description, distributor, name, owner, and more) and the associated provisioning artifacts will retain the same unique identifier. Provisioning artifacts are matched within the CloudFormationProduct resource, and only those that have been updated will be changed. Provisioning artifacts are matched by a combinaton of provisioning artifact template URL and name. If turned on, provisioning artifacts will be given a new unique identifier when you update the product or provisioning artifacts.
-        :param source_connection: A top level ``ProductViewDetail`` response containing details about the product’s connection. AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
-        :param support_description: The support information about the product.
-        :param support_email: The contact email for product support.
-        :param support_url: The contact URL for product support. ``^https?:\\/\\//`` / is the pattern used to validate SupportUrl.
-        :param tags: One or more tags.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc6c443cb4df40ad7001b0569b4f479e51baff8371ae5f0e4102e9cb84befaee)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCloudFormationProductProps(
-            name=name,
-            owner=owner,
-            accept_language=accept_language,
-            description=description,
-            distributor=distributor,
-            product_type=product_type,
-            provisioning_artifact_parameters=provisioning_artifact_parameters,
-            replace_provisioning_artifacts=replace_provisioning_artifacts,
-            source_connection=source_connection,
-            support_description=support_description,
-            support_email=support_email,
-            support_url=support_url,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__727de4de57ef9ec83792ae6093c81836a2ca3f9f4f9dc0d62497712b00efbfa7)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49c7444adc7a4ffc4d2f4470e5ade22856e8c876c51c5129192cb728a714c019)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProductName")
-    def attr_product_name(self) -> builtins.str:
-        '''The name of the product.
-
-        :cloudformationAttribute: ProductName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProductName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProvisioningArtifactIds")
-    def attr_provisioning_artifact_ids(self) -> builtins.str:
-        '''The IDs of the provisioning artifacts.
-
-        :cloudformationAttribute: ProvisioningArtifactIds
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProvisioningArtifactIds"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProvisioningArtifactNames")
-    def attr_provisioning_artifact_names(self) -> builtins.str:
-        '''The names of the provisioning artifacts.
-
-        :cloudformationAttribute: ProvisioningArtifactNames
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProvisioningArtifactNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name of the product.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9259a35a34b8232440a4248c91cd12417f2bb4f7700c5d4cd96fe48fbf3e7c7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="owner")
-    def owner(self) -> builtins.str:
-        '''The owner of the product.'''
-        return typing.cast(builtins.str, jsii.get(self, "owner"))
-
-    @owner.setter
-    def owner(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d6bbaefd4ee42ef504a40c0bc7d893697f56d5c4a8e2be034cb5fac41b7f9f9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "owner", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ed6af9abead4851089ab452f15a83c5c9324575bf905a98147e6df142fbea0c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6456b1fd2ac19494b0c436f75e41f4149b79a793224c068c2ac908b8ed0e6a0e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="distributor")
-    def distributor(self) -> typing.Optional[builtins.str]:
-        '''The distributor of the product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "distributor"))
-
-    @distributor.setter
-    def distributor(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67af1cd619ef8474453ddaba57bc4ef2a50181c793790168ea7fa3fef631fe47)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "distributor", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productType")
-    def product_type(self) -> typing.Optional[builtins.str]:
-        '''The type of product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productType"))
-
-    @product_type.setter
-    def product_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8283abec3673f6f8def666fd669e05a39bf8e7ada7a7820b7e2e6e0017ec5072)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningArtifactParameters")
-    def provisioning_artifact_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
-        '''The configuration of the provisioning artifact (also known as a version).'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], jsii.get(self, "provisioningArtifactParameters"))
-
-    @provisioning_artifact_parameters.setter
-    def provisioning_artifact_parameters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46bdfff1360506ade40e04d18d81d060b0a0f0601a08269c6aa5658e66289ddd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningArtifactParameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="replaceProvisioningArtifacts")
-    def replace_provisioning_artifacts(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''This property is turned off by default.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "replaceProvisioningArtifacts"))
-
-    @replace_provisioning_artifacts.setter
-    def replace_provisioning_artifacts(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3860e4645114c1e719f71c5207cb37518d5cb1aa225903719679d05f030de4f6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replaceProvisioningArtifacts", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourceConnection")
-    def source_connection(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]]:
-        '''A top level ``ProductViewDetail`` response containing details about the product’s connection.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]], jsii.get(self, "sourceConnection"))
-
-    @source_connection.setter
-    def source_connection(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12635a42c5ebd2e19b46cf3bb9134e21232e501fed70f86af7f0207bf93441c9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceConnection", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supportDescription")
-    def support_description(self) -> typing.Optional[builtins.str]:
-        '''The support information about the product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportDescription"))
-
-    @support_description.setter
-    def support_description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9695e3011f0a2e99845faf4a8bf622babeb5c67a491768eccc104ae05bfa51cd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supportEmail")
-    def support_email(self) -> typing.Optional[builtins.str]:
-        '''The contact email for product support.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportEmail"))
-
-    @support_email.setter
-    def support_email(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1bd18c8efe27f1de421be44834ab68ac37ff85e3a41ca74f3da479f16d7fa80e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportEmail", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supportUrl")
-    def support_url(self) -> typing.Optional[builtins.str]:
-        '''The contact URL for product support.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportUrl"))
-
-    @support_url.setter
-    def support_url(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__542792e78d44887a9ca550e282dc0cb22b5d99f8e000ec4deb876c700aa6502f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportUrl", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a776b3ba720cdf81828e7a6506e99d00a8a3b051bb5ed0d24ea2b8fdad3d0cf3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "artifact_path": "artifactPath",
-            "branch": "branch",
-            "connection_arn": "connectionArn",
-            "repository": "repository",
-        },
-    )
-    class CodeStarParametersProperty:
-        def __init__(
-            self,
-            *,
-            artifact_path: builtins.str,
-            branch: builtins.str,
-            connection_arn: builtins.str,
-            repository: builtins.str,
-        ) -> None:
-            '''The subtype containing details about the Codestar connection ``Type`` .
-
-            :param artifact_path: The absolute path wehre the artifact resides within the repo and branch, formatted as "folder/file.json.".
-            :param branch: The specific branch where the artifact resides.
-            :param connection_arn: The CodeStar ARN, which is the connection between AWS Service Catalog and the external repository.
-            :param repository: The specific repository where the product’s artifact-to-be-synced resides, formatted as "Account/Repo.".
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                code_star_parameters_property = servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
-                    artifact_path="artifactPath",
-                    branch="branch",
-                    connection_arn="connectionArn",
-                    repository="repository"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__6fc6af3a004e4611a65e7afe2c54db0ce6344fdab1a029dbb94b72e045dbe550)
-                check_type(argname="argument artifact_path", value=artifact_path, expected_type=type_hints["artifact_path"])
-                check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
-                check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
-                check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "artifact_path": artifact_path,
-                "branch": branch,
-                "connection_arn": connection_arn,
-                "repository": repository,
-            }
-
-        @builtins.property
-        def artifact_path(self) -> builtins.str:
-            '''The absolute path wehre the artifact resides within the repo and branch, formatted as "folder/file.json.".
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-artifactpath
-            '''
-            result = self._values.get("artifact_path")
-            assert result is not None, "Required property 'artifact_path' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def branch(self) -> builtins.str:
-            '''The specific branch where the artifact resides.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-branch
-            '''
-            result = self._values.get("branch")
-            assert result is not None, "Required property 'branch' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def connection_arn(self) -> builtins.str:
-            '''The CodeStar ARN, which is the connection between AWS Service Catalog and the external repository.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-connectionarn
-            '''
-            result = self._values.get("connection_arn")
-            assert result is not None, "Required property 'connection_arn' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def repository(self) -> builtins.str:
-            '''The specific repository where the product’s artifact-to-be-synced resides, formatted as "Account/Repo.".
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-repository
-            '''
-            result = self._values.get("repository")
-            assert result is not None, "Required property 'repository' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CodeStarParametersProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty",
-        jsii_struct_bases=[],
-        name_mapping={"code_star": "codeStar"},
-    )
-    class ConnectionParametersProperty:
-        def __init__(
-            self,
-            *,
-            code_star: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.CodeStarParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Provides connection details.
-
-            :param code_star: Provides ``ConnectionType`` details.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-connectionparameters.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                connection_parameters_property = servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
-                    code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
-                        artifact_path="artifactPath",
-                        branch="branch",
-                        connection_arn="connectionArn",
-                        repository="repository"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__dd9e87d06ed8c44dc9a54fcde6182c92573851ee79f67d3a2407b58f4aa6a726)
-                check_type(argname="argument code_star", value=code_star, expected_type=type_hints["code_star"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if code_star is not None:
-                self._values["code_star"] = code_star
-
-        @builtins.property
-        def code_star(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.CodeStarParametersProperty"]]:
-            '''Provides ``ConnectionType`` details.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-connectionparameters.html#cfn-servicecatalog-cloudformationproduct-connectionparameters-codestar
-            '''
-            result = self._values.get("code_star")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.CodeStarParametersProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ConnectionParametersProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "info": "info",
-            "description": "description",
-            "disable_template_validation": "disableTemplateValidation",
-            "name": "name",
-            "type": "type",
-        },
-    )
-    class ProvisioningArtifactPropertiesProperty:
-        def __init__(
-            self,
-            *,
-            info: typing.Any,
-            description: typing.Optional[builtins.str] = None,
-            disable_template_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            name: typing.Optional[builtins.str] = None,
-            type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Information about a provisioning artifact (also known as a version) for a product.
-
-            :param info: Specify the template source with one of the following options, but not both. Keys accepted: [ ``LoadTemplateFromURL`` , ``ImportFromPhysicalId`` ] The URL of the AWS CloudFormation template in Amazon S3 in JSON format. Specify the URL in JSON format as follows: ``"LoadTemplateFromURL": "https://s3.amazonaws.com/cf-templates-ozkq9d3hgiq2-us-east-1/..."`` ``ImportFromPhysicalId`` : The physical id of the resource that contains the template. Currently only supports AWS CloudFormation stack arn. Specify the physical id in JSON format as follows: ``ImportFromPhysicalId: “arn:aws:cloudformation:[us-east-1]:[accountId]:stack/[StackName]/[resourceId]``
-            :param description: The description of the provisioning artifact, including how it differs from the previous provisioning artifact.
-            :param disable_template_validation: If set to true, AWS Service Catalog stops validating the specified provisioning artifact even if it is invalid.
-            :param name: The name of the provisioning artifact (for example, v1 v2beta). No spaces are allowed.
-            :param type: The type of provisioning artifact. - ``CLOUD_FORMATION_TEMPLATE`` - AWS CloudFormation template - ``TERRAFORM_OPEN_SOURCE`` - Terraform Open Source configuration file - ``TERRAFORM_CLOUD`` - Terraform Cloud configuration file - ``EXTERNAL`` - External configuration file
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                # info: Any
-                
-                provisioning_artifact_properties_property = servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty(
-                    info=info,
-                
-                    # the properties below are optional
-                    description="description",
-                    disable_template_validation=False,
-                    name="name",
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a686c9d8)
-                check_type(argname="argument info", value=info, expected_type=type_hints["info"])
-                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-                check_type(argname="argument disable_template_validation", value=disable_template_validation, expected_type=type_hints["disable_template_validation"])
-                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "info": info,
-            }
-            if description is not None:
-                self._values["description"] = description
-            if disable_template_validation is not None:
-                self._values["disable_template_validation"] = disable_template_validation
-            if name is not None:
-                self._values["name"] = name
-            if type is not None:
-                self._values["type"] = type
-
-        @builtins.property
-        def info(self) -> typing.Any:
-            '''Specify the template source with one of the following options, but not both.
-
-            Keys accepted: [ ``LoadTemplateFromURL`` , ``ImportFromPhysicalId`` ]
-
-            The URL of the AWS CloudFormation template in Amazon S3 in JSON format. Specify the URL in JSON format as follows:
-
-            ``"LoadTemplateFromURL": "https://s3.amazonaws.com/cf-templates-ozkq9d3hgiq2-us-east-1/..."``
-
-            ``ImportFromPhysicalId`` : The physical id of the resource that contains the template. Currently only supports AWS CloudFormation stack arn. Specify the physical id in JSON format as follows: ``ImportFromPhysicalId: “arn:aws:cloudformation:[us-east-1]:[accountId]:stack/[StackName]/[resourceId]``
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-info
-            '''
-            result = self._values.get("info")
-            assert result is not None, "Required property 'info' is missing"
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def description(self) -> typing.Optional[builtins.str]:
-            '''The description of the provisioning artifact, including how it differs from the previous provisioning artifact.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-description
-            '''
-            result = self._values.get("description")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def disable_template_validation(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''If set to true, AWS Service Catalog stops validating the specified provisioning artifact even if it is invalid.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-disabletemplatevalidation
-            '''
-            result = self._values.get("disable_template_validation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def name(self) -> typing.Optional[builtins.str]:
-            '''The name of the provisioning artifact (for example, v1 v2beta).
-
-            No spaces are allowed.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-name
-            '''
-            result = self._values.get("name")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def type(self) -> typing.Optional[builtins.str]:
-            '''The type of provisioning artifact.
-
-            - ``CLOUD_FORMATION_TEMPLATE`` - AWS CloudFormation template
-            - ``TERRAFORM_OPEN_SOURCE`` - Terraform Open Source configuration file
-            - ``TERRAFORM_CLOUD`` - Terraform Cloud configuration file
-            - ``EXTERNAL`` - External configuration file
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-type
-            '''
-            result = self._values.get("type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProvisioningArtifactPropertiesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"connection_parameters": "connectionParameters", "type": "type"},
-    )
-    class SourceConnectionProperty:
-        def __init__(
-            self,
-            *,
-            connection_parameters: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.ConnectionParametersProperty", typing.Dict[builtins.str, typing.Any]]],
-            type: builtins.str,
-        ) -> None:
-            '''A top level ``ProductViewDetail`` response containing details about the product’s connection.
-
-            AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
-
-            :param connection_parameters: The connection details based on the connection ``Type`` .
-            :param type: The only supported ``SourceConnection`` type is Codestar.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                source_connection_property = servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty(
-                    connection_parameters=servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
-                        code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
-                            artifact_path="artifactPath",
-                            branch="branch",
-                            connection_arn="connectionArn",
-                            repository="repository"
-                        )
-                    ),
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f9e1c726)
-                check_type(argname="argument connection_parameters", value=connection_parameters, expected_type=type_hints["connection_parameters"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "connection_parameters": connection_parameters,
-                "type": type,
-            }
-
-        @builtins.property
-        def connection_parameters(
-            self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ConnectionParametersProperty"]:
-            '''The connection details based on the connection ``Type`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html#cfn-servicecatalog-cloudformationproduct-sourceconnection-connectionparameters
-            '''
-            result = self._values.get("connection_parameters")
-            assert result is not None, "Required property 'connection_parameters' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ConnectionParametersProperty"], result)
-
-        @builtins.property
-        def type(self) -> builtins.str:
-            '''The only supported ``SourceConnection`` type is Codestar.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html#cfn-servicecatalog-cloudformationproduct-sourceconnection-type
-            '''
-            result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SourceConnectionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProductProps",
     jsii_struct_bases=[],
@@ -1634,9 +792,9 @@ class CfnCloudFormationProductProps:
         description: typing.Optional[builtins.str] = None,
         distributor: typing.Optional[builtins.str] = None,
         product_type: typing.Optional[builtins.str] = None,
-        provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         support_description: typing.Optional[builtins.str] = None,
         support_email: typing.Optional[builtins.str] = None,
         support_url: typing.Optional[builtins.str] = None,
@@ -1812,13 +970,13 @@ class CfnCloudFormationProductProps:
     @builtins.property
     def provisioning_artifact_parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
         '''The configuration of the provisioning artifact (also known as a version).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactparameters
         '''
         result = self._values.get("provisioning_artifact_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], result)
 
     @builtins.property
     def replace_provisioning_artifacts(
@@ -1838,7 +996,7 @@ class CfnCloudFormationProductProps:
     @builtins.property
     def source_connection(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.SourceConnectionProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]]:
         '''A top level ``ProductViewDetail`` response containing details about the product’s connection.
 
         AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
@@ -1846,7 +1004,7 @@ class CfnCloudFormationProductProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html#cfn-servicecatalog-cloudformationproduct-sourceconnection
         '''
         result = self._values.get("source_connection")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProduct.SourceConnectionProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]], result)
 
     @builtins.property
     def support_description(self) -> typing.Optional[builtins.str]:
@@ -1898,642 +1056,6 @@ class CfnCloudFormationProductProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnCloudFormationProvisionedProduct(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct",
-):
-    '''Provisions the specified product.
-
-    A provisioned product is a resourced instance of a product. For example, provisioning a product based on a AWS CloudFormation template launches a AWS CloudFormation stack and its underlying resources. You can check the status of this request using `DescribeRecord <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_DescribeRecord.html>`_ .
-
-    If the request contains a tag key with an empty list of values, there is a tag conflict for that key. Do not include conflicted keys as tags, or this causes the error "Parameter validation failed: Missing required parameter in Tags[ *N* ]: *Value* ".
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html
-    :cloudformationResource: AWS::ServiceCatalog::CloudFormationProvisionedProduct
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_cloud_formation_provisioned_product = servicecatalog.CfnCloudFormationProvisionedProduct(self, "MyCfnCloudFormationProvisionedProduct",
-            accept_language="acceptLanguage",
-            notification_arns=["notificationArns"],
-            path_id="pathId",
-            path_name="pathName",
-            product_id="productId",
-            product_name="productName",
-            provisioned_product_name="provisionedProductName",
-            provisioning_artifact_id="provisioningArtifactId",
-            provisioning_artifact_name="provisioningArtifactName",
-            provisioning_parameters=[servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty(
-                key="key",
-                value="value"
-            )],
-            provisioning_preferences=servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty(
-                stack_set_accounts=["stackSetAccounts"],
-                stack_set_failure_tolerance_count=123,
-                stack_set_failure_tolerance_percentage=123,
-                stack_set_max_concurrency_count=123,
-                stack_set_max_concurrency_percentage=123,
-                stack_set_operation_type="stackSetOperationType",
-                stack_set_regions=["stackSetRegions"]
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        accept_language: typing.Optional[builtins.str] = None,
-        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        path_id: typing.Optional[builtins.str] = None,
-        path_name: typing.Optional[builtins.str] = None,
-        product_id: typing.Optional[builtins.str] = None,
-        product_name: typing.Optional[builtins.str] = None,
-        provisioned_product_name: typing.Optional[builtins.str] = None,
-        provisioning_artifact_id: typing.Optional[builtins.str] = None,
-        provisioning_artifact_name: typing.Optional[builtins.str] = None,
-        provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param notification_arns: Passed to AWS CloudFormation . The SNS topic ARNs to which to publish stack-related events.
-        :param path_id: The path identifier of the product. This value is optional if the product has a default path, and required if the product has more than one path. To list the paths for a product, use `ListLaunchPaths <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_ListLaunchPaths.html>`_ . .. epigraph:: You must provide the name or ID, but not both.
-        :param path_name: The name of the path. This value is optional if the product has a default path, and required if the product has more than one path. To list the paths for a product, use `ListLaunchPaths <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_ListLaunchPaths.html>`_ . .. epigraph:: You must provide the name or ID, but not both.
-        :param product_id: The product identifier. .. epigraph:: You must specify either the ID or the name of the product, but not both.
-        :param product_name: The name of the Service Catalog product. Each time a stack is created or updated, if ``ProductName`` is provided it will successfully resolve to ``ProductId`` as long as only one product exists in the account or Region with that ``ProductName`` . .. epigraph:: You must specify either the name or the ID of the product, but not both.
-        :param provisioned_product_name: A user-friendly name for the provisioned product. This value must be unique for the AWS account and cannot be updated after the product is provisioned.
-        :param provisioning_artifact_id: The identifier of the provisioning artifact (also known as a version). .. epigraph:: You must specify either the ID or the name of the provisioning artifact, but not both.
-        :param provisioning_artifact_name: The name of the provisioning artifact (also known as a version) for the product. This name must be unique for the product. .. epigraph:: You must specify either the name or the ID of the provisioning artifact, but not both. You must also specify either the name or the ID of the product, but not both.
-        :param provisioning_parameters: Parameters specified by the administrator that are required for provisioning the product.
-        :param provisioning_preferences: StackSet preferences that are required for provisioning the product or updating a provisioned product.
-        :param tags: One or more tags. .. epigraph:: Requires the provisioned product to have an `ResourceUpdateConstraint <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-resourceupdateconstraint.html>`_ resource with ``TagUpdatesOnProvisionedProduct`` set to ``ALLOWED`` to allow tag updates. If ``RESOURCE_UPDATE`` constraint is not present, tags updates are ignored.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab318da4b2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCloudFormationProvisionedProductProps(
-            accept_language=accept_language,
-            notification_arns=notification_arns,
-            path_id=path_id,
-            path_name=path_name,
-            product_id=product_id,
-            product_name=product_name,
-            provisioned_product_name=provisioned_product_name,
-            provisioning_artifact_id=provisioning_artifact_id,
-            provisioning_artifact_name=provisioning_artifact_name,
-            provisioning_parameters=provisioning_parameters,
-            provisioning_preferences=provisioning_preferences,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a871c00a20e673078d39c66e338884f55a1ee0a709c63a63fd37f78a2f18a39a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5480c16974272a7335118a5a295add981a769f3efcf9ee369371dcaf56515ee9)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCloudformationStackArn")
-    def attr_cloudformation_stack_arn(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: CloudformationStackArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCloudformationStackArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOutputs")
-    def attr_outputs(self) -> _IResolvable_da3f097b:
-        '''List of key-value pair outputs.
-
-        :cloudformationAttribute: Outputs
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrOutputs"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProvisionedProductId")
-    def attr_provisioned_product_id(self) -> builtins.str:
-        '''The ID of the provisioned product.
-
-        :cloudformationAttribute: ProvisionedProductId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProvisionedProductId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRecordId")
-    def attr_record_id(self) -> builtins.str:
-        '''The ID of the record, such as ``rec-rjeatvy434trk`` .
-
-        :cloudformationAttribute: RecordId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRecordId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77917629496aeb6c9242f32a7ed712f7db007210f056250ba788eb7637747cb9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationArns")
-    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Passed to AWS CloudFormation .'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "notificationArns"))
-
-    @notification_arns.setter
-    def notification_arns(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11728ab5020e59b21691efa0bf6ac96a523b7cd5a7b8b956594e09eec6910399)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pathId")
-    def path_id(self) -> typing.Optional[builtins.str]:
-        '''The path identifier of the product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pathId"))
-
-    @path_id.setter
-    def path_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7c615152c9e7e7c8b5e4a448b903ac3c25eaa34685c78b9899adfbae91d2a6d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pathId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pathName")
-    def path_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the path.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pathName"))
-
-    @path_name.setter
-    def path_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32b38b25b9cd46fb8c78bf9e55be70039fc3ab56ea354e0552abb0fa1caf68ed)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pathName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> typing.Optional[builtins.str]:
-        '''The product identifier.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa2e98cc90d84078c7318222a6d7519d441bd1bd3e07cea7bc5a198efb4d66b7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productName")
-    def product_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Service Catalog product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productName"))
-
-    @product_name.setter
-    def product_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e17eab0d37a58277b6cc1d13c95c9cdd79faad5237131fd52792ce9d7b85d907)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisionedProductName")
-    def provisioned_product_name(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly name for the provisioned product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisionedProductName"))
-
-    @provisioned_product_name.setter
-    def provisioned_product_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e484e5f340d5e529de00f245c299ac8a58669959a15a6ae69f5200a376e9e442)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedProductName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningArtifactId")
-    def provisioning_artifact_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the provisioning artifact (also known as a version).'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioningArtifactId"))
-
-    @provisioning_artifact_id.setter
-    def provisioning_artifact_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db6c2b91dabfa3b4625a2ab89180e1d38eb2e6b1e76c28953fad8bdc681c5f67)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningArtifactName")
-    def provisioning_artifact_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the provisioning artifact (also known as a version) for the product.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioningArtifactName"))
-
-    @provisioning_artifact_name.setter
-    def provisioning_artifact_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6df237969cf4f1ab7f2d8d040c205d2b2533e9f08060d1fe47336446fec46f06)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningArtifactName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningParameters")
-    def provisioning_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
-        '''Parameters specified by the administrator that are required for provisioning the product.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], jsii.get(self, "provisioningParameters"))
-
-    @provisioning_parameters.setter
-    def provisioning_parameters(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e88a998f430a92c61e57f583a56a5dba25a39affc9ad60288815a7e40e5b7910)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningParameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningPreferences")
-    def provisioning_preferences(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
-        '''StackSet preferences that are required for provisioning the product or updating a provisioned product.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], jsii.get(self, "provisioningPreferences"))
-
-    @provisioning_preferences.setter
-    def provisioning_preferences(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3edc25f754a0be5ecf6302ae2b15ba8648d89a1d12ceb865ff5c7d628c62bc97)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningPreferences", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d149fdbb55c6e7459d592eaaf72483e5df84625da19408ebc06188a171d334d1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class ProvisioningParameterProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''Information about a parameter used to provision a product.
-
-            :param key: The parameter key.
-            :param value: The parameter value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                provisioning_parameter_property = servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d376c5bd5f12818f9539b82c9177576499bd71b979a2e8f4116d03c46de19b19)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The parameter key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameter-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The parameter value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameter-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProvisioningParameterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "stack_set_accounts": "stackSetAccounts",
-            "stack_set_failure_tolerance_count": "stackSetFailureToleranceCount",
-            "stack_set_failure_tolerance_percentage": "stackSetFailureTolerancePercentage",
-            "stack_set_max_concurrency_count": "stackSetMaxConcurrencyCount",
-            "stack_set_max_concurrency_percentage": "stackSetMaxConcurrencyPercentage",
-            "stack_set_operation_type": "stackSetOperationType",
-            "stack_set_regions": "stackSetRegions",
-        },
-    )
-    class ProvisioningPreferencesProperty:
-        def __init__(
-            self,
-            *,
-            stack_set_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
-            stack_set_failure_tolerance_count: typing.Optional[jsii.Number] = None,
-            stack_set_failure_tolerance_percentage: typing.Optional[jsii.Number] = None,
-            stack_set_max_concurrency_count: typing.Optional[jsii.Number] = None,
-            stack_set_max_concurrency_percentage: typing.Optional[jsii.Number] = None,
-            stack_set_operation_type: typing.Optional[builtins.str] = None,
-            stack_set_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''The user-defined preferences that will be applied when updating a provisioned product.
-
-            Not all preferences are applicable to all provisioned product type
-
-            One or more AWS accounts that will have access to the provisioned product.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            The AWS accounts specified should be within the list of accounts in the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
-
-            If no values are specified, the default value is all accounts from the ``STACKSET`` constraint.
-
-            :param stack_set_accounts: One or more AWS accounts where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified accounts should be within the list of accounts from the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all acounts from the ``STACKSET`` constraint.
-            :param stack_set_failure_tolerance_count: The number of accounts, per Region, for which this operation can fail before AWS Service Catalog stops the operation in that Region. If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both. The default value is ``0`` if no value is specified.
-            :param stack_set_failure_tolerance_percentage: The percentage of accounts, per Region, for which this stack operation can fail before AWS Service Catalog stops the operation in that Region. If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions. When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
-            :param stack_set_max_concurrency_count: The maximum number of accounts in which to perform this operation at one time. This is dependent on the value of ``StackSetFailureToleranceCount`` . ``StackSetMaxConcurrentCount`` is at most one more than the ``StackSetFailureToleranceCount`` . Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
-            :param stack_set_max_concurrency_percentage: The maximum percentage of accounts in which to perform this operation at one time. When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. This is true except in cases where rounding down would result is zero. In this case, AWS Service Catalog sets the number as ``1`` instead. Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
-            :param stack_set_operation_type: Determines what action AWS Service Catalog performs to a stack set or a stack instance represented by the provisioned product. The default value is ``UPDATE`` if nothing is specified. Applicable only to a ``CFN_STACKSET`` provisioned product type. - **CREATE** - Creates a new stack instance in the stack set represented by the provisioned product. In this case, only new stack instances are created based on accounts and Regions; if new ProductId or ProvisioningArtifactID are passed, they will be ignored. - **UPDATE** - Updates the stack set represented by the provisioned product and also its stack instances. - **DELETE** - Deletes a stack instance in the stack set represented by the provisioned product.
-            :param stack_set_regions: One or more AWS Regions where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                provisioning_preferences_property = servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty(
-                    stack_set_accounts=["stackSetAccounts"],
-                    stack_set_failure_tolerance_count=123,
-                    stack_set_failure_tolerance_percentage=123,
-                    stack_set_max_concurrency_count=123,
-                    stack_set_max_concurrency_percentage=123,
-                    stack_set_operation_type="stackSetOperationType",
-                    stack_set_regions=["stackSetRegions"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__d22bda685b9d0490e83817036cdc6d68185bcfbeeb1a9d02befc4f9f33801f91)
-                check_type(argname="argument stack_set_accounts", value=stack_set_accounts, expected_type=type_hints["stack_set_accounts"])
-                check_type(argname="argument stack_set_failure_tolerance_count", value=stack_set_failure_tolerance_count, expected_type=type_hints["stack_set_failure_tolerance_count"])
-                check_type(argname="argument stack_set_failure_tolerance_percentage", value=stack_set_failure_tolerance_percentage, expected_type=type_hints["stack_set_failure_tolerance_percentage"])
-                check_type(argname="argument stack_set_max_concurrency_count", value=stack_set_max_concurrency_count, expected_type=type_hints["stack_set_max_concurrency_count"])
-                check_type(argname="argument stack_set_max_concurrency_percentage", value=stack_set_max_concurrency_percentage, expected_type=type_hints["stack_set_max_concurrency_percentage"])
-                check_type(argname="argument stack_set_operation_type", value=stack_set_operation_type, expected_type=type_hints["stack_set_operation_type"])
-                check_type(argname="argument stack_set_regions", value=stack_set_regions, expected_type=type_hints["stack_set_regions"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if stack_set_accounts is not None:
-                self._values["stack_set_accounts"] = stack_set_accounts
-            if stack_set_failure_tolerance_count is not None:
-                self._values["stack_set_failure_tolerance_count"] = stack_set_failure_tolerance_count
-            if stack_set_failure_tolerance_percentage is not None:
-                self._values["stack_set_failure_tolerance_percentage"] = stack_set_failure_tolerance_percentage
-            if stack_set_max_concurrency_count is not None:
-                self._values["stack_set_max_concurrency_count"] = stack_set_max_concurrency_count
-            if stack_set_max_concurrency_percentage is not None:
-                self._values["stack_set_max_concurrency_percentage"] = stack_set_max_concurrency_percentage
-            if stack_set_operation_type is not None:
-                self._values["stack_set_operation_type"] = stack_set_operation_type
-            if stack_set_regions is not None:
-                self._values["stack_set_regions"] = stack_set_regions
-
-        @builtins.property
-        def stack_set_accounts(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''One or more AWS accounts where the provisioned product will be available.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            The specified accounts should be within the list of accounts from the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
-
-            If no values are specified, the default value is all acounts from the ``STACKSET`` constraint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetaccounts
-            '''
-            result = self._values.get("stack_set_accounts")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        @builtins.property
-        def stack_set_failure_tolerance_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of accounts, per Region, for which this operation can fail before AWS Service Catalog stops the operation in that Region.
-
-            If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
-
-            The default value is ``0`` if no value is specified.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetfailuretolerancecount
-            '''
-            result = self._values.get("stack_set_failure_tolerance_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def stack_set_failure_tolerance_percentage(
-            self,
-        ) -> typing.Optional[jsii.Number]:
-            '''The percentage of accounts, per Region, for which this stack operation can fail before AWS Service Catalog stops the operation in that Region.
-
-            If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions.
-
-            When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetfailuretolerancepercentage
-            '''
-            result = self._values.get("stack_set_failure_tolerance_percentage")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def stack_set_max_concurrency_count(self) -> typing.Optional[jsii.Number]:
-            '''The maximum number of accounts in which to perform this operation at one time.
-
-            This is dependent on the value of ``StackSetFailureToleranceCount`` . ``StackSetMaxConcurrentCount`` is at most one more than the ``StackSetFailureToleranceCount`` .
-
-            Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetmaxconcurrencycount
-            '''
-            result = self._values.get("stack_set_max_concurrency_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def stack_set_max_concurrency_percentage(self) -> typing.Optional[jsii.Number]:
-            '''The maximum percentage of accounts in which to perform this operation at one time.
-
-            When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. This is true except in cases where rounding down would result is zero. In this case, AWS Service Catalog sets the number as ``1`` instead.
-
-            Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetmaxconcurrencypercentage
-            '''
-            result = self._values.get("stack_set_max_concurrency_percentage")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def stack_set_operation_type(self) -> typing.Optional[builtins.str]:
-            '''Determines what action AWS Service Catalog performs to a stack set or a stack instance represented by the provisioned product.
-
-            The default value is ``UPDATE`` if nothing is specified.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            - **CREATE** - Creates a new stack instance in the stack set represented by the provisioned product. In this case, only new stack instances are created based on accounts and Regions; if new ProductId or ProvisioningArtifactID are passed, they will be ignored.
-            - **UPDATE** - Updates the stack set represented by the provisioned product and also its stack instances.
-            - **DELETE** - Deletes a stack instance in the stack set represented by the provisioned product.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetoperationtype
-            '''
-            result = self._values.get("stack_set_operation_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def stack_set_regions(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''One or more AWS Regions where the provisioned product will be available.
-
-            Applicable only to a ``CFN_STACKSET`` provisioned product type.
-
-            The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
-
-            If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetregions
-            '''
-            result = self._values.get("stack_set_regions")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ProvisioningPreferencesProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProductProps",
     jsii_struct_bases=[],
@@ -2565,8 +1087,8 @@ class CfnCloudFormationProvisionedProductProps:
         provisioned_product_name: typing.Optional[builtins.str] = None,
         provisioning_artifact_id: typing.Optional[builtins.str] = None,
         provisioning_artifact_name: typing.Optional[builtins.str] = None,
-        provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCloudFormationProvisionedProduct``.
@@ -2781,24 +1303,24 @@ class CfnCloudFormationProvisionedProductProps:
     @builtins.property
     def provisioning_parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty]]]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
         '''Parameters specified by the administrator that are required for provisioning the product.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameters
         '''
         result = self._values.get("provisioning_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty]]]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], result)
 
     @builtins.property
     def provisioning_preferences(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty]]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
         '''StackSet preferences that are required for provisioning the product or updating a provisioned product.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences
         '''
         result = self._values.get("provisioning_preferences")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty]], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -2823,178 +1345,6 @@ class CfnCloudFormationProvisionedProductProps:
         return "CfnCloudFormationProvisionedProductProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnLaunchNotificationConstraint(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchNotificationConstraint",
-):
-    '''Specifies a notification constraint.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchnotificationconstraint.html
-    :cloudformationResource: AWS::ServiceCatalog::LaunchNotificationConstraint
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_launch_notification_constraint = servicecatalog.CfnLaunchNotificationConstraint(self, "MyCfnLaunchNotificationConstraint",
-            notification_arns=["notificationArns"],
-            portfolio_id="portfolioId",
-            product_id="productId",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        notification_arns: typing.Sequence[builtins.str],
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param notification_arns: The notification ARNs.
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the constraint.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6a0ef4893718fd81efea95278f44012f5c9df21cb6d08d7ec5812067a6d28920)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLaunchNotificationConstraintProps(
-            notification_arns=notification_arns,
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            accept_language=accept_language,
-            description=description,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7563a6283eac0eb8a78e86c564c65473185309770bbf1476de2cde5f3712edc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cae167adf420716893198de02048916557d17efe03419cd084aaa8f7e569dfad)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationArns")
-    def notification_arns(self) -> typing.List[builtins.str]:
-        '''The notification ARNs.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "notificationArns"))
-
-    @notification_arns.setter
-    def notification_arns(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b61fb0eedfad57ff6d2667a824da25c56d033b2ecc69bba66ac4813152f3a7b2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ed013a592fb349cdd1b18a148d951905fed057f359e2acc3afa9e7e96849f16)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad59a677e466cd12b116f4a904adcea715e7ca448f3ec18705d7a7d7ba7690a9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f053d948015e38a54ac8a8dfc338cd4837e1c7af18d4be30583ba83a98510af)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the constraint.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7cd753e3445346a35ee1c9014f113dc7acc9f5bd964a4208d069321b471bf572)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -3123,195 +1473,6 @@ class CfnLaunchNotificationConstraintProps:
         return "CfnLaunchNotificationConstraintProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnLaunchRoleConstraint(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchRoleConstraint",
-):
-    '''Specifies a launch constraint.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchroleconstraint.html
-    :cloudformationResource: AWS::ServiceCatalog::LaunchRoleConstraint
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_launch_role_constraint = servicecatalog.CfnLaunchRoleConstraint(self, "MyCfnLaunchRoleConstraint",
-            portfolio_id="portfolioId",
-            product_id="productId",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description",
-            local_role_name="localRoleName",
-            role_arn="roleArn"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        local_role_name: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the constraint.
-        :param local_role_name: You are required to specify either the ``RoleArn`` or the ``LocalRoleName`` but can't use both. If you specify the ``LocalRoleName`` property, when an account uses the launch constraint, the IAM role with that name in the account will be used. This allows launch-role constraints to be account-agnostic so the administrator can create fewer resources per shared account. The given role name must exist in the account used to create the launch constraint and the account of the user who launches a product with this launch constraint.
-        :param role_arn: The ARN of the launch role. You are required to specify ``RoleArn`` or ``LocalRoleName`` but can't use both.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46675418f07a075969e17b131899d4a842abc1f33c003df6287739e45a25c393)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLaunchRoleConstraintProps(
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            accept_language=accept_language,
-            description=description,
-            local_role_name=local_role_name,
-            role_arn=role_arn,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6012961634bed06192da5c259c27b94cd59496d2b4be339c4b0ece0b9921e1ec)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a256f671bf4bc9097972039346c4fd55bb08c1641117407e9c1ff8c4d02bf72c)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7caee0b3388d2e9177cd1ad1073c6bdf0aa86eba08b40e12fb88a9ce6416640)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc122a21c528efd9f428896a0b3cef95aff28a153bb9d3a2e86d2b7e06eb60ff)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60ea7ba56f5932f4a537ac8dcec76b0b833a4f037c18ab9313d2f5c1450cbd15)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the constraint.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e997754a39e1ca81474a20395f298ca53c6e2a7b4f0d90a43f559fa193bfee83)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="localRoleName")
-    def local_role_name(self) -> typing.Optional[builtins.str]:
-        '''You are required to specify either the ``RoleArn`` or the ``LocalRoleName`` but can't use both.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "localRoleName"))
-
-    @local_role_name.setter
-    def local_role_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38735c46db3b7efa62b54394ccb17cdaeabbdeedee4db2b961d2703d019b743f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localRoleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the launch role.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__248ec39473440a68e8c88c92b6ff9884cc28a31f5b609dfb2c01d538752a700f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -3464,178 +1625,6 @@ class CfnLaunchRoleConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnLaunchTemplateConstraint(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchTemplateConstraint",
-):
-    '''Specifies a template constraint.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchtemplateconstraint.html
-    :cloudformationResource: AWS::ServiceCatalog::LaunchTemplateConstraint
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_launch_template_constraint = servicecatalog.CfnLaunchTemplateConstraint(self, "MyCfnLaunchTemplateConstraint",
-            portfolio_id="portfolioId",
-            product_id="productId",
-            rules="rules",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        rules: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param rules: The constraint rules.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the constraint.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef9626bcbf34366930c5bf61a595afb3efe05f1a95295b7e76c3fd849564f7eb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnLaunchTemplateConstraintProps(
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            rules=rules,
-            accept_language=accept_language,
-            description=description,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18d77d76ec4005c1c608af041b5d7bb0e6aaede460659c2054677f941dc6f70e)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61c163fd41cfe100dffd002a6f15713f7381736bf03af549e6f1fae39e81effc)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e87f1e493035080190abca77598b08c02602b6233929f7028d93f58f3a17ab94)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d256c3b7cab9cf94812dcf57209fce5bce9471a4cde6a86009726dd55298b5d7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="rules")
-    def rules(self) -> builtins.str:
-        '''The constraint rules.'''
-        return typing.cast(builtins.str, jsii.get(self, "rules"))
-
-    @rules.setter
-    def rules(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b158803ee0c13d7830af3d21d7043a6643dd72dad91e07eb29d14657d4f4a39)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e5ba6de90c017c1a21198e855f54709e112481dcfe02a743a1df4c23d2d18ef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the constraint.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__716d1d862c1c010f6c9e04edc0856ed95df8c9f36ffece1132b637c4d3920a39)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchTemplateConstraintProps",
     jsii_struct_bases=[],
@@ -3764,352 +1753,6 @@ class CfnLaunchTemplateConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
-class CfnPortfolio(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolio",
-):
-    '''Specifies a portfolio.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolio.html
-    :cloudformationResource: AWS::ServiceCatalog::Portfolio
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_portfolio = servicecatalog.CfnPortfolio(self, "MyCfnPortfolio",
-            display_name="displayName",
-            provider_name="providerName",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        display_name: builtins.str,
-        provider_name: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param display_name: The name to use for display purposes.
-        :param provider_name: The name of the portfolio provider.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the portfolio.
-        :param tags: One or more tags.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92ae108da2b169227ca9ff5c8793d6e40826005130d9af692285850c93bb5f31)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPortfolioProps(
-            display_name=display_name,
-            provider_name=provider_name,
-            accept_language=accept_language,
-            description=description,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__445bcb8d7fa40ab94351986e2668ed98bfac15db2665136953859395a36b4b51)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d8739e0f27d4335df7d965584a370738a92551942f26e33fe018766b6c65b46)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The portfolio identifier.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPortfolioName")
-    def attr_portfolio_name(self) -> builtins.str:
-        '''The name of the portfolio.
-
-        :cloudformationAttribute: PortfolioName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrPortfolioName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="displayName")
-    def display_name(self) -> builtins.str:
-        '''The name to use for display purposes.'''
-        return typing.cast(builtins.str, jsii.get(self, "displayName"))
-
-    @display_name.setter
-    def display_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d1abc0e6a095810963efa465d843926d85779daf872a768bfcba9f4fee19134)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="providerName")
-    def provider_name(self) -> builtins.str:
-        '''The name of the portfolio provider.'''
-        return typing.cast(builtins.str, jsii.get(self, "providerName"))
-
-    @provider_name.setter
-    def provider_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f19cf1bbc2887d38b0021481cec62ff253aae63b95d98b72ba1ad96320212715)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c619164fa197d168e117a57b9fa4e5d9eb2e336d411c50041f91b64b19016119)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the portfolio.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa7fb74d0376cbe01215bbab3c9e0087d26de06ca59ae5ddf20ee6e804a00e00)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__637efc1b0f4cccf3bb52a483d866a3597e5d240e45fd12080d02606cae18fdb8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnPortfolioPrincipalAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioPrincipalAssociation",
-):
-    '''Associates the specified principal ARN with the specified portfolio.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioprincipalassociation.html
-    :cloudformationResource: AWS::ServiceCatalog::PortfolioPrincipalAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_portfolio_principal_association = servicecatalog.CfnPortfolioPrincipalAssociation(self, "MyCfnPortfolioPrincipalAssociation",
-            portfolio_id="portfolioId",
-            principal_arn="principalArn",
-            principal_type="principalType",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        principal_arn: builtins.str,
-        principal_type: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param principal_arn: The ARN of the principal ( IAM user, role, or group).
-        :param principal_type: The principal type. The supported values are ``IAM`` and ``IAM_PATTERN`` .
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b8a7d450a71f88f29341f360bc05a021b910027171e4e63c9be6c67c4d53b2a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPortfolioPrincipalAssociationProps(
-            portfolio_id=portfolio_id,
-            principal_arn=principal_arn,
-            principal_type=principal_type,
-            accept_language=accept_language,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__655c17909635de9f153ace0636ad031fa1bd23c0c4e3628eeaab3a4c48282adc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__257e8fbedbaa67aa61288a1f94be02039da4ac33558591be208505deb5e23378)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726706747073f477b14d5b31fa14aba7087b2fc4265414101c6069e458c605ef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="principalArn")
-    def principal_arn(self) -> builtins.str:
-        '''The ARN of the principal ( IAM user, role, or group).'''
-        return typing.cast(builtins.str, jsii.get(self, "principalArn"))
-
-    @principal_arn.setter
-    def principal_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71c52a4171fa242df45a083617e532d09ea08d89eea6a461f83e7608b28c48bb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principalArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="principalType")
-    def principal_type(self) -> builtins.str:
-        '''The principal type.'''
-        return typing.cast(builtins.str, jsii.get(self, "principalType"))
-
-    @principal_type.setter
-    def principal_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66dbe3deef345271ae1cfb35b0e313622b15892928d8581127c03e117db33585)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principalType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1390265bc6b4e797f81f5a56c99acfec9dceeb8b223c28fc92f325ebf1ee9136)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioPrincipalAssociationProps",
     jsii_struct_bases=[],
@@ -4222,163 +1865,6 @@ class CfnPortfolioPrincipalAssociationProps:
         return "CfnPortfolioPrincipalAssociationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnPortfolioProductAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioProductAssociation",
-):
-    '''Associates the specified product with the specified portfolio.
-
-    A delegated admin is authorized to invoke this command.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioproductassociation.html
-    :cloudformationResource: AWS::ServiceCatalog::PortfolioProductAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_portfolio_product_association = servicecatalog.CfnPortfolioProductAssociation(self, "MyCfnPortfolioProductAssociation",
-            portfolio_id="portfolioId",
-            product_id="productId",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            source_portfolio_id="sourcePortfolioId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        source_portfolio_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param source_portfolio_id: The identifier of the source portfolio.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25cb0daf817ffe74f2f0c38badd3f1db5ae0cb2012f78855ecb4495b5ba58298)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPortfolioProductAssociationProps(
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            accept_language=accept_language,
-            source_portfolio_id=source_portfolio_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__552e2774890f51bf5125a4ddc0260f7daa45dae4625481ec363259b66f03da10)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32a7d6ef335f62572e1892401cb2c591da9aaabfd6b667b07c91465fd9b7c405)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19f425d3e28d58e160bed9adb81d5653e2000512b6a76bfcf27a70e272988f14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3098433a8204e6c52183ab4756af784eb3f510cb7bdb7fe68b7c21ef9e4d78cf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7d396eed36a68172694b616bafad7ef385373f22a1d8c3dc49608d69ec9e526)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="sourcePortfolioId")
-    def source_portfolio_id(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the source portfolio.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourcePortfolioId"))
-
-    @source_portfolio_id.setter
-    def source_portfolio_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__add8959ef934f6895a130b9409bc0e69af9956f656deb01b88086944d1b3bc67)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourcePortfolioId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -4624,166 +2110,6 @@ class CfnPortfolioProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnPortfolioShare(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioShare",
-):
-    '''Shares the specified portfolio with the specified account.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioshare.html
-    :cloudformationResource: AWS::ServiceCatalog::PortfolioShare
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_portfolio_share = servicecatalog.CfnPortfolioShare(self, "MyCfnPortfolioShare",
-            account_id="accountId",
-            portfolio_id="portfolioId",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            share_tag_options=False
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        account_id: builtins.str,
-        portfolio_id: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param account_id: The AWS account ID. For example, ``123456789012`` .
-        :param portfolio_id: The portfolio identifier.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param share_tag_options: Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1caa251876)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPortfolioShareProps(
-            account_id=account_id,
-            portfolio_id=portfolio_id,
-            accept_language=accept_language,
-            share_tag_options=share_tag_options,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__341a908f67fe220e74c1fa2f1dc9b6f9d467627dad0a09a6ef0aa8333d8d3e03)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd00e1ea00949f48a72807819db35c3fc635f45b434308404f78895d9ba253f5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accountId")
-    def account_id(self) -> builtins.str:
-        '''The AWS account ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "accountId"))
-
-    @account_id.setter
-    def account_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48c561d8f65e1295a6646aca88fea994e01a775edc7d575b02db328f8fba94d3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e5483e33494640db64273cad3dc0d20d35eb722e234d20ddf41f757010f2a19)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f1709f8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="shareTagOptions")
-    def share_tag_options(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "shareTagOptions"))
-
-    @share_tag_options.setter
-    def share_tag_options(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shareTagOptions", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioShareProps",
     jsii_struct_bases=[],
@@ -4898,178 +2224,6 @@ class CfnPortfolioShareProps:
         return "CfnPortfolioShareProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnResourceUpdateConstraint(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnResourceUpdateConstraint",
-):
-    '''Specifies a ``RESOURCE_UPDATE`` constraint.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-resourceupdateconstraint.html
-    :cloudformationResource: AWS::ServiceCatalog::ResourceUpdateConstraint
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_resource_update_constraint = servicecatalog.CfnResourceUpdateConstraint(self, "MyCfnResourceUpdateConstraint",
-            portfolio_id="portfolioId",
-            product_id="productId",
-            tag_update_on_provisioned_product="tagUpdateOnProvisionedProduct",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        tag_update_on_provisioned_product: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param tag_update_on_provisioned_product: If set to ``ALLOWED`` , lets users change tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource. If set to ``NOT_ALLOWED`` , prevents users from changing tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The description of the constraint.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bd8b301e17021c1624c5958b75d908fe177a38bbaed56fb5ec15b9c8eee8e32)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnResourceUpdateConstraintProps(
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            tag_update_on_provisioned_product=tag_update_on_provisioned_product,
-            accept_language=accept_language,
-            description=description,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__133a2ef7c92d1c3e4cb9165453dc706ba44e9adea0791a8dcf4984c0458d1bbc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e34401d12b1f0dedaafca3a2f7a545718b136244772b983f03708114b1e94ed)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27e9ca67d9f35e36bb56addcc29f6005ea48f7be72ff846d74f4d2ec50fcba78)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2dff03e6c12d3272cc78225e164e33c802d44ff01420c35c436ec1409e35ac)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagUpdateOnProvisionedProduct")
-    def tag_update_on_provisioned_product(self) -> builtins.str:
-        '''If set to ``ALLOWED`` , lets users change tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "tagUpdateOnProvisionedProduct"))
-
-    @tag_update_on_provisioned_product.setter
-    def tag_update_on_provisioned_product(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eec5a56fcac39964f096b92c76cbcec17b54dce956880ba1c66d3c10419b5cec)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagUpdateOnProvisionedProduct", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bf3ffe828e864cac79d1395c3a8723d4ae6181d9cbf0eb06172be1481c2a64d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the constraint.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4201ac4ba10b052d77bae5ea5b19dadaec094b4ec3807010c169e91385e5da1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5202,385 +2356,6 @@ class CfnResourceUpdateConstraintProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
-class CfnServiceAction(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceAction",
-):
-    '''Creates a self-service action.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceaction.html
-    :cloudformationResource: AWS::ServiceCatalog::ServiceAction
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_service_action = servicecatalog.CfnServiceAction(self, "MyCfnServiceAction",
-            definition=[servicecatalog.CfnServiceAction.DefinitionParameterProperty(
-                key="key",
-                value="value"
-            )],
-            definition_type="definitionType",
-            name="name",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage",
-            description="description"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        definition_type: builtins.str,
-        name: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param definition: A map that defines the self-service action.
-        :param definition_type: The self-service action definition type. For example, ``SSM_AUTOMATION`` .
-        :param name: The self-service action name.
-        :param accept_language: The language code. - ``en`` - English (default) - ``jp`` - Japanese - ``zh`` - Chinese
-        :param description: The self-service action description.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23e34b3d6215f958671fe8ad5adc718f503534f84f0e173a8aee3a13b9cc8b4f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnServiceActionProps(
-            definition=definition,
-            definition_type=definition_type,
-            name=name,
-            accept_language=accept_language,
-            description=description,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b00b53de34b86f332a507fe944cda9499823712340b44dbde255cff3dadc59a5)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e8da2cb67ea7c2bf8580e7d0041673893eb0ffe0ba7cd9aeb0804066d7e9b4a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The self-service action identifier.
-
-        For example, ``act-fs7abcd89wxyz`` .
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="definition")
-    def definition(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]]:
-        '''A map that defines the self-service action.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]], jsii.get(self, "definition"))
-
-    @definition.setter
-    def definition(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce59df90f00d540603f4ac3e5bf794dcc8ba05e89c05ad33d1289ab60d236f4a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="definitionType")
-    def definition_type(self) -> builtins.str:
-        '''The self-service action definition type.'''
-        return typing.cast(builtins.str, jsii.get(self, "definitionType"))
-
-    @definition_type.setter
-    def definition_type(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e7b0a0df19abf9145a13198f8dd4cf82916ff2ab5cbf812a1326f3d94f4b470)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The self-service action name.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0375292a489ea6b79527a8a83b9e55f4631c74e6bcfd44c582363a1bbed6c0d4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__212e7304ca0476cd2ef386f32b251370cbf36d24d7db94f107ff8c0bbaafdb57)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The self-service action description.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__947be12dff02fc61884bd774fa6fa917ec8c48f3d2fba99c9bd68d481714e7c4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceAction.DefinitionParameterProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key": "key", "value": "value"},
-    )
-    class DefinitionParameterProperty:
-        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
-            '''The list of parameters in JSON format.
-
-            For example: ``[{\\"Name\\":\\"InstanceId\\",\\"Type\\":\\"TARGET\\"}] or [{\\"Name\\":\\"InstanceId\\",\\"Type\\":\\"TEXT_VALUE\\"}]`` .
-
-            :param key: The parameter key.
-            :param value: The value of the parameter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_servicecatalog as servicecatalog
-                
-                definition_parameter_property = servicecatalog.CfnServiceAction.DefinitionParameterProperty(
-                    key="key",
-                    value="value"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9c6e74bbbc66ce84d64be85e0a9a49dedc497c858d1e2785bf1a6385c6c5a5e2)
-                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key": key,
-                "value": value,
-            }
-
-        @builtins.property
-        def key(self) -> builtins.str:
-            '''The parameter key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html#cfn-servicecatalog-serviceaction-definitionparameter-key
-            '''
-            result = self._values.get("key")
-            assert result is not None, "Required property 'key' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def value(self) -> builtins.str:
-            '''The value of the parameter.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html#cfn-servicecatalog-serviceaction-definitionparameter-value
-            '''
-            result = self._values.get("value")
-            assert result is not None, "Required property 'value' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DefinitionParameterProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnServiceActionAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceActionAssociation",
-):
-    '''A self-service action association consisting of the Action ID, the Product ID, and the Provisioning Artifact ID.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceactionassociation.html
-    :cloudformationResource: AWS::ServiceCatalog::ServiceActionAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_service_action_association = servicecatalog.CfnServiceActionAssociation(self, "MyCfnServiceActionAssociation",
-            product_id="productId",
-            provisioning_artifact_id="provisioningArtifactId",
-            service_action_id="serviceActionId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        product_id: builtins.str,
-        provisioning_artifact_id: builtins.str,
-        service_action_id: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param product_id: The product identifier. For example, ``prod-abcdzk7xy33qa`` .
-        :param provisioning_artifact_id: The identifier of the provisioning artifact. For example, ``pa-4abcdjnxjj6ne`` .
-        :param service_action_id: The self-service action identifier. For example, ``act-fs7abcd89wxyz`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af7accef6ad60ab0630f153d8a07caeceee6f2d27b9eb2a794537a34ce87e178)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnServiceActionAssociationProps(
-            product_id=product_id,
-            provisioning_artifact_id=provisioning_artifact_id,
-            service_action_id=service_action_id,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7df7f15eee37e4c02e6d404feb700b430539aedfcdbf0dd1269e565e07d05cbc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6bd90d3363385817fff96c18c249a73f81576856af8c3ce0a8e1b124dd0c45f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d48df994bfc409a2186ce0f7f954c97d758cac05ff4c442e381ba542b43847e0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioningArtifactId")
-    def provisioning_artifact_id(self) -> builtins.str:
-        '''The identifier of the provisioning artifact.'''
-        return typing.cast(builtins.str, jsii.get(self, "provisioningArtifactId"))
-
-    @provisioning_artifact_id.setter
-    def provisioning_artifact_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__525d1605980366c81e343599764a8a17692b76ce41bca6ecd5a9a1ad81af4f2c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceActionId")
-    def service_action_id(self) -> builtins.str:
-        '''The self-service action identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "serviceActionId"))
-
-    @service_action_id.setter
-    def service_action_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18aae29d025946767f8ca8b8da89a0b0115102987022200d9f5c18157ae2ce5b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceActionId", value) # pyright: ignore[reportArgumentType]
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceActionAssociationProps",
     jsii_struct_bases=[],
@@ -5693,7 +2468,7 @@ class CfnServiceActionProps:
     def __init__(
         self,
         *,
-        definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
         definition_type: builtins.str,
         name: builtins.str,
         accept_language: typing.Optional[builtins.str] = None,
@@ -5749,14 +2524,14 @@ class CfnServiceActionProps:
     @builtins.property
     def definition(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceAction.DefinitionParameterProperty]]]:
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]]:
         '''A map that defines the self-service action.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceaction.html#cfn-servicecatalog-serviceaction-definition
         '''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceAction.DefinitionParameterProperty]]], result)
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]], result)
 
     @builtins.property
     def definition_type(self) -> builtins.str:
@@ -5812,246 +2587,6 @@ class CfnServiceActionProps:
         return "CfnServiceActionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnStackSetConstraint(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnStackSetConstraint",
-):
-    '''Specifies a StackSet constraint.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-stacksetconstraint.html
-    :cloudformationResource: AWS::ServiceCatalog::StackSetConstraint
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_stack_set_constraint = servicecatalog.CfnStackSetConstraint(self, "MyCfnStackSetConstraint",
-            account_list=["accountList"],
-            admin_role="adminRole",
-            description="description",
-            execution_role="executionRole",
-            portfolio_id="portfolioId",
-            product_id="productId",
-            region_list=["regionList"],
-            stack_instance_control="stackInstanceControl",
-        
-            # the properties below are optional
-            accept_language="acceptLanguage"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        account_list: typing.Sequence[builtins.str],
-        admin_role: builtins.str,
-        description: builtins.str,
-        execution_role: builtins.str,
-        portfolio_id: builtins.str,
-        product_id: builtins.str,
-        region_list: typing.Sequence[builtins.str],
-        stack_instance_control: builtins.str,
-        accept_language: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param account_list: One or more AWS accounts that will have access to the provisioned product.
-        :param admin_role: AdminRole ARN.
-        :param description: The description of the constraint.
-        :param execution_role: ExecutionRole name.
-        :param portfolio_id: The portfolio identifier.
-        :param product_id: The product identifier.
-        :param region_list: One or more AWS Regions where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
-        :param stack_instance_control: Permission to create, update, and delete stack instances. Choose from ALLOWED and NOT_ALLOWED.
-        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e83be00a9ded6c3a1fc4b09aae813db853ac16fa6a7a25167ce9abc326314cb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStackSetConstraintProps(
-            account_list=account_list,
-            admin_role=admin_role,
-            description=description,
-            execution_role=execution_role,
-            portfolio_id=portfolio_id,
-            product_id=product_id,
-            region_list=region_list,
-            stack_instance_control=stack_instance_control,
-            accept_language=accept_language,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__762255dd0897d10e8d71da24a12503fe45383533846abe1ea0a004712ac3c5c9)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__482a0e464daf9c2c6bfd3d2cc6452909e7f2d461c11b7596a4781724ce2f4f81)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accountList")
-    def account_list(self) -> typing.List[builtins.str]:
-        '''One or more AWS accounts that will have access to the provisioned product.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "accountList"))
-
-    @account_list.setter
-    def account_list(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7c6d08b3f255581c2ffdd7ffd68b702fe5ba710c382bdf5ae26db91c3d5f8e9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountList", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="adminRole")
-    def admin_role(self) -> builtins.str:
-        '''AdminRole ARN.'''
-        return typing.cast(builtins.str, jsii.get(self, "adminRole"))
-
-    @admin_role.setter
-    def admin_role(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a5a008ef49e1cc45721b5a75554c2bfba2c1d66fb3584a4ebc56ece6909cae8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "adminRole", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''The description of the constraint.'''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfae06298a8284ec1fc825842bbccd21bfd9bb4c68791b92a8b21af754642bea)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="executionRole")
-    def execution_role(self) -> builtins.str:
-        '''ExecutionRole name.'''
-        return typing.cast(builtins.str, jsii.get(self, "executionRole"))
-
-    @execution_role.setter
-    def execution_role(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__970dcf9ee7612c69e8660d1ba6ee759ca3d6baf6d1f22948f11c60fc69441448)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="portfolioId")
-    def portfolio_id(self) -> builtins.str:
-        '''The portfolio identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
-
-    @portfolio_id.setter
-    def portfolio_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89d3ccece013a09e092dca3159439eb8f634defe7a33fb54f8e400e2df569878)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="productId")
-    def product_id(self) -> builtins.str:
-        '''The product identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "productId"))
-
-    @product_id.setter
-    def product_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__127b16e68f363dc6822b1ee34834ca000c00d3826c674b8cbacdfee357fae0a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="regionList")
-    def region_list(self) -> typing.List[builtins.str]:
-        '''One or more AWS Regions where the provisioned product will be available.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "regionList"))
-
-    @region_list.setter
-    def region_list(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__726a4dab91f2940b18d78725c231cb513a17deedf20d0b0e8bc95228deaecb15)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionList", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="stackInstanceControl")
-    def stack_instance_control(self) -> builtins.str:
-        '''Permission to create, update, and delete stack instances.'''
-        return typing.cast(builtins.str, jsii.get(self, "stackInstanceControl"))
-
-    @stack_instance_control.setter
-    def stack_instance_control(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4532c7b88a0aecde03ff01ebbe4425fa7e1cfe109c70c3624bedd938293f957c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackInstanceControl", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="acceptLanguage")
-    def accept_language(self) -> typing.Optional[builtins.str]:
-        '''The language code.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
-
-    @accept_language.setter
-    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf2c708988899711ec9d8ea27f9e4165b113c614fd335bcb1d0b84bff81ef565)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -6252,266 +2787,6 @@ class CfnStackSetConstraintProps:
         return "CfnStackSetConstraintProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnTagOption(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOption",
-):
-    '''Specifies a TagOption.
-
-    A TagOption is a key-value pair managed by AWS Service Catalog that serves as a template for creating an AWS tag.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-tagoption.html
-    :cloudformationResource: AWS::ServiceCatalog::TagOption
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_tag_option = servicecatalog.CfnTagOption(self, "MyCfnTagOption",
-            key="key",
-            value="value",
-        
-            # the properties below are optional
-            active=False
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        key: builtins.str,
-        value: builtins.str,
-        active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param key: The TagOption key.
-        :param value: The TagOption value.
-        :param active: The TagOption active state.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403a5ab8da)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTagOptionProps(key=key, value=value, active=active)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50712aef682653b8e0f48520689f88e2c3a640ff1b3caf07911c1387c9312b8d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e946e4194e2f99f32c971c4f7d7820c5b9dc82b7b500014fba93ca7d45f2003)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The TagOption identifier.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="key")
-    def key(self) -> builtins.str:
-        '''The TagOption key.'''
-        return typing.cast(builtins.str, jsii.get(self, "key"))
-
-    @key.setter
-    def key(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed189bcd4f2dafa9555a0b400e637009d357d1b5029de2c05610b1eac7a01544)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="value")
-    def value(self) -> builtins.str:
-        '''The TagOption value.'''
-        return typing.cast(builtins.str, jsii.get(self, "value"))
-
-    @value.setter
-    def value(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8210c71789d2e226d95d699fde3e0ed6a8d5295865850b8f00b65fd8e5256e81)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="active")
-    def active(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The TagOption active state.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "active"))
-
-    @active.setter
-    def active(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89787874a9ebb4d4f8f779d0b1fe32ea722a2cc59e0dabe83bbaa1c0ed0f605b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "active", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556)
-class CfnTagOptionAssociation(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOptionAssociation",
-):
-    '''Associate the specified TagOption with the specified portfolio or product.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-tagoptionassociation.html
-    :cloudformationResource: AWS::ServiceCatalog::TagOptionAssociation
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_servicecatalog as servicecatalog
-        
-        cfn_tag_option_association = servicecatalog.CfnTagOptionAssociation(self, "MyCfnTagOptionAssociation",
-            resource_id="resourceId",
-            tag_option_id="tagOptionId"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        resource_id: builtins.str,
-        tag_option_id: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param resource_id: The resource identifier.
-        :param tag_option_id: The TagOption identifier.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a574b3e75b877de4dcfa7d8a2517237604ed1f3dd3d7cac2ea2238f670c325e8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTagOptionAssociationProps(
-            resource_id=resource_id, tag_option_id=tag_option_id
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c73cbddcba77a79765ded0c870b1dc62a05bd13cddf128a27b21316f9253b5)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be21e5622bd6d44a3621a1eb8b311fd50ef6c4f7295cfaa5b45c2478046fe275)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceId")
-    def resource_id(self) -> builtins.str:
-        '''The resource identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "resourceId"))
-
-    @resource_id.setter
-    def resource_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__471e0b593fbd9d09ee6976802eded33631b789cde5f21fad9622617eeb6305bb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagOptionId")
-    def tag_option_id(self) -> builtins.str:
-        '''The TagOption identifier.'''
-        return typing.cast(builtins.str, jsii.get(self, "tagOptionId"))
-
-    @tag_option_id.setter
-    def tag_option_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36b3523e61ec3624717af470321b5a099be0fe767c62edbb115ee12884351d73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagOptionId", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -6890,6 +3165,55 @@ class CloudFormationProductProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CloudFormationProductReference",
+    jsii_struct_bases=[],
+    name_mapping={"cloud_formation_product_id": "cloudFormationProductId"},
+)
+class CloudFormationProductReference:
+    def __init__(self, *, cloud_formation_product_id: builtins.str) -> None:
+        '''A reference to a CloudFormationProduct resource.
+
+        :param cloud_formation_product_id: The Id of the CloudFormationProduct resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            cloud_formation_product_reference = servicecatalog.CloudFormationProductReference(
+                cloud_formation_product_id="cloudFormationProductId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79e0775f20e97de731ed2c16be950ed03c0da73473f977d2b8b841073c7b94ea)
+            check_type(argname="argument cloud_formation_product_id", value=cloud_formation_product_id, expected_type=type_hints["cloud_formation_product_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cloud_formation_product_id": cloud_formation_product_id,
+        }
+
+    @builtins.property
+    def cloud_formation_product_id(self) -> builtins.str:
+        '''The Id of the CloudFormationProduct resource.'''
+        result = self._values.get("cloud_formation_product_id")
+        assert result is not None, "Required property 'cloud_formation_product_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudFormationProductReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.CloudFormationProductVersion",
     jsii_struct_bases=[],
     name_mapping={
@@ -6998,6 +3322,55 @@ class CloudFormationProductVersion:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CloudFormationProvisionedProductReference",
+    jsii_struct_bases=[],
+    name_mapping={"provisioned_product_id": "provisionedProductId"},
+)
+class CloudFormationProvisionedProductReference:
+    def __init__(self, *, provisioned_product_id: builtins.str) -> None:
+        '''A reference to a CloudFormationProvisionedProduct resource.
+
+        :param provisioned_product_id: The ProvisionedProductId of the CloudFormationProvisionedProduct resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            cloud_formation_provisioned_product_reference = servicecatalog.CloudFormationProvisionedProductReference(
+                provisioned_product_id="provisionedProductId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89892ccd7ef6fe1a3284c2104857cd362424f38e00cd3646a38c63697a91ff01)
+            check_type(argname="argument provisioned_product_id", value=provisioned_product_id, expected_type=type_hints["provisioned_product_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "provisioned_product_id": provisioned_product_id,
+        }
+
+    @builtins.property
+    def provisioned_product_id(self) -> builtins.str:
+        '''The ProvisionedProductId of the CloudFormationProvisionedProduct resource.'''
+        result = self._values.get("provisioned_product_id")
+        assert result is not None, "Required property 'provisioned_product_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudFormationProvisionedProductReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class CloudFormationTemplate(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.aws_servicecatalog.CloudFormationTemplate",
@@ -7040,7 +3413,7 @@ class CloudFormationTemplate(
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
         readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKey_5f11635f] = None,
+        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
         asset_hash: typing.Optional[builtins.str] = None,
         asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
         bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7289,6 +3662,278 @@ class CommonConstraintOptions:
         )
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IAcceptedPortfolioShareRef")
+class IAcceptedPortfolioShareRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcceptedPortfolioShare.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptedPortfolioShareRef")
+    def accepted_portfolio_share_ref(self) -> AcceptedPortfolioShareReference:
+        '''(experimental) A reference to a AcceptedPortfolioShare resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAcceptedPortfolioShareRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AcceptedPortfolioShare.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IAcceptedPortfolioShareRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptedPortfolioShareRef")
+    def accepted_portfolio_share_ref(self) -> AcceptedPortfolioShareReference:
+        '''(experimental) A reference to a AcceptedPortfolioShare resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AcceptedPortfolioShareReference, jsii.get(self, "acceptedPortfolioShareRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAcceptedPortfolioShareRef).__jsii_proxy_class__ = lambda : _IAcceptedPortfolioShareRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.ICloudFormationProductRef")
+class ICloudFormationProductRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudFormationProduct.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProductRef")
+    def cloud_formation_product_ref(self) -> CloudFormationProductReference:
+        '''(experimental) A reference to a CloudFormationProduct resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudFormationProductRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudFormationProduct.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ICloudFormationProductRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProductRef")
+    def cloud_formation_product_ref(self) -> CloudFormationProductReference:
+        '''(experimental) A reference to a CloudFormationProduct resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CloudFormationProductReference, jsii.get(self, "cloudFormationProductRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudFormationProductRef).__jsii_proxy_class__ = lambda : _ICloudFormationProductRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ICloudFormationProvisionedProductRef"
+)
+class ICloudFormationProvisionedProductRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudFormationProvisionedProduct.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProvisionedProductRef")
+    def cloud_formation_provisioned_product_ref(
+        self,
+    ) -> CloudFormationProvisionedProductReference:
+        '''(experimental) A reference to a CloudFormationProvisionedProduct resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICloudFormationProvisionedProductRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CloudFormationProvisionedProduct.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ICloudFormationProvisionedProductRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProvisionedProductRef")
+    def cloud_formation_provisioned_product_ref(
+        self,
+    ) -> CloudFormationProvisionedProductReference:
+        '''(experimental) A reference to a CloudFormationProvisionedProduct resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(CloudFormationProvisionedProductReference, jsii.get(self, "cloudFormationProvisionedProductRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICloudFormationProvisionedProductRef).__jsii_proxy_class__ = lambda : _ICloudFormationProvisionedProductRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ILaunchNotificationConstraintRef"
+)
+class ILaunchNotificationConstraintRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchNotificationConstraint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="launchNotificationConstraintRef")
+    def launch_notification_constraint_ref(
+        self,
+    ) -> "LaunchNotificationConstraintReference":
+        '''(experimental) A reference to a LaunchNotificationConstraint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILaunchNotificationConstraintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchNotificationConstraint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ILaunchNotificationConstraintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="launchNotificationConstraintRef")
+    def launch_notification_constraint_ref(
+        self,
+    ) -> "LaunchNotificationConstraintReference":
+        '''(experimental) A reference to a LaunchNotificationConstraint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LaunchNotificationConstraintReference", jsii.get(self, "launchNotificationConstraintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILaunchNotificationConstraintRef).__jsii_proxy_class__ = lambda : _ILaunchNotificationConstraintRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.ILaunchRoleConstraintRef")
+class ILaunchRoleConstraintRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchRoleConstraint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRoleConstraintRef")
+    def launch_role_constraint_ref(self) -> "LaunchRoleConstraintReference":
+        '''(experimental) A reference to a LaunchRoleConstraint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILaunchRoleConstraintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchRoleConstraint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ILaunchRoleConstraintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRoleConstraintRef")
+    def launch_role_constraint_ref(self) -> "LaunchRoleConstraintReference":
+        '''(experimental) A reference to a LaunchRoleConstraint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LaunchRoleConstraintReference", jsii.get(self, "launchRoleConstraintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILaunchRoleConstraintRef).__jsii_proxy_class__ = lambda : _ILaunchRoleConstraintRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ILaunchTemplateConstraintRef"
+)
+class ILaunchTemplateConstraintRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchTemplateConstraint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="launchTemplateConstraintRef")
+    def launch_template_constraint_ref(self) -> "LaunchTemplateConstraintReference":
+        '''(experimental) A reference to a LaunchTemplateConstraint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILaunchTemplateConstraintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchTemplateConstraint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ILaunchTemplateConstraintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="launchTemplateConstraintRef")
+    def launch_template_constraint_ref(self) -> "LaunchTemplateConstraintReference":
+        '''(experimental) A reference to a LaunchTemplateConstraint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LaunchTemplateConstraintReference", jsii.get(self, "launchTemplateConstraintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILaunchTemplateConstraintRef).__jsii_proxy_class__ = lambda : _ILaunchTemplateConstraintRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolio")
 class IPortfolio(_IResource_c80c4260, typing_extensions.Protocol):
     '''A Service Catalog portfolio.'''
@@ -7372,7 +4017,7 @@ class IPortfolio(_IResource_c80c4260, typing_extensions.Protocol):
         product: "IProduct",
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: _IRole_235f5d8e,
+        admin_role: _IRoleRef_613dafc2,
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -7622,7 +4267,7 @@ class _IPortfolioProxy(
         product: "IProduct",
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: _IRole_235f5d8e,
+        admin_role: _IRoleRef_613dafc2,
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -7830,6 +4475,184 @@ class _IPortfolioProxy(
 typing.cast(typing.Any, IPortfolio).__jsii_proxy_class__ = lambda : _IPortfolioProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolioPrincipalAssociationRef"
+)
+class IPortfolioPrincipalAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioPrincipalAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioPrincipalAssociationRef")
+    def portfolio_principal_association_ref(
+        self,
+    ) -> "PortfolioPrincipalAssociationReference":
+        '''(experimental) A reference to a PortfolioPrincipalAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortfolioPrincipalAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioPrincipalAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IPortfolioPrincipalAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioPrincipalAssociationRef")
+    def portfolio_principal_association_ref(
+        self,
+    ) -> "PortfolioPrincipalAssociationReference":
+        '''(experimental) A reference to a PortfolioPrincipalAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortfolioPrincipalAssociationReference", jsii.get(self, "portfolioPrincipalAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortfolioPrincipalAssociationRef).__jsii_proxy_class__ = lambda : _IPortfolioPrincipalAssociationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolioProductAssociationRef"
+)
+class IPortfolioProductAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioProductAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioProductAssociationRef")
+    def portfolio_product_association_ref(
+        self,
+    ) -> "PortfolioProductAssociationReference":
+        '''(experimental) A reference to a PortfolioProductAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortfolioProductAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioProductAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IPortfolioProductAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioProductAssociationRef")
+    def portfolio_product_association_ref(
+        self,
+    ) -> "PortfolioProductAssociationReference":
+        '''(experimental) A reference to a PortfolioProductAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortfolioProductAssociationReference", jsii.get(self, "portfolioProductAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortfolioProductAssociationRef).__jsii_proxy_class__ = lambda : _IPortfolioProductAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolioRef")
+class IPortfolioRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Portfolio.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioRef")
+    def portfolio_ref(self) -> "PortfolioReference":
+        '''(experimental) A reference to a Portfolio resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortfolioRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Portfolio.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IPortfolioRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioRef")
+    def portfolio_ref(self) -> "PortfolioReference":
+        '''(experimental) A reference to a Portfolio resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortfolioReference", jsii.get(self, "portfolioRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortfolioRef).__jsii_proxy_class__ = lambda : _IPortfolioRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IPortfolioShareRef")
+class IPortfolioShareRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioShare.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioShareRef")
+    def portfolio_share_ref(self) -> "PortfolioShareReference":
+        '''(experimental) A reference to a PortfolioShare resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPortfolioShareRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PortfolioShare.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IPortfolioShareRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioShareRef")
+    def portfolio_share_ref(self) -> "PortfolioShareReference":
+        '''(experimental) A reference to a PortfolioShare resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PortfolioShareReference", jsii.get(self, "portfolioShareRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPortfolioShareRef).__jsii_proxy_class__ = lambda : _IPortfolioShareRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IProduct")
 class IProduct(_IResource_c80c4260, typing_extensions.Protocol):
     '''A Service Catalog product, currently only supports type CloudFormationProduct.'''
@@ -7923,6 +4746,411 @@ class _IProductProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IProduct).__jsii_proxy_class__ = lambda : _IProductProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.IResourceUpdateConstraintRef"
+)
+class IResourceUpdateConstraintRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceUpdateConstraint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceUpdateConstraintRef")
+    def resource_update_constraint_ref(self) -> "ResourceUpdateConstraintReference":
+        '''(experimental) A reference to a ResourceUpdateConstraint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceUpdateConstraintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceUpdateConstraint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IResourceUpdateConstraintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceUpdateConstraintRef")
+    def resource_update_constraint_ref(self) -> "ResourceUpdateConstraintReference":
+        '''(experimental) A reference to a ResourceUpdateConstraint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceUpdateConstraintReference", jsii.get(self, "resourceUpdateConstraintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceUpdateConstraintRef).__jsii_proxy_class__ = lambda : _IResourceUpdateConstraintRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.IServiceActionAssociationRef"
+)
+class IServiceActionAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceActionAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionAssociationRef")
+    def service_action_association_ref(self) -> "ServiceActionAssociationReference":
+        '''(experimental) A reference to a ServiceActionAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceActionAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceActionAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IServiceActionAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionAssociationRef")
+    def service_action_association_ref(self) -> "ServiceActionAssociationReference":
+        '''(experimental) A reference to a ServiceActionAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceActionAssociationReference", jsii.get(self, "serviceActionAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceActionAssociationRef).__jsii_proxy_class__ = lambda : _IServiceActionAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IServiceActionRef")
+class IServiceActionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceAction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionRef")
+    def service_action_ref(self) -> "ServiceActionReference":
+        '''(experimental) A reference to a ServiceAction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IServiceActionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ServiceAction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IServiceActionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionRef")
+    def service_action_ref(self) -> "ServiceActionReference":
+        '''(experimental) A reference to a ServiceAction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ServiceActionReference", jsii.get(self, "serviceActionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IServiceActionRef).__jsii_proxy_class__ = lambda : _IServiceActionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.IStackSetConstraintRef")
+class IStackSetConstraintRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackSetConstraint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetConstraintRef")
+    def stack_set_constraint_ref(self) -> "StackSetConstraintReference":
+        '''(experimental) A reference to a StackSetConstraint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStackSetConstraintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StackSetConstraint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.IStackSetConstraintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetConstraintRef")
+    def stack_set_constraint_ref(self) -> "StackSetConstraintReference":
+        '''(experimental) A reference to a StackSetConstraint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StackSetConstraintReference", jsii.get(self, "stackSetConstraintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStackSetConstraintRef).__jsii_proxy_class__ = lambda : _IStackSetConstraintRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.ITagOptionAssociationRef")
+class ITagOptionAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TagOptionAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionAssociationRef")
+    def tag_option_association_ref(self) -> "TagOptionAssociationReference":
+        '''(experimental) A reference to a TagOptionAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITagOptionAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TagOptionAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ITagOptionAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionAssociationRef")
+    def tag_option_association_ref(self) -> "TagOptionAssociationReference":
+        '''(experimental) A reference to a TagOptionAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TagOptionAssociationReference", jsii.get(self, "tagOptionAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITagOptionAssociationRef).__jsii_proxy_class__ = lambda : _ITagOptionAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_servicecatalog.ITagOptionRef")
+class ITagOptionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a TagOption.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionRef")
+    def tag_option_ref(self) -> "TagOptionReference":
+        '''(experimental) A reference to a TagOption resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITagOptionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TagOption.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_servicecatalog.ITagOptionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionRef")
+    def tag_option_ref(self) -> "TagOptionReference":
+        '''(experimental) A reference to a TagOption resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TagOptionReference", jsii.get(self, "tagOptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITagOptionRef).__jsii_proxy_class__ = lambda : _ITagOptionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.LaunchNotificationConstraintReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "launch_notification_constraint_id": "launchNotificationConstraintId",
+    },
+)
+class LaunchNotificationConstraintReference:
+    def __init__(self, *, launch_notification_constraint_id: builtins.str) -> None:
+        '''A reference to a LaunchNotificationConstraint resource.
+
+        :param launch_notification_constraint_id: The Id of the LaunchNotificationConstraint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            launch_notification_constraint_reference = servicecatalog.LaunchNotificationConstraintReference(
+                launch_notification_constraint_id="launchNotificationConstraintId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff8a9455aea0584a48c3f132821ac1bd17000e9fc8bf938feba30da1969978ee)
+            check_type(argname="argument launch_notification_constraint_id", value=launch_notification_constraint_id, expected_type=type_hints["launch_notification_constraint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "launch_notification_constraint_id": launch_notification_constraint_id,
+        }
+
+    @builtins.property
+    def launch_notification_constraint_id(self) -> builtins.str:
+        '''The Id of the LaunchNotificationConstraint resource.'''
+        result = self._values.get("launch_notification_constraint_id")
+        assert result is not None, "Required property 'launch_notification_constraint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LaunchNotificationConstraintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.LaunchRoleConstraintReference",
+    jsii_struct_bases=[],
+    name_mapping={"launch_role_constraint_id": "launchRoleConstraintId"},
+)
+class LaunchRoleConstraintReference:
+    def __init__(self, *, launch_role_constraint_id: builtins.str) -> None:
+        '''A reference to a LaunchRoleConstraint resource.
+
+        :param launch_role_constraint_id: The Id of the LaunchRoleConstraint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            launch_role_constraint_reference = servicecatalog.LaunchRoleConstraintReference(
+                launch_role_constraint_id="launchRoleConstraintId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9956bd0a808b37f696dde04e70d5c723b35b4745e9bd7bd2609a854f7b4acbd1)
+            check_type(argname="argument launch_role_constraint_id", value=launch_role_constraint_id, expected_type=type_hints["launch_role_constraint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "launch_role_constraint_id": launch_role_constraint_id,
+        }
+
+    @builtins.property
+    def launch_role_constraint_id(self) -> builtins.str:
+        '''The Id of the LaunchRoleConstraint resource.'''
+        result = self._values.get("launch_role_constraint_id")
+        assert result is not None, "Required property 'launch_role_constraint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LaunchRoleConstraintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.LaunchTemplateConstraintReference",
+    jsii_struct_bases=[],
+    name_mapping={"launch_template_constraint_id": "launchTemplateConstraintId"},
+)
+class LaunchTemplateConstraintReference:
+    def __init__(self, *, launch_template_constraint_id: builtins.str) -> None:
+        '''A reference to a LaunchTemplateConstraint resource.
+
+        :param launch_template_constraint_id: The Id of the LaunchTemplateConstraint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            launch_template_constraint_reference = servicecatalog.LaunchTemplateConstraintReference(
+                launch_template_constraint_id="launchTemplateConstraintId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__088ef0949977e0ecb75cadc6948152456e7db2ff05c65a1db7d9fd2b337a282b)
+            check_type(argname="argument launch_template_constraint_id", value=launch_template_constraint_id, expected_type=type_hints["launch_template_constraint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "launch_template_constraint_id": launch_template_constraint_id,
+        }
+
+    @builtins.property
+    def launch_template_constraint_id(self) -> builtins.str:
+        '''The Id of the LaunchTemplateConstraint resource.'''
+        result = self._values.get("launch_template_constraint_id")
+        assert result is not None, "Required property 'launch_template_constraint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LaunchTemplateConstraintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_servicecatalog.MessageLanguage")
@@ -8111,7 +5339,7 @@ class Portfolio(
         product: IProduct,
         *,
         accounts: typing.Sequence[builtins.str],
-        admin_role: _IRole_235f5d8e,
+        admin_role: _IRoleRef_613dafc2,
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -8346,6 +5574,106 @@ class Portfolio(
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioPrincipalAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "portfolio_principal_association_id": "portfolioPrincipalAssociationId",
+    },
+)
+class PortfolioPrincipalAssociationReference:
+    def __init__(self, *, portfolio_principal_association_id: builtins.str) -> None:
+        '''A reference to a PortfolioPrincipalAssociation resource.
+
+        :param portfolio_principal_association_id: The Id of the PortfolioPrincipalAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            portfolio_principal_association_reference = servicecatalog.PortfolioPrincipalAssociationReference(
+                portfolio_principal_association_id="portfolioPrincipalAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7ef68af4b2af04fe6a77831d825e0f8e0c22a01698dad7f094da6200aafc7fc)
+            check_type(argname="argument portfolio_principal_association_id", value=portfolio_principal_association_id, expected_type=type_hints["portfolio_principal_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portfolio_principal_association_id": portfolio_principal_association_id,
+        }
+
+    @builtins.property
+    def portfolio_principal_association_id(self) -> builtins.str:
+        '''The Id of the PortfolioPrincipalAssociation resource.'''
+        result = self._values.get("portfolio_principal_association_id")
+        assert result is not None, "Required property 'portfolio_principal_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortfolioPrincipalAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioProductAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"portfolio_product_association_id": "portfolioProductAssociationId"},
+)
+class PortfolioProductAssociationReference:
+    def __init__(self, *, portfolio_product_association_id: builtins.str) -> None:
+        '''A reference to a PortfolioProductAssociation resource.
+
+        :param portfolio_product_association_id: The Id of the PortfolioProductAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            portfolio_product_association_reference = servicecatalog.PortfolioProductAssociationReference(
+                portfolio_product_association_id="portfolioProductAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16f8ca87db7922e5db79b96a382f11f60f939784f7535a92f4d0967a66b4a0fc)
+            check_type(argname="argument portfolio_product_association_id", value=portfolio_product_association_id, expected_type=type_hints["portfolio_product_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portfolio_product_association_id": portfolio_product_association_id,
+        }
+
+    @builtins.property
+    def portfolio_product_association_id(self) -> builtins.str:
+        '''The Id of the PortfolioProductAssociation resource.'''
+        result = self._values.get("portfolio_product_association_id")
+        assert result is not None, "Required property 'portfolio_product_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortfolioProductAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -8458,6 +5786,55 @@ class PortfolioProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioReference",
+    jsii_struct_bases=[],
+    name_mapping={"portfolio_id": "portfolioId"},
+)
+class PortfolioReference:
+    def __init__(self, *, portfolio_id: builtins.str) -> None:
+        '''A reference to a Portfolio resource.
+
+        :param portfolio_id: The Id of the Portfolio resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            portfolio_reference = servicecatalog.PortfolioReference(
+                portfolio_id="portfolioId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efdac077804a20f3790ded9e47e6248c9f54fb09d27a4b3067418e7178174d01)
+            check_type(argname="argument portfolio_id", value=portfolio_id, expected_type=type_hints["portfolio_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portfolio_id": portfolio_id,
+        }
+
+    @builtins.property
+    def portfolio_id(self) -> builtins.str:
+        '''The Id of the Portfolio resource.'''
+        result = self._values.get("portfolio_id")
+        assert result is not None, "Required property 'portfolio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortfolioReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioShareOptions",
     jsii_struct_bases=[],
     name_mapping={
@@ -8528,6 +5905,55 @@ class PortfolioShareOptions:
 
     def __repr__(self) -> str:
         return "PortfolioShareOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.PortfolioShareReference",
+    jsii_struct_bases=[],
+    name_mapping={"portfolio_share_id": "portfolioShareId"},
+)
+class PortfolioShareReference:
+    def __init__(self, *, portfolio_share_id: builtins.str) -> None:
+        '''A reference to a PortfolioShare resource.
+
+        :param portfolio_share_id: The Id of the PortfolioShare resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            portfolio_share_reference = servicecatalog.PortfolioShareReference(
+                portfolio_share_id="portfolioShareId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47bf57dd430337266528b07d46c4fa85ec8fdf2a3fbe5ce72a6b4889e91fa7b8)
+            check_type(argname="argument portfolio_share_id", value=portfolio_share_id, expected_type=type_hints["portfolio_share_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "portfolio_share_id": portfolio_share_id,
+        }
+
+    @builtins.property
+    def portfolio_share_id(self) -> builtins.str:
+        '''The Id of the PortfolioShare resource.'''
+        result = self._values.get("portfolio_share_id")
+        assert result is not None, "Required property 'portfolio_share_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PortfolioShareReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9146,6 +6572,234 @@ class ProductStackProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ResourceUpdateConstraintReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_update_constraint_id": "resourceUpdateConstraintId"},
+)
+class ResourceUpdateConstraintReference:
+    def __init__(self, *, resource_update_constraint_id: builtins.str) -> None:
+        '''A reference to a ResourceUpdateConstraint resource.
+
+        :param resource_update_constraint_id: The Id of the ResourceUpdateConstraint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            resource_update_constraint_reference = servicecatalog.ResourceUpdateConstraintReference(
+                resource_update_constraint_id="resourceUpdateConstraintId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed8adcfd7e9877ae0005d33d719d67f8057a721c045bcef79fad927da9da5ec8)
+            check_type(argname="argument resource_update_constraint_id", value=resource_update_constraint_id, expected_type=type_hints["resource_update_constraint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_update_constraint_id": resource_update_constraint_id,
+        }
+
+    @builtins.property
+    def resource_update_constraint_id(self) -> builtins.str:
+        '''The Id of the ResourceUpdateConstraint resource.'''
+        result = self._values.get("resource_update_constraint_id")
+        assert result is not None, "Required property 'resource_update_constraint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceUpdateConstraintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ServiceActionAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "product_id": "productId",
+        "provisioning_artifact_id": "provisioningArtifactId",
+        "service_action_id": "serviceActionId",
+    },
+)
+class ServiceActionAssociationReference:
+    def __init__(
+        self,
+        *,
+        product_id: builtins.str,
+        provisioning_artifact_id: builtins.str,
+        service_action_id: builtins.str,
+    ) -> None:
+        '''A reference to a ServiceActionAssociation resource.
+
+        :param product_id: The ProductId of the ServiceActionAssociation resource.
+        :param provisioning_artifact_id: The ProvisioningArtifactId of the ServiceActionAssociation resource.
+        :param service_action_id: The ServiceActionId of the ServiceActionAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            service_action_association_reference = servicecatalog.ServiceActionAssociationReference(
+                product_id="productId",
+                provisioning_artifact_id="provisioningArtifactId",
+                service_action_id="serviceActionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ca48c47d2b605f399c73076d2122aadb98b7c831b0bf5305bf51c1bcdf7a352)
+            check_type(argname="argument product_id", value=product_id, expected_type=type_hints["product_id"])
+            check_type(argname="argument provisioning_artifact_id", value=provisioning_artifact_id, expected_type=type_hints["provisioning_artifact_id"])
+            check_type(argname="argument service_action_id", value=service_action_id, expected_type=type_hints["service_action_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "product_id": product_id,
+            "provisioning_artifact_id": provisioning_artifact_id,
+            "service_action_id": service_action_id,
+        }
+
+    @builtins.property
+    def product_id(self) -> builtins.str:
+        '''The ProductId of the ServiceActionAssociation resource.'''
+        result = self._values.get("product_id")
+        assert result is not None, "Required property 'product_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def provisioning_artifact_id(self) -> builtins.str:
+        '''The ProvisioningArtifactId of the ServiceActionAssociation resource.'''
+        result = self._values.get("provisioning_artifact_id")
+        assert result is not None, "Required property 'provisioning_artifact_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_action_id(self) -> builtins.str:
+        '''The ServiceActionId of the ServiceActionAssociation resource.'''
+        result = self._values.get("service_action_id")
+        assert result is not None, "Required property 'service_action_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceActionAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.ServiceActionReference",
+    jsii_struct_bases=[],
+    name_mapping={"service_action_id": "serviceActionId"},
+)
+class ServiceActionReference:
+    def __init__(self, *, service_action_id: builtins.str) -> None:
+        '''A reference to a ServiceAction resource.
+
+        :param service_action_id: The Id of the ServiceAction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            service_action_reference = servicecatalog.ServiceActionReference(
+                service_action_id="serviceActionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dab66a0eb07c39e371bfe9eff7c511916caf7e3bdc5a1e351e40bfa2c88698ce)
+            check_type(argname="argument service_action_id", value=service_action_id, expected_type=type_hints["service_action_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_action_id": service_action_id,
+        }
+
+    @builtins.property
+    def service_action_id(self) -> builtins.str:
+        '''The Id of the ServiceAction resource.'''
+        result = self._values.get("service_action_id")
+        assert result is not None, "Required property 'service_action_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ServiceActionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.StackSetConstraintReference",
+    jsii_struct_bases=[],
+    name_mapping={"stack_set_constraint_id": "stackSetConstraintId"},
+)
+class StackSetConstraintReference:
+    def __init__(self, *, stack_set_constraint_id: builtins.str) -> None:
+        '''A reference to a StackSetConstraint resource.
+
+        :param stack_set_constraint_id: The Id of the StackSetConstraint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            stack_set_constraint_reference = servicecatalog.StackSetConstraintReference(
+                stack_set_constraint_id="stackSetConstraintId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abc1323843b9de4cc029100885f2755e0bbd42cd0693c3281470a3352a2bcbea)
+            check_type(argname="argument stack_set_constraint_id", value=stack_set_constraint_id, expected_type=type_hints["stack_set_constraint_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "stack_set_constraint_id": stack_set_constraint_id,
+        }
+
+    @builtins.property
+    def stack_set_constraint_id(self) -> builtins.str:
+        '''The Id of the StackSetConstraint resource.'''
+        result = self._values.get("stack_set_constraint_id")
+        assert result is not None, "Required property 'stack_set_constraint_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StackSetConstraintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_servicecatalog.StackSetsConstraintOptions",
     jsii_struct_bases=[CommonConstraintOptions],
     name_mapping={
@@ -9165,7 +6819,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
         description: typing.Optional[builtins.str] = None,
         message_language: typing.Optional[MessageLanguage] = None,
         accounts: typing.Sequence[builtins.str],
-        admin_role: _IRole_235f5d8e,
+        admin_role: _IRoleRef_613dafc2,
         execution_role_name: builtins.str,
         regions: typing.Sequence[builtins.str],
         allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
@@ -9250,11 +6904,11 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def admin_role(self) -> _IRole_235f5d8e:
+    def admin_role(self) -> _IRoleRef_613dafc2:
         '''IAM role used to administer the StackSets configuration.'''
         result = self._values.get("admin_role")
         assert result is not None, "Required property 'admin_role' is missing"
-        return typing.cast(_IRole_235f5d8e, result)
+        return typing.cast(_IRoleRef_613dafc2, result)
 
     @builtins.property
     def execution_role_name(self) -> builtins.str:
@@ -9287,6 +6941,104 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
 
     def __repr__(self) -> str:
         return "StackSetsConstraintOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.TagOptionAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"tag_option_association_id": "tagOptionAssociationId"},
+)
+class TagOptionAssociationReference:
+    def __init__(self, *, tag_option_association_id: builtins.str) -> None:
+        '''A reference to a TagOptionAssociation resource.
+
+        :param tag_option_association_id: The Id of the TagOptionAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            tag_option_association_reference = servicecatalog.TagOptionAssociationReference(
+                tag_option_association_id="tagOptionAssociationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__179465a55f99e650e86059352c3de8b18048551e4911214e5ebe90278fa61181)
+            check_type(argname="argument tag_option_association_id", value=tag_option_association_id, expected_type=type_hints["tag_option_association_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tag_option_association_id": tag_option_association_id,
+        }
+
+    @builtins.property
+    def tag_option_association_id(self) -> builtins.str:
+        '''The Id of the TagOptionAssociation resource.'''
+        result = self._values.get("tag_option_association_id")
+        assert result is not None, "Required property 'tag_option_association_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagOptionAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_servicecatalog.TagOptionReference",
+    jsii_struct_bases=[],
+    name_mapping={"tag_option_id": "tagOptionId"},
+)
+class TagOptionReference:
+    def __init__(self, *, tag_option_id: builtins.str) -> None:
+        '''A reference to a TagOption resource.
+
+        :param tag_option_id: The Id of the TagOption resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_servicecatalog as servicecatalog
+            
+            tag_option_reference = servicecatalog.TagOptionReference(
+                tag_option_id="tagOptionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f8d240e3ee7bb26015309c26c4fc9abfbefcdf2432792af922c42fae8f1daa3)
+            check_type(argname="argument tag_option_id", value=tag_option_id, expected_type=type_hints["tag_option_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tag_option_id": tag_option_id,
+        }
+
+    @builtins.property
+    def tag_option_id(self) -> builtins.str:
+        '''The Id of the TagOption resource.'''
+        result = self._values.get("tag_option_id")
+        assert result is not None, "Required property 'tag_option_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagOptionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9677,6 +7429,3883 @@ class TemplateRuleAssertion:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, IAcceptedPortfolioShareRef)
+class CfnAcceptedPortfolioShare(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnAcceptedPortfolioShare",
+):
+    '''Accepts an offer to share the specified portfolio.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-acceptedportfolioshare.html
+    :cloudformationResource: AWS::ServiceCatalog::AcceptedPortfolioShare
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_accepted_portfolio_share = servicecatalog.CfnAcceptedPortfolioShare(self, "MyCfnAcceptedPortfolioShare",
+            portfolio_id="portfolioId",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3aa97377e67e5de00f1b94453a16c1e9712dfe055beb7707fe1196cdf9a51a7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAcceptedPortfolioShareProps(
+            portfolio_id=portfolio_id, accept_language=accept_language
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6451f68b36b48991fe882611b7b025fa7b6c61da949d847ed3ffbeb5565b5060)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9dad6b073d0fd4a483e68170a9146471e28d899c1dfbe09a943cd63e57f01ad)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptedPortfolioShareRef")
+    def accepted_portfolio_share_ref(self) -> AcceptedPortfolioShareReference:
+        '''A reference to a AcceptedPortfolioShare resource.'''
+        return typing.cast(AcceptedPortfolioShareReference, jsii.get(self, "acceptedPortfolioShareRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7977da1b6d9898fac62e20f5e37ae382c3e30535d1937a55a123bf9d3c201241)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__007477064bf18ea62d6ca00353686fcb2c4328f51ee561a3a7d896e21d9ca995)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ICloudFormationProductRef, _ITaggable_36806126)
+class CfnCloudFormationProduct(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct",
+):
+    '''Specifies a product.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationproduct.html
+    :cloudformationResource: AWS::ServiceCatalog::CloudFormationProduct
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        # info: Any
+        
+        cfn_cloud_formation_product = servicecatalog.CfnCloudFormationProduct(self, "MyCfnCloudFormationProduct",
+            name="name",
+            owner="owner",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description",
+            distributor="distributor",
+            product_type="productType",
+            provisioning_artifact_parameters=[servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty(
+                info=info,
+        
+                # the properties below are optional
+                description="description",
+                disable_template_validation=False,
+                name="name",
+                type="type"
+            )],
+            replace_provisioning_artifacts=False,
+            source_connection=servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty(
+                connection_parameters=servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
+                    code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
+                        artifact_path="artifactPath",
+                        branch="branch",
+                        connection_arn="connectionArn",
+                        repository="repository"
+                    )
+                ),
+                type="type"
+            ),
+            support_description="supportDescription",
+            support_email="supportEmail",
+            support_url="supportUrl",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        owner: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        distributor: typing.Optional[builtins.str] = None,
+        product_type: typing.Optional[builtins.str] = None,
+        provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.SourceConnectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        support_description: typing.Optional[builtins.str] = None,
+        support_email: typing.Optional[builtins.str] = None,
+        support_url: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the product.
+        :param owner: The owner of the product.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the product.
+        :param distributor: The distributor of the product.
+        :param product_type: The type of product.
+        :param provisioning_artifact_parameters: The configuration of the provisioning artifact (also known as a version).
+        :param replace_provisioning_artifacts: This property is turned off by default. If turned off, you can update provisioning artifacts or product attributes (such as description, distributor, name, owner, and more) and the associated provisioning artifacts will retain the same unique identifier. Provisioning artifacts are matched within the CloudFormationProduct resource, and only those that have been updated will be changed. Provisioning artifacts are matched by a combinaton of provisioning artifact template URL and name. If turned on, provisioning artifacts will be given a new unique identifier when you update the product or provisioning artifacts.
+        :param source_connection: A top level ``ProductViewDetail`` response containing details about the product’s connection. AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
+        :param support_description: The support information about the product.
+        :param support_email: The contact email for product support.
+        :param support_url: The contact URL for product support. ``^https?:\\/\\//`` / is the pattern used to validate SupportUrl.
+        :param tags: One or more tags.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc6c443cb4df40ad7001b0569b4f479e51baff8371ae5f0e4102e9cb84befaee)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCloudFormationProductProps(
+            name=name,
+            owner=owner,
+            accept_language=accept_language,
+            description=description,
+            distributor=distributor,
+            product_type=product_type,
+            provisioning_artifact_parameters=provisioning_artifact_parameters,
+            replace_provisioning_artifacts=replace_provisioning_artifacts,
+            source_connection=source_connection,
+            support_description=support_description,
+            support_email=support_email,
+            support_url=support_url,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__727de4de57ef9ec83792ae6093c81836a2ca3f9f4f9dc0d62497712b00efbfa7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49c7444adc7a4ffc4d2f4470e5ade22856e8c876c51c5129192cb728a714c019)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProductName")
+    def attr_product_name(self) -> builtins.str:
+        '''The name of the product.
+
+        :cloudformationAttribute: ProductName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProductName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProvisioningArtifactIds")
+    def attr_provisioning_artifact_ids(self) -> builtins.str:
+        '''The IDs of the provisioning artifacts.
+
+        :cloudformationAttribute: ProvisioningArtifactIds
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProvisioningArtifactIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProvisioningArtifactNames")
+    def attr_provisioning_artifact_names(self) -> builtins.str:
+        '''The names of the provisioning artifacts.
+
+        :cloudformationAttribute: ProvisioningArtifactNames
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProvisioningArtifactNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProductRef")
+    def cloud_formation_product_ref(self) -> CloudFormationProductReference:
+        '''A reference to a CloudFormationProduct resource.'''
+        return typing.cast(CloudFormationProductReference, jsii.get(self, "cloudFormationProductRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the product.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9259a35a34b8232440a4248c91cd12417f2bb4f7700c5d4cd96fe48fbf3e7c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="owner")
+    def owner(self) -> builtins.str:
+        '''The owner of the product.'''
+        return typing.cast(builtins.str, jsii.get(self, "owner"))
+
+    @owner.setter
+    def owner(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d6bbaefd4ee42ef504a40c0bc7d893697f56d5c4a8e2be034cb5fac41b7f9f9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "owner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ed6af9abead4851089ab452f15a83c5c9324575bf905a98147e6df142fbea0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6456b1fd2ac19494b0c436f75e41f4149b79a793224c068c2ac908b8ed0e6a0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="distributor")
+    def distributor(self) -> typing.Optional[builtins.str]:
+        '''The distributor of the product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "distributor"))
+
+    @distributor.setter
+    def distributor(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67af1cd619ef8474453ddaba57bc4ef2a50181c793790168ea7fa3fef631fe47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "distributor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productType")
+    def product_type(self) -> typing.Optional[builtins.str]:
+        '''The type of product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productType"))
+
+    @product_type.setter
+    def product_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8283abec3673f6f8def666fd669e05a39bf8e7ada7a7820b7e2e6e0017ec5072)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningArtifactParameters")
+    def provisioning_artifact_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]]:
+        '''The configuration of the provisioning artifact (also known as a version).'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]], jsii.get(self, "provisioningArtifactParameters"))
+
+    @provisioning_artifact_parameters.setter
+    def provisioning_artifact_parameters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46bdfff1360506ade40e04d18d81d060b0a0f0601a08269c6aa5658e66289ddd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningArtifactParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replaceProvisioningArtifacts")
+    def replace_provisioning_artifacts(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''This property is turned off by default.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "replaceProvisioningArtifacts"))
+
+    @replace_provisioning_artifacts.setter
+    def replace_provisioning_artifacts(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3860e4645114c1e719f71c5207cb37518d5cb1aa225903719679d05f030de4f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replaceProvisioningArtifacts", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceConnection")
+    def source_connection(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]]:
+        '''A top level ``ProductViewDetail`` response containing details about the product’s connection.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]], jsii.get(self, "sourceConnection"))
+
+    @source_connection.setter
+    def source_connection(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.SourceConnectionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12635a42c5ebd2e19b46cf3bb9134e21232e501fed70f86af7f0207bf93441c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceConnection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportDescription")
+    def support_description(self) -> typing.Optional[builtins.str]:
+        '''The support information about the product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportDescription"))
+
+    @support_description.setter
+    def support_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9695e3011f0a2e99845faf4a8bf622babeb5c67a491768eccc104ae05bfa51cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportEmail")
+    def support_email(self) -> typing.Optional[builtins.str]:
+        '''The contact email for product support.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportEmail"))
+
+    @support_email.setter
+    def support_email(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bd18c8efe27f1de421be44834ab68ac37ff85e3a41ca74f3da479f16d7fa80e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportEmail", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportUrl")
+    def support_url(self) -> typing.Optional[builtins.str]:
+        '''The contact URL for product support.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "supportUrl"))
+
+    @support_url.setter
+    def support_url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__542792e78d44887a9ca550e282dc0cb22b5d99f8e000ec4deb876c700aa6502f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''One or more tags.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a776b3ba720cdf81828e7a6506e99d00a8a3b051bb5ed0d24ea2b8fdad3d0cf3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "artifact_path": "artifactPath",
+            "branch": "branch",
+            "connection_arn": "connectionArn",
+            "repository": "repository",
+        },
+    )
+    class CodeStarParametersProperty:
+        def __init__(
+            self,
+            *,
+            artifact_path: builtins.str,
+            branch: builtins.str,
+            connection_arn: builtins.str,
+            repository: builtins.str,
+        ) -> None:
+            '''The subtype containing details about the Codestar connection ``Type`` .
+
+            :param artifact_path: The absolute path wehre the artifact resides within the repo and branch, formatted as "folder/file.json.".
+            :param branch: The specific branch where the artifact resides.
+            :param connection_arn: The CodeStar ARN, which is the connection between AWS Service Catalog and the external repository.
+            :param repository: The specific repository where the product’s artifact-to-be-synced resides, formatted as "Account/Repo.".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                code_star_parameters_property = servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
+                    artifact_path="artifactPath",
+                    branch="branch",
+                    connection_arn="connectionArn",
+                    repository="repository"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6fc6af3a004e4611a65e7afe2c54db0ce6344fdab1a029dbb94b72e045dbe550)
+                check_type(argname="argument artifact_path", value=artifact_path, expected_type=type_hints["artifact_path"])
+                check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
+                check_type(argname="argument connection_arn", value=connection_arn, expected_type=type_hints["connection_arn"])
+                check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "artifact_path": artifact_path,
+                "branch": branch,
+                "connection_arn": connection_arn,
+                "repository": repository,
+            }
+
+        @builtins.property
+        def artifact_path(self) -> builtins.str:
+            '''The absolute path wehre the artifact resides within the repo and branch, formatted as "folder/file.json.".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-artifactpath
+            '''
+            result = self._values.get("artifact_path")
+            assert result is not None, "Required property 'artifact_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def branch(self) -> builtins.str:
+            '''The specific branch where the artifact resides.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-branch
+            '''
+            result = self._values.get("branch")
+            assert result is not None, "Required property 'branch' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def connection_arn(self) -> builtins.str:
+            '''The CodeStar ARN, which is the connection between AWS Service Catalog and the external repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-connectionarn
+            '''
+            result = self._values.get("connection_arn")
+            assert result is not None, "Required property 'connection_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def repository(self) -> builtins.str:
+            '''The specific repository where the product’s artifact-to-be-synced resides, formatted as "Account/Repo.".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-codestarparameters.html#cfn-servicecatalog-cloudformationproduct-codestarparameters-repository
+            '''
+            result = self._values.get("repository")
+            assert result is not None, "Required property 'repository' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeStarParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code_star": "codeStar"},
+    )
+    class ConnectionParametersProperty:
+        def __init__(
+            self,
+            *,
+            code_star: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.CodeStarParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Provides connection details.
+
+            :param code_star: Provides ``ConnectionType`` details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-connectionparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                connection_parameters_property = servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
+                    code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
+                        artifact_path="artifactPath",
+                        branch="branch",
+                        connection_arn="connectionArn",
+                        repository="repository"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd9e87d06ed8c44dc9a54fcde6182c92573851ee79f67d3a2407b58f4aa6a726)
+                check_type(argname="argument code_star", value=code_star, expected_type=type_hints["code_star"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if code_star is not None:
+                self._values["code_star"] = code_star
+
+        @builtins.property
+        def code_star(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.CodeStarParametersProperty"]]:
+            '''Provides ``ConnectionType`` details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-connectionparameters.html#cfn-servicecatalog-cloudformationproduct-connectionparameters-codestar
+            '''
+            result = self._values.get("code_star")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.CodeStarParametersProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConnectionParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "info": "info",
+            "description": "description",
+            "disable_template_validation": "disableTemplateValidation",
+            "name": "name",
+            "type": "type",
+        },
+    )
+    class ProvisioningArtifactPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            info: typing.Any,
+            description: typing.Optional[builtins.str] = None,
+            disable_template_validation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            name: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about a provisioning artifact (also known as a version) for a product.
+
+            :param info: Specify the template source with one of the following options, but not both. Keys accepted: [ ``LoadTemplateFromURL`` , ``ImportFromPhysicalId`` ] The URL of the AWS CloudFormation template in Amazon S3 in JSON format. Specify the URL in JSON format as follows: ``"LoadTemplateFromURL": "https://s3.amazonaws.com/cf-templates-ozkq9d3hgiq2-us-east-1/..."`` ``ImportFromPhysicalId`` : The physical id of the resource that contains the template. Currently only supports AWS CloudFormation stack arn. Specify the physical id in JSON format as follows: ``ImportFromPhysicalId: “arn:aws:cloudformation:[us-east-1]:[accountId]:stack/[StackName]/[resourceId]``
+            :param description: The description of the provisioning artifact, including how it differs from the previous provisioning artifact.
+            :param disable_template_validation: If set to true, AWS Service Catalog stops validating the specified provisioning artifact even if it is invalid.
+            :param name: The name of the provisioning artifact (for example, v1 v2beta). No spaces are allowed.
+            :param type: The type of provisioning artifact. - ``CLOUD_FORMATION_TEMPLATE`` - AWS CloudFormation template - ``TERRAFORM_OPEN_SOURCE`` - Terraform Open Source configuration file - ``TERRAFORM_CLOUD`` - Terraform Cloud configuration file - ``EXTERNAL`` - External configuration file
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                # info: Any
+                
+                provisioning_artifact_properties_property = servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty(
+                    info=info,
+                
+                    # the properties below are optional
+                    description="description",
+                    disable_template_validation=False,
+                    name="name",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b752198e6c6c1ac60ba5e75223780930eeac05f412a316cd8f8cc7c0a686c9d8)
+                check_type(argname="argument info", value=info, expected_type=type_hints["info"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument disable_template_validation", value=disable_template_validation, expected_type=type_hints["disable_template_validation"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "info": info,
+            }
+            if description is not None:
+                self._values["description"] = description
+            if disable_template_validation is not None:
+                self._values["disable_template_validation"] = disable_template_validation
+            if name is not None:
+                self._values["name"] = name
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def info(self) -> typing.Any:
+            '''Specify the template source with one of the following options, but not both.
+
+            Keys accepted: [ ``LoadTemplateFromURL`` , ``ImportFromPhysicalId`` ]
+
+            The URL of the AWS CloudFormation template in Amazon S3 in JSON format. Specify the URL in JSON format as follows:
+
+            ``"LoadTemplateFromURL": "https://s3.amazonaws.com/cf-templates-ozkq9d3hgiq2-us-east-1/..."``
+
+            ``ImportFromPhysicalId`` : The physical id of the resource that contains the template. Currently only supports AWS CloudFormation stack arn. Specify the physical id in JSON format as follows: ``ImportFromPhysicalId: “arn:aws:cloudformation:[us-east-1]:[accountId]:stack/[StackName]/[resourceId]``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-info
+            '''
+            result = self._values.get("info")
+            assert result is not None, "Required property 'info' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''The description of the provisioning artifact, including how it differs from the previous provisioning artifact.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def disable_template_validation(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''If set to true, AWS Service Catalog stops validating the specified provisioning artifact even if it is invalid.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-disabletemplatevalidation
+            '''
+            result = self._values.get("disable_template_validation")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''The name of the provisioning artifact (for example, v1 v2beta).
+
+            No spaces are allowed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of provisioning artifact.
+
+            - ``CLOUD_FORMATION_TEMPLATE`` - AWS CloudFormation template
+            - ``TERRAFORM_OPEN_SOURCE`` - Terraform Open Source configuration file
+            - ``TERRAFORM_CLOUD`` - Terraform Cloud configuration file
+            - ``EXTERNAL`` - External configuration file
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-provisioningartifactproperties.html#cfn-servicecatalog-cloudformationproduct-provisioningartifactproperties-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProvisioningArtifactPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connection_parameters": "connectionParameters", "type": "type"},
+    )
+    class SourceConnectionProperty:
+        def __init__(
+            self,
+            *,
+            connection_parameters: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProduct.ConnectionParametersProperty", typing.Dict[builtins.str, typing.Any]]],
+            type: builtins.str,
+        ) -> None:
+            '''A top level ``ProductViewDetail`` response containing details about the product’s connection.
+
+            AWS Service Catalog returns this field for the ``CreateProduct`` , ``UpdateProduct`` , ``DescribeProductAsAdmin`` , and ``SearchProductAsAdmin`` APIs. This response contains the same fields as the ``ConnectionParameters`` request, with the addition of the ``LastSync`` response.
+
+            :param connection_parameters: The connection details based on the connection ``Type`` .
+            :param type: The only supported ``SourceConnection`` type is Codestar.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                source_connection_property = servicecatalog.CfnCloudFormationProduct.SourceConnectionProperty(
+                    connection_parameters=servicecatalog.CfnCloudFormationProduct.ConnectionParametersProperty(
+                        code_star=servicecatalog.CfnCloudFormationProduct.CodeStarParametersProperty(
+                            artifact_path="artifactPath",
+                            branch="branch",
+                            connection_arn="connectionArn",
+                            repository="repository"
+                        )
+                    ),
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f9e1c726)
+                check_type(argname="argument connection_parameters", value=connection_parameters, expected_type=type_hints["connection_parameters"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connection_parameters": connection_parameters,
+                "type": type,
+            }
+
+        @builtins.property
+        def connection_parameters(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ConnectionParametersProperty"]:
+            '''The connection details based on the connection ``Type`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html#cfn-servicecatalog-cloudformationproduct-sourceconnection-connectionparameters
+            '''
+            result = self._values.get("connection_parameters")
+            assert result is not None, "Required property 'connection_parameters' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProduct.ConnectionParametersProperty"], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The only supported ``SourceConnection`` type is Codestar.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationproduct-sourceconnection.html#cfn-servicecatalog-cloudformationproduct-sourceconnection-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceConnectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ICloudFormationProvisionedProductRef, _ITaggable_36806126)
+class CfnCloudFormationProvisionedProduct(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct",
+):
+    '''Provisions the specified product.
+
+    A provisioned product is a resourced instance of a product. For example, provisioning a product based on a AWS CloudFormation template launches a AWS CloudFormation stack and its underlying resources. You can check the status of this request using `DescribeRecord <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_DescribeRecord.html>`_ .
+
+    If the request contains a tag key with an empty list of values, there is a tag conflict for that key. Do not include conflicted keys as tags, or this causes the error "Parameter validation failed: Missing required parameter in Tags[ *N* ]: *Value* ".
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html
+    :cloudformationResource: AWS::ServiceCatalog::CloudFormationProvisionedProduct
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_cloud_formation_provisioned_product = servicecatalog.CfnCloudFormationProvisionedProduct(self, "MyCfnCloudFormationProvisionedProduct",
+            accept_language="acceptLanguage",
+            notification_arns=["notificationArns"],
+            path_id="pathId",
+            path_name="pathName",
+            product_id="productId",
+            product_name="productName",
+            provisioned_product_name="provisionedProductName",
+            provisioning_artifact_id="provisioningArtifactId",
+            provisioning_artifact_name="provisioningArtifactName",
+            provisioning_parameters=[servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty(
+                key="key",
+                value="value"
+            )],
+            provisioning_preferences=servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty(
+                stack_set_accounts=["stackSetAccounts"],
+                stack_set_failure_tolerance_count=123,
+                stack_set_failure_tolerance_percentage=123,
+                stack_set_max_concurrency_count=123,
+                stack_set_max_concurrency_percentage=123,
+                stack_set_operation_type="stackSetOperationType",
+                stack_set_regions=["stackSetRegions"]
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        accept_language: typing.Optional[builtins.str] = None,
+        notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        path_id: typing.Optional[builtins.str] = None,
+        path_name: typing.Optional[builtins.str] = None,
+        product_id: typing.Optional[builtins.str] = None,
+        product_name: typing.Optional[builtins.str] = None,
+        provisioned_product_name: typing.Optional[builtins.str] = None,
+        provisioning_artifact_id: typing.Optional[builtins.str] = None,
+        provisioning_artifact_name: typing.Optional[builtins.str] = None,
+        provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param notification_arns: Passed to AWS CloudFormation . The SNS topic ARNs to which to publish stack-related events.
+        :param path_id: The path identifier of the product. This value is optional if the product has a default path, and required if the product has more than one path. To list the paths for a product, use `ListLaunchPaths <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_ListLaunchPaths.html>`_ . .. epigraph:: You must provide the name or ID, but not both.
+        :param path_name: The name of the path. This value is optional if the product has a default path, and required if the product has more than one path. To list the paths for a product, use `ListLaunchPaths <https://docs.aws.amazon.com/servicecatalog/latest/dg/API_ListLaunchPaths.html>`_ . .. epigraph:: You must provide the name or ID, but not both.
+        :param product_id: The product identifier. .. epigraph:: You must specify either the ID or the name of the product, but not both.
+        :param product_name: The name of the Service Catalog product. Each time a stack is created or updated, if ``ProductName`` is provided it will successfully resolve to ``ProductId`` as long as only one product exists in the account or Region with that ``ProductName`` . .. epigraph:: You must specify either the name or the ID of the product, but not both.
+        :param provisioned_product_name: A user-friendly name for the provisioned product. This value must be unique for the AWS account and cannot be updated after the product is provisioned.
+        :param provisioning_artifact_id: The identifier of the provisioning artifact (also known as a version). .. epigraph:: You must specify either the ID or the name of the provisioning artifact, but not both.
+        :param provisioning_artifact_name: The name of the provisioning artifact (also known as a version) for the product. This name must be unique for the product. .. epigraph:: You must specify either the name or the ID of the provisioning artifact, but not both. You must also specify either the name or the ID of the product, but not both.
+        :param provisioning_parameters: Parameters specified by the administrator that are required for provisioning the product.
+        :param provisioning_preferences: StackSet preferences that are required for provisioning the product or updating a provisioned product.
+        :param tags: One or more tags. .. epigraph:: Requires the provisioned product to have an `ResourceUpdateConstraint <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-resourceupdateconstraint.html>`_ resource with ``TagUpdatesOnProvisionedProduct`` set to ``ALLOWED`` to allow tag updates. If ``RESOURCE_UPDATE`` constraint is not present, tags updates are ignored.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab318da4b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCloudFormationProvisionedProductProps(
+            accept_language=accept_language,
+            notification_arns=notification_arns,
+            path_id=path_id,
+            path_name=path_name,
+            product_id=product_id,
+            product_name=product_name,
+            provisioned_product_name=provisioned_product_name,
+            provisioning_artifact_id=provisioning_artifact_id,
+            provisioning_artifact_name=provisioning_artifact_name,
+            provisioning_parameters=provisioning_parameters,
+            provisioning_preferences=provisioning_preferences,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a871c00a20e673078d39c66e338884f55a1ee0a709c63a63fd37f78a2f18a39a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5480c16974272a7335118a5a295add981a769f3efcf9ee369371dcaf56515ee9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCloudformationStackArn")
+    def attr_cloudformation_stack_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CloudformationStackArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCloudformationStackArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutputs")
+    def attr_outputs(self) -> _IResolvable_da3f097b:
+        '''List of key-value pair outputs.
+
+        :cloudformationAttribute: Outputs
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrOutputs"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProvisionedProductId")
+    def attr_provisioned_product_id(self) -> builtins.str:
+        '''The ID of the provisioned product.
+
+        :cloudformationAttribute: ProvisionedProductId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProvisionedProductId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecordId")
+    def attr_record_id(self) -> builtins.str:
+        '''The ID of the record, such as ``rec-rjeatvy434trk`` .
+
+        :cloudformationAttribute: RecordId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecordId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cloudFormationProvisionedProductRef")
+    def cloud_formation_provisioned_product_ref(
+        self,
+    ) -> CloudFormationProvisionedProductReference:
+        '''A reference to a CloudFormationProvisionedProduct resource.'''
+        return typing.cast(CloudFormationProvisionedProductReference, jsii.get(self, "cloudFormationProvisionedProductRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77917629496aeb6c9242f32a7ed712f7db007210f056250ba788eb7637747cb9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationArns")
+    def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Passed to AWS CloudFormation .'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "notificationArns"))
+
+    @notification_arns.setter
+    def notification_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11728ab5020e59b21691efa0bf6ac96a523b7cd5a7b8b956594e09eec6910399)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pathId")
+    def path_id(self) -> typing.Optional[builtins.str]:
+        '''The path identifier of the product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pathId"))
+
+    @path_id.setter
+    def path_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7c615152c9e7e7c8b5e4a448b903ac3c25eaa34685c78b9899adfbae91d2a6d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pathId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pathName")
+    def path_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the path.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pathName"))
+
+    @path_name.setter
+    def path_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32b38b25b9cd46fb8c78bf9e55be70039fc3ab56ea354e0552abb0fa1caf68ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pathName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> typing.Optional[builtins.str]:
+        '''The product identifier.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa2e98cc90d84078c7318222a6d7519d441bd1bd3e07cea7bc5a198efb4d66b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productName")
+    def product_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Service Catalog product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productName"))
+
+    @product_name.setter
+    def product_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e17eab0d37a58277b6cc1d13c95c9cdd79faad5237131fd52792ce9d7b85d907)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisionedProductName")
+    def provisioned_product_name(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly name for the provisioned product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisionedProductName"))
+
+    @provisioned_product_name.setter
+    def provisioned_product_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e484e5f340d5e529de00f245c299ac8a58669959a15a6ae69f5200a376e9e442)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisionedProductName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningArtifactId")
+    def provisioning_artifact_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the provisioning artifact (also known as a version).'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioningArtifactId"))
+
+    @provisioning_artifact_id.setter
+    def provisioning_artifact_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db6c2b91dabfa3b4625a2ab89180e1d38eb2e6b1e76c28953fad8bdc681c5f67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningArtifactName")
+    def provisioning_artifact_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the provisioning artifact (also known as a version) for the product.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioningArtifactName"))
+
+    @provisioning_artifact_name.setter
+    def provisioning_artifact_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6df237969cf4f1ab7f2d8d040c205d2b2533e9f08060d1fe47336446fec46f06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningArtifactName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningParameters")
+    def provisioning_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]]:
+        '''Parameters specified by the administrator that are required for provisioning the product.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]], jsii.get(self, "provisioningParameters"))
+
+    @provisioning_parameters.setter
+    def provisioning_parameters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e88a998f430a92c61e57f583a56a5dba25a39affc9ad60288815a7e40e5b7910)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningPreferences")
+    def provisioning_preferences(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]]:
+        '''StackSet preferences that are required for provisioning the product or updating a provisioned product.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]], jsii.get(self, "provisioningPreferences"))
+
+    @provisioning_preferences.setter
+    def provisioning_preferences(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3edc25f754a0be5ecf6302ae2b15ba8648d89a1d12ceb865ff5c7d628c62bc97)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningPreferences", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''One or more tags.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d149fdbb55c6e7459d592eaaf72483e5df84625da19408ebc06188a171d334d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class ProvisioningParameterProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''Information about a parameter used to provision a product.
+
+            :param key: The parameter key.
+            :param value: The parameter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                provisioning_parameter_property = servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d376c5bd5f12818f9539b82c9177576499bd71b979a2e8f4116d03c46de19b19)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The parameter key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameter-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The parameter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningparameter.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningparameter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProvisioningParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "stack_set_accounts": "stackSetAccounts",
+            "stack_set_failure_tolerance_count": "stackSetFailureToleranceCount",
+            "stack_set_failure_tolerance_percentage": "stackSetFailureTolerancePercentage",
+            "stack_set_max_concurrency_count": "stackSetMaxConcurrencyCount",
+            "stack_set_max_concurrency_percentage": "stackSetMaxConcurrencyPercentage",
+            "stack_set_operation_type": "stackSetOperationType",
+            "stack_set_regions": "stackSetRegions",
+        },
+    )
+    class ProvisioningPreferencesProperty:
+        def __init__(
+            self,
+            *,
+            stack_set_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+            stack_set_failure_tolerance_count: typing.Optional[jsii.Number] = None,
+            stack_set_failure_tolerance_percentage: typing.Optional[jsii.Number] = None,
+            stack_set_max_concurrency_count: typing.Optional[jsii.Number] = None,
+            stack_set_max_concurrency_percentage: typing.Optional[jsii.Number] = None,
+            stack_set_operation_type: typing.Optional[builtins.str] = None,
+            stack_set_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The user-defined preferences that will be applied when updating a provisioned product.
+
+            Not all preferences are applicable to all provisioned product type
+
+            One or more AWS accounts that will have access to the provisioned product.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            The AWS accounts specified should be within the list of accounts in the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
+
+            If no values are specified, the default value is all accounts from the ``STACKSET`` constraint.
+
+            :param stack_set_accounts: One or more AWS accounts where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified accounts should be within the list of accounts from the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all acounts from the ``STACKSET`` constraint.
+            :param stack_set_failure_tolerance_count: The number of accounts, per Region, for which this operation can fail before AWS Service Catalog stops the operation in that Region. If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both. The default value is ``0`` if no value is specified.
+            :param stack_set_failure_tolerance_percentage: The percentage of accounts, per Region, for which this stack operation can fail before AWS Service Catalog stops the operation in that Region. If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions. When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
+            :param stack_set_max_concurrency_count: The maximum number of accounts in which to perform this operation at one time. This is dependent on the value of ``StackSetFailureToleranceCount`` . ``StackSetMaxConcurrentCount`` is at most one more than the ``StackSetFailureToleranceCount`` . Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
+            :param stack_set_max_concurrency_percentage: The maximum percentage of accounts in which to perform this operation at one time. When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. This is true except in cases where rounding down would result is zero. In this case, AWS Service Catalog sets the number as ``1`` instead. Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Applicable only to a ``CFN_STACKSET`` provisioned product type. Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
+            :param stack_set_operation_type: Determines what action AWS Service Catalog performs to a stack set or a stack instance represented by the provisioned product. The default value is ``UPDATE`` if nothing is specified. Applicable only to a ``CFN_STACKSET`` provisioned product type. - **CREATE** - Creates a new stack instance in the stack set represented by the provisioned product. In this case, only new stack instances are created based on accounts and Regions; if new ProductId or ProvisioningArtifactID are passed, they will be ignored. - **UPDATE** - Updates the stack set represented by the provisioned product and also its stack instances. - **DELETE** - Deletes a stack instance in the stack set represented by the provisioned product.
+            :param stack_set_regions: One or more AWS Regions where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                provisioning_preferences_property = servicecatalog.CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty(
+                    stack_set_accounts=["stackSetAccounts"],
+                    stack_set_failure_tolerance_count=123,
+                    stack_set_failure_tolerance_percentage=123,
+                    stack_set_max_concurrency_count=123,
+                    stack_set_max_concurrency_percentage=123,
+                    stack_set_operation_type="stackSetOperationType",
+                    stack_set_regions=["stackSetRegions"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d22bda685b9d0490e83817036cdc6d68185bcfbeeb1a9d02befc4f9f33801f91)
+                check_type(argname="argument stack_set_accounts", value=stack_set_accounts, expected_type=type_hints["stack_set_accounts"])
+                check_type(argname="argument stack_set_failure_tolerance_count", value=stack_set_failure_tolerance_count, expected_type=type_hints["stack_set_failure_tolerance_count"])
+                check_type(argname="argument stack_set_failure_tolerance_percentage", value=stack_set_failure_tolerance_percentage, expected_type=type_hints["stack_set_failure_tolerance_percentage"])
+                check_type(argname="argument stack_set_max_concurrency_count", value=stack_set_max_concurrency_count, expected_type=type_hints["stack_set_max_concurrency_count"])
+                check_type(argname="argument stack_set_max_concurrency_percentage", value=stack_set_max_concurrency_percentage, expected_type=type_hints["stack_set_max_concurrency_percentage"])
+                check_type(argname="argument stack_set_operation_type", value=stack_set_operation_type, expected_type=type_hints["stack_set_operation_type"])
+                check_type(argname="argument stack_set_regions", value=stack_set_regions, expected_type=type_hints["stack_set_regions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if stack_set_accounts is not None:
+                self._values["stack_set_accounts"] = stack_set_accounts
+            if stack_set_failure_tolerance_count is not None:
+                self._values["stack_set_failure_tolerance_count"] = stack_set_failure_tolerance_count
+            if stack_set_failure_tolerance_percentage is not None:
+                self._values["stack_set_failure_tolerance_percentage"] = stack_set_failure_tolerance_percentage
+            if stack_set_max_concurrency_count is not None:
+                self._values["stack_set_max_concurrency_count"] = stack_set_max_concurrency_count
+            if stack_set_max_concurrency_percentage is not None:
+                self._values["stack_set_max_concurrency_percentage"] = stack_set_max_concurrency_percentage
+            if stack_set_operation_type is not None:
+                self._values["stack_set_operation_type"] = stack_set_operation_type
+            if stack_set_regions is not None:
+                self._values["stack_set_regions"] = stack_set_regions
+
+        @builtins.property
+        def stack_set_accounts(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''One or more AWS accounts where the provisioned product will be available.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            The specified accounts should be within the list of accounts from the ``STACKSET`` constraint. To get the list of accounts in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
+
+            If no values are specified, the default value is all acounts from the ``STACKSET`` constraint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetaccounts
+            '''
+            result = self._values.get("stack_set_accounts")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def stack_set_failure_tolerance_count(self) -> typing.Optional[jsii.Number]:
+            '''The number of accounts, per Region, for which this operation can fail before AWS Service Catalog stops the operation in that Region.
+
+            If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
+
+            The default value is ``0`` if no value is specified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetfailuretolerancecount
+            '''
+            result = self._values.get("stack_set_failure_tolerance_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stack_set_failure_tolerance_percentage(
+            self,
+        ) -> typing.Optional[jsii.Number]:
+            '''The percentage of accounts, per Region, for which this stack operation can fail before AWS Service Catalog stops the operation in that Region.
+
+            If the operation is stopped in a Region, AWS Service Catalog doesn't attempt the operation in any subsequent Regions.
+
+            When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            Conditional: You must specify either ``StackSetFailureToleranceCount`` or ``StackSetFailureTolerancePercentage`` , but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetfailuretolerancepercentage
+            '''
+            result = self._values.get("stack_set_failure_tolerance_percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stack_set_max_concurrency_count(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of accounts in which to perform this operation at one time.
+
+            This is dependent on the value of ``StackSetFailureToleranceCount`` . ``StackSetMaxConcurrentCount`` is at most one more than the ``StackSetFailureToleranceCount`` .
+
+            Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetmaxconcurrencycount
+            '''
+            result = self._values.get("stack_set_max_concurrency_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stack_set_max_concurrency_percentage(self) -> typing.Optional[jsii.Number]:
+            '''The maximum percentage of accounts in which to perform this operation at one time.
+
+            When calculating the number of accounts based on the specified percentage, AWS Service Catalog rounds down to the next whole number. This is true except in cases where rounding down would result is zero. In this case, AWS Service Catalog sets the number as ``1`` instead.
+
+            Note that this setting lets you specify the maximum for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            Conditional: You must specify either ``StackSetMaxConcurrentCount`` or ``StackSetMaxConcurrentPercentage`` , but not both.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetmaxconcurrencypercentage
+            '''
+            result = self._values.get("stack_set_max_concurrency_percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stack_set_operation_type(self) -> typing.Optional[builtins.str]:
+            '''Determines what action AWS Service Catalog performs to a stack set or a stack instance represented by the provisioned product.
+
+            The default value is ``UPDATE`` if nothing is specified.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            - **CREATE** - Creates a new stack instance in the stack set represented by the provisioned product. In this case, only new stack instances are created based on accounts and Regions; if new ProductId or ProvisioningArtifactID are passed, they will be ignored.
+            - **UPDATE** - Updates the stack set represented by the provisioned product and also its stack instances.
+            - **DELETE** - Deletes a stack instance in the stack set represented by the provisioned product.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetoperationtype
+            '''
+            result = self._values.get("stack_set_operation_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def stack_set_regions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''One or more AWS Regions where the provisioned product will be available.
+
+            Applicable only to a ``CFN_STACKSET`` provisioned product type.
+
+            The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation.
+
+            If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences.html#cfn-servicecatalog-cloudformationprovisionedproduct-provisioningpreferences-stacksetregions
+            '''
+            result = self._values.get("stack_set_regions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProvisioningPreferencesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, ILaunchNotificationConstraintRef)
+class CfnLaunchNotificationConstraint(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchNotificationConstraint",
+):
+    '''Specifies a notification constraint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchnotificationconstraint.html
+    :cloudformationResource: AWS::ServiceCatalog::LaunchNotificationConstraint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_launch_notification_constraint = servicecatalog.CfnLaunchNotificationConstraint(self, "MyCfnLaunchNotificationConstraint",
+            notification_arns=["notificationArns"],
+            portfolio_id="portfolioId",
+            product_id="productId",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        notification_arns: typing.Sequence[builtins.str],
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param notification_arns: The notification ARNs.
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the constraint.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a0ef4893718fd81efea95278f44012f5c9df21cb6d08d7ec5812067a6d28920)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLaunchNotificationConstraintProps(
+            notification_arns=notification_arns,
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            accept_language=accept_language,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f7563a6283eac0eb8a78e86c564c65473185309770bbf1476de2cde5f3712edc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cae167adf420716893198de02048916557d17efe03419cd084aaa8f7e569dfad)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="launchNotificationConstraintRef")
+    def launch_notification_constraint_ref(
+        self,
+    ) -> LaunchNotificationConstraintReference:
+        '''A reference to a LaunchNotificationConstraint resource.'''
+        return typing.cast(LaunchNotificationConstraintReference, jsii.get(self, "launchNotificationConstraintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationArns")
+    def notification_arns(self) -> typing.List[builtins.str]:
+        '''The notification ARNs.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "notificationArns"))
+
+    @notification_arns.setter
+    def notification_arns(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b61fb0eedfad57ff6d2667a824da25c56d033b2ecc69bba66ac4813152f3a7b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ed013a592fb349cdd1b18a148d951905fed057f359e2acc3afa9e7e96849f16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad59a677e466cd12b116f4a904adcea715e7ca448f3ec18705d7a7d7ba7690a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f053d948015e38a54ac8a8dfc338cd4837e1c7af18d4be30583ba83a98510af)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the constraint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7cd753e3445346a35ee1c9014f113dc7acc9f5bd964a4208d069321b471bf572)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ILaunchRoleConstraintRef)
+class CfnLaunchRoleConstraint(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchRoleConstraint",
+):
+    '''Specifies a launch constraint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchroleconstraint.html
+    :cloudformationResource: AWS::ServiceCatalog::LaunchRoleConstraint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_launch_role_constraint = servicecatalog.CfnLaunchRoleConstraint(self, "MyCfnLaunchRoleConstraint",
+            portfolio_id="portfolioId",
+            product_id="productId",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description",
+            local_role_name="localRoleName",
+            role_arn="roleArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        local_role_name: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the constraint.
+        :param local_role_name: You are required to specify either the ``RoleArn`` or the ``LocalRoleName`` but can't use both. If you specify the ``LocalRoleName`` property, when an account uses the launch constraint, the IAM role with that name in the account will be used. This allows launch-role constraints to be account-agnostic so the administrator can create fewer resources per shared account. The given role name must exist in the account used to create the launch constraint and the account of the user who launches a product with this launch constraint.
+        :param role_arn: The ARN of the launch role. You are required to specify ``RoleArn`` or ``LocalRoleName`` but can't use both.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46675418f07a075969e17b131899d4a842abc1f33c003df6287739e45a25c393)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLaunchRoleConstraintProps(
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            accept_language=accept_language,
+            description=description,
+            local_role_name=local_role_name,
+            role_arn=role_arn,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6012961634bed06192da5c259c27b94cd59496d2b4be339c4b0ece0b9921e1ec)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a256f671bf4bc9097972039346c4fd55bb08c1641117407e9c1ff8c4d02bf72c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="launchRoleConstraintRef")
+    def launch_role_constraint_ref(self) -> LaunchRoleConstraintReference:
+        '''A reference to a LaunchRoleConstraint resource.'''
+        return typing.cast(LaunchRoleConstraintReference, jsii.get(self, "launchRoleConstraintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7caee0b3388d2e9177cd1ad1073c6bdf0aa86eba08b40e12fb88a9ce6416640)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc122a21c528efd9f428896a0b3cef95aff28a153bb9d3a2e86d2b7e06eb60ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60ea7ba56f5932f4a537ac8dcec76b0b833a4f037c18ab9313d2f5c1450cbd15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the constraint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e997754a39e1ca81474a20395f298ca53c6e2a7b4f0d90a43f559fa193bfee83)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="localRoleName")
+    def local_role_name(self) -> typing.Optional[builtins.str]:
+        '''You are required to specify either the ``RoleArn`` or the ``LocalRoleName`` but can't use both.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "localRoleName"))
+
+    @local_role_name.setter
+    def local_role_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38735c46db3b7efa62b54394ccb17cdaeabbdeedee4db2b961d2703d019b743f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "localRoleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the launch role.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__248ec39473440a68e8c88c92b6ff9884cc28a31f5b609dfb2c01d538752a700f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ILaunchTemplateConstraintRef)
+class CfnLaunchTemplateConstraint(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnLaunchTemplateConstraint",
+):
+    '''Specifies a template constraint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-launchtemplateconstraint.html
+    :cloudformationResource: AWS::ServiceCatalog::LaunchTemplateConstraint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_launch_template_constraint = servicecatalog.CfnLaunchTemplateConstraint(self, "MyCfnLaunchTemplateConstraint",
+            portfolio_id="portfolioId",
+            product_id="productId",
+            rules="rules",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        rules: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param rules: The constraint rules.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the constraint.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef9626bcbf34366930c5bf61a595afb3efe05f1a95295b7e76c3fd849564f7eb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLaunchTemplateConstraintProps(
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            rules=rules,
+            accept_language=accept_language,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18d77d76ec4005c1c608af041b5d7bb0e6aaede460659c2054677f941dc6f70e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61c163fd41cfe100dffd002a6f15713f7381736bf03af549e6f1fae39e81effc)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="launchTemplateConstraintRef")
+    def launch_template_constraint_ref(self) -> LaunchTemplateConstraintReference:
+        '''A reference to a LaunchTemplateConstraint resource.'''
+        return typing.cast(LaunchTemplateConstraintReference, jsii.get(self, "launchTemplateConstraintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e87f1e493035080190abca77598b08c02602b6233929f7028d93f58f3a17ab94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d256c3b7cab9cf94812dcf57209fce5bce9471a4cde6a86009726dd55298b5d7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rules")
+    def rules(self) -> builtins.str:
+        '''The constraint rules.'''
+        return typing.cast(builtins.str, jsii.get(self, "rules"))
+
+    @rules.setter
+    def rules(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b158803ee0c13d7830af3d21d7043a6643dd72dad91e07eb29d14657d4f4a39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e5ba6de90c017c1a21198e855f54709e112481dcfe02a743a1df4c23d2d18ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the constraint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__716d1d862c1c010f6c9e04edc0856ed95df8c9f36ffece1132b637c4d3920a39)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IPortfolioRef, _ITaggable_36806126)
+class CfnPortfolio(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolio",
+):
+    '''Specifies a portfolio.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolio.html
+    :cloudformationResource: AWS::ServiceCatalog::Portfolio
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_portfolio = servicecatalog.CfnPortfolio(self, "MyCfnPortfolio",
+            display_name="displayName",
+            provider_name="providerName",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        display_name: builtins.str,
+        provider_name: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param display_name: The name to use for display purposes.
+        :param provider_name: The name of the portfolio provider.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the portfolio.
+        :param tags: One or more tags.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92ae108da2b169227ca9ff5c8793d6e40826005130d9af692285850c93bb5f31)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPortfolioProps(
+            display_name=display_name,
+            provider_name=provider_name,
+            accept_language=accept_language,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__445bcb8d7fa40ab94351986e2668ed98bfac15db2665136953859395a36b4b51)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d8739e0f27d4335df7d965584a370738a92551942f26e33fe018766b6c65b46)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The portfolio identifier.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPortfolioName")
+    def attr_portfolio_name(self) -> builtins.str:
+        '''The name of the portfolio.
+
+        :cloudformationAttribute: PortfolioName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPortfolioName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioRef")
+    def portfolio_ref(self) -> PortfolioReference:
+        '''A reference to a Portfolio resource.'''
+        return typing.cast(PortfolioReference, jsii.get(self, "portfolioRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The name to use for display purposes.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d1abc0e6a095810963efa465d843926d85779daf872a768bfcba9f4fee19134)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="providerName")
+    def provider_name(self) -> builtins.str:
+        '''The name of the portfolio provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "providerName"))
+
+    @provider_name.setter
+    def provider_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f19cf1bbc2887d38b0021481cec62ff253aae63b95d98b72ba1ad96320212715)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c619164fa197d168e117a57b9fa4e5d9eb2e336d411c50041f91b64b19016119)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the portfolio.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa7fb74d0376cbe01215bbab3c9e0087d26de06ca59ae5ddf20ee6e804a00e00)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''One or more tags.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__637efc1b0f4cccf3bb52a483d866a3597e5d240e45fd12080d02606cae18fdb8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IPortfolioPrincipalAssociationRef)
+class CfnPortfolioPrincipalAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioPrincipalAssociation",
+):
+    '''Associates the specified principal ARN with the specified portfolio.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioprincipalassociation.html
+    :cloudformationResource: AWS::ServiceCatalog::PortfolioPrincipalAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_portfolio_principal_association = servicecatalog.CfnPortfolioPrincipalAssociation(self, "MyCfnPortfolioPrincipalAssociation",
+            portfolio_id="portfolioId",
+            principal_arn="principalArn",
+            principal_type="principalType",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        principal_arn: builtins.str,
+        principal_type: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param principal_arn: The ARN of the principal ( IAM user, role, or group).
+        :param principal_type: The principal type. The supported values are ``IAM`` and ``IAM_PATTERN`` .
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b8a7d450a71f88f29341f360bc05a021b910027171e4e63c9be6c67c4d53b2a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPortfolioPrincipalAssociationProps(
+            portfolio_id=portfolio_id,
+            principal_arn=principal_arn,
+            principal_type=principal_type,
+            accept_language=accept_language,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__655c17909635de9f153ace0636ad031fa1bd23c0c4e3628eeaab3a4c48282adc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__257e8fbedbaa67aa61288a1f94be02039da4ac33558591be208505deb5e23378)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioPrincipalAssociationRef")
+    def portfolio_principal_association_ref(
+        self,
+    ) -> PortfolioPrincipalAssociationReference:
+        '''A reference to a PortfolioPrincipalAssociation resource.'''
+        return typing.cast(PortfolioPrincipalAssociationReference, jsii.get(self, "portfolioPrincipalAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__726706747073f477b14d5b31fa14aba7087b2fc4265414101c6069e458c605ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="principalArn")
+    def principal_arn(self) -> builtins.str:
+        '''The ARN of the principal ( IAM user, role, or group).'''
+        return typing.cast(builtins.str, jsii.get(self, "principalArn"))
+
+    @principal_arn.setter
+    def principal_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71c52a4171fa242df45a083617e532d09ea08d89eea6a461f83e7608b28c48bb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principalArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="principalType")
+    def principal_type(self) -> builtins.str:
+        '''The principal type.'''
+        return typing.cast(builtins.str, jsii.get(self, "principalType"))
+
+    @principal_type.setter
+    def principal_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66dbe3deef345271ae1cfb35b0e313622b15892928d8581127c03e117db33585)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "principalType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1390265bc6b4e797f81f5a56c99acfec9dceeb8b223c28fc92f325ebf1ee9136)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IPortfolioProductAssociationRef)
+class CfnPortfolioProductAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioProductAssociation",
+):
+    '''Associates the specified product with the specified portfolio.
+
+    A delegated admin is authorized to invoke this command.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioproductassociation.html
+    :cloudformationResource: AWS::ServiceCatalog::PortfolioProductAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_portfolio_product_association = servicecatalog.CfnPortfolioProductAssociation(self, "MyCfnPortfolioProductAssociation",
+            portfolio_id="portfolioId",
+            product_id="productId",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            source_portfolio_id="sourcePortfolioId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        source_portfolio_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param source_portfolio_id: The identifier of the source portfolio.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25cb0daf817ffe74f2f0c38badd3f1db5ae0cb2012f78855ecb4495b5ba58298)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPortfolioProductAssociationProps(
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            accept_language=accept_language,
+            source_portfolio_id=source_portfolio_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__552e2774890f51bf5125a4ddc0260f7daa45dae4625481ec363259b66f03da10)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32a7d6ef335f62572e1892401cb2c591da9aaabfd6b667b07c91465fd9b7c405)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioProductAssociationRef")
+    def portfolio_product_association_ref(self) -> PortfolioProductAssociationReference:
+        '''A reference to a PortfolioProductAssociation resource.'''
+        return typing.cast(PortfolioProductAssociationReference, jsii.get(self, "portfolioProductAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19f425d3e28d58e160bed9adb81d5653e2000512b6a76bfcf27a70e272988f14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3098433a8204e6c52183ab4756af784eb3f510cb7bdb7fe68b7c21ef9e4d78cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7d396eed36a68172694b616bafad7ef385373f22a1d8c3dc49608d69ec9e526)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourcePortfolioId")
+    def source_portfolio_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the source portfolio.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourcePortfolioId"))
+
+    @source_portfolio_id.setter
+    def source_portfolio_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__add8959ef934f6895a130b9409bc0e69af9956f656deb01b88086944d1b3bc67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourcePortfolioId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IPortfolioShareRef)
+class CfnPortfolioShare(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnPortfolioShare",
+):
+    '''Shares the specified portfolio with the specified account.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-portfolioshare.html
+    :cloudformationResource: AWS::ServiceCatalog::PortfolioShare
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_portfolio_share = servicecatalog.CfnPortfolioShare(self, "MyCfnPortfolioShare",
+            account_id="accountId",
+            portfolio_id="portfolioId",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            share_tag_options=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        account_id: builtins.str,
+        portfolio_id: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param account_id: The AWS account ID. For example, ``123456789012`` .
+        :param portfolio_id: The portfolio identifier.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param share_tag_options: Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1caa251876)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPortfolioShareProps(
+            account_id=account_id,
+            portfolio_id=portfolio_id,
+            accept_language=accept_language,
+            share_tag_options=share_tag_options,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__341a908f67fe220e74c1fa2f1dc9b6f9d467627dad0a09a6ef0aa8333d8d3e03)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd00e1ea00949f48a72807819db35c3fc635f45b434308404f78895d9ba253f5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioShareRef")
+    def portfolio_share_ref(self) -> PortfolioShareReference:
+        '''A reference to a PortfolioShare resource.'''
+        return typing.cast(PortfolioShareReference, jsii.get(self, "portfolioShareRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountId")
+    def account_id(self) -> builtins.str:
+        '''The AWS account ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "accountId"))
+
+    @account_id.setter
+    def account_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48c561d8f65e1295a6646aca88fea994e01a775edc7d575b02db328f8fba94d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e5483e33494640db64273cad3dc0d20d35eb722e234d20ddf41f757010f2a19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f1709f8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="shareTagOptions")
+    def share_tag_options(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether TagOptions sharing is enabled or disabled for the portfolio share.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "shareTagOptions"))
+
+    @share_tag_options.setter
+    def share_tag_options(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "shareTagOptions", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IResourceUpdateConstraintRef)
+class CfnResourceUpdateConstraint(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnResourceUpdateConstraint",
+):
+    '''Specifies a ``RESOURCE_UPDATE`` constraint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-resourceupdateconstraint.html
+    :cloudformationResource: AWS::ServiceCatalog::ResourceUpdateConstraint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_resource_update_constraint = servicecatalog.CfnResourceUpdateConstraint(self, "MyCfnResourceUpdateConstraint",
+            portfolio_id="portfolioId",
+            product_id="productId",
+            tag_update_on_provisioned_product="tagUpdateOnProvisionedProduct",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        tag_update_on_provisioned_product: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param tag_update_on_provisioned_product: If set to ``ALLOWED`` , lets users change tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource. If set to ``NOT_ALLOWED`` , prevents users from changing tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The description of the constraint.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bd8b301e17021c1624c5958b75d908fe177a38bbaed56fb5ec15b9c8eee8e32)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourceUpdateConstraintProps(
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            tag_update_on_provisioned_product=tag_update_on_provisioned_product,
+            accept_language=accept_language,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__133a2ef7c92d1c3e4cb9165453dc706ba44e9adea0791a8dcf4984c0458d1bbc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e34401d12b1f0dedaafca3a2f7a545718b136244772b983f03708114b1e94ed)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceUpdateConstraintRef")
+    def resource_update_constraint_ref(self) -> ResourceUpdateConstraintReference:
+        '''A reference to a ResourceUpdateConstraint resource.'''
+        return typing.cast(ResourceUpdateConstraintReference, jsii.get(self, "resourceUpdateConstraintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27e9ca67d9f35e36bb56addcc29f6005ea48f7be72ff846d74f4d2ec50fcba78)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e2dff03e6c12d3272cc78225e164e33c802d44ff01420c35c436ec1409e35ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagUpdateOnProvisionedProduct")
+    def tag_update_on_provisioned_product(self) -> builtins.str:
+        '''If set to ``ALLOWED`` , lets users change tags in a `CloudFormationProvisionedProduct <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-cloudformationprovisionedproduct.html>`_ resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "tagUpdateOnProvisionedProduct"))
+
+    @tag_update_on_provisioned_product.setter
+    def tag_update_on_provisioned_product(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eec5a56fcac39964f096b92c76cbcec17b54dce956880ba1c66d3c10419b5cec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagUpdateOnProvisionedProduct", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bf3ffe828e864cac79d1395c3a8723d4ae6181d9cbf0eb06172be1481c2a64d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the constraint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4201ac4ba10b052d77bae5ea5b19dadaec094b4ec3807010c169e91385e5da1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IServiceActionRef)
+class CfnServiceAction(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceAction",
+):
+    '''Creates a self-service action.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceaction.html
+    :cloudformationResource: AWS::ServiceCatalog::ServiceAction
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_service_action = servicecatalog.CfnServiceAction(self, "MyCfnServiceAction",
+            definition=[servicecatalog.CfnServiceAction.DefinitionParameterProperty(
+                key="key",
+                value="value"
+            )],
+            definition_type="definitionType",
+            name="name",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage",
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceAction.DefinitionParameterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        definition_type: builtins.str,
+        name: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param definition: A map that defines the self-service action.
+        :param definition_type: The self-service action definition type. For example, ``SSM_AUTOMATION`` .
+        :param name: The self-service action name.
+        :param accept_language: The language code. - ``en`` - English (default) - ``jp`` - Japanese - ``zh`` - Chinese
+        :param description: The self-service action description.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23e34b3d6215f958671fe8ad5adc718f503534f84f0e173a8aee3a13b9cc8b4f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceActionProps(
+            definition=definition,
+            definition_type=definition_type,
+            name=name,
+            accept_language=accept_language,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b00b53de34b86f332a507fe944cda9499823712340b44dbde255cff3dadc59a5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e8da2cb67ea7c2bf8580e7d0041673893eb0ffe0ba7cd9aeb0804066d7e9b4a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The self-service action identifier.
+
+        For example, ``act-fs7abcd89wxyz`` .
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionRef")
+    def service_action_ref(self) -> ServiceActionReference:
+        '''A reference to a ServiceAction resource.'''
+        return typing.cast(ServiceActionReference, jsii.get(self, "serviceActionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]]:
+        '''A map that defines the self-service action.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]], jsii.get(self, "definition"))
+
+    @definition.setter
+    def definition(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceAction.DefinitionParameterProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce59df90f00d540603f4ac3e5bf794dcc8ba05e89c05ad33d1289ab60d236f4a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definitionType")
+    def definition_type(self) -> builtins.str:
+        '''The self-service action definition type.'''
+        return typing.cast(builtins.str, jsii.get(self, "definitionType"))
+
+    @definition_type.setter
+    def definition_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e7b0a0df19abf9145a13198f8dd4cf82916ff2ab5cbf812a1326f3d94f4b470)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The self-service action name.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0375292a489ea6b79527a8a83b9e55f4631c74e6bcfd44c582363a1bbed6c0d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__212e7304ca0476cd2ef386f32b251370cbf36d24d7db94f107ff8c0bbaafdb57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The self-service action description.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__947be12dff02fc61884bd774fa6fa917ec8c48f3d2fba99c9bd68d481714e7c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceAction.DefinitionParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class DefinitionParameterProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''The list of parameters in JSON format.
+
+            For example: ``[{\\"Name\\":\\"InstanceId\\",\\"Type\\":\\"TARGET\\"}] or [{\\"Name\\":\\"InstanceId\\",\\"Type\\":\\"TEXT_VALUE\\"}]`` .
+
+            :param key: The parameter key.
+            :param value: The value of the parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_servicecatalog as servicecatalog
+                
+                definition_parameter_property = servicecatalog.CfnServiceAction.DefinitionParameterProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9c6e74bbbc66ce84d64be85e0a9a49dedc497c858d1e2785bf1a6385c6c5a5e2)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The parameter key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html#cfn-servicecatalog-serviceaction-definitionparameter-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value of the parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-servicecatalog-serviceaction-definitionparameter.html#cfn-servicecatalog-serviceaction-definitionparameter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DefinitionParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, IServiceActionAssociationRef)
+class CfnServiceActionAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnServiceActionAssociation",
+):
+    '''A self-service action association consisting of the Action ID, the Product ID, and the Provisioning Artifact ID.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-serviceactionassociation.html
+    :cloudformationResource: AWS::ServiceCatalog::ServiceActionAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_service_action_association = servicecatalog.CfnServiceActionAssociation(self, "MyCfnServiceActionAssociation",
+            product_id="productId",
+            provisioning_artifact_id="provisioningArtifactId",
+            service_action_id="serviceActionId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        product_id: builtins.str,
+        provisioning_artifact_id: builtins.str,
+        service_action_id: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param product_id: The product identifier. For example, ``prod-abcdzk7xy33qa`` .
+        :param provisioning_artifact_id: The identifier of the provisioning artifact. For example, ``pa-4abcdjnxjj6ne`` .
+        :param service_action_id: The self-service action identifier. For example, ``act-fs7abcd89wxyz`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af7accef6ad60ab0630f153d8a07caeceee6f2d27b9eb2a794537a34ce87e178)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceActionAssociationProps(
+            product_id=product_id,
+            provisioning_artifact_id=provisioning_artifact_id,
+            service_action_id=service_action_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7df7f15eee37e4c02e6d404feb700b430539aedfcdbf0dd1269e565e07d05cbc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6bd90d3363385817fff96c18c249a73f81576856af8c3ce0a8e1b124dd0c45f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionAssociationRef")
+    def service_action_association_ref(self) -> ServiceActionAssociationReference:
+        '''A reference to a ServiceActionAssociation resource.'''
+        return typing.cast(ServiceActionAssociationReference, jsii.get(self, "serviceActionAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d48df994bfc409a2186ce0f7f954c97d758cac05ff4c442e381ba542b43847e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioningArtifactId")
+    def provisioning_artifact_id(self) -> builtins.str:
+        '''The identifier of the provisioning artifact.'''
+        return typing.cast(builtins.str, jsii.get(self, "provisioningArtifactId"))
+
+    @provisioning_artifact_id.setter
+    def provisioning_artifact_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__525d1605980366c81e343599764a8a17692b76ce41bca6ecd5a9a1ad81af4f2c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioningArtifactId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceActionId")
+    def service_action_id(self) -> builtins.str:
+        '''The self-service action identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "serviceActionId"))
+
+    @service_action_id.setter
+    def service_action_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18aae29d025946767f8ca8b8da89a0b0115102987022200d9f5c18157ae2ce5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceActionId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, IStackSetConstraintRef)
+class CfnStackSetConstraint(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnStackSetConstraint",
+):
+    '''Specifies a StackSet constraint.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-stacksetconstraint.html
+    :cloudformationResource: AWS::ServiceCatalog::StackSetConstraint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_stack_set_constraint = servicecatalog.CfnStackSetConstraint(self, "MyCfnStackSetConstraint",
+            account_list=["accountList"],
+            admin_role="adminRole",
+            description="description",
+            execution_role="executionRole",
+            portfolio_id="portfolioId",
+            product_id="productId",
+            region_list=["regionList"],
+            stack_instance_control="stackInstanceControl",
+        
+            # the properties below are optional
+            accept_language="acceptLanguage"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        account_list: typing.Sequence[builtins.str],
+        admin_role: builtins.str,
+        description: builtins.str,
+        execution_role: builtins.str,
+        portfolio_id: builtins.str,
+        product_id: builtins.str,
+        region_list: typing.Sequence[builtins.str],
+        stack_instance_control: builtins.str,
+        accept_language: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param account_list: One or more AWS accounts that will have access to the provisioned product.
+        :param admin_role: AdminRole ARN.
+        :param description: The description of the constraint.
+        :param execution_role: ExecutionRole name.
+        :param portfolio_id: The portfolio identifier.
+        :param product_id: The product identifier.
+        :param region_list: One or more AWS Regions where the provisioned product will be available. Applicable only to a ``CFN_STACKSET`` provisioned product type. The specified Regions should be within the list of Regions from the ``STACKSET`` constraint. To get the list of Regions in the ``STACKSET`` constraint, use the ``DescribeProvisioningParameters`` operation. If no values are specified, the default value is all Regions from the ``STACKSET`` constraint.
+        :param stack_instance_control: Permission to create, update, and delete stack instances. Choose from ALLOWED and NOT_ALLOWED.
+        :param accept_language: The language code. - ``jp`` - Japanese - ``zh`` - Chinese
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e83be00a9ded6c3a1fc4b09aae813db853ac16fa6a7a25167ce9abc326314cb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnStackSetConstraintProps(
+            account_list=account_list,
+            admin_role=admin_role,
+            description=description,
+            execution_role=execution_role,
+            portfolio_id=portfolio_id,
+            product_id=product_id,
+            region_list=region_list,
+            stack_instance_control=stack_instance_control,
+            accept_language=accept_language,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__762255dd0897d10e8d71da24a12503fe45383533846abe1ea0a004712ac3c5c9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__482a0e464daf9c2c6bfd3d2cc6452909e7f2d461c11b7596a4781724ce2f4f81)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stackSetConstraintRef")
+    def stack_set_constraint_ref(self) -> StackSetConstraintReference:
+        '''A reference to a StackSetConstraint resource.'''
+        return typing.cast(StackSetConstraintReference, jsii.get(self, "stackSetConstraintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountList")
+    def account_list(self) -> typing.List[builtins.str]:
+        '''One or more AWS accounts that will have access to the provisioned product.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "accountList"))
+
+    @account_list.setter
+    def account_list(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7c6d08b3f255581c2ffdd7ffd68b702fe5ba710c382bdf5ae26db91c3d5f8e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="adminRole")
+    def admin_role(self) -> builtins.str:
+        '''AdminRole ARN.'''
+        return typing.cast(builtins.str, jsii.get(self, "adminRole"))
+
+    @admin_role.setter
+    def admin_role(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a5a008ef49e1cc45721b5a75554c2bfba2c1d66fb3584a4ebc56ece6909cae8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "adminRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description of the constraint.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfae06298a8284ec1fc825842bbccd21bfd9bb4c68791b92a8b21af754642bea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> builtins.str:
+        '''ExecutionRole name.'''
+        return typing.cast(builtins.str, jsii.get(self, "executionRole"))
+
+    @execution_role.setter
+    def execution_role(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__970dcf9ee7612c69e8660d1ba6ee759ca3d6baf6d1f22948f11c60fc69441448)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="portfolioId")
+    def portfolio_id(self) -> builtins.str:
+        '''The portfolio identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "portfolioId"))
+
+    @portfolio_id.setter
+    def portfolio_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89d3ccece013a09e092dca3159439eb8f634defe7a33fb54f8e400e2df569878)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portfolioId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productId")
+    def product_id(self) -> builtins.str:
+        '''The product identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "productId"))
+
+    @product_id.setter
+    def product_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__127b16e68f363dc6822b1ee34834ca000c00d3826c674b8cbacdfee357fae0a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="regionList")
+    def region_list(self) -> typing.List[builtins.str]:
+        '''One or more AWS Regions where the provisioned product will be available.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "regionList"))
+
+    @region_list.setter
+    def region_list(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__726a4dab91f2940b18d78725c231cb513a17deedf20d0b0e8bc95228deaecb15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "regionList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stackInstanceControl")
+    def stack_instance_control(self) -> builtins.str:
+        '''Permission to create, update, and delete stack instances.'''
+        return typing.cast(builtins.str, jsii.get(self, "stackInstanceControl"))
+
+    @stack_instance_control.setter
+    def stack_instance_control(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4532c7b88a0aecde03ff01ebbe4425fa7e1cfe109c70c3624bedd938293f957c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stackInstanceControl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptLanguage")
+    def accept_language(self) -> typing.Optional[builtins.str]:
+        '''The language code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acceptLanguage"))
+
+    @accept_language.setter
+    def accept_language(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf2c708988899711ec9d8ea27f9e4165b113c614fd335bcb1d0b84bff81ef565)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptLanguage", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ITagOptionRef)
+class CfnTagOption(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOption",
+):
+    '''Specifies a TagOption.
+
+    A TagOption is a key-value pair managed by AWS Service Catalog that serves as a template for creating an AWS tag.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-tagoption.html
+    :cloudformationResource: AWS::ServiceCatalog::TagOption
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_tag_option = servicecatalog.CfnTagOption(self, "MyCfnTagOption",
+            key="key",
+            value="value",
+        
+            # the properties below are optional
+            active=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        key: builtins.str,
+        value: builtins.str,
+        active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param key: The TagOption key.
+        :param value: The TagOption value.
+        :param active: The TagOption active state.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403a5ab8da)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTagOptionProps(key=key, value=value, active=active)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50712aef682653b8e0f48520689f88e2c3a640ff1b3caf07911c1387c9312b8d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e946e4194e2f99f32c971c4f7d7820c5b9dc82b7b500014fba93ca7d45f2003)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The TagOption identifier.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionRef")
+    def tag_option_ref(self) -> TagOptionReference:
+        '''A reference to a TagOption resource.'''
+        return typing.cast(TagOptionReference, jsii.get(self, "tagOptionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="key")
+    def key(self) -> builtins.str:
+        '''The TagOption key.'''
+        return typing.cast(builtins.str, jsii.get(self, "key"))
+
+    @key.setter
+    def key(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed189bcd4f2dafa9555a0b400e637009d357d1b5029de2c05610b1eac7a01544)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''The TagOption value.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+    @value.setter
+    def value(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8210c71789d2e226d95d699fde3e0ed6a8d5295865850b8f00b65fd8e5256e81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="active")
+    def active(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The TagOption active state.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "active"))
+
+    @active.setter
+    def active(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89787874a9ebb4d4f8f779d0b1fe32ea722a2cc59e0dabe83bbaa1c0ed0f605b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "active", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(_IInspectable_c2943556, ITagOptionAssociationRef)
+class CfnTagOptionAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_servicecatalog.CfnTagOptionAssociation",
+):
+    '''Associate the specified TagOption with the specified portfolio or product.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicecatalog-tagoptionassociation.html
+    :cloudformationResource: AWS::ServiceCatalog::TagOptionAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_servicecatalog as servicecatalog
+        
+        cfn_tag_option_association = servicecatalog.CfnTagOptionAssociation(self, "MyCfnTagOptionAssociation",
+            resource_id="resourceId",
+            tag_option_id="tagOptionId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        resource_id: builtins.str,
+        tag_option_id: builtins.str,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_id: The resource identifier.
+        :param tag_option_id: The TagOption identifier.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a574b3e75b877de4dcfa7d8a2517237604ed1f3dd3d7cac2ea2238f670c325e8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTagOptionAssociationProps(
+            resource_id=resource_id, tag_option_id=tag_option_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96c73cbddcba77a79765ded0c870b1dc62a05bd13cddf128a27b21316f9253b5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be21e5622bd6d44a3621a1eb8b311fd50ef6c4f7295cfaa5b45c2478046fe275)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionAssociationRef")
+    def tag_option_association_ref(self) -> TagOptionAssociationReference:
+        '''A reference to a TagOptionAssociation resource.'''
+        return typing.cast(TagOptionAssociationReference, jsii.get(self, "tagOptionAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceId")
+    def resource_id(self) -> builtins.str:
+        '''The resource identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceId"))
+
+    @resource_id.setter
+    def resource_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__471e0b593fbd9d09ee6976802eded33631b789cde5f21fad9622617eeb6305bb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagOptionId")
+    def tag_option_id(self) -> builtins.str:
+        '''The TagOption identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "tagOptionId"))
+
+    @tag_option_id.setter
+    def tag_option_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36b3523e61ec3624717af470321b5a099be0fe767c62edbb115ee12884351d73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagOptionId", value) # pyright: ignore[reportArgumentType]
+
+
 class CloudFormationProduct(
     Product,
     metaclass=jsii.JSIIMeta,
@@ -9887,6 +11516,7 @@ class CloudFormationRuleConstraintOptions(CommonConstraintOptions):
 
 
 __all__ = [
+    "AcceptedPortfolioShareReference",
     "CfnAcceptedPortfolioShare",
     "CfnAcceptedPortfolioShareProps",
     "CfnCloudFormationProduct",
@@ -9921,23 +11551,54 @@ __all__ = [
     "CfnTagOptionProps",
     "CloudFormationProduct",
     "CloudFormationProductProps",
+    "CloudFormationProductReference",
     "CloudFormationProductVersion",
+    "CloudFormationProvisionedProductReference",
     "CloudFormationRuleConstraintOptions",
     "CloudFormationTemplate",
     "CloudFormationTemplateConfig",
     "CommonConstraintOptions",
+    "IAcceptedPortfolioShareRef",
+    "ICloudFormationProductRef",
+    "ICloudFormationProvisionedProductRef",
+    "ILaunchNotificationConstraintRef",
+    "ILaunchRoleConstraintRef",
+    "ILaunchTemplateConstraintRef",
     "IPortfolio",
+    "IPortfolioPrincipalAssociationRef",
+    "IPortfolioProductAssociationRef",
+    "IPortfolioRef",
+    "IPortfolioShareRef",
     "IProduct",
+    "IResourceUpdateConstraintRef",
+    "IServiceActionAssociationRef",
+    "IServiceActionRef",
+    "IStackSetConstraintRef",
+    "ITagOptionAssociationRef",
+    "ITagOptionRef",
+    "LaunchNotificationConstraintReference",
+    "LaunchRoleConstraintReference",
+    "LaunchTemplateConstraintReference",
     "MessageLanguage",
     "Portfolio",
+    "PortfolioPrincipalAssociationReference",
+    "PortfolioProductAssociationReference",
     "PortfolioProps",
+    "PortfolioReference",
     "PortfolioShareOptions",
+    "PortfolioShareReference",
     "Product",
     "ProductStack",
     "ProductStackHistory",
     "ProductStackHistoryProps",
     "ProductStackProps",
+    "ResourceUpdateConstraintReference",
+    "ServiceActionAssociationReference",
+    "ServiceActionReference",
+    "StackSetConstraintReference",
     "StackSetsConstraintOptions",
+    "TagOptionAssociationReference",
+    "TagOptionReference",
     "TagOptions",
     "TagOptionsProps",
     "TagUpdateConstraintOptions",
@@ -9946,6 +11607,798 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__86a93b5ea489be85aefc9f4812246d480ed3664652ec6a4f0a6b830b489ec59c(
+    *,
+    accepted_portfolio_share_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ebe558dc027b532926c4f3a3b2f3f9c46515a9f7cdf26e7a3cc0e8783ec293d(
+    *,
+    portfolio_id: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e00148177993ff51c0b6d20ea59ef17d31cfacc134bcd2799bbb0831f6c47c0(
+    *,
+    name: builtins.str,
+    owner: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    distributor: typing.Optional[builtins.str] = None,
+    product_type: typing.Optional[builtins.str] = None,
+    provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    support_description: typing.Optional[builtins.str] = None,
+    support_email: typing.Optional[builtins.str] = None,
+    support_url: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88da00037242bdeeb7ec102c5acd840d7d02acb05eae60aaef2863e1e8e0479b(
+    *,
+    accept_language: typing.Optional[builtins.str] = None,
+    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    path_id: typing.Optional[builtins.str] = None,
+    path_name: typing.Optional[builtins.str] = None,
+    product_id: typing.Optional[builtins.str] = None,
+    product_name: typing.Optional[builtins.str] = None,
+    provisioned_product_name: typing.Optional[builtins.str] = None,
+    provisioning_artifact_id: typing.Optional[builtins.str] = None,
+    provisioning_artifact_name: typing.Optional[builtins.str] = None,
+    provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d467e47505aacdc2d760573bff69e4e674694f1573c72a6a5411e49e6e12fd1(
+    *,
+    notification_arns: typing.Sequence[builtins.str],
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60c3b41f8a7b34e6b6790fc48ebe6bc36f5d3b4383252bb7322aeb60af6d02b1(
+    *,
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    local_role_name: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__782bde46fdc76fe863545140febd1fe95f163b327614047bf13a8ac26bea4c7d(
+    *,
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    rules: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86aa94ae9b8977b851184740615709136e8ab87d84e565bd4ed1c37202e743af(
+    *,
+    portfolio_id: builtins.str,
+    principal_arn: builtins.str,
+    principal_type: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97355e439ae20c66a13583fbc70b7a8de7f038ae88e7d60775df912c8ba748c0(
+    *,
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    source_portfolio_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8622dd1afbae29a3f4419981188740a463f84c32c065a9c5247a4cd04c27a0f(
+    *,
+    display_name: builtins.str,
+    provider_name: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a140daed52ce9199b47ef69cb7a751093f53397e71f9e473c7f6c2fd8a5effe(
+    *,
+    account_id: builtins.str,
+    portfolio_id: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04a33a58e60b8ad885d55e0a9d5f03663c28dad3fd18dce3b55adb371aae99b8(
+    *,
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    tag_update_on_provisioned_product: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52f50d0bb3c8980268e31b96e206f7a2c97e91453b113d44e944f886f23897a2(
+    *,
+    product_id: builtins.str,
+    provisioning_artifact_id: builtins.str,
+    service_action_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90de2bbcb8a0e689344d53e4457169abb06ca7bea6f8fec45332480a001b2c03(
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    definition_type: builtins.str,
+    name: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71d420933cee59879101b98c29d269504af0cb190b1929c9f0657e67f0efbf21(
+    *,
+    account_list: typing.Sequence[builtins.str],
+    admin_role: builtins.str,
+    description: builtins.str,
+    execution_role: builtins.str,
+    portfolio_id: builtins.str,
+    product_id: builtins.str,
+    region_list: typing.Sequence[builtins.str],
+    stack_instance_control: builtins.str,
+    accept_language: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b40cb505bb578364f2c02a3a08b4793fd747379748d820e8ec767c54ad4bb1f(
+    *,
+    resource_id: builtins.str,
+    tag_option_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70780bf6a7fb429d72629882cde3c5617b08f82914b2c73e5153c29640b7161c(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+    active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9913e495a1fc0ad721e4a9963481fad5eed277a9d00a04e7bae0396a95be6eb(
+    *,
+    owner: builtins.str,
+    product_name: builtins.str,
+    product_versions: typing.Sequence[typing.Union[CloudFormationProductVersion, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    distributor: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+    replace_product_version_ids: typing.Optional[builtins.bool] = None,
+    support_description: typing.Optional[builtins.str] = None,
+    support_email: typing.Optional[builtins.str] = None,
+    support_url: typing.Optional[builtins.str] = None,
+    tag_options: typing.Optional[TagOptions] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79e0775f20e97de731ed2c16be950ed03c0da73473f977d2b8b841073c7b94ea(
+    *,
+    cloud_formation_product_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7871a8980da5d0ede4cc5882256c4052b0bd88da95e87bc4a941149bbac134a3(
+    *,
+    cloud_formation_template: CloudFormationTemplate,
+    description: typing.Optional[builtins.str] = None,
+    product_version_name: typing.Optional[builtins.str] = None,
+    validate_template: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89892ccd7ef6fe1a3284c2104857cd362424f38e00cd3646a38c63697a91ff01(
+    *,
+    provisioned_product_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a06da6e8(
+    path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__773de33690ef0a0a4fdc6f4346b2e866d6c7abe6e79acc2f8569a7a44cea7ebf(
+    product_stack: ProductStack,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccf82442df209809b0c85975faeae077c122f2170cbe40678aa4a1e7369315a7(
+    url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e20192bfc2c0ff7d3e1a351250198d72fb4cf9fcc65af22c06a4ffe758084dd4(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a20e03ddade2bdc4a633779da35b07ed9f87dcb2e018f8f2a66b6bc0fda0f73e(
+    *,
+    http_url: builtins.str,
+    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e60eb1fb7b6c9e48a2e253fcaf182309a321cb5ad621284cfe99fd9bba91f53(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af5784dfd851a3c5d33e4b07e59e3a5b8e72fb176b70fd04a627015c531b273d(
+    product: IProduct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b08dd5016d53d0a3cac9948b36fb192a9391bb66301672a5dfb5eed377dba40(
+    tag_options: TagOptions,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ab31c7af6a601422103ce95369b5bca6125f3b8da6806b5568a710179db9883(
+    product: IProduct,
+    *,
+    rule: typing.Union[TemplateRule, typing.Dict[builtins.str, typing.Any]],
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7528a69ebd5bd10455ee5c30ad3cc9a8db163a5e869e2e6a9eadac4e5553bac(
+    product: IProduct,
+    *,
+    allow: typing.Optional[builtins.bool] = None,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85be47d83c(
+    product: IProduct,
+    *,
+    accounts: typing.Sequence[builtins.str],
+    admin_role: _IRoleRef_613dafc2,
+    execution_role_name: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31be1103bd0abf13c9e90d4d0e0b5a6b82c5aad2f3f55dceba3906501912e704(
+    group: _IGroup_96daf542,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32feae15a0b576cab624cb64b322d12d58eb6a826cca846dc104c480568f2389(
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__209202e9e88b8a71205bdbad6f54a52442f6f7f1c19e096d454cc5d5753fa365(
+    user: _IUser_c32311f7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704dd03d1a0(
+    product: IProduct,
+    topic: _ITopic_9eca4852,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f34af2dd1(
+    product: IProduct,
+    launch_role: _IRole_235f5d8e,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e07d8f34d3ec7ee6db9ec8c22b47e94322c41b07d808a2bbf9a6e0120dc94477(
+    product: IProduct,
+    launch_role: _IRole_235f5d8e,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b77fa7622b8d9e616053f2bb43b466759c0e42756dc316fecf1658053e20ba6a(
+    product: IProduct,
+    launch_role_name: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ef38d69e098149d5d0224f8ec3bde027d23731856e23f2af7f2e450d2789ec3(
+    account_id: builtins.str,
+    *,
+    message_language: typing.Optional[MessageLanguage] = None,
+    share_tag_options: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__451a2d4f55f42fc3569bc06a530f99282fa0c00a378274b4429d6bd5411321a6(
+    tag_options: TagOptions,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff8a9455aea0584a48c3f132821ac1bd17000e9fc8bf938feba30da1969978ee(
+    *,
+    launch_notification_constraint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9956bd0a808b37f696dde04e70d5c723b35b4745e9bd7bd2609a854f7b4acbd1(
+    *,
+    launch_role_constraint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__088ef0949977e0ecb75cadc6948152456e7db2ff05c65a1db7d9fd2b337a282b(
+    *,
+    launch_template_constraint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf9a100cf4175380d4933d0ca023665178dec83578d4db9c34018be2db12c54c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    display_name: builtins.str,
+    provider_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+    tag_options: typing.Optional[TagOptions] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee1657ae23f2788660dc3bdc2589c0afda0081f4f0e2193dc1d4f91f632466d6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    portfolio_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bf9c21cc3f49f5ae1ae03d412d18187340ba2df690ce68cb932c65f900d69fe(
+    product: IProduct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be6cc2191428264e3b6a175f37de5f3b7f936c969793e44f0cbaf61465592131(
+    tag_options: TagOptions,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28e951fa34d0d490c48d2c2274ea8720326a816cb772de92befe51572cc3363f(
+    product: IProduct,
+    *,
+    rule: typing.Union[TemplateRule, typing.Dict[builtins.str, typing.Any]],
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a6c3c8bea0cdcea756c51ee5dc52b07b515a7e4be6dee31aa2fc35ff4a8a77f(
+    product: IProduct,
+    *,
+    allow: typing.Optional[builtins.bool] = None,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d481848480e2cdfaf8e4296725880ac9e39bc268e6db00ee6b9f7f45c2818842(
+    product: IProduct,
+    *,
+    accounts: typing.Sequence[builtins.str],
+    admin_role: _IRoleRef_613dafc2,
+    execution_role_name: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca0c5d13c42c196423a0f594739d782ad023582ff4f931fd909df70da6219605(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86bf64563d71f804d579c2116813cb1518cb4c40a787338ed8350d93393ab517(
+    group: _IGroup_96daf542,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c16473e252b733e55e72f226e41f6236553745d9019da5d5eef7bc77e6f4f1ed(
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb3c3c121a75e072289da7f512fe0e5fa90bf0247be5fcb8b9ffcba9e49f4244(
+    user: _IUser_c32311f7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243c2c305b(
+    product: IProduct,
+    topic: _ITopic_9eca4852,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da12da741(
+    product: IProduct,
+    launch_role: _IRole_235f5d8e,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e6c7242a7f78376a706c6aba55c9bfc2c9886ba6a6a2af75aab67d866b10c59(
+    product: IProduct,
+    launch_role: _IRole_235f5d8e,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e9299ff2cd1b442713f34e90d71909c8604d7202deebcb777fa43a0d4d74cfe(
+    product: IProduct,
+    launch_role_name: builtins.str,
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8db9399f774026d759ad23355622c60e86b9702be05813f0f352ab16051be84(
+    account_id: builtins.str,
+    *,
+    message_language: typing.Optional[MessageLanguage] = None,
+    share_tag_options: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7ef68af4b2af04fe6a77831d825e0f8e0c22a01698dad7f094da6200aafc7fc(
+    *,
+    portfolio_principal_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16f8ca87db7922e5db79b96a382f11f60f939784f7535a92f4d0967a66b4a0fc(
+    *,
+    portfolio_product_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bedc547bc13a736262dbefb92ebffcd67dc2fa0fac7ceae03d5332dc443d82d9(
+    *,
+    display_name: builtins.str,
+    provider_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+    tag_options: typing.Optional[TagOptions] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efdac077804a20f3790ded9e47e6248c9f54fb09d27a4b3067418e7178174d01(
+    *,
+    portfolio_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcaaa8353ed1607f501f7b9fcd87b34c195d54486861a0e11ed689dd452376f5(
+    *,
+    message_language: typing.Optional[MessageLanguage] = None,
+    share_tag_options: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47bf57dd430337266528b07d46c4fa85ec8fdf2a3fbe5ce72a6b4889e91fa7b8(
+    *,
+    portfolio_share_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c44aa15915e234d34f518fd1f3e4fadc0efa2b8aef1fa054b0fb0cf457f270a6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c9b8d7779e324e9efd80da9b2e46557e44389de3353f62d86659d58f584e8ee(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    product_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a9d6667908731fbb64077b2a63d523ffa99f9841c0f527b38c29014e8b89ef2(
+    tag_options: TagOptions,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf14756a9e6c7e2a58f04e1077a464a1b706954bb40fbda6658fac96301ff315(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    analytics_reporting: typing.Optional[builtins.bool] = None,
+    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    description: typing.Optional[builtins.str] = None,
+    memory_limit: typing.Optional[jsii.Number] = None,
+    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
+    server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00eb7610102fa55ac1a98aad11d26882e0640e3c54b07d9403d256500675831a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    current_version_locked: builtins.bool,
+    current_version_name: builtins.str,
+    product_stack: ProductStack,
+    description: typing.Optional[builtins.str] = None,
+    directory: typing.Optional[builtins.str] = None,
+    validate_template: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e798fec42d429d97aa53ac4883c29b729ae861e8ee96a752fec47032e75b058(
+    product_version_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14ff2199f395b44b32757ccbaa6927f0bf434a9370c673216c8f69e578ac4eae(
+    *,
+    current_version_locked: builtins.bool,
+    current_version_name: builtins.str,
+    product_stack: ProductStack,
+    description: typing.Optional[builtins.str] = None,
+    directory: typing.Optional[builtins.str] = None,
+    validate_template: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecbfd6177b5d6f8d80ee31c2897d6968897a0abd05a9f5a7d209806206868801(
+    *,
+    analytics_reporting: typing.Optional[builtins.bool] = None,
+    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
+    description: typing.Optional[builtins.str] = None,
+    memory_limit: typing.Optional[jsii.Number] = None,
+    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
+    server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed8adcfd7e9877ae0005d33d719d67f8057a721c045bcef79fad927da9da5ec8(
+    *,
+    resource_update_constraint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ca48c47d2b605f399c73076d2122aadb98b7c831b0bf5305bf51c1bcdf7a352(
+    *,
+    product_id: builtins.str,
+    provisioning_artifact_id: builtins.str,
+    service_action_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dab66a0eb07c39e371bfe9eff7c511916caf7e3bdc5a1e351e40bfa2c88698ce(
+    *,
+    service_action_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abc1323843b9de4cc029100885f2755e0bbd42cd0693c3281470a3352a2bcbea(
+    *,
+    stack_set_constraint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1387553eccc6e9ab98ba5fb751351089515cc923a65a4149c029cee2a5a720cb(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+    accounts: typing.Sequence[builtins.str],
+    admin_role: _IRoleRef_613dafc2,
+    execution_role_name: builtins.str,
+    regions: typing.Sequence[builtins.str],
+    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__179465a55f99e650e86059352c3de8b18048551e4911214e5ebe90278fa61181(
+    *,
+    tag_option_association_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f8d240e3ee7bb26015309c26c4fc9abfbefcdf2432792af922c42fae8f1daa3(
+    *,
+    tag_option_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfb5c620d67f97cb87e87283977e4e60b2a5cfe53ae742a829e8677e54de8f68(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    allowed_values_for_tags: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f863f14005a6e33c52a3f94d3b59b2719a8f99b897d45a3f34a4b8e959a6deb(
+    *,
+    allowed_values_for_tags: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f96fc9ef8a90bac15811a73dd5a9a809df8afd23ddb5eb4dd2b17002c156a34f(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    message_language: typing.Optional[MessageLanguage] = None,
+    allow: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__801cb08c11b8e82476f5228705d87882fa35016d51a84153b6e2f7bc28e1b19b(
+    *,
+    assertions: typing.Sequence[typing.Union[TemplateRuleAssertion, typing.Dict[builtins.str, typing.Any]]],
+    rule_name: builtins.str,
+    condition: typing.Optional[_ICfnRuleConditionExpression_9aca991b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc50c6bef2f5920ab3d97c2b00e1b899682a9b7beab98beff0b1c5cfdf2122a5(
+    *,
+    assert_: _ICfnRuleConditionExpression_9aca991b,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c3aa97377e67e5de00f1b94453a16c1e9712dfe055beb7707fe1196cdf9a51a7(
     scope: _constructs_77d1e7e8.Construct,
@@ -9977,14 +12430,6 @@ def _typecheckingstub__7977da1b6d9898fac62e20f5e37ae382c3e30535d1937a55a123bf9d3
 
 def _typecheckingstub__007477064bf18ea62d6ca00353686fcb2c4328f51ee561a3a7d896e21d9ca995(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ebe558dc027b532926c4f3a3b2f3f9c46515a9f7cdf26e7a3cc0e8783ec293d(
-    *,
-    portfolio_id: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10136,25 +12581,6 @@ def _typecheckingstub__4698a686eb833295f6a788ded754605c75fed71f516bf7cf74fe2187f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5e00148177993ff51c0b6d20ea59ef17d31cfacc134bcd2799bbb0831f6c47c0(
-    *,
-    name: builtins.str,
-    owner: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    distributor: typing.Optional[builtins.str] = None,
-    product_type: typing.Optional[builtins.str] = None,
-    provisioning_artifact_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    replace_provisioning_artifacts: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    source_connection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProduct.SourceConnectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    support_description: typing.Optional[builtins.str] = None,
-    support_email: typing.Optional[builtins.str] = None,
-    support_url: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__171f20d8c9cb06c68417b318943097ebbf27e4f07884ff66592e00ab318da4b2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10280,24 +12706,6 @@ def _typecheckingstub__d22bda685b9d0490e83817036cdc6d68185bcfbeeb1a9d02befc4f9f3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__88da00037242bdeeb7ec102c5acd840d7d02acb05eae60aaef2863e1e8e0479b(
-    *,
-    accept_language: typing.Optional[builtins.str] = None,
-    notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    path_id: typing.Optional[builtins.str] = None,
-    path_name: typing.Optional[builtins.str] = None,
-    product_id: typing.Optional[builtins.str] = None,
-    product_name: typing.Optional[builtins.str] = None,
-    provisioned_product_name: typing.Optional[builtins.str] = None,
-    provisioning_artifact_id: typing.Optional[builtins.str] = None,
-    provisioning_artifact_name: typing.Optional[builtins.str] = None,
-    provisioning_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    provisioning_preferences: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudFormationProvisionedProduct.ProvisioningPreferencesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6a0ef4893718fd81efea95278f44012f5c9df21cb6d08d7ec5812067a6d28920(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10349,17 +12757,6 @@ def _typecheckingstub__9f053d948015e38a54ac8a8dfc338cd4837e1c7af18d4be30583ba83a
 
 def _typecheckingstub__7cd753e3445346a35ee1c9014f113dc7acc9f5bd964a4208d069321b471bf572(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d467e47505aacdc2d760573bff69e4e674694f1573c72a6a5411e49e6e12fd1(
-    *,
-    notification_arns: typing.Sequence[builtins.str],
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10426,18 +12823,6 @@ def _typecheckingstub__248ec39473440a68e8c88c92b6ff9884cc28a31f5b609dfb2c01d5387
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__60c3b41f8a7b34e6b6790fc48ebe6bc36f5d3b4383252bb7322aeb60af6d02b1(
-    *,
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    local_role_name: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ef9626bcbf34366930c5bf61a595afb3efe05f1a95295b7e76c3fd849564f7eb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10489,17 +12874,6 @@ def _typecheckingstub__7e5ba6de90c017c1a21198e855f54709e112481dcfe02a743a1df4c23
 
 def _typecheckingstub__716d1d862c1c010f6c9e04edc0856ed95df8c9f36ffece1132b637c4d3920a39(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__782bde46fdc76fe863545140febd1fe95f163b327614047bf13a8ac26bea4c7d(
-    *,
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    rules: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10607,16 +12981,6 @@ def _typecheckingstub__1390265bc6b4e797f81f5a56c99acfec9dceeb8b223c28fc92f325ebf
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__86aa94ae9b8977b851184740615709136e8ab87d84e565bd4ed1c37202e743af(
-    *,
-    portfolio_id: builtins.str,
-    principal_arn: builtins.str,
-    principal_type: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__25cb0daf817ffe74f2f0c38badd3f1db5ae0cb2012f78855ecb4495b5ba58298(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10665,27 +13029,6 @@ def _typecheckingstub__add8959ef934f6895a130b9409bc0e69af9956f656deb01b88086944d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__97355e439ae20c66a13583fbc70b7a8de7f038ae88e7d60775df912c8ba748c0(
-    *,
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    source_portfolio_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8622dd1afbae29a3f4419981188740a463f84c32c065a9c5247a4cd04c27a0f(
-    *,
-    display_name: builtins.str,
-    provider_name: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__94fea5f3c3c3f7d95d742756b8b210ea5cf84da4a13d488d65a9fa1caa251876(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10730,16 +13073,6 @@ def _typecheckingstub__a67335fb063acfeddbe773b72cb755de1237c50645577a7950124f26f
 
 def _typecheckingstub__235193413772119d9c84298309200ae18891e9be3ace13193c53075df6152693(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2a140daed52ce9199b47ef69cb7a751093f53397e71f9e473c7f6c2fd8a5effe(
-    *,
-    account_id: builtins.str,
-    portfolio_id: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    share_tag_options: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10795,17 +13128,6 @@ def _typecheckingstub__7bf3ffe828e864cac79d1395c3a8723d4ae6181d9cbf0eb06172be148
 
 def _typecheckingstub__b4201ac4ba10b052d77bae5ea5b19dadaec094b4ec3807010c169e91385e5da1(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__04a33a58e60b8ad885d55e0a9d5f03663c28dad3fd18dce3b55adb371aae99b8(
-    *,
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    tag_update_on_provisioned_product: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10914,26 +13236,6 @@ def _typecheckingstub__18aae29d025946767f8ca8b8da89a0b0115102987022200d9f5c18157
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__52f50d0bb3c8980268e31b96e206f7a2c97e91453b113d44e944f886f23897a2(
-    *,
-    product_id: builtins.str,
-    provisioning_artifact_id: builtins.str,
-    service_action_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__90de2bbcb8a0e689344d53e4457169abb06ca7bea6f8fec45332480a001b2c03(
-    *,
-    definition: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceAction.DefinitionParameterProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    definition_type: builtins.str,
-    name: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5e83be00a9ded6c3a1fc4b09aae813db853ac16fa6a7a25167ce9abc326314cb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11017,21 +13319,6 @@ def _typecheckingstub__cf2c708988899711ec9d8ea27f9e4165b113c614fd335bcb1d0b84bff
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__71d420933cee59879101b98c29d269504af0cb190b1929c9f0657e67f0efbf21(
-    *,
-    account_list: typing.Sequence[builtins.str],
-    admin_role: builtins.str,
-    description: builtins.str,
-    execution_role: builtins.str,
-    portfolio_id: builtins.str,
-    product_id: builtins.str,
-    region_list: typing.Sequence[builtins.str],
-    stack_instance_control: builtins.str,
-    accept_language: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9735b436ed8ed4b022c91cf41361285ffefb63392637d4f89eeb57403a5ab8da(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11103,518 +13390,6 @@ def _typecheckingstub__471e0b593fbd9d09ee6976802eded33631b789cde5f21fad9622617ee
 
 def _typecheckingstub__36b3523e61ec3624717af470321b5a099be0fe767c62edbb115ee12884351d73(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b40cb505bb578364f2c02a3a08b4793fd747379748d820e8ec767c54ad4bb1f(
-    *,
-    resource_id: builtins.str,
-    tag_option_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__70780bf6a7fb429d72629882cde3c5617b08f82914b2c73e5153c29640b7161c(
-    *,
-    key: builtins.str,
-    value: builtins.str,
-    active: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b9913e495a1fc0ad721e4a9963481fad5eed277a9d00a04e7bae0396a95be6eb(
-    *,
-    owner: builtins.str,
-    product_name: builtins.str,
-    product_versions: typing.Sequence[typing.Union[CloudFormationProductVersion, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    distributor: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-    replace_product_version_ids: typing.Optional[builtins.bool] = None,
-    support_description: typing.Optional[builtins.str] = None,
-    support_email: typing.Optional[builtins.str] = None,
-    support_url: typing.Optional[builtins.str] = None,
-    tag_options: typing.Optional[TagOptions] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7871a8980da5d0ede4cc5882256c4052b0bd88da95e87bc4a941149bbac134a3(
-    *,
-    cloud_formation_template: CloudFormationTemplate,
-    description: typing.Optional[builtins.str] = None,
-    product_version_name: typing.Optional[builtins.str] = None,
-    validate_template: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e0d542f4ba87cd0da3d994035ba4c030fc0e065bd6d2e49190b0063a06da6e8(
-    path: builtins.str,
-    *,
-    deploy_time: typing.Optional[builtins.bool] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKey_5f11635f] = None,
-    asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__773de33690ef0a0a4fdc6f4346b2e866d6c7abe6e79acc2f8569a7a44cea7ebf(
-    product_stack: ProductStack,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ccf82442df209809b0c85975faeae077c122f2170cbe40678aa4a1e7369315a7(
-    url: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e20192bfc2c0ff7d3e1a351250198d72fb4cf9fcc65af22c06a4ffe758084dd4(
-    scope: _constructs_77d1e7e8.Construct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a20e03ddade2bdc4a633779da35b07ed9f87dcb2e018f8f2a66b6bc0fda0f73e(
-    *,
-    http_url: builtins.str,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5e60eb1fb7b6c9e48a2e253fcaf182309a321cb5ad621284cfe99fd9bba91f53(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__af5784dfd851a3c5d33e4b07e59e3a5b8e72fb176b70fd04a627015c531b273d(
-    product: IProduct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9b08dd5016d53d0a3cac9948b36fb192a9391bb66301672a5dfb5eed377dba40(
-    tag_options: TagOptions,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3ab31c7af6a601422103ce95369b5bca6125f3b8da6806b5568a710179db9883(
-    product: IProduct,
-    *,
-    rule: typing.Union[TemplateRule, typing.Dict[builtins.str, typing.Any]],
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a7528a69ebd5bd10455ee5c30ad3cc9a8db163a5e869e2e6a9eadac4e5553bac(
-    product: IProduct,
-    *,
-    allow: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26098f9e0fde27192a559080d63e8828bfb4e14ef6b9be20e8966e85be47d83c(
-    product: IProduct,
-    *,
-    accounts: typing.Sequence[builtins.str],
-    admin_role: _IRole_235f5d8e,
-    execution_role_name: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__31be1103bd0abf13c9e90d4d0e0b5a6b82c5aad2f3f55dceba3906501912e704(
-    group: _IGroup_96daf542,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__32feae15a0b576cab624cb64b322d12d58eb6a826cca846dc104c480568f2389(
-    role: _IRole_235f5d8e,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__209202e9e88b8a71205bdbad6f54a52442f6f7f1c19e096d454cc5d5753fa365(
-    user: _IUser_c32311f7,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a43ccf261774b6d7af5e09ae3e7789f5e3ce9282618eaa2cc9412704dd03d1a0(
-    product: IProduct,
-    topic: _ITopic_9eca4852,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fcb79fbe6ec97dbfdd1286e68e2d3181f57103cde82009dc2d000f6f34af2dd1(
-    product: IProduct,
-    launch_role: _IRole_235f5d8e,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e07d8f34d3ec7ee6db9ec8c22b47e94322c41b07d808a2bbf9a6e0120dc94477(
-    product: IProduct,
-    launch_role: _IRole_235f5d8e,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b77fa7622b8d9e616053f2bb43b466759c0e42756dc316fecf1658053e20ba6a(
-    product: IProduct,
-    launch_role_name: builtins.str,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ef38d69e098149d5d0224f8ec3bde027d23731856e23f2af7f2e450d2789ec3(
-    account_id: builtins.str,
-    *,
-    message_language: typing.Optional[MessageLanguage] = None,
-    share_tag_options: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__451a2d4f55f42fc3569bc06a530f99282fa0c00a378274b4429d6bd5411321a6(
-    tag_options: TagOptions,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf9a100cf4175380d4933d0ca023665178dec83578d4db9c34018be2db12c54c(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    display_name: builtins.str,
-    provider_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-    tag_options: typing.Optional[TagOptions] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee1657ae23f2788660dc3bdc2589c0afda0081f4f0e2193dc1d4f91f632466d6(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    portfolio_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8bf9c21cc3f49f5ae1ae03d412d18187340ba2df690ce68cb932c65f900d69fe(
-    product: IProduct,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be6cc2191428264e3b6a175f37de5f3b7f936c969793e44f0cbaf61465592131(
-    tag_options: TagOptions,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__28e951fa34d0d490c48d2c2274ea8720326a816cb772de92befe51572cc3363f(
-    product: IProduct,
-    *,
-    rule: typing.Union[TemplateRule, typing.Dict[builtins.str, typing.Any]],
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a6c3c8bea0cdcea756c51ee5dc52b07b515a7e4be6dee31aa2fc35ff4a8a77f(
-    product: IProduct,
-    *,
-    allow: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d481848480e2cdfaf8e4296725880ac9e39bc268e6db00ee6b9f7f45c2818842(
-    product: IProduct,
-    *,
-    accounts: typing.Sequence[builtins.str],
-    admin_role: _IRole_235f5d8e,
-    execution_role_name: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca0c5d13c42c196423a0f594739d782ad023582ff4f931fd909df70da6219605(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__86bf64563d71f804d579c2116813cb1518cb4c40a787338ed8350d93393ab517(
-    group: _IGroup_96daf542,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c16473e252b733e55e72f226e41f6236553745d9019da5d5eef7bc77e6f4f1ed(
-    role: _IRole_235f5d8e,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb3c3c121a75e072289da7f512fe0e5fa90bf0247be5fcb8b9ffcba9e49f4244(
-    user: _IUser_c32311f7,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa3bdb8ade1d7ad572fbc87cfe2f82ffa3fba4c2e0114adfcc71e7243c2c305b(
-    product: IProduct,
-    topic: _ITopic_9eca4852,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7fccd78710a75f9b6a9a523ee04078f9014b252f7bbe9bff308a033da12da741(
-    product: IProduct,
-    launch_role: _IRole_235f5d8e,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4e6c7242a7f78376a706c6aba55c9bfc2c9886ba6a6a2af75aab67d866b10c59(
-    product: IProduct,
-    launch_role: _IRole_235f5d8e,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7e9299ff2cd1b442713f34e90d71909c8604d7202deebcb777fa43a0d4d74cfe(
-    product: IProduct,
-    launch_role_name: builtins.str,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8db9399f774026d759ad23355622c60e86b9702be05813f0f352ab16051be84(
-    account_id: builtins.str,
-    *,
-    message_language: typing.Optional[MessageLanguage] = None,
-    share_tag_options: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bedc547bc13a736262dbefb92ebffcd67dc2fa0fac7ceae03d5332dc443d82d9(
-    *,
-    display_name: builtins.str,
-    provider_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-    tag_options: typing.Optional[TagOptions] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fcaaa8353ed1607f501f7b9fcd87b34c195d54486861a0e11ed689dd452376f5(
-    *,
-    message_language: typing.Optional[MessageLanguage] = None,
-    share_tag_options: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c44aa15915e234d34f518fd1f3e4fadc0efa2b8aef1fa054b0fb0cf457f270a6(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    account: typing.Optional[builtins.str] = None,
-    environment_from_arn: typing.Optional[builtins.str] = None,
-    physical_name: typing.Optional[builtins.str] = None,
-    region: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5c9b8d7779e324e9efd80da9b2e46557e44389de3353f62d86659d58f584e8ee(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    product_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5a9d6667908731fbb64077b2a63d523ffa99f9841c0f527b38c29014e8b89ef2(
-    tag_options: TagOptions,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf14756a9e6c7e2a58f04e1077a464a1b706954bb40fbda6658fac96301ff315(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    analytics_reporting: typing.Optional[builtins.bool] = None,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
-    description: typing.Optional[builtins.str] = None,
-    memory_limit: typing.Optional[jsii.Number] = None,
-    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
-    server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__00eb7610102fa55ac1a98aad11d26882e0640e3c54b07d9403d256500675831a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    current_version_locked: builtins.bool,
-    current_version_name: builtins.str,
-    product_stack: ProductStack,
-    description: typing.Optional[builtins.str] = None,
-    directory: typing.Optional[builtins.str] = None,
-    validate_template: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e798fec42d429d97aa53ac4883c29b729ae861e8ee96a752fec47032e75b058(
-    product_version_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__14ff2199f395b44b32757ccbaa6927f0bf434a9370c673216c8f69e578ac4eae(
-    *,
-    current_version_locked: builtins.bool,
-    current_version_name: builtins.str,
-    product_stack: ProductStack,
-    description: typing.Optional[builtins.str] = None,
-    directory: typing.Optional[builtins.str] = None,
-    validate_template: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecbfd6177b5d6f8d80ee31c2897d6968897a0abd05a9f5a7d209806206868801(
-    *,
-    analytics_reporting: typing.Optional[builtins.bool] = None,
-    asset_bucket: typing.Optional[_IBucket_42e086fd] = None,
-    description: typing.Optional[builtins.str] = None,
-    memory_limit: typing.Optional[jsii.Number] = None,
-    server_side_encryption: typing.Optional[_ServerSideEncryption_50ddf705] = None,
-    server_side_encryption_aws_kms_key_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1387553eccc6e9ab98ba5fb751351089515cc923a65a4149c029cee2a5a720cb(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-    accounts: typing.Sequence[builtins.str],
-    admin_role: _IRole_235f5d8e,
-    execution_role_name: builtins.str,
-    regions: typing.Sequence[builtins.str],
-    allow_stack_set_instance_operations: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cfb5c620d67f97cb87e87283977e4e60b2a5cfe53ae742a829e8677e54de8f68(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    allowed_values_for_tags: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f863f14005a6e33c52a3f94d3b59b2719a8f99b897d45a3f34a4b8e959a6deb(
-    *,
-    allowed_values_for_tags: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f96fc9ef8a90bac15811a73dd5a9a809df8afd23ddb5eb4dd2b17002c156a34f(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    message_language: typing.Optional[MessageLanguage] = None,
-    allow: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__801cb08c11b8e82476f5228705d87882fa35016d51a84153b6e2f7bc28e1b19b(
-    *,
-    assertions: typing.Sequence[typing.Union[TemplateRuleAssertion, typing.Dict[builtins.str, typing.Any]]],
-    rule_name: builtins.str,
-    condition: typing.Optional[_ICfnRuleConditionExpression_9aca991b] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc50c6bef2f5920ab3d97c2b00e1b899682a9b7beab98beff0b1c5cfdf2122a5(
-    *,
-    assert_: _ICfnRuleConditionExpression_9aca991b,
-    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zeep
-Version: 4.3.1
+Version: 4.3.2
 Summary: A Python SOAP client
 Author-email: Michael van Tellingen <michaelvantellingen@gmail.com>
 License: MIT
@@ -45,8 +45,10 @@ Requires-Dist: flake8-debugger==4.1.2; extra == "test"
 Requires-Dist: flake8-imports==0.1.1; extra == "test"
 Provides-Extra: async
 Requires-Dist: httpx>=0.15.0; extra == "async"
+Requires-Dist: packaging; extra == "async"
 Provides-Extra: xmlsec
 Requires-Dist: xmlsec>=0.6.1; extra == "xmlsec"
+Dynamic: license-file
 
 # Zeep: Python SOAP client
 [![Documentation Status](https://readthedocs.org/projects/python-zeep/badge/?version=latest)](https://readthedocs.org/projects/python-zeep/)

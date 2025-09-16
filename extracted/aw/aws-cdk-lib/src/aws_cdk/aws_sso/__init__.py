@@ -70,7 +70,1505 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.ApplicationAssignmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "principal_id": "principalId",
+        "principal_type": "principalType",
+    },
+)
+class ApplicationAssignmentReference:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        principal_id: builtins.str,
+        principal_type: builtins.str,
+    ) -> None:
+        '''A reference to a ApplicationAssignment resource.
+
+        :param application_arn: The ApplicationArn of the ApplicationAssignment resource.
+        :param principal_id: The PrincipalId of the ApplicationAssignment resource.
+        :param principal_type: The PrincipalType of the ApplicationAssignment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            application_assignment_reference = sso.ApplicationAssignmentReference(
+                application_arn="applicationArn",
+                principal_id="principalId",
+                principal_type="principalType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92fc0d7f3c397c4ae2ebee102a52a8b0619f7979a9bb7226059862dda1aa28eb)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "principal_id": principal_id,
+            "principal_type": principal_type,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ApplicationArn of the ApplicationAssignment resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_id(self) -> builtins.str:
+        '''The PrincipalId of the ApplicationAssignment resource.'''
+        result = self._values.get("principal_id")
+        assert result is not None, "Required property 'principal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_type(self) -> builtins.str:
+        '''The PrincipalType of the ApplicationAssignment resource.'''
+        result = self._values.get("principal_type")
+        assert result is not None, "Required property 'principal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationAssignmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_arn": "applicationArn"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_arn: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_arn: The ApplicationArn of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            application_reference = sso.ApplicationReference(
+                application_arn="applicationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0a1adbb007d146da05b058376155df182d1d7d73a3af73e157d34dab7b4c127)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ApplicationArn of the Application resource.'''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.AssignmentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "permission_set_arn": "permissionSetArn",
+        "principal_id": "principalId",
+        "principal_type": "principalType",
+        "target_id": "targetId",
+        "target_type": "targetType",
+    },
+)
+class AssignmentReference:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        permission_set_arn: builtins.str,
+        principal_id: builtins.str,
+        principal_type: builtins.str,
+        target_id: builtins.str,
+        target_type: builtins.str,
+    ) -> None:
+        '''A reference to a Assignment resource.
+
+        :param instance_arn: The InstanceArn of the Assignment resource.
+        :param permission_set_arn: The PermissionSetArn of the Assignment resource.
+        :param principal_id: The PrincipalId of the Assignment resource.
+        :param principal_type: The PrincipalType of the Assignment resource.
+        :param target_id: The TargetId of the Assignment resource.
+        :param target_type: The TargetType of the Assignment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            assignment_reference = sso.AssignmentReference(
+                instance_arn="instanceArn",
+                permission_set_arn="permissionSetArn",
+                principal_id="principalId",
+                principal_type="principalType",
+                target_id="targetId",
+                target_type="targetType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1943932d999542af2aab0e2ea4b140b0409d02b3db35d586f83b66932729f82b)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
+            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
+            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "permission_set_arn": permission_set_arn,
+            "principal_id": principal_id,
+            "principal_type": principal_type,
+            "target_id": target_id,
+            "target_type": target_type,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the Assignment resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def permission_set_arn(self) -> builtins.str:
+        '''The PermissionSetArn of the Assignment resource.'''
+        result = self._values.get("permission_set_arn")
+        assert result is not None, "Required property 'permission_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_id(self) -> builtins.str:
+        '''The PrincipalId of the Assignment resource.'''
+        result = self._values.get("principal_id")
+        assert result is not None, "Required property 'principal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_type(self) -> builtins.str:
+        '''The PrincipalType of the Assignment resource.'''
+        result = self._values.get("principal_type")
+        assert result is not None, "Required property 'principal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_id(self) -> builtins.str:
+        '''The TargetId of the Assignment resource.'''
+        result = self._values.get("target_id")
+        assert result is not None, "Required property 'target_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_type(self) -> builtins.str:
+        '''The TargetType of the Assignment resource.'''
+        result = self._values.get("target_type")
+        assert result is not None, "Required property 'target_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssignmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnApplicationAssignmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_arn": "applicationArn",
+        "principal_id": "principalId",
+        "principal_type": "principalType",
+    },
+)
+class CfnApplicationAssignmentProps:
+    def __init__(
+        self,
+        *,
+        application_arn: builtins.str,
+        principal_id: builtins.str,
+        principal_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationAssignment``.
+
+        :param application_arn: The ARN of the application that has principals assigned.
+        :param principal_id: The unique identifier of the principal assigned to the application.
+        :param principal_type: The type of the principal assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_application_assignment_props = sso.CfnApplicationAssignmentProps(
+                application_arn="applicationArn",
+                principal_id="principalId",
+                principal_type="principalType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e99502b5c0c93849bd3c91f9cb83a46f5303bf4aea29d1929d7811fd2a1efe2)
+            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_arn": application_arn,
+            "principal_id": principal_id,
+            "principal_type": principal_type,
+        }
+
+    @builtins.property
+    def application_arn(self) -> builtins.str:
+        '''The ARN of the application that has principals assigned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-applicationarn
+        '''
+        result = self._values.get("application_arn")
+        assert result is not None, "Required property 'application_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_id(self) -> builtins.str:
+        '''The unique identifier of the principal assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-principalid
+        '''
+        result = self._values.get("principal_id")
+        assert result is not None, "Required property 'principal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_type(self) -> builtins.str:
+        '''The type of the principal assigned to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-principaltype
+        '''
+        result = self._values.get("principal_type")
+        assert result is not None, "Required property 'principal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationAssignmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_provider_arn": "applicationProviderArn",
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "description": "description",
+        "portal_options": "portalOptions",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        application_provider_arn: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        portal_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.PortalOptionsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param application_provider_arn: The ARN of the application provider for this application.
+        :param instance_arn: The ARN of the instance of IAM Identity Center that is configured with this application.
+        :param name: The name of the application.
+        :param description: The description of the application.
+        :param portal_options: A structure that describes the options for the access portal associated with this application.
+        :param status: The current status of the application in this instance of IAM Identity Center.
+        :param tags: Specifies tags to be attached to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_application_props = sso.CfnApplicationProps(
+                application_provider_arn="applicationProviderArn",
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                portal_options=sso.CfnApplication.PortalOptionsConfigurationProperty(
+                    sign_in_options=sso.CfnApplication.SignInOptionsProperty(
+                        origin="origin",
+            
+                        # the properties below are optional
+                        application_url="applicationUrl"
+                    ),
+                    visibility="visibility"
+                ),
+                status="status",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2514f5693f02615ac7b916b565453bec3f3c9c79df28bdb7a6f6d323841c143)
+            check_type(argname="argument application_provider_arn", value=application_provider_arn, expected_type=type_hints["application_provider_arn"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument portal_options", value=portal_options, expected_type=type_hints["portal_options"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_provider_arn": application_provider_arn,
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if portal_options is not None:
+            self._values["portal_options"] = portal_options
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_provider_arn(self) -> builtins.str:
+        '''The ARN of the application provider for this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-applicationproviderarn
+        '''
+        result = self._values.get("application_provider_arn")
+        assert result is not None, "Required property 'application_provider_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the instance of IAM Identity Center that is configured with this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.PortalOptionsConfigurationProperty"]]:
+        '''A structure that describes the options for the access portal associated with this application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-portaloptions
+        '''
+        result = self._values.get("portal_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.PortalOptionsConfigurationProperty"]], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The current status of the application in this instance of IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Specifies tags to be attached to the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnAssignmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "permission_set_arn": "permissionSetArn",
+        "principal_id": "principalId",
+        "principal_type": "principalType",
+        "target_id": "targetId",
+        "target_type": "targetType",
+    },
+)
+class CfnAssignmentProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        permission_set_arn: builtins.str,
+        principal_id: builtins.str,
+        principal_type: builtins.str,
+        target_id: builtins.str,
+        target_type: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnAssignment``.
+
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param permission_set_arn: The ARN of the permission set.
+        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group. PrincipalIds are GUIDs (For example, f81d4fae-7dec-11d0-a765-00a0c91e6bf6). For more information about PrincipalIds in IAM Identity Center, see the `IAM Identity Center Identity Store API Reference <https://docs.aws.amazon.com//singlesignon/latest/IdentityStoreAPIReference/welcome.html>`_ .
+        :param principal_type: The entity type for which the assignment will be created.
+        :param target_id: TargetID is an AWS account identifier, (For example, 123456789012).
+        :param target_type: The entity type for which the assignment will be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_assignment_props = sso.CfnAssignmentProps(
+                instance_arn="instanceArn",
+                permission_set_arn="permissionSetArn",
+                principal_id="principalId",
+                principal_type="principalType",
+                target_id="targetId",
+                target_type="targetType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af8b1b897ea9ab77a0f2e4bab0d57a02afda473ba2e2680b392d3403bd006adb)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
+            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
+            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
+            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
+            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "permission_set_arn": permission_set_arn,
+            "principal_id": principal_id,
+            "principal_type": principal_type,
+            "target_id": target_id,
+            "target_type": target_type,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
+
+        For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def permission_set_arn(self) -> builtins.str:
+        '''The ARN of the permission set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-permissionsetarn
+        '''
+        result = self._values.get("permission_set_arn")
+        assert result is not None, "Required property 'permission_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_id(self) -> builtins.str:
+        '''An identifier for an object in IAM Identity Center, such as a user or group.
+
+        PrincipalIds are GUIDs (For example, f81d4fae-7dec-11d0-a765-00a0c91e6bf6). For more information about PrincipalIds in IAM Identity Center, see the `IAM Identity Center Identity Store API Reference <https://docs.aws.amazon.com//singlesignon/latest/IdentityStoreAPIReference/welcome.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-principalid
+        '''
+        result = self._values.get("principal_id")
+        assert result is not None, "Required property 'principal_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal_type(self) -> builtins.str:
+        '''The entity type for which the assignment will be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-principaltype
+        '''
+        result = self._values.get("principal_type")
+        assert result is not None, "Required property 'principal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_id(self) -> builtins.str:
+        '''TargetID is an AWS account identifier, (For example, 123456789012).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-targetid
+        '''
+        result = self._values.get("target_id")
+        assert result is not None, "Required property 'target_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_type(self) -> builtins.str:
+        '''The entity type for which the assignment will be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-targettype
+        '''
+        result = self._values.get("target_type")
+        assert result is not None, "Required property 'target_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssignmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnInstanceAccessControlAttributeConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "access_control_attributes": "accessControlAttributes",
+        "instance_access_control_attribute_configuration": "instanceAccessControlAttributeConfiguration",
+    },
+)
+class CfnInstanceAccessControlAttributeConfigurationProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        access_control_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        instance_access_control_attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceAccessControlAttributeConfiguration``.
+
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
+        :param access_control_attributes: Lists the attributes that are configured for ABAC in the specified IAM Identity Center instance.
+        :param instance_access_control_attribute_configuration: (deprecated) The InstanceAccessControlAttributeConfiguration property has been deprecated but is still supported for backwards compatibility purposes. We recomend that you use AccessControlAttributes property instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_instance_access_control_attribute_configuration_props = sso.CfnInstanceAccessControlAttributeConfigurationProps(
+                instance_arn="instanceArn",
+            
+                # the properties below are optional
+                access_control_attributes=[sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty(
+                    key="key",
+                    value=sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeValueProperty(
+                        source=["source"]
+                    )
+                )],
+                instance_access_control_attribute_configuration=sso.CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty(
+                    access_control_attributes=[sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty(
+                        key="key",
+                        value=sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeValueProperty(
+                            source=["source"]
+                        )
+                    )]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__814fa18856a1f832fbf758087fb132fbc281321791aa0253818b3fa514682b45)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument access_control_attributes", value=access_control_attributes, expected_type=type_hints["access_control_attributes"])
+            check_type(argname="argument instance_access_control_attribute_configuration", value=instance_access_control_attribute_configuration, expected_type=type_hints["instance_access_control_attribute_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+        if access_control_attributes is not None:
+            self._values["access_control_attributes"] = access_control_attributes
+        if instance_access_control_attribute_configuration is not None:
+            self._values["instance_access_control_attribute_configuration"] = instance_access_control_attribute_configuration
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_control_attributes(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty"]]]]:
+        '''Lists the attributes that are configured for ABAC in the specified IAM Identity Center instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-accesscontrolattributes
+        '''
+        result = self._values.get("access_control_attributes")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty"]]]], result)
+
+    @builtins.property
+    def instance_access_control_attribute_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty"]]:
+        '''(deprecated) The InstanceAccessControlAttributeConfiguration property has been deprecated but is still supported for backwards compatibility purposes.
+
+        We recomend that you use  AccessControlAttributes property instead.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-instanceaccesscontrolattributeconfiguration
+        :stability: deprecated
+        '''
+        result = self._values.get("instance_access_control_attribute_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceAccessControlAttributeConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "tags": "tags"},
+)
+class CfnInstanceProps:
+    def __init__(
+        self,
+        *,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstance``.
+
+        :param name: The name of the Identity Center instance.
+        :param tags: Specifies tags to be attached to the instance of IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            cfn_instance_props = sso.CfnInstanceProps(
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f634899cf67a8770f6832cba1a68a83d918d171183c520835eb3a482eebdc23)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Identity Center instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html#cfn-sso-instance-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Specifies tags to be attached to the instance of IAM Identity Center.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html#cfn-sso-instance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.CfnPermissionSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "name": "name",
+        "customer_managed_policy_references": "customerManagedPolicyReferences",
+        "description": "description",
+        "inline_policy": "inlinePolicy",
+        "managed_policies": "managedPolicies",
+        "permissions_boundary": "permissionsBoundary",
+        "relay_state_type": "relayStateType",
+        "session_duration": "sessionDuration",
+        "tags": "tags",
+    },
+)
+class CfnPermissionSetProps:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        customer_managed_policy_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissionSet.CustomerManagedPolicyReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        inline_policy: typing.Any = None,
+        managed_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
+        permissions_boundary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPermissionSet.PermissionsBoundaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        relay_state_type: typing.Optional[builtins.str] = None,
+        session_duration: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPermissionSet``.
+
+        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param name: The name of the permission set.
+        :param customer_managed_policy_references: Specifies the names and paths of the customer managed policies that you have attached to your permission set.
+        :param description: The description of the ``PermissionSet`` .
+        :param inline_policy: The inline policy that is attached to the permission set. .. epigraph:: For ``Length Constraints`` , if a valid ARN is provided for a permission set, it is possible for an empty inline policy to be returned.
+        :param managed_policies: A structure that stores a list of managed policy ARNs that describe the associated AWS managed policy.
+        :param permissions_boundary: Specifies the configuration of the AWS managed or customer managed policy that you want to set as a permissions boundary. Specify either ``CustomerManagedPolicyReference`` to use the name and path of a customer managed policy, or ``ManagedPolicyArn`` to use the ARN of an AWS managed policy. A permissions boundary represents the maximum permissions that any policy can grant your role. For more information, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* . .. epigraph:: Policies used as permissions boundaries don't provide permissions. You must also attach an IAM policy to the role. To learn how the effective permissions for a role are evaluated, see `IAM JSON policy evaluation logic <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html>`_ in the *IAM User Guide* .
+        :param relay_state_type: Used to redirect users within the application during the federation authentication process.
+        :param session_duration: The length of time that the application user sessions are valid for in the ISO-8601 standard.
+        :param tags: The tags to attach to the new ``PermissionSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            # inline_policy: Any
+            
+            cfn_permission_set_props = sso.CfnPermissionSetProps(
+                instance_arn="instanceArn",
+                name="name",
+            
+                # the properties below are optional
+                customer_managed_policy_references=[sso.CfnPermissionSet.CustomerManagedPolicyReferenceProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    path="path"
+                )],
+                description="description",
+                inline_policy=inline_policy,
+                managed_policies=["managedPolicies"],
+                permissions_boundary=sso.CfnPermissionSet.PermissionsBoundaryProperty(
+                    customer_managed_policy_reference=sso.CfnPermissionSet.CustomerManagedPolicyReferenceProperty(
+                        name="name",
+            
+                        # the properties below are optional
+                        path="path"
+                    ),
+                    managed_policy_arn="managedPolicyArn"
+                ),
+                relay_state_type="relayStateType",
+                session_duration="sessionDuration",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f756abcc5c1aa2acf7ae657bd2a8618f372584120d70c190b245e0a01f835d13)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument customer_managed_policy_references", value=customer_managed_policy_references, expected_type=type_hints["customer_managed_policy_references"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument inline_policy", value=inline_policy, expected_type=type_hints["inline_policy"])
+            check_type(argname="argument managed_policies", value=managed_policies, expected_type=type_hints["managed_policies"])
+            check_type(argname="argument permissions_boundary", value=permissions_boundary, expected_type=type_hints["permissions_boundary"])
+            check_type(argname="argument relay_state_type", value=relay_state_type, expected_type=type_hints["relay_state_type"])
+            check_type(argname="argument session_duration", value=session_duration, expected_type=type_hints["session_duration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+        }
+        if customer_managed_policy_references is not None:
+            self._values["customer_managed_policy_references"] = customer_managed_policy_references
+        if description is not None:
+            self._values["description"] = description
+        if inline_policy is not None:
+            self._values["inline_policy"] = inline_policy
+        if managed_policies is not None:
+            self._values["managed_policies"] = managed_policies
+        if permissions_boundary is not None:
+            self._values["permissions_boundary"] = permissions_boundary
+        if relay_state_type is not None:
+            self._values["relay_state_type"] = relay_state_type
+        if session_duration is not None:
+            self._values["session_duration"] = session_duration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
+
+        For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the permission set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def customer_managed_policy_references(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPermissionSet.CustomerManagedPolicyReferenceProperty"]]]]:
+        '''Specifies the names and paths of the customer managed policies that you have attached to your permission set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-customermanagedpolicyreferences
+        '''
+        result = self._values.get("customer_managed_policy_references")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPermissionSet.CustomerManagedPolicyReferenceProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the ``PermissionSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inline_policy(self) -> typing.Any:
+        '''The inline policy that is attached to the permission set.
+
+        .. epigraph::
+
+           For ``Length Constraints`` , if a valid ARN is provided for a permission set, it is possible for an empty inline policy to be returned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-inlinepolicy
+        '''
+        result = self._values.get("inline_policy")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def managed_policies(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A structure that stores a list of managed policy ARNs that describe the associated AWS managed policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-managedpolicies
+        '''
+        result = self._values.get("managed_policies")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def permissions_boundary(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissionSet.PermissionsBoundaryProperty"]]:
+        '''Specifies the configuration of the AWS managed or customer managed policy that you want to set as a permissions boundary.
+
+        Specify either ``CustomerManagedPolicyReference`` to use the name and path of a customer managed policy, or ``ManagedPolicyArn`` to use the ARN of an AWS managed policy. A permissions boundary represents the maximum permissions that any policy can grant your role. For more information, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
+        .. epigraph::
+
+           Policies used as permissions boundaries don't provide permissions. You must also attach an IAM policy to the role. To learn how the effective permissions for a role are evaluated, see `IAM JSON policy evaluation logic <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html>`_ in the *IAM User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-permissionsboundary
+        '''
+        result = self._values.get("permissions_boundary")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPermissionSet.PermissionsBoundaryProperty"]], result)
+
+    @builtins.property
+    def relay_state_type(self) -> typing.Optional[builtins.str]:
+        '''Used to redirect users within the application during the federation authentication process.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-relaystatetype
+        '''
+        result = self._values.get("relay_state_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def session_duration(self) -> typing.Optional[builtins.str]:
+        '''The length of time that the application user sessions are valid for in the ISO-8601 standard.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-sessionduration
+        '''
+        result = self._values.get("session_duration")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags to attach to the new ``PermissionSet`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPermissionSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sso.IApplicationAssignmentRef")
+class IApplicationAssignmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationAssignment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationAssignmentRef")
+    def application_assignment_ref(self) -> ApplicationAssignmentReference:
+        '''(experimental) A reference to a ApplicationAssignment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationAssignmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationAssignment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IApplicationAssignmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationAssignmentRef")
+    def application_assignment_ref(self) -> ApplicationAssignmentReference:
+        '''(experimental) A reference to a ApplicationAssignment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationAssignmentReference, jsii.get(self, "applicationAssignmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationAssignmentRef).__jsii_proxy_class__ = lambda : _IApplicationAssignmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sso.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sso.IAssignmentRef")
+class IAssignmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Assignment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assignmentRef")
+    def assignment_ref(self) -> AssignmentReference:
+        '''(experimental) A reference to a Assignment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssignmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Assignment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IAssignmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assignmentRef")
+    def assignment_ref(self) -> AssignmentReference:
+        '''(experimental) A reference to a Assignment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(AssignmentReference, jsii.get(self, "assignmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssignmentRef).__jsii_proxy_class__ = lambda : _IAssignmentRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_sso.IInstanceAccessControlAttributeConfigurationRef"
+)
+class IInstanceAccessControlAttributeConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceAccessControlAttributeConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceAccessControlAttributeConfigurationRef")
+    def instance_access_control_attribute_configuration_ref(
+        self,
+    ) -> "InstanceAccessControlAttributeConfigurationReference":
+        '''(experimental) A reference to a InstanceAccessControlAttributeConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceAccessControlAttributeConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstanceAccessControlAttributeConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IInstanceAccessControlAttributeConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceAccessControlAttributeConfigurationRef")
+    def instance_access_control_attribute_configuration_ref(
+        self,
+    ) -> "InstanceAccessControlAttributeConfigurationReference":
+        '''(experimental) A reference to a InstanceAccessControlAttributeConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceAccessControlAttributeConfigurationReference", jsii.get(self, "instanceAccessControlAttributeConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceAccessControlAttributeConfigurationRef).__jsii_proxy_class__ = lambda : _IInstanceAccessControlAttributeConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sso.IInstanceRef")
+class IInstanceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceReference", jsii.get(self, "instanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstanceRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_sso.IPermissionSetRef")
+class IPermissionSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a PermissionSet.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionSetRef")
+    def permission_set_ref(self) -> "PermissionSetReference":
+        '''(experimental) A reference to a PermissionSet resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPermissionSetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PermissionSet.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_sso.IPermissionSetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionSetRef")
+    def permission_set_ref(self) -> "PermissionSetReference":
+        '''(experimental) A reference to a PermissionSet resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PermissionSetReference", jsii.get(self, "permissionSetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPermissionSetRef).__jsii_proxy_class__ = lambda : _IPermissionSetRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.InstanceAccessControlAttributeConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_arn": "instanceArn"},
+)
+class InstanceAccessControlAttributeConfigurationReference:
+    def __init__(self, *, instance_arn: builtins.str) -> None:
+        '''A reference to a InstanceAccessControlAttributeConfiguration resource.
+
+        :param instance_arn: The InstanceArn of the InstanceAccessControlAttributeConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            instance_access_control_attribute_configuration_reference = sso.InstanceAccessControlAttributeConfigurationReference(
+                instance_arn="instanceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a850f112d46fbd4819343bdf91b3fff39cc864f20c06406873f80cb5143bce44)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the InstanceAccessControlAttributeConfiguration resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceAccessControlAttributeConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.InstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_arn": "instanceArn"},
+)
+class InstanceReference:
+    def __init__(self, *, instance_arn: builtins.str) -> None:
+        '''A reference to a Instance resource.
+
+        :param instance_arn: The InstanceArn of the Instance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            instance_reference = sso.InstanceReference(
+                instance_arn="instanceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__056f15f1763c8403e5507adb1773be1baee0542c09e37e28446a29de58037ec0)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the Instance resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sso.PermissionSetReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_arn": "instanceArn",
+        "permission_set_arn": "permissionSetArn",
+    },
+)
+class PermissionSetReference:
+    def __init__(
+        self,
+        *,
+        instance_arn: builtins.str,
+        permission_set_arn: builtins.str,
+    ) -> None:
+        '''A reference to a PermissionSet resource.
+
+        :param instance_arn: The InstanceArn of the PermissionSet resource.
+        :param permission_set_arn: The PermissionSetArn of the PermissionSet resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sso as sso
+            
+            permission_set_reference = sso.PermissionSetReference(
+                instance_arn="instanceArn",
+                permission_set_arn="permissionSetArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41833e3b339ae5b5d9c0986ae3dd1ef3b4c39d0ccdbd1913379f363a0efe06b6)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "permission_set_arn": permission_set_arn,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The InstanceArn of the PermissionSet resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def permission_set_arn(self) -> builtins.str:
+        '''The PermissionSetArn of the PermissionSet resource.'''
+        result = self._values.get("permission_set_arn")
+        assert result is not None, "Required property 'permission_set_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PermissionSetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggableV2_4e6798f8)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -185,6 +1683,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -460,7 +1964,7 @@ class CfnApplication(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationAssignmentRef)
 class CfnApplicationAssignment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -544,6 +2048,12 @@ class CfnApplicationAssignment(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="applicationAssignmentRef")
+    def application_assignment_ref(self) -> ApplicationAssignmentReference:
+        '''A reference to a ApplicationAssignment resource.'''
+        return typing.cast(ApplicationAssignmentReference, jsii.get(self, "applicationAssignmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -588,268 +2098,7 @@ class CfnApplicationAssignment(
         jsii.set(self, "principalType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnApplicationAssignmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_arn": "applicationArn",
-        "principal_id": "principalId",
-        "principal_type": "principalType",
-    },
-)
-class CfnApplicationAssignmentProps:
-    def __init__(
-        self,
-        *,
-        application_arn: builtins.str,
-        principal_id: builtins.str,
-        principal_type: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationAssignment``.
-
-        :param application_arn: The ARN of the application that has principals assigned.
-        :param principal_id: The unique identifier of the principal assigned to the application.
-        :param principal_type: The type of the principal assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            cfn_application_assignment_props = sso.CfnApplicationAssignmentProps(
-                application_arn="applicationArn",
-                principal_id="principalId",
-                principal_type="principalType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e99502b5c0c93849bd3c91f9cb83a46f5303bf4aea29d1929d7811fd2a1efe2)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
-            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "principal_id": principal_id,
-            "principal_type": principal_type,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ARN of the application that has principals assigned.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-applicationarn
-        '''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal_id(self) -> builtins.str:
-        '''The unique identifier of the principal assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-principalid
-        '''
-        result = self._values.get("principal_id")
-        assert result is not None, "Required property 'principal_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal_type(self) -> builtins.str:
-        '''The type of the principal assigned to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-applicationassignment.html#cfn-sso-applicationassignment-principaltype
-        '''
-        result = self._values.get("principal_type")
-        assert result is not None, "Required property 'principal_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationAssignmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_provider_arn": "applicationProviderArn",
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "description": "description",
-        "portal_options": "portalOptions",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        application_provider_arn: builtins.str,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        portal_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PortalOptionsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param application_provider_arn: The ARN of the application provider for this application.
-        :param instance_arn: The ARN of the instance of IAM Identity Center that is configured with this application.
-        :param name: The name of the application.
-        :param description: The description of the application.
-        :param portal_options: A structure that describes the options for the access portal associated with this application.
-        :param status: The current status of the application in this instance of IAM Identity Center.
-        :param tags: Specifies tags to be attached to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            cfn_application_props = sso.CfnApplicationProps(
-                application_provider_arn="applicationProviderArn",
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                portal_options=sso.CfnApplication.PortalOptionsConfigurationProperty(
-                    sign_in_options=sso.CfnApplication.SignInOptionsProperty(
-                        origin="origin",
-            
-                        # the properties below are optional
-                        application_url="applicationUrl"
-                    ),
-                    visibility="visibility"
-                ),
-                status="status",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2514f5693f02615ac7b916b565453bec3f3c9c79df28bdb7a6f6d323841c143)
-            check_type(argname="argument application_provider_arn", value=application_provider_arn, expected_type=type_hints["application_provider_arn"])
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument portal_options", value=portal_options, expected_type=type_hints["portal_options"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_provider_arn": application_provider_arn,
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if portal_options is not None:
-            self._values["portal_options"] = portal_options
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_provider_arn(self) -> builtins.str:
-        '''The ARN of the application provider for this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-applicationproviderarn
-        '''
-        result = self._values.get("application_provider_arn")
-        assert result is not None, "Required property 'application_provider_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The ARN of the instance of IAM Identity Center that is configured with this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def portal_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.PortalOptionsConfigurationProperty]]:
-        '''A structure that describes the options for the access portal associated with this application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-portaloptions
-        '''
-        result = self._values.get("portal_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.PortalOptionsConfigurationProperty]], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The current status of the application in this instance of IAM Identity Center.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies tags to be attached to the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-application.html#cfn-sso-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IAssignmentRef)
 class CfnAssignment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -949,6 +2198,12 @@ class CfnAssignment(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="assignmentRef")
+    def assignment_ref(self) -> AssignmentReference:
+        '''A reference to a Assignment resource.'''
+        return typing.cast(AssignmentReference, jsii.get(self, "assignmentRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1032,150 +2287,7 @@ class CfnAssignment(
         jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnAssignmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "permission_set_arn": "permissionSetArn",
-        "principal_id": "principalId",
-        "principal_type": "principalType",
-        "target_id": "targetId",
-        "target_type": "targetType",
-    },
-)
-class CfnAssignmentProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        permission_set_arn: builtins.str,
-        principal_id: builtins.str,
-        principal_type: builtins.str,
-        target_id: builtins.str,
-        target_type: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnAssignment``.
-
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param permission_set_arn: The ARN of the permission set.
-        :param principal_id: An identifier for an object in IAM Identity Center, such as a user or group. PrincipalIds are GUIDs (For example, f81d4fae-7dec-11d0-a765-00a0c91e6bf6). For more information about PrincipalIds in IAM Identity Center, see the `IAM Identity Center Identity Store API Reference <https://docs.aws.amazon.com//singlesignon/latest/IdentityStoreAPIReference/welcome.html>`_ .
-        :param principal_type: The entity type for which the assignment will be created.
-        :param target_id: TargetID is an AWS account identifier, (For example, 123456789012).
-        :param target_type: The entity type for which the assignment will be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            cfn_assignment_props = sso.CfnAssignmentProps(
-                instance_arn="instanceArn",
-                permission_set_arn="permissionSetArn",
-                principal_id="principalId",
-                principal_type="principalType",
-                target_id="targetId",
-                target_type="targetType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af8b1b897ea9ab77a0f2e4bab0d57a02afda473ba2e2680b392d3403bd006adb)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument permission_set_arn", value=permission_set_arn, expected_type=type_hints["permission_set_arn"])
-            check_type(argname="argument principal_id", value=principal_id, expected_type=type_hints["principal_id"])
-            check_type(argname="argument principal_type", value=principal_type, expected_type=type_hints["principal_type"])
-            check_type(argname="argument target_id", value=target_id, expected_type=type_hints["target_id"])
-            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "permission_set_arn": permission_set_arn,
-            "principal_id": principal_id,
-            "principal_type": principal_type,
-            "target_id": target_id,
-            "target_type": target_type,
-        }
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
-
-        For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def permission_set_arn(self) -> builtins.str:
-        '''The ARN of the permission set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-permissionsetarn
-        '''
-        result = self._values.get("permission_set_arn")
-        assert result is not None, "Required property 'permission_set_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal_id(self) -> builtins.str:
-        '''An identifier for an object in IAM Identity Center, such as a user or group.
-
-        PrincipalIds are GUIDs (For example, f81d4fae-7dec-11d0-a765-00a0c91e6bf6). For more information about PrincipalIds in IAM Identity Center, see the `IAM Identity Center Identity Store API Reference <https://docs.aws.amazon.com//singlesignon/latest/IdentityStoreAPIReference/welcome.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-principalid
-        '''
-        result = self._values.get("principal_id")
-        assert result is not None, "Required property 'principal_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal_type(self) -> builtins.str:
-        '''The entity type for which the assignment will be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-principaltype
-        '''
-        result = self._values.get("principal_type")
-        assert result is not None, "Required property 'principal_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_id(self) -> builtins.str:
-        '''TargetID is an AWS account identifier, (For example, 123456789012).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-targetid
-        '''
-        result = self._values.get("target_id")
-        assert result is not None, "Required property 'target_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_type(self) -> builtins.str:
-        '''The entity type for which the assignment will be created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-assignment.html#cfn-sso-assignment-targettype
-        '''
-        result = self._values.get("target_type")
-        assert result is not None, "Required property 'target_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssignmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, IInstanceRef, _ITaggableV2_4e6798f8)
 class CfnInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1312,6 +2424,12 @@ class CfnInstance(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> InstanceReference:
+        '''A reference to a Instance resource.'''
+        return typing.cast(InstanceReference, jsii.get(self, "instanceRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the Identity Center instance.'''
@@ -1338,7 +2456,7 @@ class CfnInstance(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IInstanceAccessControlAttributeConfigurationRef)
 class CfnInstanceAccessControlAttributeConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1444,6 +2562,14 @@ class CfnInstanceAccessControlAttributeConfiguration(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceAccessControlAttributeConfigurationRef")
+    def instance_access_control_attribute_configuration_ref(
+        self,
+    ) -> InstanceAccessControlAttributeConfigurationReference:
+        '''A reference to a InstanceAccessControlAttributeConfiguration resource.'''
+        return typing.cast(InstanceAccessControlAttributeConfigurationReference, jsii.get(self, "instanceAccessControlAttributeConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
@@ -1695,195 +2821,7 @@ class CfnInstanceAccessControlAttributeConfiguration(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnInstanceAccessControlAttributeConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "access_control_attributes": "accessControlAttributes",
-        "instance_access_control_attribute_configuration": "instanceAccessControlAttributeConfiguration",
-    },
-)
-class CfnInstanceAccessControlAttributeConfigurationProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        access_control_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        instance_access_control_attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceAccessControlAttributeConfiguration``.
-
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed.
-        :param access_control_attributes: Lists the attributes that are configured for ABAC in the specified IAM Identity Center instance.
-        :param instance_access_control_attribute_configuration: (deprecated) The InstanceAccessControlAttributeConfiguration property has been deprecated but is still supported for backwards compatibility purposes. We recomend that you use AccessControlAttributes property instead.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            cfn_instance_access_control_attribute_configuration_props = sso.CfnInstanceAccessControlAttributeConfigurationProps(
-                instance_arn="instanceArn",
-            
-                # the properties below are optional
-                access_control_attributes=[sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty(
-                    key="key",
-                    value=sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeValueProperty(
-                        source=["source"]
-                    )
-                )],
-                instance_access_control_attribute_configuration=sso.CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty(
-                    access_control_attributes=[sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty(
-                        key="key",
-                        value=sso.CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeValueProperty(
-                            source=["source"]
-                        )
-                    )]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__814fa18856a1f832fbf758087fb132fbc281321791aa0253818b3fa514682b45)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument access_control_attributes", value=access_control_attributes, expected_type=type_hints["access_control_attributes"])
-            check_type(argname="argument instance_access_control_attribute_configuration", value=instance_access_control_attribute_configuration, expected_type=type_hints["instance_access_control_attribute_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-        }
-        if access_control_attributes is not None:
-            self._values["access_control_attributes"] = access_control_attributes
-        if instance_access_control_attribute_configuration is not None:
-            self._values["instance_access_control_attribute_configuration"] = instance_access_control_attribute_configuration
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_control_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty]]]]:
-        '''Lists the attributes that are configured for ABAC in the specified IAM Identity Center instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-accesscontrolattributes
-        '''
-        result = self._values.get("access_control_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty]]]], result)
-
-    @builtins.property
-    def instance_access_control_attribute_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty]]:
-        '''(deprecated) The InstanceAccessControlAttributeConfiguration property has been deprecated but is still supported for backwards compatibility purposes.
-
-        We recomend that you use  AccessControlAttributes property instead.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instanceaccesscontrolattributeconfiguration.html#cfn-sso-instanceaccesscontrolattributeconfiguration-instanceaccesscontrolattributeconfiguration
-        :stability: deprecated
-        '''
-        result = self._values.get("instance_access_control_attribute_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceAccessControlAttributeConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "tags": "tags"},
-)
-class CfnInstanceProps:
-    def __init__(
-        self,
-        *,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstance``.
-
-        :param name: The name of the Identity Center instance.
-        :param tags: Specifies tags to be attached to the instance of IAM Identity Center.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            cfn_instance_props = sso.CfnInstanceProps(
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f634899cf67a8770f6832cba1a68a83d918d171183c520835eb3a482eebdc23)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Identity Center instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html#cfn-sso-instance-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies tags to be attached to the instance of IAM Identity Center.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-instance.html#cfn-sso-instance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPermissionSetRef, _ITaggable_36806126)
 class CfnPermissionSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2027,6 +2965,12 @@ class CfnPermissionSet(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionSetRef")
+    def permission_set_ref(self) -> PermissionSetReference:
+        '''A reference to a PermissionSet resource.'''
+        return typing.cast(PermissionSetReference, jsii.get(self, "permissionSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2342,245 +3286,10 @@ class CfnPermissionSet(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_sso.CfnPermissionSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_arn": "instanceArn",
-        "name": "name",
-        "customer_managed_policy_references": "customerManagedPolicyReferences",
-        "description": "description",
-        "inline_policy": "inlinePolicy",
-        "managed_policies": "managedPolicies",
-        "permissions_boundary": "permissionsBoundary",
-        "relay_state_type": "relayStateType",
-        "session_duration": "sessionDuration",
-        "tags": "tags",
-    },
-)
-class CfnPermissionSetProps:
-    def __init__(
-        self,
-        *,
-        instance_arn: builtins.str,
-        name: builtins.str,
-        customer_managed_policy_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.CustomerManagedPolicyReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        inline_policy: typing.Any = None,
-        managed_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions_boundary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.PermissionsBoundaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        relay_state_type: typing.Optional[builtins.str] = None,
-        session_duration: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPermissionSet``.
-
-        :param instance_arn: The ARN of the IAM Identity Center instance under which the operation will be executed. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param name: The name of the permission set.
-        :param customer_managed_policy_references: Specifies the names and paths of the customer managed policies that you have attached to your permission set.
-        :param description: The description of the ``PermissionSet`` .
-        :param inline_policy: The inline policy that is attached to the permission set. .. epigraph:: For ``Length Constraints`` , if a valid ARN is provided for a permission set, it is possible for an empty inline policy to be returned.
-        :param managed_policies: A structure that stores a list of managed policy ARNs that describe the associated AWS managed policy.
-        :param permissions_boundary: Specifies the configuration of the AWS managed or customer managed policy that you want to set as a permissions boundary. Specify either ``CustomerManagedPolicyReference`` to use the name and path of a customer managed policy, or ``ManagedPolicyArn`` to use the ARN of an AWS managed policy. A permissions boundary represents the maximum permissions that any policy can grant your role. For more information, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* . .. epigraph:: Policies used as permissions boundaries don't provide permissions. You must also attach an IAM policy to the role. To learn how the effective permissions for a role are evaluated, see `IAM JSON policy evaluation logic <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html>`_ in the *IAM User Guide* .
-        :param relay_state_type: Used to redirect users within the application during the federation authentication process.
-        :param session_duration: The length of time that the application user sessions are valid for in the ISO-8601 standard.
-        :param tags: The tags to attach to the new ``PermissionSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_sso as sso
-            
-            # inline_policy: Any
-            
-            cfn_permission_set_props = sso.CfnPermissionSetProps(
-                instance_arn="instanceArn",
-                name="name",
-            
-                # the properties below are optional
-                customer_managed_policy_references=[sso.CfnPermissionSet.CustomerManagedPolicyReferenceProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    path="path"
-                )],
-                description="description",
-                inline_policy=inline_policy,
-                managed_policies=["managedPolicies"],
-                permissions_boundary=sso.CfnPermissionSet.PermissionsBoundaryProperty(
-                    customer_managed_policy_reference=sso.CfnPermissionSet.CustomerManagedPolicyReferenceProperty(
-                        name="name",
-            
-                        # the properties below are optional
-                        path="path"
-                    ),
-                    managed_policy_arn="managedPolicyArn"
-                ),
-                relay_state_type="relayStateType",
-                session_duration="sessionDuration",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f756abcc5c1aa2acf7ae657bd2a8618f372584120d70c190b245e0a01f835d13)
-            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument customer_managed_policy_references", value=customer_managed_policy_references, expected_type=type_hints["customer_managed_policy_references"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument inline_policy", value=inline_policy, expected_type=type_hints["inline_policy"])
-            check_type(argname="argument managed_policies", value=managed_policies, expected_type=type_hints["managed_policies"])
-            check_type(argname="argument permissions_boundary", value=permissions_boundary, expected_type=type_hints["permissions_boundary"])
-            check_type(argname="argument relay_state_type", value=relay_state_type, expected_type=type_hints["relay_state_type"])
-            check_type(argname="argument session_duration", value=session_duration, expected_type=type_hints["session_duration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_arn": instance_arn,
-            "name": name,
-        }
-        if customer_managed_policy_references is not None:
-            self._values["customer_managed_policy_references"] = customer_managed_policy_references
-        if description is not None:
-            self._values["description"] = description
-        if inline_policy is not None:
-            self._values["inline_policy"] = inline_policy
-        if managed_policies is not None:
-            self._values["managed_policies"] = managed_policies
-        if permissions_boundary is not None:
-            self._values["permissions_boundary"] = permissions_boundary
-        if relay_state_type is not None:
-            self._values["relay_state_type"] = relay_state_type
-        if session_duration is not None:
-            self._values["session_duration"] = session_duration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def instance_arn(self) -> builtins.str:
-        '''The ARN of the IAM Identity Center instance under which the operation will be executed.
-
-        For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com//general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        assert result is not None, "Required property 'instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the permission set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def customer_managed_policy_references(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPermissionSet.CustomerManagedPolicyReferenceProperty]]]]:
-        '''Specifies the names and paths of the customer managed policies that you have attached to your permission set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-customermanagedpolicyreferences
-        '''
-        result = self._values.get("customer_managed_policy_references")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPermissionSet.CustomerManagedPolicyReferenceProperty]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the ``PermissionSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def inline_policy(self) -> typing.Any:
-        '''The inline policy that is attached to the permission set.
-
-        .. epigraph::
-
-           For ``Length Constraints`` , if a valid ARN is provided for a permission set, it is possible for an empty inline policy to be returned.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-inlinepolicy
-        '''
-        result = self._values.get("inline_policy")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def managed_policies(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A structure that stores a list of managed policy ARNs that describe the associated AWS managed policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-managedpolicies
-        '''
-        result = self._values.get("managed_policies")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def permissions_boundary(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPermissionSet.PermissionsBoundaryProperty]]:
-        '''Specifies the configuration of the AWS managed or customer managed policy that you want to set as a permissions boundary.
-
-        Specify either ``CustomerManagedPolicyReference`` to use the name and path of a customer managed policy, or ``ManagedPolicyArn`` to use the ARN of an AWS managed policy. A permissions boundary represents the maximum permissions that any policy can grant your role. For more information, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
-        .. epigraph::
-
-           Policies used as permissions boundaries don't provide permissions. You must also attach an IAM policy to the role. To learn how the effective permissions for a role are evaluated, see `IAM JSON policy evaluation logic <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html>`_ in the *IAM User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-permissionsboundary
-        '''
-        result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPermissionSet.PermissionsBoundaryProperty]], result)
-
-    @builtins.property
-    def relay_state_type(self) -> typing.Optional[builtins.str]:
-        '''Used to redirect users within the application during the federation authentication process.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-relaystatetype
-        '''
-        result = self._values.get("relay_state_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def session_duration(self) -> typing.Optional[builtins.str]:
-        '''The length of time that the application user sessions are valid for in the ISO-8601 standard.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-sessionduration
-        '''
-        result = self._values.get("session_duration")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to attach to the new ``PermissionSet`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sso-permissionset.html#cfn-sso-permissionset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPermissionSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationAssignmentReference",
+    "ApplicationReference",
+    "AssignmentReference",
     "CfnApplication",
     "CfnApplicationAssignment",
     "CfnApplicationAssignmentProps",
@@ -2593,9 +3302,135 @@ __all__ = [
     "CfnInstanceProps",
     "CfnPermissionSet",
     "CfnPermissionSetProps",
+    "IApplicationAssignmentRef",
+    "IApplicationRef",
+    "IAssignmentRef",
+    "IInstanceAccessControlAttributeConfigurationRef",
+    "IInstanceRef",
+    "IPermissionSetRef",
+    "InstanceAccessControlAttributeConfigurationReference",
+    "InstanceReference",
+    "PermissionSetReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__92fc0d7f3c397c4ae2ebee102a52a8b0619f7979a9bb7226059862dda1aa28eb(
+    *,
+    application_arn: builtins.str,
+    principal_id: builtins.str,
+    principal_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0a1adbb007d146da05b058376155df182d1d7d73a3af73e157d34dab7b4c127(
+    *,
+    application_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1943932d999542af2aab0e2ea4b140b0409d02b3db35d586f83b66932729f82b(
+    *,
+    instance_arn: builtins.str,
+    permission_set_arn: builtins.str,
+    principal_id: builtins.str,
+    principal_type: builtins.str,
+    target_id: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e99502b5c0c93849bd3c91f9cb83a46f5303bf4aea29d1929d7811fd2a1efe2(
+    *,
+    application_arn: builtins.str,
+    principal_id: builtins.str,
+    principal_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2514f5693f02615ac7b916b565453bec3f3c9c79df28bdb7a6f6d323841c143(
+    *,
+    application_provider_arn: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    portal_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PortalOptionsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af8b1b897ea9ab77a0f2e4bab0d57a02afda473ba2e2680b392d3403bd006adb(
+    *,
+    instance_arn: builtins.str,
+    permission_set_arn: builtins.str,
+    principal_id: builtins.str,
+    principal_type: builtins.str,
+    target_id: builtins.str,
+    target_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__814fa18856a1f832fbf758087fb132fbc281321791aa0253818b3fa514682b45(
+    *,
+    instance_arn: builtins.str,
+    access_control_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    instance_access_control_attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f634899cf67a8770f6832cba1a68a83d918d171183c520835eb3a482eebdc23(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f756abcc5c1aa2acf7ae657bd2a8618f372584120d70c190b245e0a01f835d13(
+    *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    customer_managed_policy_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.CustomerManagedPolicyReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    inline_policy: typing.Any = None,
+    managed_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
+    permissions_boundary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.PermissionsBoundaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    relay_state_type: typing.Optional[builtins.str] = None,
+    session_duration: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a850f112d46fbd4819343bdf91b3fff39cc864f20c06406873f80cb5143bce44(
+    *,
+    instance_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__056f15f1763c8403e5507adb1773be1baee0542c09e37e28446a29de58037ec0(
+    *,
+    instance_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41833e3b339ae5b5d9c0986ae3dd1ef3b4c39d0ccdbd1913379f363a0efe06b6(
+    *,
+    instance_arn: builtins.str,
+    permission_set_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1882af793991a2b06f4da60775b164d8785694f90e87227b4954cfd75eea83eb(
     scope: _constructs_77d1e7e8.Construct,
@@ -2723,28 +3558,6 @@ def _typecheckingstub__7d7aa16c36ca93ae3f9d86cdbbc98ad214d487831d9bb9732f619ef62
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2e99502b5c0c93849bd3c91f9cb83a46f5303bf4aea29d1929d7811fd2a1efe2(
-    *,
-    application_arn: builtins.str,
-    principal_id: builtins.str,
-    principal_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c2514f5693f02615ac7b916b565453bec3f3c9c79df28bdb7a6f6d323841c143(
-    *,
-    application_provider_arn: builtins.str,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    portal_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.PortalOptionsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ebef8d250e1dbc37b65303c039a5211da7116d20618441b3967d658d6503e2f7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2803,18 +3616,6 @@ def _typecheckingstub__a5d7c01434a58be26f030bbbb4c4bac0441e711f4c1b954e921cff5db
 
 def _typecheckingstub__2d31c013e59de3e5493f34c329933cda7b9c6ded610ef1e183427cd7d14cfe8e(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__af8b1b897ea9ab77a0f2e4bab0d57a02afda473ba2e2680b392d3403bd006adb(
-    *,
-    instance_arn: builtins.str,
-    permission_set_arn: builtins.str,
-    principal_id: builtins.str,
-    principal_type: builtins.str,
-    target_id: builtins.str,
-    target_type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2912,23 +3713,6 @@ def _typecheckingstub__2820ec077bbb0783624f9db7c803955332448280274edfd9bfda9ad01
 def _typecheckingstub__1ef22662569985de541e712d397e178367db6e4386936c4b934aaa6392c6aa3b(
     *,
     access_control_attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__814fa18856a1f832fbf758087fb132fbc281321791aa0253818b3fa514682b45(
-    *,
-    instance_arn: builtins.str,
-    access_control_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.AccessControlAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    instance_access_control_attribute_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInstanceAccessControlAttributeConfiguration.InstanceAccessControlAttributeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0f634899cf67a8770f6832cba1a68a83d918d171183c520835eb3a482eebdc23(
-    *,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3035,22 +3819,6 @@ def _typecheckingstub__3c2d8d05593bb4e7d39ec67bed0cc26753709cc6922b06793024dbd9a
     *,
     customer_managed_policy_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.CustomerManagedPolicyReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_policy_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f756abcc5c1aa2acf7ae657bd2a8618f372584120d70c190b245e0a01f835d13(
-    *,
-    instance_arn: builtins.str,
-    name: builtins.str,
-    customer_managed_policy_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.CustomerManagedPolicyReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    inline_policy: typing.Any = None,
-    managed_policies: typing.Optional[typing.Sequence[builtins.str]] = None,
-    permissions_boundary: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPermissionSet.PermissionsBoundaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    relay_state_type: typing.Optional[builtins.str] = None,
-    session_duration: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -68,7 +68,568 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrassv2.CfnComponentVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "inline_recipe": "inlineRecipe",
+        "lambda_function": "lambdaFunction",
+        "tags": "tags",
+    },
+)
+class CfnComponentVersionProps:
+    def __init__(
+        self,
+        *,
+        inline_recipe: typing.Optional[builtins.str] = None,
+        lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnComponentVersion.LambdaFunctionRecipeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnComponentVersion``.
+
+        :param inline_recipe: The recipe to use to create the component. The recipe defines the component's metadata, parameters, dependencies, lifecycle, artifacts, and platform compatibility. You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
+        :param lambda_function: The parameters to create a component from a Lambda function. You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
+        :param tags: Application-specific metadata to attach to the component version. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrassv2 as greengrassv2
+            
+            cfn_component_version_props = greengrassv2.CfnComponentVersionProps(
+                inline_recipe="inlineRecipe",
+                lambda_function=greengrassv2.CfnComponentVersion.LambdaFunctionRecipeSourceProperty(
+                    component_dependencies={
+                        "component_dependencies_key": greengrassv2.CfnComponentVersion.ComponentDependencyRequirementProperty(
+                            dependency_type="dependencyType",
+                            version_requirement="versionRequirement"
+                        )
+                    },
+                    component_lambda_parameters=greengrassv2.CfnComponentVersion.LambdaExecutionParametersProperty(
+                        environment_variables={
+                            "environment_variables_key": "environmentVariables"
+                        },
+                        event_sources=[greengrassv2.CfnComponentVersion.LambdaEventSourceProperty(
+                            topic="topic",
+                            type="type"
+                        )],
+                        exec_args=["execArgs"],
+                        input_payload_encoding_type="inputPayloadEncodingType",
+                        linux_process_params=greengrassv2.CfnComponentVersion.LambdaLinuxProcessParamsProperty(
+                            container_params=greengrassv2.CfnComponentVersion.LambdaContainerParamsProperty(
+                                devices=[greengrassv2.CfnComponentVersion.LambdaDeviceMountProperty(
+                                    add_group_owner=False,
+                                    path="path",
+                                    permission="permission"
+                                )],
+                                memory_size_in_kb=123,
+                                mount_ro_sysfs=False,
+                                volumes=[greengrassv2.CfnComponentVersion.LambdaVolumeMountProperty(
+                                    add_group_owner=False,
+                                    destination_path="destinationPath",
+                                    permission="permission",
+                                    source_path="sourcePath"
+                                )]
+                            ),
+                            isolation_mode="isolationMode"
+                        ),
+                        max_idle_time_in_seconds=123,
+                        max_instances_count=123,
+                        max_queue_size=123,
+                        pinned=False,
+                        status_timeout_in_seconds=123,
+                        timeout_in_seconds=123
+                    ),
+                    component_name="componentName",
+                    component_platforms=[greengrassv2.CfnComponentVersion.ComponentPlatformProperty(
+                        attributes={
+                            "attributes_key": "attributes"
+                        },
+                        name="name"
+                    )],
+                    component_version="componentVersion",
+                    lambda_arn="lambdaArn"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4)
+            check_type(argname="argument inline_recipe", value=inline_recipe, expected_type=type_hints["inline_recipe"])
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if inline_recipe is not None:
+            self._values["inline_recipe"] = inline_recipe
+        if lambda_function is not None:
+            self._values["lambda_function"] = lambda_function
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def inline_recipe(self) -> typing.Optional[builtins.str]:
+        '''The recipe to use to create the component.
+
+        The recipe defines the component's metadata, parameters, dependencies, lifecycle, artifacts, and platform compatibility.
+
+        You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-inlinerecipe
+        '''
+        result = self._values.get("inline_recipe")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def lambda_function(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]]:
+        '''The parameters to create a component from a Lambda function.
+
+        You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-lambdafunction
+        '''
+        result = self._values.get("lambda_function")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnComponentVersion.LambdaFunctionRecipeSourceProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Application-specific metadata to attach to the component version.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnComponentVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrassv2.CfnDeploymentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "target_arn": "targetArn",
+        "components": "components",
+        "deployment_name": "deploymentName",
+        "deployment_policies": "deploymentPolicies",
+        "iot_job_configuration": "iotJobConfiguration",
+        "parent_target_arn": "parentTargetArn",
+        "tags": "tags",
+    },
+)
+class CfnDeploymentProps:
+    def __init__(
+        self,
+        *,
+        target_arn: builtins.str,
+        components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.ComponentDeploymentSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        deployment_name: typing.Optional[builtins.str] = None,
+        deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.DeploymentPoliciesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDeployment.DeploymentIoTJobConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parent_target_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDeployment``.
+
+        :param target_arn: The ARN of the target AWS IoT thing or thing group.
+        :param components: The components to deploy. This is a dictionary, where each key is the name of a component, and each key's value is the version and configuration to deploy for that component.
+        :param deployment_name: The name of the deployment.
+        :param deployment_policies: The deployment policies for the deployment. These policies define how the deployment updates components and handles failure.
+        :param iot_job_configuration: The job configuration for the deployment configuration. The job configuration specifies the rollout, timeout, and stop configurations for the deployment configuration.
+        :param parent_target_arn: The parent deployment's `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ for a subdeployment.
+        :param tags: Application-specific metadata to attach to the deployment. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrassv2 as greengrassv2
+            
+            # rate_increase_criteria: Any
+            
+            cfn_deployment_props = greengrassv2.CfnDeploymentProps(
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                components={
+                    "components_key": greengrassv2.CfnDeployment.ComponentDeploymentSpecificationProperty(
+                        component_version="componentVersion",
+                        configuration_update=greengrassv2.CfnDeployment.ComponentConfigurationUpdateProperty(
+                            merge="merge",
+                            reset=["reset"]
+                        ),
+                        run_with=greengrassv2.CfnDeployment.ComponentRunWithProperty(
+                            posix_user="posixUser",
+                            system_resource_limits=greengrassv2.CfnDeployment.SystemResourceLimitsProperty(
+                                cpus=123,
+                                memory=123
+                            ),
+                            windows_user="windowsUser"
+                        )
+                    )
+                },
+                deployment_name="deploymentName",
+                deployment_policies=greengrassv2.CfnDeployment.DeploymentPoliciesProperty(
+                    component_update_policy=greengrassv2.CfnDeployment.DeploymentComponentUpdatePolicyProperty(
+                        action="action",
+                        timeout_in_seconds=123
+                    ),
+                    configuration_validation_policy=greengrassv2.CfnDeployment.DeploymentConfigurationValidationPolicyProperty(
+                        timeout_in_seconds=123
+                    ),
+                    failure_handling_policy="failureHandlingPolicy"
+                ),
+                iot_job_configuration=greengrassv2.CfnDeployment.DeploymentIoTJobConfigurationProperty(
+                    abort_config=greengrassv2.CfnDeployment.IoTJobAbortConfigProperty(
+                        criteria_list=[greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
+                            action="action",
+                            failure_type="failureType",
+                            min_number_of_executed_things=123,
+                            threshold_percentage=123
+                        )]
+                    ),
+                    job_executions_rollout_config=greengrassv2.CfnDeployment.IoTJobExecutionsRolloutConfigProperty(
+                        exponential_rate=greengrassv2.CfnDeployment.IoTJobExponentialRolloutRateProperty(
+                            base_rate_per_minute=123,
+                            increment_factor=123,
+                            rate_increase_criteria=rate_increase_criteria
+                        ),
+                        maximum_per_minute=123
+                    ),
+                    timeout_config=greengrassv2.CfnDeployment.IoTJobTimeoutConfigProperty(
+                        in_progress_timeout_in_minutes=123
+                    )
+                ),
+                parent_target_arn="parentTargetArn",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae)
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
+            check_type(argname="argument deployment_name", value=deployment_name, expected_type=type_hints["deployment_name"])
+            check_type(argname="argument deployment_policies", value=deployment_policies, expected_type=type_hints["deployment_policies"])
+            check_type(argname="argument iot_job_configuration", value=iot_job_configuration, expected_type=type_hints["iot_job_configuration"])
+            check_type(argname="argument parent_target_arn", value=parent_target_arn, expected_type=type_hints["parent_target_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "target_arn": target_arn,
+        }
+        if components is not None:
+            self._values["components"] = components
+        if deployment_name is not None:
+            self._values["deployment_name"] = deployment_name
+        if deployment_policies is not None:
+            self._values["deployment_policies"] = deployment_policies
+        if iot_job_configuration is not None:
+            self._values["iot_job_configuration"] = iot_job_configuration
+        if parent_target_arn is not None:
+            self._values["parent_target_arn"] = parent_target_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The ARN of the target AWS IoT thing or thing group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-targetarn
+        '''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def components(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]]:
+        '''The components to deploy.
+
+        This is a dictionary, where each key is the name of a component, and each key's value is the version and configuration to deploy for that component.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-components
+        '''
+        result = self._values.get("components")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnDeployment.ComponentDeploymentSpecificationProperty"]]]], result)
+
+    @builtins.property
+    def deployment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-deploymentname
+        '''
+        result = self._values.get("deployment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_policies(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DeploymentPoliciesProperty"]]:
+        '''The deployment policies for the deployment.
+
+        These policies define how the deployment updates components and handles failure.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-deploymentpolicies
+        '''
+        result = self._values.get("deployment_policies")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DeploymentPoliciesProperty"]], result)
+
+    @builtins.property
+    def iot_job_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DeploymentIoTJobConfigurationProperty"]]:
+        '''The job configuration for the deployment configuration.
+
+        The job configuration specifies the rollout, timeout, and stop configurations for the deployment configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-iotjobconfiguration
+        '''
+        result = self._values.get("iot_job_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDeployment.DeploymentIoTJobConfigurationProperty"]], result)
+
+    @builtins.property
+    def parent_target_arn(self) -> typing.Optional[builtins.str]:
+        '''The parent deployment's `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ for a subdeployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-parenttargetarn
+        '''
+        result = self._values.get("parent_target_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Application-specific metadata to attach to the deployment.
+
+        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
+
+        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
+
+           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
+           }
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeploymentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrassv2.ComponentVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"component_version_arn": "componentVersionArn"},
+)
+class ComponentVersionReference:
+    def __init__(self, *, component_version_arn: builtins.str) -> None:
+        '''A reference to a ComponentVersion resource.
+
+        :param component_version_arn: The Arn of the ComponentVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrassv2 as greengrassv2
+            
+            component_version_reference = greengrassv2.ComponentVersionReference(
+                component_version_arn="componentVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d16265f2a45eea905800a0420ef6a9aa6ecb24664494256746c7810f99282f94)
+            check_type(argname="argument component_version_arn", value=component_version_arn, expected_type=type_hints["component_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "component_version_arn": component_version_arn,
+        }
+
+    @builtins.property
+    def component_version_arn(self) -> builtins.str:
+        '''The Arn of the ComponentVersion resource.'''
+        result = self._values.get("component_version_arn")
+        assert result is not None, "Required property 'component_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComponentVersionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_greengrassv2.DeploymentReference",
+    jsii_struct_bases=[],
+    name_mapping={"deployment_id": "deploymentId"},
+)
+class DeploymentReference:
+    def __init__(self, *, deployment_id: builtins.str) -> None:
+        '''A reference to a Deployment resource.
+
+        :param deployment_id: The DeploymentId of the Deployment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_greengrassv2 as greengrassv2
+            
+            deployment_reference = greengrassv2.DeploymentReference(
+                deployment_id="deploymentId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__639e71b758b3b8d894101f7895fdd6a9985255060affbbf57a0774e728b26ca1)
+            check_type(argname="argument deployment_id", value=deployment_id, expected_type=type_hints["deployment_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "deployment_id": deployment_id,
+        }
+
+    @builtins.property
+    def deployment_id(self) -> builtins.str:
+        '''The DeploymentId of the Deployment resource.'''
+        result = self._values.get("deployment_id")
+        assert result is not None, "Required property 'deployment_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrassv2.IComponentVersionRef")
+class IComponentVersionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a ComponentVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="componentVersionRef")
+    def component_version_ref(self) -> ComponentVersionReference:
+        '''(experimental) A reference to a ComponentVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IComponentVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ComponentVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrassv2.IComponentVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="componentVersionRef")
+    def component_version_ref(self) -> ComponentVersionReference:
+        '''(experimental) A reference to a ComponentVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ComponentVersionReference, jsii.get(self, "componentVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IComponentVersionRef).__jsii_proxy_class__ = lambda : _IComponentVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_greengrassv2.IDeploymentRef")
+class IDeploymentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDeploymentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Deployment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_greengrassv2.IDeploymentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''(experimental) A reference to a Deployment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentRef).__jsii_proxy_class__ = lambda : _IDeploymentRefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IComponentVersionRef, _ITaggable_36806126)
 class CfnComponentVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -251,6 +812,12 @@ class CfnComponentVersion(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="componentVersionRef")
+    def component_version_ref(self) -> ComponentVersionReference:
+        '''A reference to a ComponentVersion resource.'''
+        return typing.cast(ComponentVersionReference, jsii.get(self, "componentVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1415,165 +1982,7 @@ class CfnComponentVersion(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrassv2.CfnComponentVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "inline_recipe": "inlineRecipe",
-        "lambda_function": "lambdaFunction",
-        "tags": "tags",
-    },
-)
-class CfnComponentVersionProps:
-    def __init__(
-        self,
-        *,
-        inline_recipe: typing.Optional[builtins.str] = None,
-        lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnComponentVersion``.
-
-        :param inline_recipe: The recipe to use to create the component. The recipe defines the component's metadata, parameters, dependencies, lifecycle, artifacts, and platform compatibility. You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
-        :param lambda_function: The parameters to create a component from a Lambda function. You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
-        :param tags: Application-specific metadata to attach to the component version. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrassv2 as greengrassv2
-            
-            cfn_component_version_props = greengrassv2.CfnComponentVersionProps(
-                inline_recipe="inlineRecipe",
-                lambda_function=greengrassv2.CfnComponentVersion.LambdaFunctionRecipeSourceProperty(
-                    component_dependencies={
-                        "component_dependencies_key": greengrassv2.CfnComponentVersion.ComponentDependencyRequirementProperty(
-                            dependency_type="dependencyType",
-                            version_requirement="versionRequirement"
-                        )
-                    },
-                    component_lambda_parameters=greengrassv2.CfnComponentVersion.LambdaExecutionParametersProperty(
-                        environment_variables={
-                            "environment_variables_key": "environmentVariables"
-                        },
-                        event_sources=[greengrassv2.CfnComponentVersion.LambdaEventSourceProperty(
-                            topic="topic",
-                            type="type"
-                        )],
-                        exec_args=["execArgs"],
-                        input_payload_encoding_type="inputPayloadEncodingType",
-                        linux_process_params=greengrassv2.CfnComponentVersion.LambdaLinuxProcessParamsProperty(
-                            container_params=greengrassv2.CfnComponentVersion.LambdaContainerParamsProperty(
-                                devices=[greengrassv2.CfnComponentVersion.LambdaDeviceMountProperty(
-                                    add_group_owner=False,
-                                    path="path",
-                                    permission="permission"
-                                )],
-                                memory_size_in_kb=123,
-                                mount_ro_sysfs=False,
-                                volumes=[greengrassv2.CfnComponentVersion.LambdaVolumeMountProperty(
-                                    add_group_owner=False,
-                                    destination_path="destinationPath",
-                                    permission="permission",
-                                    source_path="sourcePath"
-                                )]
-                            ),
-                            isolation_mode="isolationMode"
-                        ),
-                        max_idle_time_in_seconds=123,
-                        max_instances_count=123,
-                        max_queue_size=123,
-                        pinned=False,
-                        status_timeout_in_seconds=123,
-                        timeout_in_seconds=123
-                    ),
-                    component_name="componentName",
-                    component_platforms=[greengrassv2.CfnComponentVersion.ComponentPlatformProperty(
-                        attributes={
-                            "attributes_key": "attributes"
-                        },
-                        name="name"
-                    )],
-                    component_version="componentVersion",
-                    lambda_arn="lambdaArn"
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4)
-            check_type(argname="argument inline_recipe", value=inline_recipe, expected_type=type_hints["inline_recipe"])
-            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if inline_recipe is not None:
-            self._values["inline_recipe"] = inline_recipe
-        if lambda_function is not None:
-            self._values["lambda_function"] = lambda_function
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def inline_recipe(self) -> typing.Optional[builtins.str]:
-        '''The recipe to use to create the component.
-
-        The recipe defines the component's metadata, parameters, dependencies, lifecycle, artifacts, and platform compatibility.
-
-        You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-inlinerecipe
-        '''
-        result = self._values.get("inline_recipe")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def lambda_function(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComponentVersion.LambdaFunctionRecipeSourceProperty]]:
-        '''The parameters to create a component from a Lambda function.
-
-        You must specify either ``InlineRecipe`` or ``LambdaFunction`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-lambdafunction
-        '''
-        result = self._values.get("lambda_function")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnComponentVersion.LambdaFunctionRecipeSourceProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Application-specific metadata to attach to the component version.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-componentversion.html#cfn-greengrassv2-componentversion-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnComponentVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IDeploymentRef, _ITaggable_36806126)
 class CfnDeployment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1751,6 +2160,12 @@ class CfnDeployment(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> DeploymentReference:
+        '''A reference to a Deployment resource.'''
+        return typing.cast(DeploymentReference, jsii.get(self, "deploymentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3012,239 +3427,54 @@ class CfnDeployment(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_greengrassv2.CfnDeploymentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "target_arn": "targetArn",
-        "components": "components",
-        "deployment_name": "deploymentName",
-        "deployment_policies": "deploymentPolicies",
-        "iot_job_configuration": "iotJobConfiguration",
-        "parent_target_arn": "parentTargetArn",
-        "tags": "tags",
-    },
-)
-class CfnDeploymentProps:
-    def __init__(
-        self,
-        *,
-        target_arn: builtins.str,
-        components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        deployment_name: typing.Optional[builtins.str] = None,
-        deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        parent_target_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDeployment``.
-
-        :param target_arn: The ARN of the target AWS IoT thing or thing group.
-        :param components: The components to deploy. This is a dictionary, where each key is the name of a component, and each key's value is the version and configuration to deploy for that component.
-        :param deployment_name: The name of the deployment.
-        :param deployment_policies: The deployment policies for the deployment. These policies define how the deployment updates components and handles failure.
-        :param iot_job_configuration: The job configuration for the deployment configuration. The job configuration specifies the rollout, timeout, and stop configurations for the deployment configuration.
-        :param parent_target_arn: The parent deployment's `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ for a subdeployment.
-        :param tags: Application-specific metadata to attach to the deployment. You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* . This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates:: "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value" }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_greengrassv2 as greengrassv2
-            
-            # rate_increase_criteria: Any
-            
-            cfn_deployment_props = greengrassv2.CfnDeploymentProps(
-                target_arn="targetArn",
-            
-                # the properties below are optional
-                components={
-                    "components_key": greengrassv2.CfnDeployment.ComponentDeploymentSpecificationProperty(
-                        component_version="componentVersion",
-                        configuration_update=greengrassv2.CfnDeployment.ComponentConfigurationUpdateProperty(
-                            merge="merge",
-                            reset=["reset"]
-                        ),
-                        run_with=greengrassv2.CfnDeployment.ComponentRunWithProperty(
-                            posix_user="posixUser",
-                            system_resource_limits=greengrassv2.CfnDeployment.SystemResourceLimitsProperty(
-                                cpus=123,
-                                memory=123
-                            ),
-                            windows_user="windowsUser"
-                        )
-                    )
-                },
-                deployment_name="deploymentName",
-                deployment_policies=greengrassv2.CfnDeployment.DeploymentPoliciesProperty(
-                    component_update_policy=greengrassv2.CfnDeployment.DeploymentComponentUpdatePolicyProperty(
-                        action="action",
-                        timeout_in_seconds=123
-                    ),
-                    configuration_validation_policy=greengrassv2.CfnDeployment.DeploymentConfigurationValidationPolicyProperty(
-                        timeout_in_seconds=123
-                    ),
-                    failure_handling_policy="failureHandlingPolicy"
-                ),
-                iot_job_configuration=greengrassv2.CfnDeployment.DeploymentIoTJobConfigurationProperty(
-                    abort_config=greengrassv2.CfnDeployment.IoTJobAbortConfigProperty(
-                        criteria_list=[greengrassv2.CfnDeployment.IoTJobAbortCriteriaProperty(
-                            action="action",
-                            failure_type="failureType",
-                            min_number_of_executed_things=123,
-                            threshold_percentage=123
-                        )]
-                    ),
-                    job_executions_rollout_config=greengrassv2.CfnDeployment.IoTJobExecutionsRolloutConfigProperty(
-                        exponential_rate=greengrassv2.CfnDeployment.IoTJobExponentialRolloutRateProperty(
-                            base_rate_per_minute=123,
-                            increment_factor=123,
-                            rate_increase_criteria=rate_increase_criteria
-                        ),
-                        maximum_per_minute=123
-                    ),
-                    timeout_config=greengrassv2.CfnDeployment.IoTJobTimeoutConfigProperty(
-                        in_progress_timeout_in_minutes=123
-                    )
-                ),
-                parent_target_arn="parentTargetArn",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae)
-            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
-            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
-            check_type(argname="argument deployment_name", value=deployment_name, expected_type=type_hints["deployment_name"])
-            check_type(argname="argument deployment_policies", value=deployment_policies, expected_type=type_hints["deployment_policies"])
-            check_type(argname="argument iot_job_configuration", value=iot_job_configuration, expected_type=type_hints["iot_job_configuration"])
-            check_type(argname="argument parent_target_arn", value=parent_target_arn, expected_type=type_hints["parent_target_arn"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "target_arn": target_arn,
-        }
-        if components is not None:
-            self._values["components"] = components
-        if deployment_name is not None:
-            self._values["deployment_name"] = deployment_name
-        if deployment_policies is not None:
-            self._values["deployment_policies"] = deployment_policies
-        if iot_job_configuration is not None:
-            self._values["iot_job_configuration"] = iot_job_configuration
-        if parent_target_arn is not None:
-            self._values["parent_target_arn"] = parent_target_arn
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def target_arn(self) -> builtins.str:
-        '''The ARN of the target AWS IoT thing or thing group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-targetarn
-        '''
-        result = self._values.get("target_arn")
-        assert result is not None, "Required property 'target_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def components(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDeployment.ComponentDeploymentSpecificationProperty]]]]:
-        '''The components to deploy.
-
-        This is a dictionary, where each key is the name of a component, and each key's value is the version and configuration to deploy for that component.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-components
-        '''
-        result = self._values.get("components")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnDeployment.ComponentDeploymentSpecificationProperty]]]], result)
-
-    @builtins.property
-    def deployment_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the deployment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-deploymentname
-        '''
-        result = self._values.get("deployment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def deployment_policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentPoliciesProperty]]:
-        '''The deployment policies for the deployment.
-
-        These policies define how the deployment updates components and handles failure.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-deploymentpolicies
-        '''
-        result = self._values.get("deployment_policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentPoliciesProperty]], result)
-
-    @builtins.property
-    def iot_job_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentIoTJobConfigurationProperty]]:
-        '''The job configuration for the deployment configuration.
-
-        The job configuration specifies the rollout, timeout, and stop configurations for the deployment configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-iotjobconfiguration
-        '''
-        result = self._values.get("iot_job_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeployment.DeploymentIoTJobConfigurationProperty]], result)
-
-    @builtins.property
-    def parent_target_arn(self) -> typing.Optional[builtins.str]:
-        '''The parent deployment's `ARN <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ for a subdeployment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-parenttargetarn
-        '''
-        result = self._values.get("parent_target_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Application-specific metadata to attach to the deployment.
-
-        You can use tags in IAM policies to control access to AWS IoT Greengrass resources. You can also use tags to categorize your resources. For more information, see `Tag your AWS IoT Greengrass Version 2 resources <https://docs.aws.amazon.com/greengrass/v2/developerguide/tag-resources.html>`_ in the *AWS IoT Greengrass V2 Developer Guide* .
-
-        This ``Json`` property type is processed as a map of key-value pairs. It uses the following format, which is different from most ``Tags`` implementations in AWS CloudFormation templates::
-
-           "Tags": { "KeyName0": "value", "KeyName1": "value", "KeyName2": "value"
-           }
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-greengrassv2-deployment.html#cfn-greengrassv2-deployment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDeploymentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnComponentVersion",
     "CfnComponentVersionProps",
     "CfnDeployment",
     "CfnDeploymentProps",
+    "ComponentVersionReference",
+    "DeploymentReference",
+    "IComponentVersionRef",
+    "IDeploymentRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4(
+    *,
+    inline_recipe: typing.Optional[builtins.str] = None,
+    lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae(
+    *,
+    target_arn: builtins.str,
+    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    deployment_name: typing.Optional[builtins.str] = None,
+    deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parent_target_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d16265f2a45eea905800a0420ef6a9aa6ecb24664494256746c7810f99282f94(
+    *,
+    component_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__639e71b758b3b8d894101f7895fdd6a9985255060affbbf57a0774e728b26ca1(
+    *,
+    deployment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f5d46224f527e073fe7f6fbe54ccaca3f0045fcc0ade3462681ae8b0575c59e0(
     scope: _constructs_77d1e7e8.Construct,
@@ -3373,15 +3603,6 @@ def _typecheckingstub__2bbd7759f413868e7d380d01e235f94a2424b3a59ed198c9bb3e2b55a
     destination_path: typing.Optional[builtins.str] = None,
     permission: typing.Optional[builtins.str] = None,
     source_path: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26145a7c787773c5d69bceaa1a73ff40d6d4fa0dcdb0fa8cda22627f2fbac7e4(
-    *,
-    inline_recipe: typing.Optional[builtins.str] = None,
-    lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComponentVersion.LambdaFunctionRecipeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3559,19 +3780,6 @@ def _typecheckingstub__beb6642ef9cd43c09502aafc4577b01875cde60d31da577d2abd28f4f
     *,
     cpus: typing.Optional[jsii.Number] = None,
     memory: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fc578e58fd2afb40d1b3a59c721c6a2a4fc1bd28a9afedcea97a964957c5c5ae(
-    *,
-    target_arn: builtins.str,
-    components: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.ComponentDeploymentSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    deployment_name: typing.Optional[builtins.str] = None,
-    deployment_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentPoliciesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    iot_job_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDeployment.DeploymentIoTJobConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parent_target_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

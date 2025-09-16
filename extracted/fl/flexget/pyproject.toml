@@ -73,10 +73,10 @@ gui-scripts.flexget-headless = "flexget:main" # This is useful on Windows to avo
 dev = [
   "pre-commit~=4.0",
   "pytest~=8.3",
-  "pytest-cov~=6.1",
+  "pytest-cov~=7.0",
   "pytest-socket~=0.7.0",
   "pytest-xdist~=3.6",
-  "ruff==0.12.12",
+  "ruff==0.13.0",
   "vcrpy~=7.0",
 ]
 docs = [
@@ -248,7 +248,6 @@ filterwarnings = [
   "ignore:jsonschema.RefResolver is deprecated as of v4.18.0:DeprecationWarning:flask_restx.api",                            # Can’t be fixed, consider migrating to `flask-smorest` to eliminate it. See https://github.com/python-restx/flask-restx/issues/633#issuecomment-2962412240
   'ignore:tzname PST identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_input_sites.py::TestInputSites::test_apple_trailers_simple  tests/test_input_sites.py::TestInputSites::test_apple_trailers
   'ignore:tzname EDT identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_rss.py::TestRssOnline::test_rss_online
-  "ignore:unclosed file <_io.BufferedReader name=':ResourceWarning:telegram._utils.files",                                   # Can be removed once `python-telegram-bot` makes a new release
   'ignore:Failed to load HostKeys from:UserWarning:pysftp',                                                                  # Can’t be fixed, https://stackoverflow.com/q/56521549 It's a bug in pysftp 0.2.9, not in 0.2.8
 ]
 markers = [

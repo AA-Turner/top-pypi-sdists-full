@@ -576,6 +576,7 @@ def _make_data_public_fields(m: types.Model) -> Dict[str, Any]:
       'qfrc_constraint': (m.nv, float_),
       'qfrc_inverse': (m.nv, float_),
       'cvel': (m.nbody, 6, float_),
+      'ten_length': (m.ntendon, float_),
   }
   zero_fields = {
       k: np.zeros(v[:-1], dtype=v[-1]) for k, v in zero_fields.items()
@@ -637,7 +638,6 @@ def _make_data_jax(
       'ten_wrapadr': (m.ntendon, np.int32),
       'ten_wrapnum': (m.ntendon, np.int32),
       'ten_J': (m.ntendon, m.nv, float_),
-      'ten_length': (m.ntendon, float_),
       'wrap_obj': (m.nwrap, 2, np.int32),
       'wrap_xpos': (m.nwrap, 6, float_),
       'actuator_length': (m.nu, float_),
@@ -742,7 +742,6 @@ def _make_data_c(
       'ten_J_rowadr': (m.ntendon, np.int32),
       'ten_J_colind': (m.ntendon, m.nv, np.int32),
       'ten_J': (m.ntendon, m.nv, float_),
-      'ten_length': (m.ntendon, float_),
       'ten_wrapadr': (m.ntendon, np.int32),
       'ten_wrapnum': (m.ntendon, np.int32),
       'wrap_obj': (m.nwrap, 2, np.int32),
@@ -765,19 +764,6 @@ def _make_data_c(
       'ten_velocity': (m.ntendon, float_),
       'actuator_velocity': (m.nu, float_),
       'plugin_data': (get(m, 'nplugin'), np.uint64),
-      'B_rownnz': (m.nbody, np.int32),
-      'B_rowadr': (m.nbody, np.int32),
-      'B_colind': (m.nB, np.int32),
-      'M_rownnz': (m.nv, np.int32),
-      'M_rowadr': (m.nv, np.int32),
-      'M_colind': (m.nC, np.int32),
-      'mapM2M': (m.nC, np.int32),
-      'D_rownnz': (m.nv, np.int32),
-      'D_rowadr': (m.nv, np.int32),
-      'D_diag': (m.nv, np.int32),
-      'D_colind': (m.nD, np.int32),
-      'mapM2D': (m.nD, np.int32),
-      'mapD2M': (m.nM, np.int32),
       'qDeriv': (m.nD, float_),
       'qLU': (m.nD, float_),
       'qfrc_spring': (m.nv, float_),
@@ -1315,7 +1301,7 @@ def _get_data_into_warp(
     )
     result_i = result[i] if batched else result
     ncon = d_i._impl.ncon[0]
-    nefc = int(d_i._impl.nefc[0])
+    nefc = int(d_i._impl.nefc)
     # nj = int(d_i._impl.nj[0])
     nj = 0  # TODO(btaba): add nj back
 
@@ -1336,7 +1322,7 @@ def _get_data_into_warp(
         value = getattr(d_i, field.name)
 
       if field.name in ('ne', 'nl', 'nf'):
-        value = value[0]
+        pass
       elif field.name in ('nefc', 'ncon'):
         value = {'nefc': nefc, 'ncon': ncon}[field.name]
       elif field.name.endswith('xmat') or field.name == 'ximat':
@@ -1498,7 +1484,7 @@ def _get_data_into(
 
     # TODO(taylorhowell): remove mapping once qM is deprecated
     # map inertia (sparse) to reduced inertia (compressed sparse) representation
-    result_i.M[:] = result_i.qM[result_i.mapM2M]
+    result_i.M[:] = result_i.qM[m.mapM2M]
 
     # recalculate qLD and qLDiagInv as MJX and MuJoCo have different
     # representations of the Cholesky decomposition.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pysonar
-Version: 1.1.0.2035
+Version: 1.2.0.2419
 Summary: Sonar Scanner for the Python Ecosystem
 License: LGPL-3.0-only
 Keywords: sonar,sonarqube,sonarcloud,cleancode
@@ -20,9 +20,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Dist: jproperties (==2.1.2)
-Requires-Dist: pyfakefs (==5.8.0)
-Requires-Dist: requests (==2.32.4)
-Requires-Dist: responses (==0.25.6)
+Requires-Dist: pyfakefs (==5.9.3)
+Requires-Dist: requests (==2.32.5)
+Requires-Dist: responses (==0.25.8)
 Requires-Dist: tomli (==2.2.1)
 Project-URL: Homepage, https://github.com/SonarSource/sonar-scanner-python
 Project-URL: Repository, https://github.com/SonarSource/sonar-scanner-python

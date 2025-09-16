@@ -68,7 +68,1012 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnLaunchProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ec2_subnet_ids": "ec2SubnetIds",
+        "launch_profile_protocol_versions": "launchProfileProtocolVersions",
+        "name": "name",
+        "stream_configuration": "streamConfiguration",
+        "studio_component_ids": "studioComponentIds",
+        "studio_id": "studioId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnLaunchProfileProps:
+    def __init__(
+        self,
+        *,
+        ec2_subnet_ids: typing.Sequence[builtins.str],
+        launch_profile_protocol_versions: typing.Sequence[builtins.str],
+        name: builtins.str,
+        stream_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLaunchProfile.StreamConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        studio_component_ids: typing.Sequence[builtins.str],
+        studio_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLaunchProfile``.
+
+        :param ec2_subnet_ids: 
+        :param launch_profile_protocol_versions: 
+        :param name: 
+        :param stream_configuration: 
+        :param studio_component_ids: 
+        :param studio_id: 
+        :param description: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            cfn_launch_profile_props = nimblestudio.CfnLaunchProfileProps(
+                ec2_subnet_ids=["ec2SubnetIds"],
+                launch_profile_protocol_versions=["launchProfileProtocolVersions"],
+                name="name",
+                stream_configuration=nimblestudio.CfnLaunchProfile.StreamConfigurationProperty(
+                    clipboard_mode="clipboardMode",
+                    ec2_instance_types=["ec2InstanceTypes"],
+                    streaming_image_ids=["streamingImageIds"],
+            
+                    # the properties below are optional
+                    automatic_termination_mode="automaticTerminationMode",
+                    max_session_length_in_minutes=123,
+                    max_stopped_session_length_in_minutes=123,
+                    session_backup=nimblestudio.CfnLaunchProfile.StreamConfigurationSessionBackupProperty(
+                        max_backups_to_retain=123,
+                        mode="mode"
+                    ),
+                    session_persistence_mode="sessionPersistenceMode",
+                    session_storage=nimblestudio.CfnLaunchProfile.StreamConfigurationSessionStorageProperty(
+                        mode=["mode"],
+            
+                        # the properties below are optional
+                        root=nimblestudio.CfnLaunchProfile.StreamingSessionStorageRootProperty(
+                            linux="linux",
+                            windows="windows"
+                        )
+                    ),
+                    volume_configuration=nimblestudio.CfnLaunchProfile.VolumeConfigurationProperty(
+                        iops=123,
+                        size=123,
+                        throughput=123
+                    )
+                ),
+                studio_component_ids=["studioComponentIds"],
+                studio_id="studioId",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b43819be936b43afea9ec331a5d4d93db811f04b73c74189dfabbb03a021968)
+            check_type(argname="argument ec2_subnet_ids", value=ec2_subnet_ids, expected_type=type_hints["ec2_subnet_ids"])
+            check_type(argname="argument launch_profile_protocol_versions", value=launch_profile_protocol_versions, expected_type=type_hints["launch_profile_protocol_versions"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument stream_configuration", value=stream_configuration, expected_type=type_hints["stream_configuration"])
+            check_type(argname="argument studio_component_ids", value=studio_component_ids, expected_type=type_hints["studio_component_ids"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ec2_subnet_ids": ec2_subnet_ids,
+            "launch_profile_protocol_versions": launch_profile_protocol_versions,
+            "name": name,
+            "stream_configuration": stream_configuration,
+            "studio_component_ids": studio_component_ids,
+            "studio_id": studio_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def ec2_subnet_ids(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-ec2subnetids
+        '''
+        result = self._values.get("ec2_subnet_ids")
+        assert result is not None, "Required property 'ec2_subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def launch_profile_protocol_versions(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-launchprofileprotocolversions
+        '''
+        result = self._values.get("launch_profile_protocol_versions")
+        assert result is not None, "Required property 'launch_profile_protocol_versions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnLaunchProfile.StreamConfigurationProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-streamconfiguration
+        '''
+        result = self._values.get("stream_configuration")
+        assert result is not None, "Required property 'stream_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLaunchProfile.StreamConfigurationProperty"], result)
+
+    @builtins.property
+    def studio_component_ids(self) -> typing.List[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-studiocomponentids
+        '''
+        result = self._values.get("studio_component_ids")
+        assert result is not None, "Required property 'studio_component_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-studioid
+        '''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLaunchProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStreamingImageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ec2_image_id": "ec2ImageId",
+        "name": "name",
+        "studio_id": "studioId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnStreamingImageProps:
+    def __init__(
+        self,
+        *,
+        ec2_image_id: builtins.str,
+        name: builtins.str,
+        studio_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStreamingImage``.
+
+        :param ec2_image_id: 
+        :param name: 
+        :param studio_id: 
+        :param description: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            cfn_streaming_image_props = nimblestudio.CfnStreamingImageProps(
+                ec2_image_id="ec2ImageId",
+                name="name",
+                studio_id="studioId",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5639283dde9f5507e33ed3b0cc8e4bb11678e400c6ec36786bc8e646353a366d)
+            check_type(argname="argument ec2_image_id", value=ec2_image_id, expected_type=type_hints["ec2_image_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ec2_image_id": ec2_image_id,
+            "name": name,
+            "studio_id": studio_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def ec2_image_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-ec2imageid
+        '''
+        result = self._values.get("ec2_image_id")
+        assert result is not None, "Required property 'ec2_image_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-studioid
+        '''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamingImageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudioComponentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "studio_id": "studioId",
+        "type": "type",
+        "configuration": "configuration",
+        "description": "description",
+        "ec2_security_group_ids": "ec2SecurityGroupIds",
+        "initialization_scripts": "initializationScripts",
+        "script_parameters": "scriptParameters",
+        "subtype": "subtype",
+        "tags": "tags",
+    },
+)
+class CfnStudioComponentProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        studio_id: builtins.str,
+        type: builtins.str,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStudioComponent.StudioComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        ec2_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        initialization_scripts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStudioComponent.StudioComponentInitializationScriptProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        script_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStudioComponent.ScriptParameterKeyValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        subtype: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStudioComponent``.
+
+        :param name: 
+        :param studio_id: 
+        :param type: 
+        :param configuration: 
+        :param description: 
+        :param ec2_security_group_ids: 
+        :param initialization_scripts: 
+        :param script_parameters: 
+        :param subtype: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            cfn_studio_component_props = nimblestudio.CfnStudioComponentProps(
+                name="name",
+                studio_id="studioId",
+                type="type",
+            
+                # the properties below are optional
+                configuration=nimblestudio.CfnStudioComponent.StudioComponentConfigurationProperty(
+                    active_directory_configuration=nimblestudio.CfnStudioComponent.ActiveDirectoryConfigurationProperty(
+                        computer_attributes=[nimblestudio.CfnStudioComponent.ActiveDirectoryComputerAttributeProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        directory_id="directoryId",
+                        organizational_unit_distinguished_name="organizationalUnitDistinguishedName"
+                    ),
+                    compute_farm_configuration=nimblestudio.CfnStudioComponent.ComputeFarmConfigurationProperty(
+                        active_directory_user="activeDirectoryUser",
+                        endpoint="endpoint"
+                    ),
+                    license_service_configuration=nimblestudio.CfnStudioComponent.LicenseServiceConfigurationProperty(
+                        endpoint="endpoint"
+                    ),
+                    shared_file_system_configuration=nimblestudio.CfnStudioComponent.SharedFileSystemConfigurationProperty(
+                        endpoint="endpoint",
+                        file_system_id="fileSystemId",
+                        linux_mount_point="linuxMountPoint",
+                        share_name="shareName",
+                        windows_mount_drive="windowsMountDrive"
+                    )
+                ),
+                description="description",
+                ec2_security_group_ids=["ec2SecurityGroupIds"],
+                initialization_scripts=[nimblestudio.CfnStudioComponent.StudioComponentInitializationScriptProperty(
+                    launch_profile_protocol_version="launchProfileProtocolVersion",
+                    platform="platform",
+                    run_context="runContext",
+                    script="script"
+                )],
+                script_parameters=[nimblestudio.CfnStudioComponent.ScriptParameterKeyValueProperty(
+                    key="key",
+                    value="value"
+                )],
+                subtype="subtype",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__452974fbd84550efbe28df9f5e4cb6049d1527391e07a1544107fc2f0186e7dc)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument ec2_security_group_ids", value=ec2_security_group_ids, expected_type=type_hints["ec2_security_group_ids"])
+            check_type(argname="argument initialization_scripts", value=initialization_scripts, expected_type=type_hints["initialization_scripts"])
+            check_type(argname="argument script_parameters", value=script_parameters, expected_type=type_hints["script_parameters"])
+            check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "studio_id": studio_id,
+            "type": type,
+        }
+        if configuration is not None:
+            self._values["configuration"] = configuration
+        if description is not None:
+            self._values["description"] = description
+        if ec2_security_group_ids is not None:
+            self._values["ec2_security_group_ids"] = ec2_security_group_ids
+        if initialization_scripts is not None:
+            self._values["initialization_scripts"] = initialization_scripts
+        if script_parameters is not None:
+            self._values["script_parameters"] = script_parameters
+        if subtype is not None:
+            self._values["subtype"] = subtype
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-studioid
+        '''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.StudioComponentConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-configuration
+        '''
+        result = self._values.get("configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.StudioComponentConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ec2_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-ec2securitygroupids
+        '''
+        result = self._values.get("ec2_security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def initialization_scripts(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.StudioComponentInitializationScriptProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-initializationscripts
+        '''
+        result = self._values.get("initialization_scripts")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.StudioComponentInitializationScriptProperty"]]]], result)
+
+    @builtins.property
+    def script_parameters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.ScriptParameterKeyValueProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-scriptparameters
+        '''
+        result = self._values.get("script_parameters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStudioComponent.ScriptParameterKeyValueProperty"]]]], result)
+
+    @builtins.property
+    def subtype(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-subtype
+        '''
+        result = self._values.get("subtype")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStudioComponentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudioProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "admin_role_arn": "adminRoleArn",
+        "display_name": "displayName",
+        "studio_name": "studioName",
+        "user_role_arn": "userRoleArn",
+        "studio_encryption_configuration": "studioEncryptionConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnStudioProps:
+    def __init__(
+        self,
+        *,
+        admin_role_arn: builtins.str,
+        display_name: builtins.str,
+        studio_name: builtins.str,
+        user_role_arn: builtins.str,
+        studio_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStudio.StudioEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStudio``.
+
+        :param admin_role_arn: 
+        :param display_name: 
+        :param studio_name: 
+        :param user_role_arn: 
+        :param studio_encryption_configuration: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            cfn_studio_props = nimblestudio.CfnStudioProps(
+                admin_role_arn="adminRoleArn",
+                display_name="displayName",
+                studio_name="studioName",
+                user_role_arn="userRoleArn",
+            
+                # the properties below are optional
+                studio_encryption_configuration=nimblestudio.CfnStudio.StudioEncryptionConfigurationProperty(
+                    key_type="keyType",
+            
+                    # the properties below are optional
+                    key_arn="keyArn"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adecf8657a6c6a9dbaea94911b353618ab8a0000478c99ec27d8a488e0e2469e)
+            check_type(argname="argument admin_role_arn", value=admin_role_arn, expected_type=type_hints["admin_role_arn"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument studio_name", value=studio_name, expected_type=type_hints["studio_name"])
+            check_type(argname="argument user_role_arn", value=user_role_arn, expected_type=type_hints["user_role_arn"])
+            check_type(argname="argument studio_encryption_configuration", value=studio_encryption_configuration, expected_type=type_hints["studio_encryption_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "admin_role_arn": admin_role_arn,
+            "display_name": display_name,
+            "studio_name": studio_name,
+            "user_role_arn": user_role_arn,
+        }
+        if studio_encryption_configuration is not None:
+            self._values["studio_encryption_configuration"] = studio_encryption_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def admin_role_arn(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-adminrolearn
+        '''
+        result = self._values.get("admin_role_arn")
+        assert result is not None, "Required property 'admin_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-studioname
+        '''
+        result = self._values.get("studio_name")
+        assert result is not None, "Required property 'studio_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_role_arn(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-userrolearn
+        '''
+        result = self._values.get("user_role_arn")
+        assert result is not None, "Required property 'user_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def studio_encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStudio.StudioEncryptionConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-studioencryptionconfiguration
+        '''
+        result = self._values.get("studio_encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStudio.StudioEncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStudioProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_nimblestudio.ILaunchProfileRef")
+class ILaunchProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="launchProfileRef")
+    def launch_profile_ref(self) -> "LaunchProfileReference":
+        '''(experimental) A reference to a LaunchProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILaunchProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LaunchProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_nimblestudio.ILaunchProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="launchProfileRef")
+    def launch_profile_ref(self) -> "LaunchProfileReference":
+        '''(experimental) A reference to a LaunchProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LaunchProfileReference", jsii.get(self, "launchProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILaunchProfileRef).__jsii_proxy_class__ = lambda : _ILaunchProfileRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_nimblestudio.IStreamingImageRef")
+class IStreamingImageRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StreamingImage.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="streamingImageRef")
+    def streaming_image_ref(self) -> "StreamingImageReference":
+        '''(experimental) A reference to a StreamingImage resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStreamingImageRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StreamingImage.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_nimblestudio.IStreamingImageRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="streamingImageRef")
+    def streaming_image_ref(self) -> "StreamingImageReference":
+        '''(experimental) A reference to a StreamingImage resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StreamingImageReference", jsii.get(self, "streamingImageRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStreamingImageRef).__jsii_proxy_class__ = lambda : _IStreamingImageRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_nimblestudio.IStudioComponentRef")
+class IStudioComponentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a StudioComponent.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="studioComponentRef")
+    def studio_component_ref(self) -> "StudioComponentReference":
+        '''(experimental) A reference to a StudioComponent resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStudioComponentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a StudioComponent.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_nimblestudio.IStudioComponentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="studioComponentRef")
+    def studio_component_ref(self) -> "StudioComponentReference":
+        '''(experimental) A reference to a StudioComponent resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StudioComponentReference", jsii.get(self, "studioComponentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStudioComponentRef).__jsii_proxy_class__ = lambda : _IStudioComponentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_nimblestudio.IStudioRef")
+class IStudioRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Studio.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> "StudioReference":
+        '''(experimental) A reference to a Studio resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IStudioRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Studio.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_nimblestudio.IStudioRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> "StudioReference":
+        '''(experimental) A reference to a Studio resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("StudioReference", jsii.get(self, "studioRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStudioRef).__jsii_proxy_class__ = lambda : _IStudioRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.LaunchProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class LaunchProfileReference:
+    def __init__(self) -> None:
+        '''A reference to a LaunchProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            launch_profile_reference = nimblestudio.LaunchProfileReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LaunchProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.StreamingImageReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class StreamingImageReference:
+    def __init__(self) -> None:
+        '''A reference to a StreamingImage resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            streaming_image_reference = nimblestudio.StreamingImageReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StreamingImageReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.StudioComponentReference",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class StudioComponentReference:
+    def __init__(self) -> None:
+        '''A reference to a StudioComponent resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            studio_component_reference = nimblestudio.StudioComponentReference()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StudioComponentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_nimblestudio.StudioReference",
+    jsii_struct_bases=[],
+    name_mapping={"studio_id": "studioId"},
+)
+class StudioReference:
+    def __init__(self, *, studio_id: builtins.str) -> None:
+        '''A reference to a Studio resource.
+
+        :param studio_id: The StudioId of the Studio resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_nimblestudio as nimblestudio
+            
+            studio_reference = nimblestudio.StudioReference(
+                studio_id="studioId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30a84d2965a12247bec3be05bcfb7b78c511e50722dc6324cfd7a95f8bc26505)
+            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "studio_id": studio_id,
+        }
+
+    @builtins.property
+    def studio_id(self) -> builtins.str:
+        '''The StudioId of the Studio resource.'''
+        result = self._values.get("studio_id")
+        assert result is not None, "Required property 'studio_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StudioReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, ILaunchProfileRef, _ITaggable_36806126)
 class CfnLaunchProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -215,6 +1220,12 @@ class CfnLaunchProfile(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="launchProfileRef")
+    def launch_profile_ref(self) -> LaunchProfileReference:
+        '''A reference to a LaunchProfile resource.'''
+        return typing.cast(LaunchProfileReference, jsii.get(self, "launchProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -834,204 +1845,7 @@ class CfnLaunchProfile(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnLaunchProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ec2_subnet_ids": "ec2SubnetIds",
-        "launch_profile_protocol_versions": "launchProfileProtocolVersions",
-        "name": "name",
-        "stream_configuration": "streamConfiguration",
-        "studio_component_ids": "studioComponentIds",
-        "studio_id": "studioId",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnLaunchProfileProps:
-    def __init__(
-        self,
-        *,
-        ec2_subnet_ids: typing.Sequence[builtins.str],
-        launch_profile_protocol_versions: typing.Sequence[builtins.str],
-        name: builtins.str,
-        stream_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchProfile.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-        studio_component_ids: typing.Sequence[builtins.str],
-        studio_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLaunchProfile``.
-
-        :param ec2_subnet_ids: 
-        :param launch_profile_protocol_versions: 
-        :param name: 
-        :param stream_configuration: 
-        :param studio_component_ids: 
-        :param studio_id: 
-        :param description: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_nimblestudio as nimblestudio
-            
-            cfn_launch_profile_props = nimblestudio.CfnLaunchProfileProps(
-                ec2_subnet_ids=["ec2SubnetIds"],
-                launch_profile_protocol_versions=["launchProfileProtocolVersions"],
-                name="name",
-                stream_configuration=nimblestudio.CfnLaunchProfile.StreamConfigurationProperty(
-                    clipboard_mode="clipboardMode",
-                    ec2_instance_types=["ec2InstanceTypes"],
-                    streaming_image_ids=["streamingImageIds"],
-            
-                    # the properties below are optional
-                    automatic_termination_mode="automaticTerminationMode",
-                    max_session_length_in_minutes=123,
-                    max_stopped_session_length_in_minutes=123,
-                    session_backup=nimblestudio.CfnLaunchProfile.StreamConfigurationSessionBackupProperty(
-                        max_backups_to_retain=123,
-                        mode="mode"
-                    ),
-                    session_persistence_mode="sessionPersistenceMode",
-                    session_storage=nimblestudio.CfnLaunchProfile.StreamConfigurationSessionStorageProperty(
-                        mode=["mode"],
-            
-                        # the properties below are optional
-                        root=nimblestudio.CfnLaunchProfile.StreamingSessionStorageRootProperty(
-                            linux="linux",
-                            windows="windows"
-                        )
-                    ),
-                    volume_configuration=nimblestudio.CfnLaunchProfile.VolumeConfigurationProperty(
-                        iops=123,
-                        size=123,
-                        throughput=123
-                    )
-                ),
-                studio_component_ids=["studioComponentIds"],
-                studio_id="studioId",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b43819be936b43afea9ec331a5d4d93db811f04b73c74189dfabbb03a021968)
-            check_type(argname="argument ec2_subnet_ids", value=ec2_subnet_ids, expected_type=type_hints["ec2_subnet_ids"])
-            check_type(argname="argument launch_profile_protocol_versions", value=launch_profile_protocol_versions, expected_type=type_hints["launch_profile_protocol_versions"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument stream_configuration", value=stream_configuration, expected_type=type_hints["stream_configuration"])
-            check_type(argname="argument studio_component_ids", value=studio_component_ids, expected_type=type_hints["studio_component_ids"])
-            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ec2_subnet_ids": ec2_subnet_ids,
-            "launch_profile_protocol_versions": launch_profile_protocol_versions,
-            "name": name,
-            "stream_configuration": stream_configuration,
-            "studio_component_ids": studio_component_ids,
-            "studio_id": studio_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def ec2_subnet_ids(self) -> typing.List[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-ec2subnetids
-        '''
-        result = self._values.get("ec2_subnet_ids")
-        assert result is not None, "Required property 'ec2_subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def launch_profile_protocol_versions(self) -> typing.List[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-launchprofileprotocolversions
-        '''
-        result = self._values.get("launch_profile_protocol_versions")
-        assert result is not None, "Required property 'launch_profile_protocol_versions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stream_configuration(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnLaunchProfile.StreamConfigurationProperty]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-streamconfiguration
-        '''
-        result = self._values.get("stream_configuration")
-        assert result is not None, "Required property 'stream_configuration' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLaunchProfile.StreamConfigurationProperty], result)
-
-    @builtins.property
-    def studio_component_ids(self) -> typing.List[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-studiocomponentids
-        '''
-        result = self._values.get("studio_component_ids")
-        assert result is not None, "Required property 'studio_component_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def studio_id(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-studioid
-        '''
-        result = self._values.get("studio_id")
-        assert result is not None, "Required property 'studio_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-launchprofile.html#cfn-nimblestudio-launchprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLaunchProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStreamingImageRef, _ITaggable_36806126)
 class CfnStreamingImage(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1188,6 +2002,12 @@ class CfnStreamingImage(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="streamingImageRef")
+    def streaming_image_ref(self) -> StreamingImageReference:
+        '''A reference to a StreamingImage resource.'''
+        return typing.cast(StreamingImageReference, jsii.get(self, "streamingImageRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -1327,129 +2147,7 @@ class CfnStreamingImage(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStreamingImageProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ec2_image_id": "ec2ImageId",
-        "name": "name",
-        "studio_id": "studioId",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnStreamingImageProps:
-    def __init__(
-        self,
-        *,
-        ec2_image_id: builtins.str,
-        name: builtins.str,
-        studio_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStreamingImage``.
-
-        :param ec2_image_id: 
-        :param name: 
-        :param studio_id: 
-        :param description: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_nimblestudio as nimblestudio
-            
-            cfn_streaming_image_props = nimblestudio.CfnStreamingImageProps(
-                ec2_image_id="ec2ImageId",
-                name="name",
-                studio_id="studioId",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5639283dde9f5507e33ed3b0cc8e4bb11678e400c6ec36786bc8e646353a366d)
-            check_type(argname="argument ec2_image_id", value=ec2_image_id, expected_type=type_hints["ec2_image_id"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ec2_image_id": ec2_image_id,
-            "name": name,
-            "studio_id": studio_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def ec2_image_id(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-ec2imageid
-        '''
-        result = self._values.get("ec2_image_id")
-        assert result is not None, "Required property 'ec2_image_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def studio_id(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-studioid
-        '''
-        result = self._values.get("studio_id")
-        assert result is not None, "Required property 'studio_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-streamingimage.html#cfn-nimblestudio-streamingimage-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamingImageProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStudioRef, _ITaggable_36806126)
 class CfnStudio(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1589,6 +2287,12 @@ class CfnStudio(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="studioRef")
+    def studio_ref(self) -> StudioReference:
+        '''A reference to a Studio resource.'''
+        return typing.cast(StudioReference, jsii.get(self, "studioRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1747,7 +2451,7 @@ class CfnStudio(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IStudioComponentRef, _ITaggable_36806126)
 class CfnStudioComponent(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1905,6 +2609,12 @@ class CfnStudioComponent(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="studioComponentRef")
+    def studio_component_ref(self) -> StudioComponentReference:
+        '''A reference to a StudioComponent resource.'''
+        return typing.cast(StudioComponentReference, jsii.get(self, "studioComponentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2740,384 +3450,6 @@ class CfnStudioComponent(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudioComponentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "studio_id": "studioId",
-        "type": "type",
-        "configuration": "configuration",
-        "description": "description",
-        "ec2_security_group_ids": "ec2SecurityGroupIds",
-        "initialization_scripts": "initializationScripts",
-        "script_parameters": "scriptParameters",
-        "subtype": "subtype",
-        "tags": "tags",
-    },
-)
-class CfnStudioComponentProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        studio_id: builtins.str,
-        type: builtins.str,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        ec2_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        initialization_scripts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentInitializationScriptProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        script_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.ScriptParameterKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        subtype: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStudioComponent``.
-
-        :param name: 
-        :param studio_id: 
-        :param type: 
-        :param configuration: 
-        :param description: 
-        :param ec2_security_group_ids: 
-        :param initialization_scripts: 
-        :param script_parameters: 
-        :param subtype: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_nimblestudio as nimblestudio
-            
-            cfn_studio_component_props = nimblestudio.CfnStudioComponentProps(
-                name="name",
-                studio_id="studioId",
-                type="type",
-            
-                # the properties below are optional
-                configuration=nimblestudio.CfnStudioComponent.StudioComponentConfigurationProperty(
-                    active_directory_configuration=nimblestudio.CfnStudioComponent.ActiveDirectoryConfigurationProperty(
-                        computer_attributes=[nimblestudio.CfnStudioComponent.ActiveDirectoryComputerAttributeProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        directory_id="directoryId",
-                        organizational_unit_distinguished_name="organizationalUnitDistinguishedName"
-                    ),
-                    compute_farm_configuration=nimblestudio.CfnStudioComponent.ComputeFarmConfigurationProperty(
-                        active_directory_user="activeDirectoryUser",
-                        endpoint="endpoint"
-                    ),
-                    license_service_configuration=nimblestudio.CfnStudioComponent.LicenseServiceConfigurationProperty(
-                        endpoint="endpoint"
-                    ),
-                    shared_file_system_configuration=nimblestudio.CfnStudioComponent.SharedFileSystemConfigurationProperty(
-                        endpoint="endpoint",
-                        file_system_id="fileSystemId",
-                        linux_mount_point="linuxMountPoint",
-                        share_name="shareName",
-                        windows_mount_drive="windowsMountDrive"
-                    )
-                ),
-                description="description",
-                ec2_security_group_ids=["ec2SecurityGroupIds"],
-                initialization_scripts=[nimblestudio.CfnStudioComponent.StudioComponentInitializationScriptProperty(
-                    launch_profile_protocol_version="launchProfileProtocolVersion",
-                    platform="platform",
-                    run_context="runContext",
-                    script="script"
-                )],
-                script_parameters=[nimblestudio.CfnStudioComponent.ScriptParameterKeyValueProperty(
-                    key="key",
-                    value="value"
-                )],
-                subtype="subtype",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__452974fbd84550efbe28df9f5e4cb6049d1527391e07a1544107fc2f0186e7dc)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument studio_id", value=studio_id, expected_type=type_hints["studio_id"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument ec2_security_group_ids", value=ec2_security_group_ids, expected_type=type_hints["ec2_security_group_ids"])
-            check_type(argname="argument initialization_scripts", value=initialization_scripts, expected_type=type_hints["initialization_scripts"])
-            check_type(argname="argument script_parameters", value=script_parameters, expected_type=type_hints["script_parameters"])
-            check_type(argname="argument subtype", value=subtype, expected_type=type_hints["subtype"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "studio_id": studio_id,
-            "type": type,
-        }
-        if configuration is not None:
-            self._values["configuration"] = configuration
-        if description is not None:
-            self._values["description"] = description
-        if ec2_security_group_ids is not None:
-            self._values["ec2_security_group_ids"] = ec2_security_group_ids
-        if initialization_scripts is not None:
-            self._values["initialization_scripts"] = initialization_scripts
-        if script_parameters is not None:
-            self._values["script_parameters"] = script_parameters
-        if subtype is not None:
-            self._values["subtype"] = subtype
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def studio_id(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-studioid
-        '''
-        result = self._values.get("studio_id")
-        assert result is not None, "Required property 'studio_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.StudioComponentConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-configuration
-        '''
-        result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.StudioComponentConfigurationProperty]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ec2_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-ec2securitygroupids
-        '''
-        result = self._values.get("ec2_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def initialization_scripts(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.StudioComponentInitializationScriptProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-initializationscripts
-        '''
-        result = self._values.get("initialization_scripts")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.StudioComponentInitializationScriptProperty]]]], result)
-
-    @builtins.property
-    def script_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.ScriptParameterKeyValueProperty]]]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-scriptparameters
-        '''
-        result = self._values.get("script_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStudioComponent.ScriptParameterKeyValueProperty]]]], result)
-
-    @builtins.property
-    def subtype(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-subtype
-        '''
-        result = self._values.get("subtype")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studiocomponent.html#cfn-nimblestudio-studiocomponent-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStudioComponentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudioProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "admin_role_arn": "adminRoleArn",
-        "display_name": "displayName",
-        "studio_name": "studioName",
-        "user_role_arn": "userRoleArn",
-        "studio_encryption_configuration": "studioEncryptionConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnStudioProps:
-    def __init__(
-        self,
-        *,
-        admin_role_arn: builtins.str,
-        display_name: builtins.str,
-        studio_name: builtins.str,
-        user_role_arn: builtins.str,
-        studio_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudio.StudioEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStudio``.
-
-        :param admin_role_arn: 
-        :param display_name: 
-        :param studio_name: 
-        :param user_role_arn: 
-        :param studio_encryption_configuration: 
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_nimblestudio as nimblestudio
-            
-            cfn_studio_props = nimblestudio.CfnStudioProps(
-                admin_role_arn="adminRoleArn",
-                display_name="displayName",
-                studio_name="studioName",
-                user_role_arn="userRoleArn",
-            
-                # the properties below are optional
-                studio_encryption_configuration=nimblestudio.CfnStudio.StudioEncryptionConfigurationProperty(
-                    key_type="keyType",
-            
-                    # the properties below are optional
-                    key_arn="keyArn"
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__adecf8657a6c6a9dbaea94911b353618ab8a0000478c99ec27d8a488e0e2469e)
-            check_type(argname="argument admin_role_arn", value=admin_role_arn, expected_type=type_hints["admin_role_arn"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument studio_name", value=studio_name, expected_type=type_hints["studio_name"])
-            check_type(argname="argument user_role_arn", value=user_role_arn, expected_type=type_hints["user_role_arn"])
-            check_type(argname="argument studio_encryption_configuration", value=studio_encryption_configuration, expected_type=type_hints["studio_encryption_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "admin_role_arn": admin_role_arn,
-            "display_name": display_name,
-            "studio_name": studio_name,
-            "user_role_arn": user_role_arn,
-        }
-        if studio_encryption_configuration is not None:
-            self._values["studio_encryption_configuration"] = studio_encryption_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def admin_role_arn(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-adminrolearn
-        '''
-        result = self._values.get("admin_role_arn")
-        assert result is not None, "Required property 'admin_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def studio_name(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-studioname
-        '''
-        result = self._values.get("studio_name")
-        assert result is not None, "Required property 'studio_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_role_arn(self) -> builtins.str:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-userrolearn
-        '''
-        result = self._values.get("user_role_arn")
-        assert result is not None, "Required property 'user_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def studio_encryption_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStudio.StudioEncryptionConfigurationProperty]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-studioencryptionconfiguration
-        '''
-        result = self._values.get("studio_encryption_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStudio.StudioEncryptionConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-nimblestudio-studio.html#cfn-nimblestudio-studio-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStudioProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnLaunchProfile",
     "CfnLaunchProfileProps",
@@ -3127,9 +3459,77 @@ __all__ = [
     "CfnStudioComponent",
     "CfnStudioComponentProps",
     "CfnStudioProps",
+    "ILaunchProfileRef",
+    "IStreamingImageRef",
+    "IStudioComponentRef",
+    "IStudioRef",
+    "LaunchProfileReference",
+    "StreamingImageReference",
+    "StudioComponentReference",
+    "StudioReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__1b43819be936b43afea9ec331a5d4d93db811f04b73c74189dfabbb03a021968(
+    *,
+    ec2_subnet_ids: typing.Sequence[builtins.str],
+    launch_profile_protocol_versions: typing.Sequence[builtins.str],
+    name: builtins.str,
+    stream_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchProfile.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    studio_component_ids: typing.Sequence[builtins.str],
+    studio_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5639283dde9f5507e33ed3b0cc8e4bb11678e400c6ec36786bc8e646353a366d(
+    *,
+    ec2_image_id: builtins.str,
+    name: builtins.str,
+    studio_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__452974fbd84550efbe28df9f5e4cb6049d1527391e07a1544107fc2f0186e7dc(
+    *,
+    name: builtins.str,
+    studio_id: builtins.str,
+    type: builtins.str,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    ec2_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    initialization_scripts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentInitializationScriptProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    script_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.ScriptParameterKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    subtype: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adecf8657a6c6a9dbaea94911b353618ab8a0000478c99ec27d8a488e0e2469e(
+    *,
+    admin_role_arn: builtins.str,
+    display_name: builtins.str,
+    studio_name: builtins.str,
+    user_role_arn: builtins.str,
+    studio_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudio.StudioEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30a84d2965a12247bec3be05bcfb7b78c511e50722dc6324cfd7a95f8bc26505(
+    *,
+    studio_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__73431936cbffacfb1263654979458319433048ccdba564211a0c846e43353e93(
     scope: _constructs_77d1e7e8.Construct,
@@ -3256,20 +3656,6 @@ def _typecheckingstub__2b5a387bc8ff36612169915fabbc675a7dc7b970403a52c9b4bbc3ec0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1b43819be936b43afea9ec331a5d4d93db811f04b73c74189dfabbb03a021968(
-    *,
-    ec2_subnet_ids: typing.Sequence[builtins.str],
-    launch_profile_protocol_versions: typing.Sequence[builtins.str],
-    name: builtins.str,
-    stream_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLaunchProfile.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
-    studio_component_ids: typing.Sequence[builtins.str],
-    studio_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__71d825f7da9831b1c19a5c5c864573313899a2423aac6b5af05a411a54526743(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3329,17 +3715,6 @@ def _typecheckingstub__f47af9fbd3a5b2893cc6cec73ff563dc9e73becb5481ed7ca2e1751c6
     *,
     key_type: builtins.str,
     key_arn: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5639283dde9f5507e33ed3b0cc8e4bb11678e400c6ec36786bc8e646353a366d(
-    *,
-    ec2_image_id: builtins.str,
-    name: builtins.str,
-    studio_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3571,34 +3946,6 @@ def _typecheckingstub__81ae21ca54c86cd8aaeb2004583ec16f187a029ddafc8eeb7ab83f4af
     platform: typing.Optional[builtins.str] = None,
     run_context: typing.Optional[builtins.str] = None,
     script: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__452974fbd84550efbe28df9f5e4cb6049d1527391e07a1544107fc2f0186e7dc(
-    *,
-    name: builtins.str,
-    studio_id: builtins.str,
-    type: builtins.str,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    ec2_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    initialization_scripts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.StudioComponentInitializationScriptProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    script_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudioComponent.ScriptParameterKeyValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    subtype: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__adecf8657a6c6a9dbaea94911b353618ab8a0000478c99ec27d8a488e0e2469e(
-    *,
-    admin_role_arn: builtins.str,
-    display_name: builtins.str,
-    studio_name: builtins.str,
-    user_role_arn: builtins.str,
-    studio_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStudio.StudioEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

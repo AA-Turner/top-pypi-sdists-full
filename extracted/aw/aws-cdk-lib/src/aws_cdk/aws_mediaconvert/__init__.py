@@ -68,7 +68,871 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnJobTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "settings_json": "settingsJson",
+        "acceleration_settings": "accelerationSettings",
+        "category": "category",
+        "description": "description",
+        "hop_destinations": "hopDestinations",
+        "name": "name",
+        "priority": "priority",
+        "queue": "queue",
+        "status_update_interval": "statusUpdateInterval",
+        "tags": "tags",
+    },
+)
+class CfnJobTemplateProps:
+    def __init__(
+        self,
+        *,
+        settings_json: typing.Any,
+        acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobTemplate.AccelerationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        category: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobTemplate.HopDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        queue: typing.Optional[builtins.str] = None,
+        status_update_interval: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnJobTemplate``.
+
+        :param settings_json: Specify, in JSON format, the transcoding job settings for this job template. This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic. For more information about MediaConvert job templates, see `Working with AWS Elemental MediaConvert Job Templates <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-job-templates.html>`_ in the ** .
+        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long, visually complex content. Outputs that use this feature incur pro-tier pricing. For information about feature limitations, For more information, see `Job Limitations for Accelerated Transcoding in AWS Elemental MediaConvert <https://docs.aws.amazon.com/mediaconvert/latest/ug/job-requirements.html>`_ in the *AWS Elemental MediaConvert User Guide* .
+        :param category: Optional. A category for the job template you are creating
+        :param description: Optional. A description of the job template you are creating.
+        :param hop_destinations: Optional. Configuration for a destination queue to which the job can hop once a customer-defined minimum wait time has passed. For more information, see `Setting Up Queue Hopping to Avoid Long Waits <https://docs.aws.amazon.com/mediaconvert/latest/ug/setting-up-queue-hopping-to-avoid-long-waits.html>`_ in the *AWS Elemental MediaConvert User Guide* .
+        :param name: Name of the output group.
+        :param priority: Specify the relative priority for this job. In any given queue, the service begins processing the job with the highest value first. When more than one job has the same priority, the service begins processing the job that you submitted first. If you don't specify a priority, the service uses the default value 0. Minimum: -50 Maximum: 50
+        :param queue: Optional. The queue that jobs created from this template are assigned to. Specify the Amazon Resource Name (ARN) of the queue. For example, arn:aws:mediaconvert:us-west-2:505474453218:queues/Default. If you don't specify this, jobs will go to the default queue.
+        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events. Set the interval, in seconds, between status updates. MediaConvert sends an update at this interval from the time the service begins processing your job to the time it completes the transcode or encounters an error. Specify one of the following enums: SECONDS_10 SECONDS_12 SECONDS_15 SECONDS_20 SECONDS_30 SECONDS_60 SECONDS_120 SECONDS_180 SECONDS_240 SECONDS_300 SECONDS_360 SECONDS_420 SECONDS_480 SECONDS_540 SECONDS_600
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            # settings_json: Any
+            # tags: Any
+            
+            cfn_job_template_props = mediaconvert.CfnJobTemplateProps(
+                settings_json=settings_json,
+            
+                # the properties below are optional
+                acceleration_settings=mediaconvert.CfnJobTemplate.AccelerationSettingsProperty(
+                    mode="mode"
+                ),
+                category="category",
+                description="description",
+                hop_destinations=[mediaconvert.CfnJobTemplate.HopDestinationProperty(
+                    priority=123,
+                    queue="queue",
+                    wait_minutes=123
+                )],
+                name="name",
+                priority=123,
+                queue="queue",
+                status_update_interval="statusUpdateInterval",
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9)
+            check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
+            check_type(argname="argument acceleration_settings", value=acceleration_settings, expected_type=type_hints["acceleration_settings"])
+            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument hop_destinations", value=hop_destinations, expected_type=type_hints["hop_destinations"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
+            check_type(argname="argument status_update_interval", value=status_update_interval, expected_type=type_hints["status_update_interval"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "settings_json": settings_json,
+        }
+        if acceleration_settings is not None:
+            self._values["acceleration_settings"] = acceleration_settings
+        if category is not None:
+            self._values["category"] = category
+        if description is not None:
+            self._values["description"] = description
+        if hop_destinations is not None:
+            self._values["hop_destinations"] = hop_destinations
+        if name is not None:
+            self._values["name"] = name
+        if priority is not None:
+            self._values["priority"] = priority
+        if queue is not None:
+            self._values["queue"] = queue
+        if status_update_interval is not None:
+            self._values["status_update_interval"] = status_update_interval
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def settings_json(self) -> typing.Any:
+        '''Specify, in JSON format, the transcoding job settings for this job template.
+
+        This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic.
+
+        For more information about MediaConvert job templates, see `Working with AWS Elemental MediaConvert Job Templates <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-job-templates.html>`_ in the ** .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-settingsjson
+        '''
+        result = self._values.get("settings_json")
+        assert result is not None, "Required property 'settings_json' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def acceleration_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.AccelerationSettingsProperty"]]:
+        '''Accelerated transcoding can significantly speed up jobs with long, visually complex content.
+
+        Outputs that use this feature incur pro-tier pricing. For information about feature limitations, For more information, see `Job Limitations for Accelerated Transcoding in AWS Elemental MediaConvert <https://docs.aws.amazon.com/mediaconvert/latest/ug/job-requirements.html>`_ in the *AWS Elemental MediaConvert User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-accelerationsettings
+        '''
+        result = self._values.get("acceleration_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.AccelerationSettingsProperty"]], result)
+
+    @builtins.property
+    def category(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        A category for the job template you are creating
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-category
+        '''
+        result = self._values.get("category")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        A description of the job template you are creating.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def hop_destinations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.HopDestinationProperty"]]]]:
+        '''Optional.
+
+        Configuration for a destination queue to which the job can hop once a customer-defined minimum wait time has passed. For more information, see `Setting Up Queue Hopping to Avoid Long Waits <https://docs.aws.amazon.com/mediaconvert/latest/ug/setting-up-queue-hopping-to-avoid-long-waits.html>`_ in the *AWS Elemental MediaConvert User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-hopdestinations
+        '''
+        result = self._values.get("hop_destinations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobTemplate.HopDestinationProperty"]]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Name of the output group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''Specify the relative priority for this job.
+
+        In any given queue, the service begins processing the job with the highest value first. When more than one job has the same priority, the service begins processing the job that you submitted first. If you don't specify a priority, the service uses the default value 0. Minimum: -50 Maximum: 50
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def queue(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        The queue that jobs created from this template are assigned to. Specify the Amazon Resource Name (ARN) of the queue. For example, arn:aws:mediaconvert:us-west-2:505474453218:queues/Default. If you don't specify this, jobs will go to the default queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-queue
+        '''
+        result = self._values.get("queue")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status_update_interval(self) -> typing.Optional[builtins.str]:
+        '''Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events.
+
+        Set the interval, in seconds, between status updates. MediaConvert sends an update at this interval from the time the service begins processing your job to the time it completes the transcode or encounters an error.
+
+        Specify one of the following enums:
+
+        SECONDS_10
+
+        SECONDS_12
+
+        SECONDS_15
+
+        SECONDS_20
+
+        SECONDS_30
+
+        SECONDS_60
+
+        SECONDS_120
+
+        SECONDS_180
+
+        SECONDS_240
+
+        SECONDS_300
+
+        SECONDS_360
+
+        SECONDS_420
+
+        SECONDS_480
+
+        SECONDS_540
+
+        SECONDS_600
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-statusupdateinterval
+        '''
+        result = self._values.get("status_update_interval")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnJobTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnPresetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "settings_json": "settingsJson",
+        "category": "category",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnPresetProps:
+    def __init__(
+        self,
+        *,
+        settings_json: typing.Any,
+        category: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPreset``.
+
+        :param settings_json: Specify, in JSON format, the transcoding job settings for this output preset. This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic. For more information about MediaConvert output presets, see `Working with AWS Elemental MediaConvert Output Presets <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-presets.html>`_ in the ** .
+        :param category: The new category for the preset, if you are changing it.
+        :param description: The new description for the preset, if you are changing it.
+        :param name: The name of the preset that you are modifying.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            # settings_json: Any
+            # tags: Any
+            
+            cfn_preset_props = mediaconvert.CfnPresetProps(
+                settings_json=settings_json,
+            
+                # the properties below are optional
+                category="category",
+                description="description",
+                name="name",
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28)
+            check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
+            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "settings_json": settings_json,
+        }
+        if category is not None:
+            self._values["category"] = category
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def settings_json(self) -> typing.Any:
+        '''Specify, in JSON format, the transcoding job settings for this output preset.
+
+        This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic.
+
+        For more information about MediaConvert output presets, see `Working with AWS Elemental MediaConvert Output Presets <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-presets.html>`_ in the ** .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-settingsjson
+        '''
+        result = self._values.get("settings_json")
+        assert result is not None, "Required property 'settings_json' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def category(self) -> typing.Optional[builtins.str]:
+        '''The new category for the preset, if you are changing it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-category
+        '''
+        result = self._values.get("category")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The new description for the preset, if you are changing it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the preset that you are modifying.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPresetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnQueueProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "concurrent_jobs": "concurrentJobs",
+        "description": "description",
+        "name": "name",
+        "pricing_plan": "pricingPlan",
+        "status": "status",
+        "tags": "tags",
+    },
+)
+class CfnQueueProps:
+    def __init__(
+        self,
+        *,
+        concurrent_jobs: typing.Optional[jsii.Number] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        pricing_plan: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+        tags: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnQueue``.
+
+        :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
+        :param description: Optional. A description of the queue that you are creating.
+        :param name: The name of the queue that you are creating.
+        :param pricing_plan: When you use AWS CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your AWS CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
+        :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            # tags: Any
+            
+            cfn_queue_props = mediaconvert.CfnQueueProps(
+                concurrent_jobs=123,
+                description="description",
+                name="name",
+                pricing_plan="pricingPlan",
+                status="status",
+                tags=tags
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05)
+            check_type(argname="argument concurrent_jobs", value=concurrent_jobs, expected_type=type_hints["concurrent_jobs"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if concurrent_jobs is not None:
+            self._values["concurrent_jobs"] = concurrent_jobs
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if pricing_plan is not None:
+            self._values["pricing_plan"] = pricing_plan
+        if status is not None:
+            self._values["status"] = status
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def concurrent_jobs(self) -> typing.Optional[jsii.Number]:
+        '''Specify the maximum number of jobs your queue can process concurrently.
+
+        For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-concurrentjobs
+        '''
+        result = self._values.get("concurrent_jobs")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional.
+
+        A description of the queue that you are creating.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the queue that you are creating.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pricing_plan(self) -> typing.Optional[builtins.str]:
+        '''When you use AWS CloudFormation , you can create only on-demand queues.
+
+        Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your AWS CloudFormation template.
+
+        To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-pricingplan
+        '''
+        result = self._values.get("pricing_plan")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''Initial state of the queue.
+
+        Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnQueueProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconvert.IJobTemplateRef")
+class IJobTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IJobTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a JobTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconvert.IJobTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> "JobTemplateReference":
+        '''(experimental) A reference to a JobTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("JobTemplateReference", jsii.get(self, "jobTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IJobTemplateRef).__jsii_proxy_class__ = lambda : _IJobTemplateRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconvert.IPresetRef")
+class IPresetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Preset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="presetRef")
+    def preset_ref(self) -> "PresetReference":
+        '''(experimental) A reference to a Preset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPresetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Preset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconvert.IPresetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="presetRef")
+    def preset_ref(self) -> "PresetReference":
+        '''(experimental) A reference to a Preset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PresetReference", jsii.get(self, "presetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPresetRef).__jsii_proxy_class__ = lambda : _IPresetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_mediaconvert.IQueueRef")
+class IQueueRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IQueueRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Queue.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediaconvert.IQueueRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> "QueueReference":
+        '''(experimental) A reference to a Queue resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("QueueReference", jsii.get(self, "queueRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IQueueRef).__jsii_proxy_class__ = lambda : _IQueueRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.JobTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "job_template_arn": "jobTemplateArn",
+        "job_template_id": "jobTemplateId",
+    },
+)
+class JobTemplateReference:
+    def __init__(
+        self,
+        *,
+        job_template_arn: builtins.str,
+        job_template_id: builtins.str,
+    ) -> None:
+        '''A reference to a JobTemplate resource.
+
+        :param job_template_arn: The ARN of the JobTemplate resource.
+        :param job_template_id: The Id of the JobTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            job_template_reference = mediaconvert.JobTemplateReference(
+                job_template_arn="jobTemplateArn",
+                job_template_id="jobTemplateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e134f83b2e82dab926e339297fb9fd8927644faa1306458f78be4a5f5a74dee)
+            check_type(argname="argument job_template_arn", value=job_template_arn, expected_type=type_hints["job_template_arn"])
+            check_type(argname="argument job_template_id", value=job_template_id, expected_type=type_hints["job_template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_template_arn": job_template_arn,
+            "job_template_id": job_template_id,
+        }
+
+    @builtins.property
+    def job_template_arn(self) -> builtins.str:
+        '''The ARN of the JobTemplate resource.'''
+        result = self._values.get("job_template_arn")
+        assert result is not None, "Required property 'job_template_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_template_id(self) -> builtins.str:
+        '''The Id of the JobTemplate resource.'''
+        result = self._values.get("job_template_id")
+        assert result is not None, "Required property 'job_template_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.PresetReference",
+    jsii_struct_bases=[],
+    name_mapping={"preset_arn": "presetArn", "preset_id": "presetId"},
+)
+class PresetReference:
+    def __init__(self, *, preset_arn: builtins.str, preset_id: builtins.str) -> None:
+        '''A reference to a Preset resource.
+
+        :param preset_arn: The ARN of the Preset resource.
+        :param preset_id: The Id of the Preset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            preset_reference = mediaconvert.PresetReference(
+                preset_arn="presetArn",
+                preset_id="presetId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea7a0a6e31bc4df1d8ce4bfd3759ec33fe1f66fda9654c5f54f8a8cfe0ffd8a2)
+            check_type(argname="argument preset_arn", value=preset_arn, expected_type=type_hints["preset_arn"])
+            check_type(argname="argument preset_id", value=preset_id, expected_type=type_hints["preset_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "preset_arn": preset_arn,
+            "preset_id": preset_id,
+        }
+
+    @builtins.property
+    def preset_arn(self) -> builtins.str:
+        '''The ARN of the Preset resource.'''
+        result = self._values.get("preset_arn")
+        assert result is not None, "Required property 'preset_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def preset_id(self) -> builtins.str:
+        '''The Id of the Preset resource.'''
+        result = self._values.get("preset_id")
+        assert result is not None, "Required property 'preset_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PresetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediaconvert.QueueReference",
+    jsii_struct_bases=[],
+    name_mapping={"queue_arn": "queueArn", "queue_id": "queueId"},
+)
+class QueueReference:
+    def __init__(self, *, queue_arn: builtins.str, queue_id: builtins.str) -> None:
+        '''A reference to a Queue resource.
+
+        :param queue_arn: The ARN of the Queue resource.
+        :param queue_id: The Id of the Queue resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediaconvert as mediaconvert
+            
+            queue_reference = mediaconvert.QueueReference(
+                queue_arn="queueArn",
+                queue_id="queueId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40628b6c820cae4bbdc59b77128fba16ff7e797fb1eb3d9ff7f78159cb78198b)
+            check_type(argname="argument queue_arn", value=queue_arn, expected_type=type_hints["queue_arn"])
+            check_type(argname="argument queue_id", value=queue_id, expected_type=type_hints["queue_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "queue_arn": queue_arn,
+            "queue_id": queue_id,
+        }
+
+    @builtins.property
+    def queue_arn(self) -> builtins.str:
+        '''The ARN of the Queue resource.'''
+        result = self._values.get("queue_arn")
+        assert result is not None, "Required property 'queue_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def queue_id(self) -> builtins.str:
+        '''The Id of the Queue resource.'''
+        result = self._values.get("queue_id")
+        assert result is not None, "Required property 'queue_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "QueueReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IJobTemplateRef, _ITaggable_36806126)
 class CfnJobTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -224,6 +1088,12 @@ class CfnJobTemplate(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobTemplateRef")
+    def job_template_ref(self) -> JobTemplateReference:
+        '''A reference to a JobTemplate resource.'''
+        return typing.cast(JobTemplateReference, jsii.get(self, "jobTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -523,277 +1393,7 @@ class CfnJobTemplate(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnJobTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "settings_json": "settingsJson",
-        "acceleration_settings": "accelerationSettings",
-        "category": "category",
-        "description": "description",
-        "hop_destinations": "hopDestinations",
-        "name": "name",
-        "priority": "priority",
-        "queue": "queue",
-        "status_update_interval": "statusUpdateInterval",
-        "tags": "tags",
-    },
-)
-class CfnJobTemplateProps:
-    def __init__(
-        self,
-        *,
-        settings_json: typing.Any,
-        acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        category: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        priority: typing.Optional[jsii.Number] = None,
-        queue: typing.Optional[builtins.str] = None,
-        status_update_interval: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnJobTemplate``.
-
-        :param settings_json: Specify, in JSON format, the transcoding job settings for this job template. This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic. For more information about MediaConvert job templates, see `Working with AWS Elemental MediaConvert Job Templates <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-job-templates.html>`_ in the ** .
-        :param acceleration_settings: Accelerated transcoding can significantly speed up jobs with long, visually complex content. Outputs that use this feature incur pro-tier pricing. For information about feature limitations, For more information, see `Job Limitations for Accelerated Transcoding in AWS Elemental MediaConvert <https://docs.aws.amazon.com/mediaconvert/latest/ug/job-requirements.html>`_ in the *AWS Elemental MediaConvert User Guide* .
-        :param category: Optional. A category for the job template you are creating
-        :param description: Optional. A description of the job template you are creating.
-        :param hop_destinations: Optional. Configuration for a destination queue to which the job can hop once a customer-defined minimum wait time has passed. For more information, see `Setting Up Queue Hopping to Avoid Long Waits <https://docs.aws.amazon.com/mediaconvert/latest/ug/setting-up-queue-hopping-to-avoid-long-waits.html>`_ in the *AWS Elemental MediaConvert User Guide* .
-        :param name: Name of the output group.
-        :param priority: Specify the relative priority for this job. In any given queue, the service begins processing the job with the highest value first. When more than one job has the same priority, the service begins processing the job that you submitted first. If you don't specify a priority, the service uses the default value 0. Minimum: -50 Maximum: 50
-        :param queue: Optional. The queue that jobs created from this template are assigned to. Specify the Amazon Resource Name (ARN) of the queue. For example, arn:aws:mediaconvert:us-west-2:505474453218:queues/Default. If you don't specify this, jobs will go to the default queue.
-        :param status_update_interval: Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events. Set the interval, in seconds, between status updates. MediaConvert sends an update at this interval from the time the service begins processing your job to the time it completes the transcode or encounters an error. Specify one of the following enums: SECONDS_10 SECONDS_12 SECONDS_15 SECONDS_20 SECONDS_30 SECONDS_60 SECONDS_120 SECONDS_180 SECONDS_240 SECONDS_300 SECONDS_360 SECONDS_420 SECONDS_480 SECONDS_540 SECONDS_600
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconvert as mediaconvert
-            
-            # settings_json: Any
-            # tags: Any
-            
-            cfn_job_template_props = mediaconvert.CfnJobTemplateProps(
-                settings_json=settings_json,
-            
-                # the properties below are optional
-                acceleration_settings=mediaconvert.CfnJobTemplate.AccelerationSettingsProperty(
-                    mode="mode"
-                ),
-                category="category",
-                description="description",
-                hop_destinations=[mediaconvert.CfnJobTemplate.HopDestinationProperty(
-                    priority=123,
-                    queue="queue",
-                    wait_minutes=123
-                )],
-                name="name",
-                priority=123,
-                queue="queue",
-                status_update_interval="statusUpdateInterval",
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9)
-            check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
-            check_type(argname="argument acceleration_settings", value=acceleration_settings, expected_type=type_hints["acceleration_settings"])
-            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument hop_destinations", value=hop_destinations, expected_type=type_hints["hop_destinations"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument queue", value=queue, expected_type=type_hints["queue"])
-            check_type(argname="argument status_update_interval", value=status_update_interval, expected_type=type_hints["status_update_interval"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "settings_json": settings_json,
-        }
-        if acceleration_settings is not None:
-            self._values["acceleration_settings"] = acceleration_settings
-        if category is not None:
-            self._values["category"] = category
-        if description is not None:
-            self._values["description"] = description
-        if hop_destinations is not None:
-            self._values["hop_destinations"] = hop_destinations
-        if name is not None:
-            self._values["name"] = name
-        if priority is not None:
-            self._values["priority"] = priority
-        if queue is not None:
-            self._values["queue"] = queue
-        if status_update_interval is not None:
-            self._values["status_update_interval"] = status_update_interval
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def settings_json(self) -> typing.Any:
-        '''Specify, in JSON format, the transcoding job settings for this job template.
-
-        This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic.
-
-        For more information about MediaConvert job templates, see `Working with AWS Elemental MediaConvert Job Templates <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-job-templates.html>`_ in the ** .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-settingsjson
-        '''
-        result = self._values.get("settings_json")
-        assert result is not None, "Required property 'settings_json' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def acceleration_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.AccelerationSettingsProperty]]:
-        '''Accelerated transcoding can significantly speed up jobs with long, visually complex content.
-
-        Outputs that use this feature incur pro-tier pricing. For information about feature limitations, For more information, see `Job Limitations for Accelerated Transcoding in AWS Elemental MediaConvert <https://docs.aws.amazon.com/mediaconvert/latest/ug/job-requirements.html>`_ in the *AWS Elemental MediaConvert User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-accelerationsettings
-        '''
-        result = self._values.get("acceleration_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.AccelerationSettingsProperty]], result)
-
-    @builtins.property
-    def category(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        A category for the job template you are creating
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-category
-        '''
-        result = self._values.get("category")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        A description of the job template you are creating.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def hop_destinations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.HopDestinationProperty]]]]:
-        '''Optional.
-
-        Configuration for a destination queue to which the job can hop once a customer-defined minimum wait time has passed. For more information, see `Setting Up Queue Hopping to Avoid Long Waits <https://docs.aws.amazon.com/mediaconvert/latest/ug/setting-up-queue-hopping-to-avoid-long-waits.html>`_ in the *AWS Elemental MediaConvert User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-hopdestinations
-        '''
-        result = self._values.get("hop_destinations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.HopDestinationProperty]]]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''Name of the output group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def priority(self) -> typing.Optional[jsii.Number]:
-        '''Specify the relative priority for this job.
-
-        In any given queue, the service begins processing the job with the highest value first. When more than one job has the same priority, the service begins processing the job that you submitted first. If you don't specify a priority, the service uses the default value 0. Minimum: -50 Maximum: 50
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-priority
-        '''
-        result = self._values.get("priority")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def queue(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        The queue that jobs created from this template are assigned to. Specify the Amazon Resource Name (ARN) of the queue. For example, arn:aws:mediaconvert:us-west-2:505474453218:queues/Default. If you don't specify this, jobs will go to the default queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-queue
-        '''
-        result = self._values.get("queue")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status_update_interval(self) -> typing.Optional[builtins.str]:
-        '''Specify how often MediaConvert sends STATUS_UPDATE events to Amazon CloudWatch Events.
-
-        Set the interval, in seconds, between status updates. MediaConvert sends an update at this interval from the time the service begins processing your job to the time it completes the transcode or encounters an error.
-
-        Specify one of the following enums:
-
-        SECONDS_10
-
-        SECONDS_12
-
-        SECONDS_15
-
-        SECONDS_20
-
-        SECONDS_30
-
-        SECONDS_60
-
-        SECONDS_120
-
-        SECONDS_180
-
-        SECONDS_240
-
-        SECONDS_300
-
-        SECONDS_360
-
-        SECONDS_420
-
-        SECONDS_480
-
-        SECONDS_540
-
-        SECONDS_600
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-statusupdateinterval
-        '''
-        result = self._values.get("status_update_interval")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-jobtemplate.html#cfn-mediaconvert-jobtemplate-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnJobTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IPresetRef, _ITaggable_36806126)
 class CfnPreset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -925,6 +1525,12 @@ class CfnPreset(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="presetRef")
+    def preset_ref(self) -> PresetReference:
+        '''A reference to a Preset resource.'''
+        return typing.cast(PresetReference, jsii.get(self, "presetRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -996,141 +1602,7 @@ class CfnPreset(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnPresetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "settings_json": "settingsJson",
-        "category": "category",
-        "description": "description",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnPresetProps:
-    def __init__(
-        self,
-        *,
-        settings_json: typing.Any,
-        category: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPreset``.
-
-        :param settings_json: Specify, in JSON format, the transcoding job settings for this output preset. This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic. For more information about MediaConvert output presets, see `Working with AWS Elemental MediaConvert Output Presets <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-presets.html>`_ in the ** .
-        :param category: The new category for the preset, if you are changing it.
-        :param description: The new description for the preset, if you are changing it.
-        :param name: The name of the preset that you are modifying.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconvert as mediaconvert
-            
-            # settings_json: Any
-            # tags: Any
-            
-            cfn_preset_props = mediaconvert.CfnPresetProps(
-                settings_json=settings_json,
-            
-                # the properties below are optional
-                category="category",
-                description="description",
-                name="name",
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28)
-            check_type(argname="argument settings_json", value=settings_json, expected_type=type_hints["settings_json"])
-            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "settings_json": settings_json,
-        }
-        if category is not None:
-            self._values["category"] = category
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def settings_json(self) -> typing.Any:
-        '''Specify, in JSON format, the transcoding job settings for this output preset.
-
-        This specification must conform to the AWS Elemental MediaConvert job validation. For information about forming this specification, see the Remarks section later in this topic.
-
-        For more information about MediaConvert output presets, see `Working with AWS Elemental MediaConvert Output Presets <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-presets.html>`_ in the ** .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-settingsjson
-        '''
-        result = self._values.get("settings_json")
-        assert result is not None, "Required property 'settings_json' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def category(self) -> typing.Optional[builtins.str]:
-        '''The new category for the preset, if you are changing it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-category
-        '''
-        result = self._values.get("category")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The new description for the preset, if you are changing it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the preset that you are modifying.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-preset.html#cfn-mediaconvert-preset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPresetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IQueueRef, _ITaggable_36806126)
 class CfnQueue(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1261,6 +1733,12 @@ class CfnQueue(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="queueRef")
+    def queue_ref(self) -> QueueReference:
+        '''A reference to a Queue resource.'''
+        return typing.cast(QueueReference, jsii.get(self, "queueRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -1345,158 +1823,6 @@ class CfnQueue(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediaconvert.CfnQueueProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "concurrent_jobs": "concurrentJobs",
-        "description": "description",
-        "name": "name",
-        "pricing_plan": "pricingPlan",
-        "status": "status",
-        "tags": "tags",
-    },
-)
-class CfnQueueProps:
-    def __init__(
-        self,
-        *,
-        concurrent_jobs: typing.Optional[jsii.Number] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        pricing_plan: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-        tags: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnQueue``.
-
-        :param concurrent_jobs: Specify the maximum number of jobs your queue can process concurrently. For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
-        :param description: Optional. A description of the queue that you are creating.
-        :param name: The name of the queue that you are creating.
-        :param pricing_plan: When you use AWS CloudFormation , you can create only on-demand queues. Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your AWS CloudFormation template. To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
-        :param status: Initial state of the queue. Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediaconvert as mediaconvert
-            
-            # tags: Any
-            
-            cfn_queue_props = mediaconvert.CfnQueueProps(
-                concurrent_jobs=123,
-                description="description",
-                name="name",
-                pricing_plan="pricingPlan",
-                status="status",
-                tags=tags
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05)
-            check_type(argname="argument concurrent_jobs", value=concurrent_jobs, expected_type=type_hints["concurrent_jobs"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument pricing_plan", value=pricing_plan, expected_type=type_hints["pricing_plan"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if concurrent_jobs is not None:
-            self._values["concurrent_jobs"] = concurrent_jobs
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if pricing_plan is not None:
-            self._values["pricing_plan"] = pricing_plan
-        if status is not None:
-            self._values["status"] = status
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def concurrent_jobs(self) -> typing.Optional[jsii.Number]:
-        '''Specify the maximum number of jobs your queue can process concurrently.
-
-        For on-demand queues, the value you enter is constrained by your service quotas for Maximum concurrent jobs, per on-demand queue and Maximum concurrent jobs, per account. For reserved queues, specify the number of jobs you can process concurrently in your reservation plan instead.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-concurrentjobs
-        '''
-        result = self._values.get("concurrent_jobs")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Optional.
-
-        A description of the queue that you are creating.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the queue that you are creating.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def pricing_plan(self) -> typing.Optional[builtins.str]:
-        '''When you use AWS CloudFormation , you can create only on-demand queues.
-
-        Therefore, always set ``PricingPlan`` to the value "ON_DEMAND" when declaring an AWS::MediaConvert::Queue in your AWS CloudFormation template.
-
-        To create a reserved queue, use the AWS Elemental MediaConvert console at https://console.aws.amazon.com/mediaconvert to set up a contract. For more information, see `Working with AWS Elemental MediaConvert Queues <https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html>`_ in the ** .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-pricingplan
-        '''
-        result = self._values.get("pricing_plan")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''Initial state of the queue.
-
-        Queues can be either ACTIVE or PAUSED. If you create a paused queue, then jobs that you send to that queue won't begin.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-queue.html#cfn-mediaconvert-queue-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnQueueProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnJobTemplate",
     "CfnJobTemplateProps",
@@ -1504,9 +1830,78 @@ __all__ = [
     "CfnPresetProps",
     "CfnQueue",
     "CfnQueueProps",
+    "IJobTemplateRef",
+    "IPresetRef",
+    "IQueueRef",
+    "JobTemplateReference",
+    "PresetReference",
+    "QueueReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9(
+    *,
+    settings_json: typing.Any,
+    acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    category: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    queue: typing.Optional[builtins.str] = None,
+    status_update_interval: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28(
+    *,
+    settings_json: typing.Any,
+    category: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05(
+    *,
+    concurrent_jobs: typing.Optional[jsii.Number] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    pricing_plan: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    tags: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e134f83b2e82dab926e339297fb9fd8927644faa1306458f78be4a5f5a74dee(
+    *,
+    job_template_arn: builtins.str,
+    job_template_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea7a0a6e31bc4df1d8ce4bfd3759ec33fe1f66fda9654c5f54f8a8cfe0ffd8a2(
+    *,
+    preset_arn: builtins.str,
+    preset_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40628b6c820cae4bbdc59b77128fba16ff7e797fb1eb3d9ff7f78159cb78198b(
+    *,
+    queue_arn: builtins.str,
+    queue_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__6069a4448c0af7d940ed2037ac3ca32f293c46dc85314fc300ccf64aa573c06e(
     scope: _constructs_77d1e7e8.Construct,
@@ -1614,22 +2009,6 @@ def _typecheckingstub__846cbb381389bc2995682d6266fbd2025526247b0442dfab6d6624ea1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a2efc4500b40d93a1910ad093dd5e6c1a674296bd8209fe51b39cf44ca3625a9(
-    *,
-    settings_json: typing.Any,
-    acceleration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.AccelerationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    category: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    hop_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobTemplate.HopDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    priority: typing.Optional[jsii.Number] = None,
-    queue: typing.Optional[builtins.str] = None,
-    status_update_interval: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c7e9a02a55f71ce4dc1d1bd91234e42ae8b4f331a5204d9de2337abf478f6742(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1681,17 +2060,6 @@ def _typecheckingstub__f5cfa13481ef470c412166b972128fb907f80e1f74bfc400f30cd3339
 
 def _typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b4217f886c99598fd3f7185ab1fa9e56680b21929b9e706d0add6a1a13efe28(
-    *,
-    settings_json: typing.Any,
-    category: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1754,18 +2122,6 @@ def _typecheckingstub__85fd14d7b664ec173f54ec0449201dc6c6f6738e85506a3f02565bad2
 
 def _typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d(
     value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7730e4d3d27bc8cf5ac3d6866a9c8915fd8e55a6c574e02bd2a03f4318d68f05(
-    *,
-    concurrent_jobs: typing.Optional[jsii.Number] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    pricing_plan: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-    tags: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass

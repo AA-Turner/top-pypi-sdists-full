@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
-This module provides tools for deblending overlapping sources labeled in
-a segmentation image.
+Define tools for deblending overlapping sources labeled in a
+segmentation image.
 """
 
 import warnings
@@ -20,8 +20,7 @@ from scipy.ndimage import sum_labels
 from photutils.segmentation.core import SegmentationImage
 from photutils.segmentation.detect import _detect_sources
 from photutils.segmentation.utils import _make_binary_structure
-from photutils.utils._optional_deps import tqdm
-from photutils.utils._progress_bars import add_progress_bar
+from photutils.utils._progress_bars import add_progress_bar, tqdm
 from photutils.utils._stats import nanmax, nanmin, nansum
 
 __all__ = ['deblend_sources']
@@ -126,9 +125,7 @@ def deblend_sources(data, segment_img, npixels, *, labels=None, nlevels=32,
         deblended. If multiprocessing is used (``nproc > 1``), the ID
         shown is the last source label that was deblended. The progress
         bar requires that the `tqdm <https://tqdm.github.io/>`_ optional
-        dependency be installed. Note that the progress bar does not
-        currently work in the Jupyter console due to limitations in
-        ``tqdm``.
+        dependency be installed.
 
     Returns
     -------
@@ -146,22 +143,26 @@ def deblend_sources(data, segment_img, npixels, *, labels=None, nlevels=32,
         data = data.value
 
     if not isinstance(segment_img, SegmentationImage):
-        raise TypeError('segment_img must be a SegmentationImage')
+        msg = 'segment_img must be a SegmentationImage'
+        raise TypeError(msg)
 
     if segment_img.shape != data.shape:
-        raise ValueError('The data and segmentation image must have '
-                         'the same shape')
+        msg = 'segment_img must have the same shape as data'
+        raise ValueError(msg)
 
     if nlevels < 1:
-        raise ValueError('nlevels must be >= 1')
+        msg = 'nlevels must be >= 1'
+        raise ValueError(msg)
     if contrast < 0 or contrast > 1:
-        raise ValueError('contrast must be >= 0 and <= 1')
+        msg = 'contrast must be >= 0 and <= 1'
+        raise ValueError(msg)
 
     if contrast == 1:  # no deblending
         return segment_img.copy()
 
     if mode not in ('exponential', 'linear', 'sinh'):
-        raise ValueError('mode must be "exponential", "linear", or "sinh"')
+        msg = 'mode must be "exponential", "linear", or "sinh"'
+        raise ValueError(msg)
 
     if labels is None:
         labels = segment_img.labels
@@ -661,10 +662,10 @@ class _SingleSourceDeblender:
         markers = self.apply_watershed(markers)
 
         if not np.array_equal(self.segment_mask, markers.astype(bool)):
-            raise ValueError(f'Deblending failed for source "{self.label}". '
-                             'Please ensure you used the same pixel '
-                             'connectivity in detect_sources and '
-                             'deblend_sources.')
+            msg = (f'Deblending failed for source {self.label!r}. '
+                   'Please ensure you used the same pixel connectivity '
+                   'in detect_sources and deblend_sources.')
+            raise ValueError(msg)
 
         if len(_get_labels(markers)) == 1:  # no deblending
             return None

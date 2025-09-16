@@ -69,7 +69,1867 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnDatasetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input": "input",
+        "name": "name",
+        "format": "format",
+        "format_options": "formatOptions",
+        "path_options": "pathOptions",
+        "source": "source",
+        "tags": "tags",
+    },
+)
+class CfnDatasetProps:
+    def __init__(
+        self,
+        *,
+        input: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.InputProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        format: typing.Optional[builtins.str] = None,
+        format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.FormatOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        path_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataset.PathOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataset``.
+
+        :param input: Information on how DataBrew can find the dataset, in either the AWS Glue Data Catalog or Amazon S3 .
+        :param name: The unique name of the dataset.
+        :param format: The file format of a dataset that is created from an Amazon S3 file or folder.
+        :param format_options: A set of options that define how DataBrew interprets the data in the dataset.
+        :param path_options: A set of options that defines how DataBrew interprets an Amazon S3 path of the dataset.
+        :param source: The location of the data for the dataset, either Amazon S3 or the AWS Glue Data Catalog .
+        :param tags: Metadata tags that have been applied to the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_dataset_props = databrew.CfnDatasetProps(
+                input=databrew.CfnDataset.InputProperty(
+                    database_input_definition=databrew.CfnDataset.DatabaseInputDefinitionProperty(
+                        glue_connection_name="glueConnectionName",
+            
+                        # the properties below are optional
+                        database_table_name="databaseTableName",
+                        query_string="queryString",
+                        temp_directory=databrew.CfnDataset.S3LocationProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            bucket_owner="bucketOwner",
+                            key="key"
+                        )
+                    ),
+                    data_catalog_input_definition=databrew.CfnDataset.DataCatalogInputDefinitionProperty(
+                        catalog_id="catalogId",
+                        database_name="databaseName",
+                        table_name="tableName",
+                        temp_directory=databrew.CfnDataset.S3LocationProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            bucket_owner="bucketOwner",
+                            key="key"
+                        )
+                    ),
+                    metadata=databrew.CfnDataset.MetadataProperty(
+                        source_arn="sourceArn"
+                    ),
+                    s3_input_definition=databrew.CfnDataset.S3LocationProperty(
+                        bucket="bucket",
+            
+                        # the properties below are optional
+                        bucket_owner="bucketOwner",
+                        key="key"
+                    )
+                ),
+                name="name",
+            
+                # the properties below are optional
+                format="format",
+                format_options=databrew.CfnDataset.FormatOptionsProperty(
+                    csv=databrew.CfnDataset.CsvOptionsProperty(
+                        delimiter="delimiter",
+                        header_row=False
+                    ),
+                    excel=databrew.CfnDataset.ExcelOptionsProperty(
+                        header_row=False,
+                        sheet_indexes=[123],
+                        sheet_names=["sheetNames"]
+                    ),
+                    json=databrew.CfnDataset.JsonOptionsProperty(
+                        multi_line=False
+                    )
+                ),
+                path_options=databrew.CfnDataset.PathOptionsProperty(
+                    files_limit=databrew.CfnDataset.FilesLimitProperty(
+                        max_files=123,
+            
+                        # the properties below are optional
+                        order="order",
+                        ordered_by="orderedBy"
+                    ),
+                    last_modified_date_condition=databrew.CfnDataset.FilterExpressionProperty(
+                        expression="expression",
+                        values_map=[databrew.CfnDataset.FilterValueProperty(
+                            value="value",
+                            value_reference="valueReference"
+                        )]
+                    ),
+                    parameters=[databrew.CfnDataset.PathParameterProperty(
+                        dataset_parameter=databrew.CfnDataset.DatasetParameterProperty(
+                            name="name",
+                            type="type",
+            
+                            # the properties below are optional
+                            create_column=False,
+                            datetime_options=databrew.CfnDataset.DatetimeOptionsProperty(
+                                format="format",
+            
+                                # the properties below are optional
+                                locale_code="localeCode",
+                                timezone_offset="timezoneOffset"
+                            ),
+                            filter=databrew.CfnDataset.FilterExpressionProperty(
+                                expression="expression",
+                                values_map=[databrew.CfnDataset.FilterValueProperty(
+                                    value="value",
+                                    value_reference="valueReference"
+                                )]
+                            )
+                        ),
+                        path_parameter_name="pathParameterName"
+                    )]
+                ),
+                source="source",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5248eecda5b6a9f8805972faa64d42bf349757b044f1290e3a783be205985530)
+            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
+            check_type(argname="argument path_options", value=path_options, expected_type=type_hints["path_options"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "input": input,
+            "name": name,
+        }
+        if format is not None:
+            self._values["format"] = format
+        if format_options is not None:
+            self._values["format_options"] = format_options
+        if path_options is not None:
+            self._values["path_options"] = path_options
+        if source is not None:
+            self._values["source"] = source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def input(self) -> typing.Union[_IResolvable_da3f097b, "CfnDataset.InputProperty"]:
+        '''Information on how DataBrew can find the dataset, in either the AWS Glue Data Catalog or Amazon S3 .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-input
+        '''
+        result = self._values.get("input")
+        assert result is not None, "Required property 'input' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnDataset.InputProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique name of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def format(self) -> typing.Optional[builtins.str]:
+        '''The file format of a dataset that is created from an Amazon S3 file or folder.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-format
+        '''
+        result = self._values.get("format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def format_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.FormatOptionsProperty"]]:
+        '''A set of options that define how DataBrew interprets the data in the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-formatoptions
+        '''
+        result = self._values.get("format_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.FormatOptionsProperty"]], result)
+
+    @builtins.property
+    def path_options(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.PathOptionsProperty"]]:
+        '''A set of options that defines how DataBrew interprets an Amazon S3 path of the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-pathoptions
+        '''
+        result = self._values.get("path_options")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataset.PathOptionsProperty"]], result)
+
+    @builtins.property
+    def source(self) -> typing.Optional[builtins.str]:
+        '''The location of the data for the dataset, either Amazon S3 or the AWS Glue Data Catalog .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-source
+        '''
+        result = self._values.get("source")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata tags that have been applied to the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnJobProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "role_arn": "roleArn",
+        "type": "type",
+        "database_outputs": "databaseOutputs",
+        "data_catalog_outputs": "dataCatalogOutputs",
+        "dataset_name": "datasetName",
+        "encryption_key_arn": "encryptionKeyArn",
+        "encryption_mode": "encryptionMode",
+        "job_sample": "jobSample",
+        "log_subscription": "logSubscription",
+        "max_capacity": "maxCapacity",
+        "max_retries": "maxRetries",
+        "output_location": "outputLocation",
+        "outputs": "outputs",
+        "profile_configuration": "profileConfiguration",
+        "project_name": "projectName",
+        "recipe": "recipe",
+        "tags": "tags",
+        "timeout": "timeout",
+        "validation_configurations": "validationConfigurations",
+    },
+)
+class CfnJobProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        role_arn: builtins.str,
+        type: builtins.str,
+        database_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.DatabaseOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_catalog_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.DataCatalogOutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        dataset_name: typing.Optional[builtins.str] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        encryption_mode: typing.Optional[builtins.str] = None,
+        job_sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.JobSampleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_subscription: typing.Optional[builtins.str] = None,
+        max_capacity: typing.Optional[jsii.Number] = None,
+        max_retries: typing.Optional[jsii.Number] = None,
+        output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.OutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.OutputProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        profile_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.ProfileConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        project_name: typing.Optional[builtins.str] = None,
+        recipe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.RecipeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout: typing.Optional[jsii.Number] = None,
+        validation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJob.ValidationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnJob``.
+
+        :param name: The unique name of the job.
+        :param role_arn: The Amazon Resource Name (ARN) of the role to be assumed for this job.
+        :param type: The job type of the job, which must be one of the following:. - ``PROFILE`` - A job to analyze a dataset, to determine its size, data types, data distribution, and more. - ``RECIPE`` - A job to apply one or more transformations to a dataset.
+        :param database_outputs: Represents a list of JDBC database output objects which defines the output destination for a DataBrew recipe job to write into.
+        :param data_catalog_outputs: One or more artifacts that represent the AWS Glue Data Catalog output from running the job.
+        :param dataset_name: A dataset that the job is to process.
+        :param encryption_key_arn: The Amazon Resource Name (ARN) of an encryption key that is used to protect the job output. For more information, see `Encrypting data written by DataBrew jobs <https://docs.aws.amazon.com/databrew/latest/dg/encryption-security-configuration.html>`_
+        :param encryption_mode: The encryption mode for the job, which can be one of the following:. - ``SSE-KMS`` - Server-side encryption with keys managed by AWS KMS . - ``SSE-S3`` - Server-side encryption with keys managed by Amazon S3.
+        :param job_sample: A sample configuration for profile jobs only, which determines the number of rows on which the profile job is run. If a ``JobSample`` value isn't provided, the default value is used. The default value is CUSTOM_ROWS for the mode parameter and 20,000 for the size parameter.
+        :param log_subscription: The current status of Amazon CloudWatch logging for the job.
+        :param max_capacity: The maximum number of nodes that can be consumed when the job processes data.
+        :param max_retries: The maximum number of times to retry the job after a job run fails.
+        :param output_location: The location in Amazon S3 where the job writes its output.
+        :param outputs: One or more artifacts that represent output from running the job.
+        :param profile_configuration: Configuration for profile jobs. Configuration can be used to select columns, do evaluations, and override default parameters of evaluations. When configuration is undefined, the profile job will apply default settings to all supported columns.
+        :param project_name: The name of the project that the job is associated with.
+        :param recipe: A series of data transformation steps that the job runs.
+        :param tags: Metadata tags that have been applied to the job.
+        :param timeout: The job's timeout in minutes. A job that attempts to run longer than this timeout period ends with a status of ``TIMEOUT`` .
+        :param validation_configurations: List of validation configurations that are applied to the profile job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_job_props = databrew.CfnJobProps(
+                name="name",
+                role_arn="roleArn",
+                type="type",
+            
+                # the properties below are optional
+                database_outputs=[databrew.CfnJob.DatabaseOutputProperty(
+                    database_options=databrew.CfnJob.DatabaseTableOutputOptionsProperty(
+                        table_name="tableName",
+            
+                        # the properties below are optional
+                        temp_directory=databrew.CfnJob.S3LocationProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            bucket_owner="bucketOwner",
+                            key="key"
+                        )
+                    ),
+                    glue_connection_name="glueConnectionName",
+            
+                    # the properties below are optional
+                    database_output_mode="databaseOutputMode"
+                )],
+                data_catalog_outputs=[databrew.CfnJob.DataCatalogOutputProperty(
+                    database_name="databaseName",
+                    table_name="tableName",
+            
+                    # the properties below are optional
+                    catalog_id="catalogId",
+                    database_options=databrew.CfnJob.DatabaseTableOutputOptionsProperty(
+                        table_name="tableName",
+            
+                        # the properties below are optional
+                        temp_directory=databrew.CfnJob.S3LocationProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            bucket_owner="bucketOwner",
+                            key="key"
+                        )
+                    ),
+                    overwrite=False,
+                    s3_options=databrew.CfnJob.S3TableOutputOptionsProperty(
+                        location=databrew.CfnJob.S3LocationProperty(
+                            bucket="bucket",
+            
+                            # the properties below are optional
+                            bucket_owner="bucketOwner",
+                            key="key"
+                        )
+                    )
+                )],
+                dataset_name="datasetName",
+                encryption_key_arn="encryptionKeyArn",
+                encryption_mode="encryptionMode",
+                job_sample=databrew.CfnJob.JobSampleProperty(
+                    mode="mode",
+                    size=123
+                ),
+                log_subscription="logSubscription",
+                max_capacity=123,
+                max_retries=123,
+                output_location=databrew.CfnJob.OutputLocationProperty(
+                    bucket="bucket",
+            
+                    # the properties below are optional
+                    bucket_owner="bucketOwner",
+                    key="key"
+                ),
+                outputs=[databrew.CfnJob.OutputProperty(
+                    location=databrew.CfnJob.S3LocationProperty(
+                        bucket="bucket",
+            
+                        # the properties below are optional
+                        bucket_owner="bucketOwner",
+                        key="key"
+                    ),
+            
+                    # the properties below are optional
+                    compression_format="compressionFormat",
+                    format="format",
+                    format_options=databrew.CfnJob.OutputFormatOptionsProperty(
+                        csv=databrew.CfnJob.CsvOutputOptionsProperty(
+                            delimiter="delimiter"
+                        )
+                    ),
+                    max_output_files=123,
+                    overwrite=False,
+                    partition_columns=["partitionColumns"]
+                )],
+                profile_configuration=databrew.CfnJob.ProfileConfigurationProperty(
+                    column_statistics_configurations=[databrew.CfnJob.ColumnStatisticsConfigurationProperty(
+                        statistics=databrew.CfnJob.StatisticsConfigurationProperty(
+                            included_statistics=["includedStatistics"],
+                            overrides=[databrew.CfnJob.StatisticOverrideProperty(
+                                parameters={
+                                    "parameters_key": "parameters"
+                                },
+                                statistic="statistic"
+                            )]
+                        ),
+            
+                        # the properties below are optional
+                        selectors=[databrew.CfnJob.ColumnSelectorProperty(
+                            name="name",
+                            regex="regex"
+                        )]
+                    )],
+                    dataset_statistics_configuration=databrew.CfnJob.StatisticsConfigurationProperty(
+                        included_statistics=["includedStatistics"],
+                        overrides=[databrew.CfnJob.StatisticOverrideProperty(
+                            parameters={
+                                "parameters_key": "parameters"
+                            },
+                            statistic="statistic"
+                        )]
+                    ),
+                    entity_detector_configuration=databrew.CfnJob.EntityDetectorConfigurationProperty(
+                        entity_types=["entityTypes"],
+            
+                        # the properties below are optional
+                        allowed_statistics=databrew.CfnJob.AllowedStatisticsProperty(
+                            statistics=["statistics"]
+                        )
+                    ),
+                    profile_columns=[databrew.CfnJob.ColumnSelectorProperty(
+                        name="name",
+                        regex="regex"
+                    )]
+                ),
+                project_name="projectName",
+                recipe=databrew.CfnJob.RecipeProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    version="version"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                timeout=123,
+                validation_configurations=[databrew.CfnJob.ValidationConfigurationProperty(
+                    ruleset_arn="rulesetArn",
+            
+                    # the properties below are optional
+                    validation_mode="validationMode"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81cb0d2bc178f028804f44a0d2b18254dbafd5fb079619ddb68d34adf3f544f8)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument database_outputs", value=database_outputs, expected_type=type_hints["database_outputs"])
+            check_type(argname="argument data_catalog_outputs", value=data_catalog_outputs, expected_type=type_hints["data_catalog_outputs"])
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
+            check_type(argname="argument job_sample", value=job_sample, expected_type=type_hints["job_sample"])
+            check_type(argname="argument log_subscription", value=log_subscription, expected_type=type_hints["log_subscription"])
+            check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
+            check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
+            check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
+            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+            check_type(argname="argument profile_configuration", value=profile_configuration, expected_type=type_hints["profile_configuration"])
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+            check_type(argname="argument recipe", value=recipe, expected_type=type_hints["recipe"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            check_type(argname="argument validation_configurations", value=validation_configurations, expected_type=type_hints["validation_configurations"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "role_arn": role_arn,
+            "type": type,
+        }
+        if database_outputs is not None:
+            self._values["database_outputs"] = database_outputs
+        if data_catalog_outputs is not None:
+            self._values["data_catalog_outputs"] = data_catalog_outputs
+        if dataset_name is not None:
+            self._values["dataset_name"] = dataset_name
+        if encryption_key_arn is not None:
+            self._values["encryption_key_arn"] = encryption_key_arn
+        if encryption_mode is not None:
+            self._values["encryption_mode"] = encryption_mode
+        if job_sample is not None:
+            self._values["job_sample"] = job_sample
+        if log_subscription is not None:
+            self._values["log_subscription"] = log_subscription
+        if max_capacity is not None:
+            self._values["max_capacity"] = max_capacity
+        if max_retries is not None:
+            self._values["max_retries"] = max_retries
+        if output_location is not None:
+            self._values["output_location"] = output_location
+        if outputs is not None:
+            self._values["outputs"] = outputs
+        if profile_configuration is not None:
+            self._values["profile_configuration"] = profile_configuration
+        if project_name is not None:
+            self._values["project_name"] = project_name
+        if recipe is not None:
+            self._values["recipe"] = recipe
+        if tags is not None:
+            self._values["tags"] = tags
+        if timeout is not None:
+            self._values["timeout"] = timeout
+        if validation_configurations is not None:
+            self._values["validation_configurations"] = validation_configurations
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique name of the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the role to be assumed for this job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The job type of the job, which must be one of the following:.
+
+        - ``PROFILE`` - A job to analyze a dataset, to determine its size, data types, data distribution, and more.
+        - ``RECIPE`` - A job to apply one or more transformations to a dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_outputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.DatabaseOutputProperty"]]]]:
+        '''Represents a list of JDBC database output objects which defines the output destination for a DataBrew recipe job to write into.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-databaseoutputs
+        '''
+        result = self._values.get("database_outputs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.DatabaseOutputProperty"]]]], result)
+
+    @builtins.property
+    def data_catalog_outputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.DataCatalogOutputProperty"]]]]:
+        '''One or more artifacts that represent the AWS Glue Data Catalog output from running the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-datacatalogoutputs
+        '''
+        result = self._values.get("data_catalog_outputs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.DataCatalogOutputProperty"]]]], result)
+
+    @builtins.property
+    def dataset_name(self) -> typing.Optional[builtins.str]:
+        '''A dataset that the job is to process.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-datasetname
+        '''
+        result = self._values.get("dataset_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an encryption key that is used to protect the job output.
+
+        For more information, see `Encrypting data written by DataBrew jobs <https://docs.aws.amazon.com/databrew/latest/dg/encryption-security-configuration.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-encryptionkeyarn
+        '''
+        result = self._values.get("encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_mode(self) -> typing.Optional[builtins.str]:
+        '''The encryption mode for the job, which can be one of the following:.
+
+        - ``SSE-KMS`` - Server-side encryption with keys managed by AWS KMS .
+        - ``SSE-S3`` - Server-side encryption with keys managed by Amazon S3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-encryptionmode
+        '''
+        result = self._values.get("encryption_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_sample(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.JobSampleProperty"]]:
+        '''A sample configuration for profile jobs only, which determines the number of rows on which the profile job is run.
+
+        If a ``JobSample`` value isn't provided, the default value is used. The default value is CUSTOM_ROWS for the mode parameter and 20,000 for the size parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-jobsample
+        '''
+        result = self._values.get("job_sample")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.JobSampleProperty"]], result)
+
+    @builtins.property
+    def log_subscription(self) -> typing.Optional[builtins.str]:
+        '''The current status of Amazon CloudWatch logging for the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-logsubscription
+        '''
+        result = self._values.get("log_subscription")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_capacity(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of nodes that can be consumed when the job processes data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-maxcapacity
+        '''
+        result = self._values.get("max_capacity")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_retries(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of times to retry the job after a job run fails.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-maxretries
+        '''
+        result = self._values.get("max_retries")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def output_location(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.OutputLocationProperty"]]:
+        '''The location in Amazon S3 where the job writes its output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-outputlocation
+        '''
+        result = self._values.get("output_location")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.OutputLocationProperty"]], result)
+
+    @builtins.property
+    def outputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.OutputProperty"]]]]:
+        '''One or more artifacts that represent output from running the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-outputs
+        '''
+        result = self._values.get("outputs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.OutputProperty"]]]], result)
+
+    @builtins.property
+    def profile_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.ProfileConfigurationProperty"]]:
+        '''Configuration for profile jobs.
+
+        Configuration can be used to select columns, do evaluations, and override default parameters of evaluations. When configuration is undefined, the profile job will apply default settings to all supported columns.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-profileconfiguration
+        '''
+        result = self._values.get("profile_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.ProfileConfigurationProperty"]], result)
+
+    @builtins.property
+    def project_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the project that the job is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-projectname
+        '''
+        result = self._values.get("project_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recipe(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.RecipeProperty"]]:
+        '''A series of data transformation steps that the job runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-recipe
+        '''
+        result = self._values.get("recipe")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnJob.RecipeProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata tags that have been applied to the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional[jsii.Number]:
+        '''The job's timeout in minutes.
+
+        A job that attempts to run longer than this timeout period ends with a status of ``TIMEOUT`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-timeout
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def validation_configurations(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.ValidationConfigurationProperty"]]]]:
+        '''List of validation configurations that are applied to the profile job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-validationconfigurations
+        '''
+        result = self._values.get("validation_configurations")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJob.ValidationConfigurationProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnJobProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dataset_name": "datasetName",
+        "name": "name",
+        "recipe_name": "recipeName",
+        "role_arn": "roleArn",
+        "sample": "sample",
+        "tags": "tags",
+    },
+)
+class CfnProjectProps:
+    def __init__(
+        self,
+        *,
+        dataset_name: builtins.str,
+        name: builtins.str,
+        recipe_name: builtins.str,
+        role_arn: builtins.str,
+        sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.SampleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProject``.
+
+        :param dataset_name: The dataset that the project is to act upon.
+        :param name: The unique name of a project.
+        :param recipe_name: The name of a recipe that will be developed during a project session.
+        :param role_arn: The Amazon Resource Name (ARN) of the role that will be assumed for this project.
+        :param sample: The sample size and sampling type to apply to the data. If this parameter isn't specified, then the sample consists of the first 500 rows from the dataset.
+        :param tags: Metadata tags that have been applied to the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_project_props = databrew.CfnProjectProps(
+                dataset_name="datasetName",
+                name="name",
+                recipe_name="recipeName",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                sample=databrew.CfnProject.SampleProperty(
+                    type="type",
+            
+                    # the properties below are optional
+                    size=123
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5962c48c8951c2c46c8182577aa8d510ae4217f6f03211d4bf11f546059aa925)
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument recipe_name", value=recipe_name, expected_type=type_hints["recipe_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument sample", value=sample, expected_type=type_hints["sample"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_name": dataset_name,
+            "name": name,
+            "recipe_name": recipe_name,
+            "role_arn": role_arn,
+        }
+        if sample is not None:
+            self._values["sample"] = sample
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def dataset_name(self) -> builtins.str:
+        '''The dataset that the project is to act upon.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-datasetname
+        '''
+        result = self._values.get("dataset_name")
+        assert result is not None, "Required property 'dataset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique name of a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recipe_name(self) -> builtins.str:
+        '''The name of a recipe that will be developed during a project session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-recipename
+        '''
+        result = self._values.get("recipe_name")
+        assert result is not None, "Required property 'recipe_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the role that will be assumed for this project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def sample(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.SampleProperty"]]:
+        '''The sample size and sampling type to apply to the data.
+
+        If this parameter isn't specified, then the sample consists of the first 500 rows from the dataset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-sample
+        '''
+        result = self._values.get("sample")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.SampleProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata tags that have been applied to the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnRecipeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "steps": "steps",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnRecipeProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRecipe.RecipeStepProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecipe``.
+
+        :param name: The unique name for the recipe.
+        :param steps: A list of steps that are defined by the recipe.
+        :param description: The description of the recipe.
+        :param tags: Metadata tags that have been applied to the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_recipe_props = databrew.CfnRecipeProps(
+                name="name",
+                steps=[databrew.CfnRecipe.RecipeStepProperty(
+                    action=databrew.CfnRecipe.ActionProperty(
+                        operation="operation",
+            
+                        # the properties below are optional
+                        parameters={
+                            "parameters_key": "parameters"
+                        }
+                    ),
+            
+                    # the properties below are optional
+                    condition_expressions=[databrew.CfnRecipe.ConditionExpressionProperty(
+                        condition="condition",
+                        target_column="targetColumn",
+            
+                        # the properties below are optional
+                        value="value"
+                    )]
+                )],
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf07d3fd01a16a95f20309f3cd4cc72fbef6631fcc2dd55a36ef5b5b1b6d9e3d)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "steps": steps,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The unique name for the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def steps(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRecipe.RecipeStepProperty"]]]:
+        '''A list of steps that are defined by the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-steps
+        '''
+        result = self._values.get("steps")
+        assert result is not None, "Required property 'steps' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRecipe.RecipeStepProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata tags that have been applied to the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecipeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnRulesetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "rules": "rules",
+        "target_arn": "targetArn",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnRulesetProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleset.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        target_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRuleset``.
+
+        :param name: The name of the ruleset.
+        :param rules: Contains metadata about the ruleset.
+        :param target_arn: The Amazon Resource Name (ARN) of a resource (dataset) that the ruleset is associated with.
+        :param description: The description of the ruleset.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_ruleset_props = databrew.CfnRulesetProps(
+                name="name",
+                rules=[databrew.CfnRuleset.RuleProperty(
+                    check_expression="checkExpression",
+                    name="name",
+            
+                    # the properties below are optional
+                    column_selectors=[databrew.CfnRuleset.ColumnSelectorProperty(
+                        name="name",
+                        regex="regex"
+                    )],
+                    disabled=False,
+                    substitution_map=[databrew.CfnRuleset.SubstitutionValueProperty(
+                        value="value",
+                        value_reference="valueReference"
+                    )],
+                    threshold=databrew.CfnRuleset.ThresholdProperty(
+                        value=123,
+            
+                        # the properties below are optional
+                        type="type",
+                        unit="unit"
+                    )
+                )],
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab9d1f397a6a325db350e38b738d0f6a281071f48e22ce5089697cfcc3453566)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "rules": rules,
+            "target_arn": target_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the ruleset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleset.RuleProperty"]]]:
+        '''Contains metadata about the ruleset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleset.RuleProperty"]]], result)
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a resource (dataset) that the ruleset is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-targetarn
+        '''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the ruleset.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRulesetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.CfnScheduleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cron_expression": "cronExpression",
+        "name": "name",
+        "job_names": "jobNames",
+        "tags": "tags",
+    },
+)
+class CfnScheduleProps:
+    def __init__(
+        self,
+        *,
+        cron_expression: builtins.str,
+        name: builtins.str,
+        job_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSchedule``.
+
+        :param cron_expression: The dates and times when the job is to run. For more information, see `Working with cron expressions for recipe jobs <https://docs.aws.amazon.com/databrew/latest/dg/jobs.recipe.html#jobs.cron>`_ in the *AWS Glue DataBrew Developer Guide* .
+        :param name: The name of the schedule.
+        :param job_names: A list of jobs to be run, according to the schedule.
+        :param tags: Metadata tags that have been applied to the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            cfn_schedule_props = databrew.CfnScheduleProps(
+                cron_expression="cronExpression",
+                name="name",
+            
+                # the properties below are optional
+                job_names=["jobNames"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d05381e0a395e45a8ff0039a6d6eaae299f7c8e14037761c6a7554cba23a7a8)
+            check_type(argname="argument cron_expression", value=cron_expression, expected_type=type_hints["cron_expression"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument job_names", value=job_names, expected_type=type_hints["job_names"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cron_expression": cron_expression,
+            "name": name,
+        }
+        if job_names is not None:
+            self._values["job_names"] = job_names
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def cron_expression(self) -> builtins.str:
+        '''The dates and times when the job is to run.
+
+        For more information, see `Working with cron expressions for recipe jobs <https://docs.aws.amazon.com/databrew/latest/dg/jobs.recipe.html#jobs.cron>`_ in the *AWS Glue DataBrew Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-cronexpression
+        '''
+        result = self._values.get("cron_expression")
+        assert result is not None, "Required property 'cron_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def job_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of jobs to be run, according to the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-jobnames
+        '''
+        result = self._values.get("job_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''Metadata tags that have been applied to the schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.DatasetReference",
+    jsii_struct_bases=[],
+    name_mapping={"dataset_name": "datasetName"},
+)
+class DatasetReference:
+    def __init__(self, *, dataset_name: builtins.str) -> None:
+        '''A reference to a Dataset resource.
+
+        :param dataset_name: The Name of the Dataset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            dataset_reference = databrew.DatasetReference(
+                dataset_name="datasetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c64afcbb0c58e722465e59d05e256ba2346cf73d9bc4eece28dbbfb7f561983)
+            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dataset_name": dataset_name,
+        }
+
+    @builtins.property
+    def dataset_name(self) -> builtins.str:
+        '''The Name of the Dataset resource.'''
+        result = self._values.get("dataset_name")
+        assert result is not None, "Required property 'dataset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatasetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IDatasetRef")
+class IDatasetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDatasetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dataset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IDatasetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''(experimental) A reference to a Dataset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IJobRef")
+class IJobRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Job.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "JobReference":
+        '''(experimental) A reference to a Job resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Job.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "JobReference":
+        '''(experimental) A reference to a Job resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("JobReference", jsii.get(self, "jobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IJobRef).__jsii_proxy_class__ = lambda : _IJobRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IProjectRef")
+class IProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IProjectRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Project.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IProjectRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> "ProjectReference":
+        '''(experimental) A reference to a Project resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ProjectReference", jsii.get(self, "projectRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IRecipeRef")
+class IRecipeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> "RecipeReference":
+        '''(experimental) A reference to a Recipe resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecipeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IRecipeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> "RecipeReference":
+        '''(experimental) A reference to a Recipe resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecipeReference", jsii.get(self, "recipeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecipeRef).__jsii_proxy_class__ = lambda : _IRecipeRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IRulesetRef")
+class IRulesetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Ruleset.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="rulesetRef")
+    def ruleset_ref(self) -> "RulesetReference":
+        '''(experimental) A reference to a Ruleset resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRulesetRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Ruleset.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IRulesetRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="rulesetRef")
+    def ruleset_ref(self) -> "RulesetReference":
+        '''(experimental) A reference to a Ruleset resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RulesetReference", jsii.get(self, "rulesetRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRulesetRef).__jsii_proxy_class__ = lambda : _IRulesetRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_databrew.IScheduleRef")
+class IScheduleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Schedule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> "ScheduleReference":
+        '''(experimental) A reference to a Schedule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Schedule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_databrew.IScheduleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> "ScheduleReference":
+        '''(experimental) A reference to a Schedule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduleReference", jsii.get(self, "scheduleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduleRef).__jsii_proxy_class__ = lambda : _IScheduleRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.JobReference",
+    jsii_struct_bases=[],
+    name_mapping={"job_name": "jobName"},
+)
+class JobReference:
+    def __init__(self, *, job_name: builtins.str) -> None:
+        '''A reference to a Job resource.
+
+        :param job_name: The Name of the Job resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            job_reference = databrew.JobReference(
+                job_name="jobName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__418c6c20329c3f3c39c5b99701ca6b12324474c05d85489414a07dffd7496c0d)
+            check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_name": job_name,
+        }
+
+    @builtins.property
+    def job_name(self) -> builtins.str:
+        '''The Name of the Job resource.'''
+        result = self._values.get("job_name")
+        assert result is not None, "Required property 'job_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.ProjectReference",
+    jsii_struct_bases=[],
+    name_mapping={"project_name": "projectName"},
+)
+class ProjectReference:
+    def __init__(self, *, project_name: builtins.str) -> None:
+        '''A reference to a Project resource.
+
+        :param project_name: The Name of the Project resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            project_reference = databrew.ProjectReference(
+                project_name="projectName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b928ef64782e6ab14fdfbd1b16a306748c1c50550839d130ef73a2a1120d0180)
+            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "project_name": project_name,
+        }
+
+    @builtins.property
+    def project_name(self) -> builtins.str:
+        '''The Name of the Project resource.'''
+        result = self._values.get("project_name")
+        assert result is not None, "Required property 'project_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProjectReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.RecipeReference",
+    jsii_struct_bases=[],
+    name_mapping={"recipe_name": "recipeName"},
+)
+class RecipeReference:
+    def __init__(self, *, recipe_name: builtins.str) -> None:
+        '''A reference to a Recipe resource.
+
+        :param recipe_name: The Name of the Recipe resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            recipe_reference = databrew.RecipeReference(
+                recipe_name="recipeName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d06559f25062c5edd9451ac92f17fe7175d1a78a72379483a12a0f1abc038f8)
+            check_type(argname="argument recipe_name", value=recipe_name, expected_type=type_hints["recipe_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recipe_name": recipe_name,
+        }
+
+    @builtins.property
+    def recipe_name(self) -> builtins.str:
+        '''The Name of the Recipe resource.'''
+        result = self._values.get("recipe_name")
+        assert result is not None, "Required property 'recipe_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecipeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.RulesetReference",
+    jsii_struct_bases=[],
+    name_mapping={"ruleset_name": "rulesetName"},
+)
+class RulesetReference:
+    def __init__(self, *, ruleset_name: builtins.str) -> None:
+        '''A reference to a Ruleset resource.
+
+        :param ruleset_name: The Name of the Ruleset resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            ruleset_reference = databrew.RulesetReference(
+                ruleset_name="rulesetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32bc0931bfcd9f2a80656385cc8390cea09278c8163e07dff7c99af3935c8d12)
+            check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ruleset_name": ruleset_name,
+        }
+
+    @builtins.property
+    def ruleset_name(self) -> builtins.str:
+        '''The Name of the Ruleset resource.'''
+        result = self._values.get("ruleset_name")
+        assert result is not None, "Required property 'ruleset_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RulesetReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_databrew.ScheduleReference",
+    jsii_struct_bases=[],
+    name_mapping={"schedule_name": "scheduleName"},
+)
+class ScheduleReference:
+    def __init__(self, *, schedule_name: builtins.str) -> None:
+        '''A reference to a Schedule resource.
+
+        :param schedule_name: The Name of the Schedule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_databrew as databrew
+            
+            schedule_reference = databrew.ScheduleReference(
+                schedule_name="scheduleName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25ac0de9dc4cfe6a5992c10a41b693615ee4dfff51a2aa46d2ab95b3c8ce4716)
+            check_type(argname="argument schedule_name", value=schedule_name, expected_type=type_hints["schedule_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "schedule_name": schedule_name,
+        }
+
+    @builtins.property
+    def schedule_name(self) -> builtins.str:
+        '''The Name of the Schedule resource.'''
+        result = self._values.get("schedule_name")
+        assert result is not None, "Required property 'schedule_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, IDatasetRef, _ITaggable_36806126)
 class CfnDataset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -266,6 +2126,12 @@ class CfnDataset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="datasetRef")
+    def dataset_ref(self) -> DatasetReference:
+        '''A reference to a Dataset resource.'''
+        return typing.cast(DatasetReference, jsii.get(self, "datasetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1938,260 +3804,7 @@ class CfnDataset(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnDatasetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "input": "input",
-        "name": "name",
-        "format": "format",
-        "format_options": "formatOptions",
-        "path_options": "pathOptions",
-        "source": "source",
-        "tags": "tags",
-    },
-)
-class CfnDatasetProps:
-    def __init__(
-        self,
-        *,
-        input: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.InputProperty, typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        format: typing.Optional[builtins.str] = None,
-        format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        path_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.PathOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        source: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataset``.
-
-        :param input: Information on how DataBrew can find the dataset, in either the AWS Glue Data Catalog or Amazon S3 .
-        :param name: The unique name of the dataset.
-        :param format: The file format of a dataset that is created from an Amazon S3 file or folder.
-        :param format_options: A set of options that define how DataBrew interprets the data in the dataset.
-        :param path_options: A set of options that defines how DataBrew interprets an Amazon S3 path of the dataset.
-        :param source: The location of the data for the dataset, either Amazon S3 or the AWS Glue Data Catalog .
-        :param tags: Metadata tags that have been applied to the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_dataset_props = databrew.CfnDatasetProps(
-                input=databrew.CfnDataset.InputProperty(
-                    database_input_definition=databrew.CfnDataset.DatabaseInputDefinitionProperty(
-                        glue_connection_name="glueConnectionName",
-            
-                        # the properties below are optional
-                        database_table_name="databaseTableName",
-                        query_string="queryString",
-                        temp_directory=databrew.CfnDataset.S3LocationProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            bucket_owner="bucketOwner",
-                            key="key"
-                        )
-                    ),
-                    data_catalog_input_definition=databrew.CfnDataset.DataCatalogInputDefinitionProperty(
-                        catalog_id="catalogId",
-                        database_name="databaseName",
-                        table_name="tableName",
-                        temp_directory=databrew.CfnDataset.S3LocationProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            bucket_owner="bucketOwner",
-                            key="key"
-                        )
-                    ),
-                    metadata=databrew.CfnDataset.MetadataProperty(
-                        source_arn="sourceArn"
-                    ),
-                    s3_input_definition=databrew.CfnDataset.S3LocationProperty(
-                        bucket="bucket",
-            
-                        # the properties below are optional
-                        bucket_owner="bucketOwner",
-                        key="key"
-                    )
-                ),
-                name="name",
-            
-                # the properties below are optional
-                format="format",
-                format_options=databrew.CfnDataset.FormatOptionsProperty(
-                    csv=databrew.CfnDataset.CsvOptionsProperty(
-                        delimiter="delimiter",
-                        header_row=False
-                    ),
-                    excel=databrew.CfnDataset.ExcelOptionsProperty(
-                        header_row=False,
-                        sheet_indexes=[123],
-                        sheet_names=["sheetNames"]
-                    ),
-                    json=databrew.CfnDataset.JsonOptionsProperty(
-                        multi_line=False
-                    )
-                ),
-                path_options=databrew.CfnDataset.PathOptionsProperty(
-                    files_limit=databrew.CfnDataset.FilesLimitProperty(
-                        max_files=123,
-            
-                        # the properties below are optional
-                        order="order",
-                        ordered_by="orderedBy"
-                    ),
-                    last_modified_date_condition=databrew.CfnDataset.FilterExpressionProperty(
-                        expression="expression",
-                        values_map=[databrew.CfnDataset.FilterValueProperty(
-                            value="value",
-                            value_reference="valueReference"
-                        )]
-                    ),
-                    parameters=[databrew.CfnDataset.PathParameterProperty(
-                        dataset_parameter=databrew.CfnDataset.DatasetParameterProperty(
-                            name="name",
-                            type="type",
-            
-                            # the properties below are optional
-                            create_column=False,
-                            datetime_options=databrew.CfnDataset.DatetimeOptionsProperty(
-                                format="format",
-            
-                                # the properties below are optional
-                                locale_code="localeCode",
-                                timezone_offset="timezoneOffset"
-                            ),
-                            filter=databrew.CfnDataset.FilterExpressionProperty(
-                                expression="expression",
-                                values_map=[databrew.CfnDataset.FilterValueProperty(
-                                    value="value",
-                                    value_reference="valueReference"
-                                )]
-                            )
-                        ),
-                        path_parameter_name="pathParameterName"
-                    )]
-                ),
-                source="source",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5248eecda5b6a9f8805972faa64d42bf349757b044f1290e3a783be205985530)
-            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
-            check_type(argname="argument format_options", value=format_options, expected_type=type_hints["format_options"])
-            check_type(argname="argument path_options", value=path_options, expected_type=type_hints["path_options"])
-            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input": input,
-            "name": name,
-        }
-        if format is not None:
-            self._values["format"] = format
-        if format_options is not None:
-            self._values["format_options"] = format_options
-        if path_options is not None:
-            self._values["path_options"] = path_options
-        if source is not None:
-            self._values["source"] = source
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def input(self) -> typing.Union[_IResolvable_da3f097b, CfnDataset.InputProperty]:
-        '''Information on how DataBrew can find the dataset, in either the AWS Glue Data Catalog or Amazon S3 .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-input
-        '''
-        result = self._values.get("input")
-        assert result is not None, "Required property 'input' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnDataset.InputProperty], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique name of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def format(self) -> typing.Optional[builtins.str]:
-        '''The file format of a dataset that is created from an Amazon S3 file or folder.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-format
-        '''
-        result = self._values.get("format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def format_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.FormatOptionsProperty]]:
-        '''A set of options that define how DataBrew interprets the data in the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-formatoptions
-        '''
-        result = self._values.get("format_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.FormatOptionsProperty]], result)
-
-    @builtins.property
-    def path_options(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.PathOptionsProperty]]:
-        '''A set of options that defines how DataBrew interprets an Amazon S3 path of the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-pathoptions
-        '''
-        result = self._values.get("path_options")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataset.PathOptionsProperty]], result)
-
-    @builtins.property
-    def source(self) -> typing.Optional[builtins.str]:
-        '''The location of the data for the dataset, either Amazon S3 or the AWS Glue Data Catalog .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-source
-        '''
-        result = self._values.get("source")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata tags that have been applied to the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-dataset.html#cfn-databrew-dataset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDatasetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IJobRef, _ITaggable_36806126)
 class CfnJob(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2474,6 +4087,12 @@ class CfnJob(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> JobReference:
+        '''A reference to a Job resource.'''
+        return typing.cast(JobReference, jsii.get(self, "jobRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4536,528 +6155,7 @@ class CfnJob(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnJobProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "role_arn": "roleArn",
-        "type": "type",
-        "database_outputs": "databaseOutputs",
-        "data_catalog_outputs": "dataCatalogOutputs",
-        "dataset_name": "datasetName",
-        "encryption_key_arn": "encryptionKeyArn",
-        "encryption_mode": "encryptionMode",
-        "job_sample": "jobSample",
-        "log_subscription": "logSubscription",
-        "max_capacity": "maxCapacity",
-        "max_retries": "maxRetries",
-        "output_location": "outputLocation",
-        "outputs": "outputs",
-        "profile_configuration": "profileConfiguration",
-        "project_name": "projectName",
-        "recipe": "recipe",
-        "tags": "tags",
-        "timeout": "timeout",
-        "validation_configurations": "validationConfigurations",
-    },
-)
-class CfnJobProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        role_arn: builtins.str,
-        type: builtins.str,
-        database_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DatabaseOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_catalog_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DataCatalogOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        dataset_name: typing.Optional[builtins.str] = None,
-        encryption_key_arn: typing.Optional[builtins.str] = None,
-        encryption_mode: typing.Optional[builtins.str] = None,
-        job_sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.JobSampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        log_subscription: typing.Optional[builtins.str] = None,
-        max_capacity: typing.Optional[jsii.Number] = None,
-        max_retries: typing.Optional[jsii.Number] = None,
-        output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        profile_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        project_name: typing.Optional[builtins.str] = None,
-        recipe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.RecipeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        timeout: typing.Optional[jsii.Number] = None,
-        validation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ValidationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnJob``.
-
-        :param name: The unique name of the job.
-        :param role_arn: The Amazon Resource Name (ARN) of the role to be assumed for this job.
-        :param type: The job type of the job, which must be one of the following:. - ``PROFILE`` - A job to analyze a dataset, to determine its size, data types, data distribution, and more. - ``RECIPE`` - A job to apply one or more transformations to a dataset.
-        :param database_outputs: Represents a list of JDBC database output objects which defines the output destination for a DataBrew recipe job to write into.
-        :param data_catalog_outputs: One or more artifacts that represent the AWS Glue Data Catalog output from running the job.
-        :param dataset_name: A dataset that the job is to process.
-        :param encryption_key_arn: The Amazon Resource Name (ARN) of an encryption key that is used to protect the job output. For more information, see `Encrypting data written by DataBrew jobs <https://docs.aws.amazon.com/databrew/latest/dg/encryption-security-configuration.html>`_
-        :param encryption_mode: The encryption mode for the job, which can be one of the following:. - ``SSE-KMS`` - Server-side encryption with keys managed by AWS KMS . - ``SSE-S3`` - Server-side encryption with keys managed by Amazon S3.
-        :param job_sample: A sample configuration for profile jobs only, which determines the number of rows on which the profile job is run. If a ``JobSample`` value isn't provided, the default value is used. The default value is CUSTOM_ROWS for the mode parameter and 20,000 for the size parameter.
-        :param log_subscription: The current status of Amazon CloudWatch logging for the job.
-        :param max_capacity: The maximum number of nodes that can be consumed when the job processes data.
-        :param max_retries: The maximum number of times to retry the job after a job run fails.
-        :param output_location: The location in Amazon S3 where the job writes its output.
-        :param outputs: One or more artifacts that represent output from running the job.
-        :param profile_configuration: Configuration for profile jobs. Configuration can be used to select columns, do evaluations, and override default parameters of evaluations. When configuration is undefined, the profile job will apply default settings to all supported columns.
-        :param project_name: The name of the project that the job is associated with.
-        :param recipe: A series of data transformation steps that the job runs.
-        :param tags: Metadata tags that have been applied to the job.
-        :param timeout: The job's timeout in minutes. A job that attempts to run longer than this timeout period ends with a status of ``TIMEOUT`` .
-        :param validation_configurations: List of validation configurations that are applied to the profile job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_job_props = databrew.CfnJobProps(
-                name="name",
-                role_arn="roleArn",
-                type="type",
-            
-                # the properties below are optional
-                database_outputs=[databrew.CfnJob.DatabaseOutputProperty(
-                    database_options=databrew.CfnJob.DatabaseTableOutputOptionsProperty(
-                        table_name="tableName",
-            
-                        # the properties below are optional
-                        temp_directory=databrew.CfnJob.S3LocationProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            bucket_owner="bucketOwner",
-                            key="key"
-                        )
-                    ),
-                    glue_connection_name="glueConnectionName",
-            
-                    # the properties below are optional
-                    database_output_mode="databaseOutputMode"
-                )],
-                data_catalog_outputs=[databrew.CfnJob.DataCatalogOutputProperty(
-                    database_name="databaseName",
-                    table_name="tableName",
-            
-                    # the properties below are optional
-                    catalog_id="catalogId",
-                    database_options=databrew.CfnJob.DatabaseTableOutputOptionsProperty(
-                        table_name="tableName",
-            
-                        # the properties below are optional
-                        temp_directory=databrew.CfnJob.S3LocationProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            bucket_owner="bucketOwner",
-                            key="key"
-                        )
-                    ),
-                    overwrite=False,
-                    s3_options=databrew.CfnJob.S3TableOutputOptionsProperty(
-                        location=databrew.CfnJob.S3LocationProperty(
-                            bucket="bucket",
-            
-                            # the properties below are optional
-                            bucket_owner="bucketOwner",
-                            key="key"
-                        )
-                    )
-                )],
-                dataset_name="datasetName",
-                encryption_key_arn="encryptionKeyArn",
-                encryption_mode="encryptionMode",
-                job_sample=databrew.CfnJob.JobSampleProperty(
-                    mode="mode",
-                    size=123
-                ),
-                log_subscription="logSubscription",
-                max_capacity=123,
-                max_retries=123,
-                output_location=databrew.CfnJob.OutputLocationProperty(
-                    bucket="bucket",
-            
-                    # the properties below are optional
-                    bucket_owner="bucketOwner",
-                    key="key"
-                ),
-                outputs=[databrew.CfnJob.OutputProperty(
-                    location=databrew.CfnJob.S3LocationProperty(
-                        bucket="bucket",
-            
-                        # the properties below are optional
-                        bucket_owner="bucketOwner",
-                        key="key"
-                    ),
-            
-                    # the properties below are optional
-                    compression_format="compressionFormat",
-                    format="format",
-                    format_options=databrew.CfnJob.OutputFormatOptionsProperty(
-                        csv=databrew.CfnJob.CsvOutputOptionsProperty(
-                            delimiter="delimiter"
-                        )
-                    ),
-                    max_output_files=123,
-                    overwrite=False,
-                    partition_columns=["partitionColumns"]
-                )],
-                profile_configuration=databrew.CfnJob.ProfileConfigurationProperty(
-                    column_statistics_configurations=[databrew.CfnJob.ColumnStatisticsConfigurationProperty(
-                        statistics=databrew.CfnJob.StatisticsConfigurationProperty(
-                            included_statistics=["includedStatistics"],
-                            overrides=[databrew.CfnJob.StatisticOverrideProperty(
-                                parameters={
-                                    "parameters_key": "parameters"
-                                },
-                                statistic="statistic"
-                            )]
-                        ),
-            
-                        # the properties below are optional
-                        selectors=[databrew.CfnJob.ColumnSelectorProperty(
-                            name="name",
-                            regex="regex"
-                        )]
-                    )],
-                    dataset_statistics_configuration=databrew.CfnJob.StatisticsConfigurationProperty(
-                        included_statistics=["includedStatistics"],
-                        overrides=[databrew.CfnJob.StatisticOverrideProperty(
-                            parameters={
-                                "parameters_key": "parameters"
-                            },
-                            statistic="statistic"
-                        )]
-                    ),
-                    entity_detector_configuration=databrew.CfnJob.EntityDetectorConfigurationProperty(
-                        entity_types=["entityTypes"],
-            
-                        # the properties below are optional
-                        allowed_statistics=databrew.CfnJob.AllowedStatisticsProperty(
-                            statistics=["statistics"]
-                        )
-                    ),
-                    profile_columns=[databrew.CfnJob.ColumnSelectorProperty(
-                        name="name",
-                        regex="regex"
-                    )]
-                ),
-                project_name="projectName",
-                recipe=databrew.CfnJob.RecipeProperty(
-                    name="name",
-            
-                    # the properties below are optional
-                    version="version"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                timeout=123,
-                validation_configurations=[databrew.CfnJob.ValidationConfigurationProperty(
-                    ruleset_arn="rulesetArn",
-            
-                    # the properties below are optional
-                    validation_mode="validationMode"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81cb0d2bc178f028804f44a0d2b18254dbafd5fb079619ddb68d34adf3f544f8)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument database_outputs", value=database_outputs, expected_type=type_hints["database_outputs"])
-            check_type(argname="argument data_catalog_outputs", value=data_catalog_outputs, expected_type=type_hints["data_catalog_outputs"])
-            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
-            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
-            check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
-            check_type(argname="argument job_sample", value=job_sample, expected_type=type_hints["job_sample"])
-            check_type(argname="argument log_subscription", value=log_subscription, expected_type=type_hints["log_subscription"])
-            check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
-            check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
-            check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
-            check_type(argname="argument profile_configuration", value=profile_configuration, expected_type=type_hints["profile_configuration"])
-            check_type(argname="argument project_name", value=project_name, expected_type=type_hints["project_name"])
-            check_type(argname="argument recipe", value=recipe, expected_type=type_hints["recipe"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument validation_configurations", value=validation_configurations, expected_type=type_hints["validation_configurations"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "role_arn": role_arn,
-            "type": type,
-        }
-        if database_outputs is not None:
-            self._values["database_outputs"] = database_outputs
-        if data_catalog_outputs is not None:
-            self._values["data_catalog_outputs"] = data_catalog_outputs
-        if dataset_name is not None:
-            self._values["dataset_name"] = dataset_name
-        if encryption_key_arn is not None:
-            self._values["encryption_key_arn"] = encryption_key_arn
-        if encryption_mode is not None:
-            self._values["encryption_mode"] = encryption_mode
-        if job_sample is not None:
-            self._values["job_sample"] = job_sample
-        if log_subscription is not None:
-            self._values["log_subscription"] = log_subscription
-        if max_capacity is not None:
-            self._values["max_capacity"] = max_capacity
-        if max_retries is not None:
-            self._values["max_retries"] = max_retries
-        if output_location is not None:
-            self._values["output_location"] = output_location
-        if outputs is not None:
-            self._values["outputs"] = outputs
-        if profile_configuration is not None:
-            self._values["profile_configuration"] = profile_configuration
-        if project_name is not None:
-            self._values["project_name"] = project_name
-        if recipe is not None:
-            self._values["recipe"] = recipe
-        if tags is not None:
-            self._values["tags"] = tags
-        if timeout is not None:
-            self._values["timeout"] = timeout
-        if validation_configurations is not None:
-            self._values["validation_configurations"] = validation_configurations
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique name of the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the role to be assumed for this job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The job type of the job, which must be one of the following:.
-
-        - ``PROFILE`` - A job to analyze a dataset, to determine its size, data types, data distribution, and more.
-        - ``RECIPE`` - A job to apply one or more transformations to a dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def database_outputs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.DatabaseOutputProperty]]]]:
-        '''Represents a list of JDBC database output objects which defines the output destination for a DataBrew recipe job to write into.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-databaseoutputs
-        '''
-        result = self._values.get("database_outputs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.DatabaseOutputProperty]]]], result)
-
-    @builtins.property
-    def data_catalog_outputs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.DataCatalogOutputProperty]]]]:
-        '''One or more artifacts that represent the AWS Glue Data Catalog output from running the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-datacatalogoutputs
-        '''
-        result = self._values.get("data_catalog_outputs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.DataCatalogOutputProperty]]]], result)
-
-    @builtins.property
-    def dataset_name(self) -> typing.Optional[builtins.str]:
-        '''A dataset that the job is to process.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-datasetname
-        '''
-        result = self._values.get("dataset_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an encryption key that is used to protect the job output.
-
-        For more information, see `Encrypting data written by DataBrew jobs <https://docs.aws.amazon.com/databrew/latest/dg/encryption-security-configuration.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-encryptionkeyarn
-        '''
-        result = self._values.get("encryption_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def encryption_mode(self) -> typing.Optional[builtins.str]:
-        '''The encryption mode for the job, which can be one of the following:.
-
-        - ``SSE-KMS`` - Server-side encryption with keys managed by AWS KMS .
-        - ``SSE-S3`` - Server-side encryption with keys managed by Amazon S3.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-encryptionmode
-        '''
-        result = self._values.get("encryption_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def job_sample(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.JobSampleProperty]]:
-        '''A sample configuration for profile jobs only, which determines the number of rows on which the profile job is run.
-
-        If a ``JobSample`` value isn't provided, the default value is used. The default value is CUSTOM_ROWS for the mode parameter and 20,000 for the size parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-jobsample
-        '''
-        result = self._values.get("job_sample")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.JobSampleProperty]], result)
-
-    @builtins.property
-    def log_subscription(self) -> typing.Optional[builtins.str]:
-        '''The current status of Amazon CloudWatch logging for the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-logsubscription
-        '''
-        result = self._values.get("log_subscription")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_capacity(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of nodes that can be consumed when the job processes data.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-maxcapacity
-        '''
-        result = self._values.get("max_capacity")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''The maximum number of times to retry the job after a job run fails.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-maxretries
-        '''
-        result = self._values.get("max_retries")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def output_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.OutputLocationProperty]]:
-        '''The location in Amazon S3 where the job writes its output.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-outputlocation
-        '''
-        result = self._values.get("output_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.OutputLocationProperty]], result)
-
-    @builtins.property
-    def outputs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.OutputProperty]]]]:
-        '''One or more artifacts that represent output from running the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-outputs
-        '''
-        result = self._values.get("outputs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.OutputProperty]]]], result)
-
-    @builtins.property
-    def profile_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.ProfileConfigurationProperty]]:
-        '''Configuration for profile jobs.
-
-        Configuration can be used to select columns, do evaluations, and override default parameters of evaluations. When configuration is undefined, the profile job will apply default settings to all supported columns.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-profileconfiguration
-        '''
-        result = self._values.get("profile_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.ProfileConfigurationProperty]], result)
-
-    @builtins.property
-    def project_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the project that the job is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-projectname
-        '''
-        result = self._values.get("project_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def recipe(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.RecipeProperty]]:
-        '''A series of data transformation steps that the job runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-recipe
-        '''
-        result = self._values.get("recipe")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.RecipeProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata tags that have been applied to the job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional[jsii.Number]:
-        '''The job's timeout in minutes.
-
-        A job that attempts to run longer than this timeout period ends with a status of ``TIMEOUT`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-timeout
-        '''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def validation_configurations(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.ValidationConfigurationProperty]]]]:
-        '''List of validation configurations that are applied to the profile job.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-job.html#cfn-databrew-job-validationconfigurations
-        '''
-        result = self._values.get("validation_configurations")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJob.ValidationConfigurationProperty]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnJobProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IProjectRef, _ITaggable_36806126)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5166,6 +6264,12 @@ class CfnProject(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="projectRef")
+    def project_ref(self) -> ProjectReference:
+        '''A reference to a Project resource.'''
+        return typing.cast(ProjectReference, jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5330,160 +6434,7 @@ class CfnProject(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "dataset_name": "datasetName",
-        "name": "name",
-        "recipe_name": "recipeName",
-        "role_arn": "roleArn",
-        "sample": "sample",
-        "tags": "tags",
-    },
-)
-class CfnProjectProps:
-    def __init__(
-        self,
-        *,
-        dataset_name: builtins.str,
-        name: builtins.str,
-        recipe_name: builtins.str,
-        role_arn: builtins.str,
-        sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.SampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProject``.
-
-        :param dataset_name: The dataset that the project is to act upon.
-        :param name: The unique name of a project.
-        :param recipe_name: The name of a recipe that will be developed during a project session.
-        :param role_arn: The Amazon Resource Name (ARN) of the role that will be assumed for this project.
-        :param sample: The sample size and sampling type to apply to the data. If this parameter isn't specified, then the sample consists of the first 500 rows from the dataset.
-        :param tags: Metadata tags that have been applied to the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_project_props = databrew.CfnProjectProps(
-                dataset_name="datasetName",
-                name="name",
-                recipe_name="recipeName",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                sample=databrew.CfnProject.SampleProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    size=123
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5962c48c8951c2c46c8182577aa8d510ae4217f6f03211d4bf11f546059aa925)
-            check_type(argname="argument dataset_name", value=dataset_name, expected_type=type_hints["dataset_name"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument recipe_name", value=recipe_name, expected_type=type_hints["recipe_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument sample", value=sample, expected_type=type_hints["sample"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "dataset_name": dataset_name,
-            "name": name,
-            "recipe_name": recipe_name,
-            "role_arn": role_arn,
-        }
-        if sample is not None:
-            self._values["sample"] = sample
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def dataset_name(self) -> builtins.str:
-        '''The dataset that the project is to act upon.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-datasetname
-        '''
-        result = self._values.get("dataset_name")
-        assert result is not None, "Required property 'dataset_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique name of a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def recipe_name(self) -> builtins.str:
-        '''The name of a recipe that will be developed during a project session.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-recipename
-        '''
-        result = self._values.get("recipe_name")
-        assert result is not None, "Required property 'recipe_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the role that will be assumed for this project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def sample(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.SampleProperty]]:
-        '''The sample size and sampling type to apply to the data.
-
-        If this parameter isn't specified, then the sample consists of the first 500 rows from the dataset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-sample
-        '''
-        result = self._values.get("sample")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.SampleProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata tags that have been applied to the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-project.html#cfn-databrew-project-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRecipeRef, _ITaggable_36806126)
 class CfnRecipe(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5594,6 +6545,12 @@ class CfnRecipe(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> RecipeReference:
+        '''A reference to a Recipe resource.'''
+        return typing.cast(RecipeReference, jsii.get(self, "recipeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8009,139 +8966,7 @@ class CfnRecipe(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnRecipeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "steps": "steps",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnRecipeProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecipe.RecipeStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRecipe``.
-
-        :param name: The unique name for the recipe.
-        :param steps: A list of steps that are defined by the recipe.
-        :param description: The description of the recipe.
-        :param tags: Metadata tags that have been applied to the recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_recipe_props = databrew.CfnRecipeProps(
-                name="name",
-                steps=[databrew.CfnRecipe.RecipeStepProperty(
-                    action=databrew.CfnRecipe.ActionProperty(
-                        operation="operation",
-            
-                        # the properties below are optional
-                        parameters={
-                            "parameters_key": "parameters"
-                        }
-                    ),
-            
-                    # the properties below are optional
-                    condition_expressions=[databrew.CfnRecipe.ConditionExpressionProperty(
-                        condition="condition",
-                        target_column="targetColumn",
-            
-                        # the properties below are optional
-                        value="value"
-                    )]
-                )],
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf07d3fd01a16a95f20309f3cd4cc72fbef6631fcc2dd55a36ef5b5b1b6d9e3d)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "steps": steps,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The unique name for the recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def steps(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRecipe.RecipeStepProperty]]]:
-        '''A list of steps that are defined by the recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-steps
-        '''
-        result = self._values.get("steps")
-        assert result is not None, "Required property 'steps' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRecipe.RecipeStepProperty]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata tags that have been applied to the recipe.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-recipe.html#cfn-databrew-recipe-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRecipeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IRulesetRef, _ITaggable_36806126)
 class CfnRuleset(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8262,6 +9087,12 @@ class CfnRuleset(
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rulesetRef")
+    def ruleset_ref(self) -> RulesetReference:
+        '''A reference to a Ruleset resource.'''
+        return typing.cast(RulesetReference, jsii.get(self, "rulesetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8747,160 +9578,7 @@ class CfnRuleset(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnRulesetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "rules": "rules",
-        "target_arn": "targetArn",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnRulesetProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleset.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        target_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRuleset``.
-
-        :param name: The name of the ruleset.
-        :param rules: Contains metadata about the ruleset.
-        :param target_arn: The Amazon Resource Name (ARN) of a resource (dataset) that the ruleset is associated with.
-        :param description: The description of the ruleset.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_ruleset_props = databrew.CfnRulesetProps(
-                name="name",
-                rules=[databrew.CfnRuleset.RuleProperty(
-                    check_expression="checkExpression",
-                    name="name",
-            
-                    # the properties below are optional
-                    column_selectors=[databrew.CfnRuleset.ColumnSelectorProperty(
-                        name="name",
-                        regex="regex"
-                    )],
-                    disabled=False,
-                    substitution_map=[databrew.CfnRuleset.SubstitutionValueProperty(
-                        value="value",
-                        value_reference="valueReference"
-                    )],
-                    threshold=databrew.CfnRuleset.ThresholdProperty(
-                        value=123,
-            
-                        # the properties below are optional
-                        type="type",
-                        unit="unit"
-                    )
-                )],
-                target_arn="targetArn",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab9d1f397a6a325db350e38b738d0f6a281071f48e22ce5089697cfcc3453566)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "rules": rules,
-            "target_arn": target_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the ruleset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRuleset.RuleProperty]]]:
-        '''Contains metadata about the ruleset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-rules
-        '''
-        result = self._values.get("rules")
-        assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRuleset.RuleProperty]]], result)
-
-    @builtins.property
-    def target_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a resource (dataset) that the ruleset is associated with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-targetarn
-        '''
-        result = self._values.get("target_arn")
-        assert result is not None, "Required property 'target_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the ruleset.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-ruleset.html#cfn-databrew-ruleset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRulesetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IScheduleRef, _ITaggable_36806126)
 class CfnSchedule(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8997,6 +9675,12 @@ class CfnSchedule(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="scheduleRef")
+    def schedule_ref(self) -> ScheduleReference:
+        '''A reference to a Schedule resource.'''
+        return typing.cast(ScheduleReference, jsii.get(self, "scheduleRef"))
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''
@@ -9055,120 +9739,6 @@ class CfnSchedule(
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_databrew.CfnScheduleProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "cron_expression": "cronExpression",
-        "name": "name",
-        "job_names": "jobNames",
-        "tags": "tags",
-    },
-)
-class CfnScheduleProps:
-    def __init__(
-        self,
-        *,
-        cron_expression: builtins.str,
-        name: builtins.str,
-        job_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSchedule``.
-
-        :param cron_expression: The dates and times when the job is to run. For more information, see `Working with cron expressions for recipe jobs <https://docs.aws.amazon.com/databrew/latest/dg/jobs.recipe.html#jobs.cron>`_ in the *AWS Glue DataBrew Developer Guide* .
-        :param name: The name of the schedule.
-        :param job_names: A list of jobs to be run, according to the schedule.
-        :param tags: Metadata tags that have been applied to the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_databrew as databrew
-            
-            cfn_schedule_props = databrew.CfnScheduleProps(
-                cron_expression="cronExpression",
-                name="name",
-            
-                # the properties below are optional
-                job_names=["jobNames"],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d05381e0a395e45a8ff0039a6d6eaae299f7c8e14037761c6a7554cba23a7a8)
-            check_type(argname="argument cron_expression", value=cron_expression, expected_type=type_hints["cron_expression"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument job_names", value=job_names, expected_type=type_hints["job_names"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cron_expression": cron_expression,
-            "name": name,
-        }
-        if job_names is not None:
-            self._values["job_names"] = job_names
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def cron_expression(self) -> builtins.str:
-        '''The dates and times when the job is to run.
-
-        For more information, see `Working with cron expressions for recipe jobs <https://docs.aws.amazon.com/databrew/latest/dg/jobs.recipe.html#jobs.cron>`_ in the *AWS Glue DataBrew Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-cronexpression
-        '''
-        result = self._values.get("cron_expression")
-        assert result is not None, "Required property 'cron_expression' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def job_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of jobs to be run, according to the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-jobnames
-        '''
-        result = self._values.get("job_names")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Metadata tags that have been applied to the schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-databrew-schedule.html#cfn-databrew-schedule-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScheduleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CfnDataset",
     "CfnDatasetProps",
@@ -9182,9 +9752,145 @@ __all__ = [
     "CfnRulesetProps",
     "CfnSchedule",
     "CfnScheduleProps",
+    "DatasetReference",
+    "IDatasetRef",
+    "IJobRef",
+    "IProjectRef",
+    "IRecipeRef",
+    "IRulesetRef",
+    "IScheduleRef",
+    "JobReference",
+    "ProjectReference",
+    "RecipeReference",
+    "RulesetReference",
+    "ScheduleReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__5248eecda5b6a9f8805972faa64d42bf349757b044f1290e3a783be205985530(
+    *,
+    input: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.InputProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    format: typing.Optional[builtins.str] = None,
+    format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    path_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.PathOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81cb0d2bc178f028804f44a0d2b18254dbafd5fb079619ddb68d34adf3f544f8(
+    *,
+    name: builtins.str,
+    role_arn: builtins.str,
+    type: builtins.str,
+    database_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DatabaseOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_catalog_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DataCatalogOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    dataset_name: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    encryption_mode: typing.Optional[builtins.str] = None,
+    job_sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.JobSampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_subscription: typing.Optional[builtins.str] = None,
+    max_capacity: typing.Optional[jsii.Number] = None,
+    max_retries: typing.Optional[jsii.Number] = None,
+    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    profile_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    project_name: typing.Optional[builtins.str] = None,
+    recipe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.RecipeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout: typing.Optional[jsii.Number] = None,
+    validation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ValidationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5962c48c8951c2c46c8182577aa8d510ae4217f6f03211d4bf11f546059aa925(
+    *,
+    dataset_name: builtins.str,
+    name: builtins.str,
+    recipe_name: builtins.str,
+    role_arn: builtins.str,
+    sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.SampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf07d3fd01a16a95f20309f3cd4cc72fbef6631fcc2dd55a36ef5b5b1b6d9e3d(
+    *,
+    name: builtins.str,
+    steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecipe.RecipeStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab9d1f397a6a325db350e38b738d0f6a281071f48e22ce5089697cfcc3453566(
+    *,
+    name: builtins.str,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleset.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    target_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d05381e0a395e45a8ff0039a6d6eaae299f7c8e14037761c6a7554cba23a7a8(
+    *,
+    cron_expression: builtins.str,
+    name: builtins.str,
+    job_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c64afcbb0c58e722465e59d05e256ba2346cf73d9bc4eece28dbbfb7f561983(
+    *,
+    dataset_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__418c6c20329c3f3c39c5b99701ca6b12324474c05d85489414a07dffd7496c0d(
+    *,
+    job_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b928ef64782e6ab14fdfbd1b16a306748c1c50550839d130ef73a2a1120d0180(
+    *,
+    project_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d06559f25062c5edd9451ac92f17fe7175d1a78a72379483a12a0f1abc038f8(
+    *,
+    recipe_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32bc0931bfcd9f2a80656385cc8390cea09278c8163e07dff7c99af3935c8d12(
+    *,
+    ruleset_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25ac0de9dc4cfe6a5992c10a41b693615ee4dfff51a2aa46d2ab95b3c8ce4716(
+    *,
+    schedule_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__01a5dae2ed52a5751575098bae6efd27cb9e1e5f3549ef7b66d5155a266dd5f9(
     scope: _constructs_77d1e7e8.Construct,
@@ -9392,19 +10098,6 @@ def _typecheckingstub__f30ba0bd3a86c9d1d42ae79f1be04599421f92582ffc5edc52b03cd81
     bucket: builtins.str,
     bucket_owner: typing.Optional[builtins.str] = None,
     key: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5248eecda5b6a9f8805972faa64d42bf349757b044f1290e3a783be205985530(
-    *,
-    input: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.InputProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    format: typing.Optional[builtins.str] = None,
-    format_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.FormatOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    path_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataset.PathOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9731,32 +10424,6 @@ def _typecheckingstub__5b43a8b915a84600e2a88947d30a9603ff42795b91661451888a26790
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__81cb0d2bc178f028804f44a0d2b18254dbafd5fb079619ddb68d34adf3f544f8(
-    *,
-    name: builtins.str,
-    role_arn: builtins.str,
-    type: builtins.str,
-    database_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DatabaseOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_catalog_outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.DataCatalogOutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    dataset_name: typing.Optional[builtins.str] = None,
-    encryption_key_arn: typing.Optional[builtins.str] = None,
-    encryption_mode: typing.Optional[builtins.str] = None,
-    job_sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.JobSampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    log_subscription: typing.Optional[builtins.str] = None,
-    max_capacity: typing.Optional[jsii.Number] = None,
-    max_retries: typing.Optional[jsii.Number] = None,
-    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    outputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.OutputProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    profile_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    project_name: typing.Optional[builtins.str] = None,
-    recipe: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.RecipeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    timeout: typing.Optional[jsii.Number] = None,
-    validation_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJob.ValidationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ffc451281d4b1e2942c9bad203e831ee723d2ad752acc9f9dc059cb8e8326497(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9823,18 +10490,6 @@ def _typecheckingstub__c986f04f833863f3343c7d4d636d3b4f79de5e41324d6f9d600d8e667
     *,
     type: builtins.str,
     size: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5962c48c8951c2c46c8182577aa8d510ae4217f6f03211d4bf11f546059aa925(
-    *,
-    dataset_name: builtins.str,
-    name: builtins.str,
-    recipe_name: builtins.str,
-    role_arn: builtins.str,
-    sample: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.SampleProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10053,16 +10708,6 @@ def _typecheckingstub__93c035a4eff0a293631cfe1a2f0e3e8e92f99e4fa2ecafa70ae65d424
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cf07d3fd01a16a95f20309f3cd4cc72fbef6631fcc2dd55a36ef5b5b1b6d9e3d(
-    *,
-    name: builtins.str,
-    steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecipe.RecipeStepProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a350a544d737fc30f8fbf932a9169f1c8b1d323a865a99820271215341290622(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10155,17 +10800,6 @@ def _typecheckingstub__a2c6a5585f9340c4ea6fdee71f9d6f2772867679711199805d7cb18b3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ab9d1f397a6a325db350e38b738d0f6a281071f48e22ce5089697cfcc3453566(
-    *,
-    name: builtins.str,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleset.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    target_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a2dbfa982fecf7f9d3d48aee75cc181d83e050cbd8b6ccd4275b886b01736a53(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -10210,16 +10844,6 @@ def _typecheckingstub__f7d91901212cb43193f984998eb99d4dd2303ac4258acc78a8b143023
 
 def _typecheckingstub__79383c848799327224f349abb72f78809321fc76317868c24f428dde973cb0e4(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4d05381e0a395e45a8ff0039a6d6eaae299f7c8e14037761c6a7554cba23a7a8(
-    *,
-    cron_expression: builtins.str,
-    name: builtins.str,
-    job_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

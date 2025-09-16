@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: great_expectations
-Version: 1.6.0
+Version: 1.6.1
 Summary: Always know what to expect from your data.
 Home-page: https://greatexpectations.io
 Download-URL: https://github.com/great-expectations/great_expectations
@@ -38,7 +38,7 @@ Requires-Dist: pandas<2.2,>=1.3.0; python_version >= "3.10"
 Requires-Dist: pandas<2.2; python_version >= "3.12"
 Requires-Dist: posthog>3
 Requires-Dist: pydantic>=1.10.7
-Requires-Dist: pyparsing>=2.4
+Requires-Dist: pyparsing!=3.2.4,>=2.4
 Requires-Dist: python-dateutil>=2.8.1
 Requires-Dist: requests>=2.20
 Requires-Dist: ruamel.yaml>=0.16

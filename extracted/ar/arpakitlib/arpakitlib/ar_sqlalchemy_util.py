@@ -298,8 +298,14 @@ class SQLAlchemyDb:
             connection.commit()
         self._logger.info("alembic tables data were removed")
 
-    def init(self):
+    def ensure_check_constraints(self):
+        from arpakitlib.ensure_sqlalchemy_check_constraints import ensure_sqlalchemy_check_constraints
+        ensure_sqlalchemy_check_constraints(base_=self.base_dbm, engine=self.engine)
+
+    def init(self, ensure_check_constraints: bool = True):
         self.base_dbm.metadata.create_all(bind=self.engine, checkfirst=True)
+        if ensure_check_constraints:
+            self.ensure_check_constraints()
         self._logger.info("inited")
 
     def drop(self):

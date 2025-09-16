@@ -50,6 +50,15 @@ class PaperBrokerageFactory(QuantConnect.Brokerages.BrokerageFactory):
 class PaperBrokerage(QuantConnect.Brokerages.Backtesting.BacktestingBrokerage):
     """Paper Trading Brokerage"""
 
+    @property
+    def concurrency_enabled(self) -> bool:
+        """Enables or disables concurrent processing of messages to and from the brokerage."""
+        ...
+
+    @concurrency_enabled.setter
+    def concurrency_enabled(self, value: bool) -> None:
+        ...
+
     def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.LiveNodePacket) -> None:
         """
         Creates a new PaperBrokerage

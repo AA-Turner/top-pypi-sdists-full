@@ -42,7 +42,6 @@ _e = mjwarp.Constraint(
     **{f.name: None for f in dataclasses.fields(mjwarp.Constraint) if f.init}
 )
 
-
 @ffi.format_args_for_warp
 def _forward_shim(
     # Model
@@ -124,7 +123,7 @@ def _forward_shim(
     eq_solref: wp.array2d(dtype=wp.vec2),
     eq_ten_adr: wp.array(dtype=int),
     eq_wld_adr: wp.array(dtype=int),
-    flex_bending: wp.array(dtype=wp.mat44f),
+    flex_bending: wp.array(dtype=float),
     flex_damping: wp.array(dtype=float),
     flex_dim: wp.array(dtype=int),
     flex_edge: wp.array(dtype=wp.vec2i),
@@ -227,7 +226,6 @@ def _forward_shim(
     nlsp: int,
     nmeshface: int,
     nmocap: int,
-    nsensordata: int,
     nsensortaxel: int,
     nsite: int,
     ntendon: int,
@@ -257,6 +255,7 @@ def _forward_shim(
     rangefinder_sensor_adr: wp.array(dtype=int),
     sensor_acc_adr: wp.array(dtype=int),
     sensor_adr: wp.array(dtype=int),
+    sensor_adr_to_contact_adr: wp.array(dtype=int),
     sensor_contact_adr: wp.array(dtype=int),
     sensor_cutoff: wp.array(dtype=float),
     sensor_datatype: wp.array(dtype=int),
@@ -330,8 +329,10 @@ def _forward_shim(
     opt__impratio: wp.array(dtype=float),
     opt__is_sparse: bool,
     opt__iterations: int,
+    opt__legacy_gjk: bool,
     opt__ls_iterations: int,
     opt__ls_parallel: bool,
+    opt__ls_parallel_min_step: float,
     opt__ls_tolerance: wp.array(dtype=float),
     opt__magnetic: wp.array(dtype=wp.vec3),
     opt__run_collision_detection: bool,
@@ -481,13 +482,11 @@ def _forward_shim(
     efc__Jaref: wp.array2d(dtype=float),
     efc__Ma: wp.array2d(dtype=float),
     efc__Mgrad: wp.array2d(dtype=float),
-    efc__active: wp.array2d(dtype=bool),
     efc__alpha: wp.array(dtype=float),
     efc__aref: wp.array2d(dtype=float),
     efc__beta: wp.array(dtype=float),
     efc__cholesky_L_tmp: wp.array3d(dtype=float),
     efc__cholesky_y_tmp: wp.array2d(dtype=float),
-    efc__condim: wp.array2d(dtype=int),
     efc__cost: wp.array(dtype=float),
     efc__cost_candidate: wp.array2d(dtype=float),
     efc__done: wp.array(dtype=bool),
@@ -496,24 +495,11 @@ def _forward_shim(
     efc__gauss: wp.array(dtype=float),
     efc__grad: wp.array2d(dtype=float),
     efc__grad_dot: wp.array(dtype=float),
-    efc__gtol: wp.array(dtype=float),
     efc__h: wp.array3d(dtype=float),
-    efc__hi: wp.array(dtype=wp.vec3),
-    efc__hi_alpha: wp.array(dtype=float),
-    efc__hi_next: wp.array(dtype=wp.vec3),
-    efc__hi_next_alpha: wp.array(dtype=float),
     efc__id: wp.array2d(dtype=int),
     efc__jv: wp.array2d(dtype=float),
-    efc__lo: wp.array(dtype=wp.vec3),
-    efc__lo_alpha: wp.array(dtype=float),
-    efc__lo_next: wp.array(dtype=wp.vec3),
-    efc__lo_next_alpha: wp.array(dtype=float),
-    efc__ls_done: wp.array(dtype=bool),
     efc__margin: wp.array2d(dtype=float),
-    efc__mid: wp.array(dtype=wp.vec3),
-    efc__mid_alpha: wp.array(dtype=float),
     efc__mv: wp.array2d(dtype=float),
-    efc__p0: wp.array(dtype=wp.vec3),
     efc__pos: wp.array2d(dtype=float),
     efc__prev_Mgrad: wp.array2d(dtype=float),
     efc__prev_cost: wp.array(dtype=float),
@@ -522,12 +508,9 @@ def _forward_shim(
     efc__quad_gauss: wp.array(dtype=wp.vec3),
     efc__search: wp.array2d(dtype=float),
     efc__search_dot: wp.array(dtype=float),
+    efc__state: wp.array2d(dtype=int),
     efc__type: wp.array2d(dtype=int),
-    efc__u: wp.array(dtype=mjwp_types.vec6),
-    efc__uu: wp.array(dtype=float),
-    efc__uv: wp.array(dtype=float),
     efc__vel: wp.array2d(dtype=float),
-    efc__vv: wp.array(dtype=float),
 ):
   _m.stat = _s
   _m.opt = _o
@@ -713,7 +696,6 @@ def _forward_shim(
   _m.nlsp = nlsp
   _m.nmeshface = nmeshface
   _m.nmocap = nmocap
-  _m.nsensordata = nsensordata
   _m.nsensortaxel = nsensortaxel
   _m.nsite = nsite
   _m.ntendon = ntendon
@@ -736,8 +718,10 @@ def _forward_shim(
   _m.opt.impratio = opt__impratio
   _m.opt.is_sparse = opt__is_sparse
   _m.opt.iterations = opt__iterations
+  _m.opt.legacy_gjk = opt__legacy_gjk
   _m.opt.ls_iterations = opt__ls_iterations
   _m.opt.ls_parallel = opt__ls_parallel
+  _m.opt.ls_parallel_min_step = opt__ls_parallel_min_step
   _m.opt.ls_tolerance = opt__ls_tolerance
   _m.opt.magnetic = opt__magnetic
   _m.opt.run_collision_detection = opt__run_collision_detection
@@ -769,6 +753,7 @@ def _forward_shim(
   _m.rangefinder_sensor_adr = rangefinder_sensor_adr
   _m.sensor_acc_adr = sensor_acc_adr
   _m.sensor_adr = sensor_adr
+  _m.sensor_adr_to_contact_adr = sensor_adr_to_contact_adr
   _m.sensor_contact_adr = sensor_contact_adr
   _m.sensor_cutoff = sensor_cutoff
   _m.sensor_datatype = sensor_datatype
@@ -868,13 +853,11 @@ def _forward_shim(
   _d.efc.Jaref = efc__Jaref
   _d.efc.Ma = efc__Ma
   _d.efc.Mgrad = efc__Mgrad
-  _d.efc.active = efc__active
   _d.efc.alpha = efc__alpha
   _d.efc.aref = efc__aref
   _d.efc.beta = efc__beta
   _d.efc.cholesky_L_tmp = efc__cholesky_L_tmp
   _d.efc.cholesky_y_tmp = efc__cholesky_y_tmp
-  _d.efc.condim = efc__condim
   _d.efc.cost = efc__cost
   _d.efc.cost_candidate = efc__cost_candidate
   _d.efc.done = efc__done
@@ -883,24 +866,11 @@ def _forward_shim(
   _d.efc.gauss = efc__gauss
   _d.efc.grad = efc__grad
   _d.efc.grad_dot = efc__grad_dot
-  _d.efc.gtol = efc__gtol
   _d.efc.h = efc__h
-  _d.efc.hi = efc__hi
-  _d.efc.hi_alpha = efc__hi_alpha
-  _d.efc.hi_next = efc__hi_next
-  _d.efc.hi_next_alpha = efc__hi_next_alpha
   _d.efc.id = efc__id
   _d.efc.jv = efc__jv
-  _d.efc.lo = efc__lo
-  _d.efc.lo_alpha = efc__lo_alpha
-  _d.efc.lo_next = efc__lo_next
-  _d.efc.lo_next_alpha = efc__lo_next_alpha
-  _d.efc.ls_done = efc__ls_done
   _d.efc.margin = efc__margin
-  _d.efc.mid = efc__mid
-  _d.efc.mid_alpha = efc__mid_alpha
   _d.efc.mv = efc__mv
-  _d.efc.p0 = efc__p0
   _d.efc.pos = efc__pos
   _d.efc.prev_Mgrad = efc__prev_Mgrad
   _d.efc.prev_cost = efc__prev_cost
@@ -909,12 +879,9 @@ def _forward_shim(
   _d.efc.quad_gauss = efc__quad_gauss
   _d.efc.search = efc__search
   _d.efc.search_dot = efc__search_dot
+  _d.efc.state = efc__state
   _d.efc.type = efc__type
-  _d.efc.u = efc__u
-  _d.efc.uu = efc__uu
-  _d.efc.uv = efc__uv
   _d.efc.vel = efc__vel
-  _d.efc.vv = efc__vv
   _d.energy = energy
   _d.epa_face = epa_face
   _d.epa_horizon = epa_horizon
@@ -1121,7 +1088,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       'ten_Jdot': d._impl.ten_Jdot.shape,
       'ten_actfrc': d._impl.ten_actfrc.shape,
       'ten_bias_coef': d._impl.ten_bias_coef.shape,
-      'ten_length': d._impl.ten_length.shape,
+      'ten_length': d.ten_length.shape,
       'ten_velocity': d._impl.ten_velocity.shape,
       'ten_wrapadr': d._impl.ten_wrapadr.shape,
       'ten_wrapnum': d._impl.ten_wrapnum.shape,
@@ -1154,13 +1121,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       'efc__Jaref': d._impl.efc__Jaref.shape,
       'efc__Ma': d._impl.efc__Ma.shape,
       'efc__Mgrad': d._impl.efc__Mgrad.shape,
-      'efc__active': d._impl.efc__active.shape,
       'efc__alpha': d._impl.efc__alpha.shape,
       'efc__aref': d._impl.efc__aref.shape,
       'efc__beta': d._impl.efc__beta.shape,
       'efc__cholesky_L_tmp': d._impl.efc__cholesky_L_tmp.shape,
       'efc__cholesky_y_tmp': d._impl.efc__cholesky_y_tmp.shape,
-      'efc__condim': d._impl.efc__condim.shape,
       'efc__cost': d._impl.efc__cost.shape,
       'efc__cost_candidate': d._impl.efc__cost_candidate.shape,
       'efc__done': d._impl.efc__done.shape,
@@ -1169,24 +1134,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       'efc__gauss': d._impl.efc__gauss.shape,
       'efc__grad': d._impl.efc__grad.shape,
       'efc__grad_dot': d._impl.efc__grad_dot.shape,
-      'efc__gtol': d._impl.efc__gtol.shape,
       'efc__h': d._impl.efc__h.shape,
-      'efc__hi': d._impl.efc__hi.shape,
-      'efc__hi_alpha': d._impl.efc__hi_alpha.shape,
-      'efc__hi_next': d._impl.efc__hi_next.shape,
-      'efc__hi_next_alpha': d._impl.efc__hi_next_alpha.shape,
       'efc__id': d._impl.efc__id.shape,
       'efc__jv': d._impl.efc__jv.shape,
-      'efc__lo': d._impl.efc__lo.shape,
-      'efc__lo_alpha': d._impl.efc__lo_alpha.shape,
-      'efc__lo_next': d._impl.efc__lo_next.shape,
-      'efc__lo_next_alpha': d._impl.efc__lo_next_alpha.shape,
-      'efc__ls_done': d._impl.efc__ls_done.shape,
       'efc__margin': d._impl.efc__margin.shape,
-      'efc__mid': d._impl.efc__mid.shape,
-      'efc__mid_alpha': d._impl.efc__mid_alpha.shape,
       'efc__mv': d._impl.efc__mv.shape,
-      'efc__p0': d._impl.efc__p0.shape,
       'efc__pos': d._impl.efc__pos.shape,
       'efc__prev_Mgrad': d._impl.efc__prev_Mgrad.shape,
       'efc__prev_cost': d._impl.efc__prev_cost.shape,
@@ -1195,16 +1147,13 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       'efc__quad_gauss': d._impl.efc__quad_gauss.shape,
       'efc__search': d._impl.efc__search.shape,
       'efc__search_dot': d._impl.efc__search_dot.shape,
+      'efc__state': d._impl.efc__state.shape,
       'efc__type': d._impl.efc__type.shape,
-      'efc__u': d._impl.efc__u.shape,
-      'efc__uu': d._impl.efc__uu.shape,
-      'efc__uv': d._impl.efc__uv.shape,
       'efc__vel': d._impl.efc__vel.shape,
-      'efc__vv': d._impl.efc__vv.shape,
   }
   jf = ffi.jax_callable_variadic_tuple(
       _forward_shim,
-      num_outputs=182,
+      num_outputs=164,
       output_dims=output_dims,
       vmap_method=None,
       in_out_argnames={
@@ -1343,13 +1292,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'efc__Jaref',
           'efc__Ma',
           'efc__Mgrad',
-          'efc__active',
           'efc__alpha',
           'efc__aref',
           'efc__beta',
           'efc__cholesky_L_tmp',
           'efc__cholesky_y_tmp',
-          'efc__condim',
           'efc__cost',
           'efc__cost_candidate',
           'efc__done',
@@ -1358,24 +1305,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'efc__gauss',
           'efc__grad',
           'efc__grad_dot',
-          'efc__gtol',
           'efc__h',
-          'efc__hi',
-          'efc__hi_alpha',
-          'efc__hi_next',
-          'efc__hi_next_alpha',
           'efc__id',
           'efc__jv',
-          'efc__lo',
-          'efc__lo_alpha',
-          'efc__lo_next',
-          'efc__lo_next_alpha',
-          'efc__ls_done',
           'efc__margin',
-          'efc__mid',
-          'efc__mid_alpha',
           'efc__mv',
-          'efc__p0',
           'efc__pos',
           'efc__prev_Mgrad',
           'efc__prev_cost',
@@ -1384,12 +1318,9 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'efc__quad_gauss',
           'efc__search',
           'efc__search_dot',
+          'efc__state',
           'efc__type',
-          'efc__u',
-          'efc__uu',
-          'efc__uv',
           'efc__vel',
-          'efc__vv',
       },
   )
   out = jf(
@@ -1574,7 +1505,6 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       m._impl.nlsp,
       m.nmeshface,
       m.nmocap,
-      m.nsensordata,
       m._impl.nsensortaxel,
       m.nsite,
       m.ntendon,
@@ -1604,6 +1534,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       m._impl.rangefinder_sensor_adr,
       m._impl.sensor_acc_adr,
       m.sensor_adr,
+      m._impl.sensor_adr_to_contact_adr,
       m._impl.sensor_contact_adr,
       m.sensor_cutoff,
       m.sensor_datatype,
@@ -1677,8 +1608,10 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       m.opt.impratio,
       m.opt._impl.is_sparse,
       m.opt.iterations,
+      m.opt._impl.legacy_gjk,
       m.opt.ls_iterations,
       m.opt._impl.ls_parallel,
+      m.opt._impl.ls_parallel_min_step,
       m.opt.ls_tolerance,
       m.opt.magnetic,
       m.opt._impl.run_collision_detection,
@@ -1794,7 +1727,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       d._impl.ten_Jdot,
       d._impl.ten_actfrc,
       d._impl.ten_bias_coef,
-      d._impl.ten_length,
+      d.ten_length,
       d._impl.ten_velocity,
       d._impl.ten_wrapadr,
       d._impl.ten_wrapnum,
@@ -1827,13 +1760,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__Jaref,
       d._impl.efc__Ma,
       d._impl.efc__Mgrad,
-      d._impl.efc__active,
       d._impl.efc__alpha,
       d._impl.efc__aref,
       d._impl.efc__beta,
       d._impl.efc__cholesky_L_tmp,
       d._impl.efc__cholesky_y_tmp,
-      d._impl.efc__condim,
       d._impl.efc__cost,
       d._impl.efc__cost_candidate,
       d._impl.efc__done,
@@ -1842,24 +1773,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__gauss,
       d._impl.efc__grad,
       d._impl.efc__grad_dot,
-      d._impl.efc__gtol,
       d._impl.efc__h,
-      d._impl.efc__hi,
-      d._impl.efc__hi_alpha,
-      d._impl.efc__hi_next,
-      d._impl.efc__hi_next_alpha,
       d._impl.efc__id,
       d._impl.efc__jv,
-      d._impl.efc__lo,
-      d._impl.efc__lo_alpha,
-      d._impl.efc__lo_next,
-      d._impl.efc__lo_next_alpha,
-      d._impl.efc__ls_done,
       d._impl.efc__margin,
-      d._impl.efc__mid,
-      d._impl.efc__mid_alpha,
       d._impl.efc__mv,
-      d._impl.efc__p0,
       d._impl.efc__pos,
       d._impl.efc__prev_Mgrad,
       d._impl.efc__prev_cost,
@@ -1868,12 +1786,9 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__quad_gauss,
       d._impl.efc__search,
       d._impl.efc__search_dot,
+      d._impl.efc__state,
       d._impl.efc__type,
-      d._impl.efc__u,
-      d._impl.efc__uu,
-      d._impl.efc__uv,
       d._impl.efc__vel,
-      d._impl.efc__vv,
   )
   d = d.tree_replace({
       'act': out[0],
@@ -1978,7 +1893,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       '_impl.ten_Jdot': out[99],
       '_impl.ten_actfrc': out[100],
       '_impl.ten_bias_coef': out[101],
-      '_impl.ten_length': out[102],
+      'ten_length': out[102],
       '_impl.ten_velocity': out[103],
       '_impl.ten_wrapadr': out[104],
       '_impl.ten_wrapnum': out[105],
@@ -2011,53 +1926,35 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       '_impl.efc__Jaref': out[132],
       '_impl.efc__Ma': out[133],
       '_impl.efc__Mgrad': out[134],
-      '_impl.efc__active': out[135],
-      '_impl.efc__alpha': out[136],
-      '_impl.efc__aref': out[137],
-      '_impl.efc__beta': out[138],
-      '_impl.efc__cholesky_L_tmp': out[139],
-      '_impl.efc__cholesky_y_tmp': out[140],
-      '_impl.efc__condim': out[141],
-      '_impl.efc__cost': out[142],
-      '_impl.efc__cost_candidate': out[143],
-      '_impl.efc__done': out[144],
-      '_impl.efc__force': out[145],
-      '_impl.efc__frictionloss': out[146],
-      '_impl.efc__gauss': out[147],
-      '_impl.efc__grad': out[148],
-      '_impl.efc__grad_dot': out[149],
-      '_impl.efc__gtol': out[150],
-      '_impl.efc__h': out[151],
-      '_impl.efc__hi': out[152],
-      '_impl.efc__hi_alpha': out[153],
-      '_impl.efc__hi_next': out[154],
-      '_impl.efc__hi_next_alpha': out[155],
-      '_impl.efc__id': out[156],
-      '_impl.efc__jv': out[157],
-      '_impl.efc__lo': out[158],
-      '_impl.efc__lo_alpha': out[159],
-      '_impl.efc__lo_next': out[160],
-      '_impl.efc__lo_next_alpha': out[161],
-      '_impl.efc__ls_done': out[162],
-      '_impl.efc__margin': out[163],
-      '_impl.efc__mid': out[164],
-      '_impl.efc__mid_alpha': out[165],
-      '_impl.efc__mv': out[166],
-      '_impl.efc__p0': out[167],
-      '_impl.efc__pos': out[168],
-      '_impl.efc__prev_Mgrad': out[169],
-      '_impl.efc__prev_cost': out[170],
-      '_impl.efc__prev_grad': out[171],
-      '_impl.efc__quad': out[172],
-      '_impl.efc__quad_gauss': out[173],
-      '_impl.efc__search': out[174],
-      '_impl.efc__search_dot': out[175],
-      '_impl.efc__type': out[176],
-      '_impl.efc__u': out[177],
-      '_impl.efc__uu': out[178],
-      '_impl.efc__uv': out[179],
-      '_impl.efc__vel': out[180],
-      '_impl.efc__vv': out[181],
+      '_impl.efc__alpha': out[135],
+      '_impl.efc__aref': out[136],
+      '_impl.efc__beta': out[137],
+      '_impl.efc__cholesky_L_tmp': out[138],
+      '_impl.efc__cholesky_y_tmp': out[139],
+      '_impl.efc__cost': out[140],
+      '_impl.efc__cost_candidate': out[141],
+      '_impl.efc__done': out[142],
+      '_impl.efc__force': out[143],
+      '_impl.efc__frictionloss': out[144],
+      '_impl.efc__gauss': out[145],
+      '_impl.efc__grad': out[146],
+      '_impl.efc__grad_dot': out[147],
+      '_impl.efc__h': out[148],
+      '_impl.efc__id': out[149],
+      '_impl.efc__jv': out[150],
+      '_impl.efc__margin': out[151],
+      '_impl.efc__mv': out[152],
+      '_impl.efc__pos': out[153],
+      '_impl.efc__prev_Mgrad': out[154],
+      '_impl.efc__prev_cost': out[155],
+      '_impl.efc__prev_grad': out[156],
+      '_impl.efc__quad': out[157],
+      '_impl.efc__quad_gauss': out[158],
+      '_impl.efc__search': out[159],
+      '_impl.efc__search_dot': out[160],
+      '_impl.efc__state': out[161],
+      '_impl.efc__type': out[162],
+      '_impl.efc__vel': out[163],
   })
   return d
 
@@ -2091,7 +1988,6 @@ _c = mjwarp.Contact(
 _e = mjwarp.Constraint(
     **{f.name: None for f in dataclasses.fields(mjwarp.Constraint) if f.init}
 )
-
 
 @ffi.format_args_for_warp
 def _step_shim(
@@ -2175,7 +2071,7 @@ def _step_shim(
     eq_solref: wp.array2d(dtype=wp.vec2),
     eq_ten_adr: wp.array(dtype=int),
     eq_wld_adr: wp.array(dtype=int),
-    flex_bending: wp.array(dtype=wp.mat44f),
+    flex_bending: wp.array(dtype=float),
     flex_damping: wp.array(dtype=float),
     flex_dim: wp.array(dtype=int),
     flex_edge: wp.array(dtype=wp.vec2i),
@@ -2278,7 +2174,6 @@ def _step_shim(
     nlsp: int,
     nmeshface: int,
     nmocap: int,
-    nsensordata: int,
     nsensortaxel: int,
     nsite: int,
     ntendon: int,
@@ -2308,6 +2203,7 @@ def _step_shim(
     rangefinder_sensor_adr: wp.array(dtype=int),
     sensor_acc_adr: wp.array(dtype=int),
     sensor_adr: wp.array(dtype=int),
+    sensor_adr_to_contact_adr: wp.array(dtype=int),
     sensor_contact_adr: wp.array(dtype=int),
     sensor_cutoff: wp.array(dtype=float),
     sensor_datatype: wp.array(dtype=int),
@@ -2382,8 +2278,10 @@ def _step_shim(
     opt__integrator: int,
     opt__is_sparse: bool,
     opt__iterations: int,
+    opt__legacy_gjk: bool,
     opt__ls_iterations: int,
     opt__ls_parallel: bool,
+    opt__ls_parallel_min_step: float,
     opt__ls_tolerance: wp.array(dtype=float),
     opt__magnetic: wp.array(dtype=wp.vec3),
     opt__run_collision_detection: bool,
@@ -2545,13 +2443,11 @@ def _step_shim(
     efc__Jaref: wp.array2d(dtype=float),
     efc__Ma: wp.array2d(dtype=float),
     efc__Mgrad: wp.array2d(dtype=float),
-    efc__active: wp.array2d(dtype=bool),
     efc__alpha: wp.array(dtype=float),
     efc__aref: wp.array2d(dtype=float),
     efc__beta: wp.array(dtype=float),
     efc__cholesky_L_tmp: wp.array3d(dtype=float),
     efc__cholesky_y_tmp: wp.array2d(dtype=float),
-    efc__condim: wp.array2d(dtype=int),
     efc__cost: wp.array(dtype=float),
     efc__cost_candidate: wp.array2d(dtype=float),
     efc__done: wp.array(dtype=bool),
@@ -2560,24 +2456,11 @@ def _step_shim(
     efc__gauss: wp.array(dtype=float),
     efc__grad: wp.array2d(dtype=float),
     efc__grad_dot: wp.array(dtype=float),
-    efc__gtol: wp.array(dtype=float),
     efc__h: wp.array3d(dtype=float),
-    efc__hi: wp.array(dtype=wp.vec3),
-    efc__hi_alpha: wp.array(dtype=float),
-    efc__hi_next: wp.array(dtype=wp.vec3),
-    efc__hi_next_alpha: wp.array(dtype=float),
     efc__id: wp.array2d(dtype=int),
     efc__jv: wp.array2d(dtype=float),
-    efc__lo: wp.array(dtype=wp.vec3),
-    efc__lo_alpha: wp.array(dtype=float),
-    efc__lo_next: wp.array(dtype=wp.vec3),
-    efc__lo_next_alpha: wp.array(dtype=float),
-    efc__ls_done: wp.array(dtype=bool),
     efc__margin: wp.array2d(dtype=float),
-    efc__mid: wp.array(dtype=wp.vec3),
-    efc__mid_alpha: wp.array(dtype=float),
     efc__mv: wp.array2d(dtype=float),
-    efc__p0: wp.array(dtype=wp.vec3),
     efc__pos: wp.array2d(dtype=float),
     efc__prev_Mgrad: wp.array2d(dtype=float),
     efc__prev_cost: wp.array(dtype=float),
@@ -2586,12 +2469,9 @@ def _step_shim(
     efc__quad_gauss: wp.array(dtype=wp.vec3),
     efc__search: wp.array2d(dtype=float),
     efc__search_dot: wp.array(dtype=float),
+    efc__state: wp.array2d(dtype=int),
     efc__type: wp.array2d(dtype=int),
-    efc__u: wp.array(dtype=mjwp_types.vec6),
-    efc__uu: wp.array(dtype=float),
-    efc__uv: wp.array(dtype=float),
     efc__vel: wp.array2d(dtype=float),
-    efc__vv: wp.array(dtype=float),
 ):
   _m.stat = _s
   _m.opt = _o
@@ -2778,7 +2658,6 @@ def _step_shim(
   _m.nlsp = nlsp
   _m.nmeshface = nmeshface
   _m.nmocap = nmocap
-  _m.nsensordata = nsensordata
   _m.nsensortaxel = nsensortaxel
   _m.nsite = nsite
   _m.ntendon = ntendon
@@ -2802,8 +2681,10 @@ def _step_shim(
   _m.opt.integrator = opt__integrator
   _m.opt.is_sparse = opt__is_sparse
   _m.opt.iterations = opt__iterations
+  _m.opt.legacy_gjk = opt__legacy_gjk
   _m.opt.ls_iterations = opt__ls_iterations
   _m.opt.ls_parallel = opt__ls_parallel
+  _m.opt.ls_parallel_min_step = opt__ls_parallel_min_step
   _m.opt.ls_tolerance = opt__ls_tolerance
   _m.opt.magnetic = opt__magnetic
   _m.opt.run_collision_detection = opt__run_collision_detection
@@ -2835,6 +2716,7 @@ def _step_shim(
   _m.rangefinder_sensor_adr = rangefinder_sensor_adr
   _m.sensor_acc_adr = sensor_acc_adr
   _m.sensor_adr = sensor_adr
+  _m.sensor_adr_to_contact_adr = sensor_adr_to_contact_adr
   _m.sensor_contact_adr = sensor_contact_adr
   _m.sensor_cutoff = sensor_cutoff
   _m.sensor_datatype = sensor_datatype
@@ -2936,13 +2818,11 @@ def _step_shim(
   _d.efc.Jaref = efc__Jaref
   _d.efc.Ma = efc__Ma
   _d.efc.Mgrad = efc__Mgrad
-  _d.efc.active = efc__active
   _d.efc.alpha = efc__alpha
   _d.efc.aref = efc__aref
   _d.efc.beta = efc__beta
   _d.efc.cholesky_L_tmp = efc__cholesky_L_tmp
   _d.efc.cholesky_y_tmp = efc__cholesky_y_tmp
-  _d.efc.condim = efc__condim
   _d.efc.cost = efc__cost
   _d.efc.cost_candidate = efc__cost_candidate
   _d.efc.done = efc__done
@@ -2951,24 +2831,11 @@ def _step_shim(
   _d.efc.gauss = efc__gauss
   _d.efc.grad = efc__grad
   _d.efc.grad_dot = efc__grad_dot
-  _d.efc.gtol = efc__gtol
   _d.efc.h = efc__h
-  _d.efc.hi = efc__hi
-  _d.efc.hi_alpha = efc__hi_alpha
-  _d.efc.hi_next = efc__hi_next
-  _d.efc.hi_next_alpha = efc__hi_next_alpha
   _d.efc.id = efc__id
   _d.efc.jv = efc__jv
-  _d.efc.lo = efc__lo
-  _d.efc.lo_alpha = efc__lo_alpha
-  _d.efc.lo_next = efc__lo_next
-  _d.efc.lo_next_alpha = efc__lo_next_alpha
-  _d.efc.ls_done = efc__ls_done
   _d.efc.margin = efc__margin
-  _d.efc.mid = efc__mid
-  _d.efc.mid_alpha = efc__mid_alpha
   _d.efc.mv = efc__mv
-  _d.efc.p0 = efc__p0
   _d.efc.pos = efc__pos
   _d.efc.prev_Mgrad = efc__prev_Mgrad
   _d.efc.prev_cost = efc__prev_cost
@@ -2977,12 +2844,9 @@ def _step_shim(
   _d.efc.quad_gauss = efc__quad_gauss
   _d.efc.search = efc__search
   _d.efc.search_dot = efc__search_dot
+  _d.efc.state = efc__state
   _d.efc.type = efc__type
-  _d.efc.u = efc__u
-  _d.efc.uu = efc__uu
-  _d.efc.uv = efc__uv
   _d.efc.vel = efc__vel
-  _d.efc.vv = efc__vv
   _d.energy = energy
   _d.epa_face = epa_face
   _d.epa_horizon = epa_horizon
@@ -3211,7 +3075,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       'ten_Jdot': d._impl.ten_Jdot.shape,
       'ten_actfrc': d._impl.ten_actfrc.shape,
       'ten_bias_coef': d._impl.ten_bias_coef.shape,
-      'ten_length': d._impl.ten_length.shape,
+      'ten_length': d.ten_length.shape,
       'ten_velocity': d._impl.ten_velocity.shape,
       'ten_wrapadr': d._impl.ten_wrapadr.shape,
       'ten_wrapnum': d._impl.ten_wrapnum.shape,
@@ -3244,13 +3108,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       'efc__Jaref': d._impl.efc__Jaref.shape,
       'efc__Ma': d._impl.efc__Ma.shape,
       'efc__Mgrad': d._impl.efc__Mgrad.shape,
-      'efc__active': d._impl.efc__active.shape,
       'efc__alpha': d._impl.efc__alpha.shape,
       'efc__aref': d._impl.efc__aref.shape,
       'efc__beta': d._impl.efc__beta.shape,
       'efc__cholesky_L_tmp': d._impl.efc__cholesky_L_tmp.shape,
       'efc__cholesky_y_tmp': d._impl.efc__cholesky_y_tmp.shape,
-      'efc__condim': d._impl.efc__condim.shape,
       'efc__cost': d._impl.efc__cost.shape,
       'efc__cost_candidate': d._impl.efc__cost_candidate.shape,
       'efc__done': d._impl.efc__done.shape,
@@ -3259,24 +3121,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       'efc__gauss': d._impl.efc__gauss.shape,
       'efc__grad': d._impl.efc__grad.shape,
       'efc__grad_dot': d._impl.efc__grad_dot.shape,
-      'efc__gtol': d._impl.efc__gtol.shape,
       'efc__h': d._impl.efc__h.shape,
-      'efc__hi': d._impl.efc__hi.shape,
-      'efc__hi_alpha': d._impl.efc__hi_alpha.shape,
-      'efc__hi_next': d._impl.efc__hi_next.shape,
-      'efc__hi_next_alpha': d._impl.efc__hi_next_alpha.shape,
       'efc__id': d._impl.efc__id.shape,
       'efc__jv': d._impl.efc__jv.shape,
-      'efc__lo': d._impl.efc__lo.shape,
-      'efc__lo_alpha': d._impl.efc__lo_alpha.shape,
-      'efc__lo_next': d._impl.efc__lo_next.shape,
-      'efc__lo_next_alpha': d._impl.efc__lo_next_alpha.shape,
-      'efc__ls_done': d._impl.efc__ls_done.shape,
       'efc__margin': d._impl.efc__margin.shape,
-      'efc__mid': d._impl.efc__mid.shape,
-      'efc__mid_alpha': d._impl.efc__mid_alpha.shape,
       'efc__mv': d._impl.efc__mv.shape,
-      'efc__p0': d._impl.efc__p0.shape,
       'efc__pos': d._impl.efc__pos.shape,
       'efc__prev_Mgrad': d._impl.efc__prev_Mgrad.shape,
       'efc__prev_cost': d._impl.efc__prev_cost.shape,
@@ -3285,16 +3134,13 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       'efc__quad_gauss': d._impl.efc__quad_gauss.shape,
       'efc__search': d._impl.efc__search.shape,
       'efc__search_dot': d._impl.efc__search_dot.shape,
+      'efc__state': d._impl.efc__state.shape,
       'efc__type': d._impl.efc__type.shape,
-      'efc__u': d._impl.efc__u.shape,
-      'efc__uu': d._impl.efc__uu.shape,
-      'efc__uv': d._impl.efc__uv.shape,
       'efc__vel': d._impl.efc__vel.shape,
-      'efc__vv': d._impl.efc__vv.shape,
   }
   jf = ffi.jax_callable_variadic_tuple(
       _step_shim,
-      num_outputs=194,
+      num_outputs=176,
       output_dims=output_dims,
       vmap_method=None,
       in_out_argnames={
@@ -3445,13 +3291,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'efc__Jaref',
           'efc__Ma',
           'efc__Mgrad',
-          'efc__active',
           'efc__alpha',
           'efc__aref',
           'efc__beta',
           'efc__cholesky_L_tmp',
           'efc__cholesky_y_tmp',
-          'efc__condim',
           'efc__cost',
           'efc__cost_candidate',
           'efc__done',
@@ -3460,24 +3304,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'efc__gauss',
           'efc__grad',
           'efc__grad_dot',
-          'efc__gtol',
           'efc__h',
-          'efc__hi',
-          'efc__hi_alpha',
-          'efc__hi_next',
-          'efc__hi_next_alpha',
           'efc__id',
           'efc__jv',
-          'efc__lo',
-          'efc__lo_alpha',
-          'efc__lo_next',
-          'efc__lo_next_alpha',
-          'efc__ls_done',
           'efc__margin',
-          'efc__mid',
-          'efc__mid_alpha',
           'efc__mv',
-          'efc__p0',
           'efc__pos',
           'efc__prev_Mgrad',
           'efc__prev_cost',
@@ -3486,12 +3317,9 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'efc__quad_gauss',
           'efc__search',
           'efc__search_dot',
+          'efc__state',
           'efc__type',
-          'efc__u',
-          'efc__uu',
-          'efc__uv',
           'efc__vel',
-          'efc__vv',
       },
   )
   out = jf(
@@ -3677,7 +3505,6 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       m._impl.nlsp,
       m.nmeshface,
       m.nmocap,
-      m.nsensordata,
       m._impl.nsensortaxel,
       m.nsite,
       m.ntendon,
@@ -3707,6 +3534,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       m._impl.rangefinder_sensor_adr,
       m._impl.sensor_acc_adr,
       m.sensor_adr,
+      m._impl.sensor_adr_to_contact_adr,
       m._impl.sensor_contact_adr,
       m.sensor_cutoff,
       m.sensor_datatype,
@@ -3781,8 +3609,10 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       m.opt.integrator,
       m.opt._impl.is_sparse,
       m.opt.iterations,
+      m.opt._impl.legacy_gjk,
       m.opt.ls_iterations,
       m.opt._impl.ls_parallel,
+      m.opt._impl.ls_parallel_min_step,
       m.opt.ls_tolerance,
       m.opt.magnetic,
       m.opt._impl.run_collision_detection,
@@ -3910,7 +3740,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       d._impl.ten_Jdot,
       d._impl.ten_actfrc,
       d._impl.ten_bias_coef,
-      d._impl.ten_length,
+      d.ten_length,
       d._impl.ten_velocity,
       d._impl.ten_wrapadr,
       d._impl.ten_wrapnum,
@@ -3943,13 +3773,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__Jaref,
       d._impl.efc__Ma,
       d._impl.efc__Mgrad,
-      d._impl.efc__active,
       d._impl.efc__alpha,
       d._impl.efc__aref,
       d._impl.efc__beta,
       d._impl.efc__cholesky_L_tmp,
       d._impl.efc__cholesky_y_tmp,
-      d._impl.efc__condim,
       d._impl.efc__cost,
       d._impl.efc__cost_candidate,
       d._impl.efc__done,
@@ -3958,24 +3786,11 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__gauss,
       d._impl.efc__grad,
       d._impl.efc__grad_dot,
-      d._impl.efc__gtol,
       d._impl.efc__h,
-      d._impl.efc__hi,
-      d._impl.efc__hi_alpha,
-      d._impl.efc__hi_next,
-      d._impl.efc__hi_next_alpha,
       d._impl.efc__id,
       d._impl.efc__jv,
-      d._impl.efc__lo,
-      d._impl.efc__lo_alpha,
-      d._impl.efc__lo_next,
-      d._impl.efc__lo_next_alpha,
-      d._impl.efc__ls_done,
       d._impl.efc__margin,
-      d._impl.efc__mid,
-      d._impl.efc__mid_alpha,
       d._impl.efc__mv,
-      d._impl.efc__p0,
       d._impl.efc__pos,
       d._impl.efc__prev_Mgrad,
       d._impl.efc__prev_cost,
@@ -3984,12 +3799,9 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       d._impl.efc__quad_gauss,
       d._impl.efc__search,
       d._impl.efc__search_dot,
+      d._impl.efc__state,
       d._impl.efc__type,
-      d._impl.efc__u,
-      d._impl.efc__uu,
-      d._impl.efc__uv,
       d._impl.efc__vel,
-      d._impl.efc__vv,
   )
   d = d.tree_replace({
       'act': out[0],
@@ -4106,7 +3918,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       '_impl.ten_Jdot': out[111],
       '_impl.ten_actfrc': out[112],
       '_impl.ten_bias_coef': out[113],
-      '_impl.ten_length': out[114],
+      'ten_length': out[114],
       '_impl.ten_velocity': out[115],
       '_impl.ten_wrapadr': out[116],
       '_impl.ten_wrapnum': out[117],
@@ -4139,53 +3951,35 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       '_impl.efc__Jaref': out[144],
       '_impl.efc__Ma': out[145],
       '_impl.efc__Mgrad': out[146],
-      '_impl.efc__active': out[147],
-      '_impl.efc__alpha': out[148],
-      '_impl.efc__aref': out[149],
-      '_impl.efc__beta': out[150],
-      '_impl.efc__cholesky_L_tmp': out[151],
-      '_impl.efc__cholesky_y_tmp': out[152],
-      '_impl.efc__condim': out[153],
-      '_impl.efc__cost': out[154],
-      '_impl.efc__cost_candidate': out[155],
-      '_impl.efc__done': out[156],
-      '_impl.efc__force': out[157],
-      '_impl.efc__frictionloss': out[158],
-      '_impl.efc__gauss': out[159],
-      '_impl.efc__grad': out[160],
-      '_impl.efc__grad_dot': out[161],
-      '_impl.efc__gtol': out[162],
-      '_impl.efc__h': out[163],
-      '_impl.efc__hi': out[164],
-      '_impl.efc__hi_alpha': out[165],
-      '_impl.efc__hi_next': out[166],
-      '_impl.efc__hi_next_alpha': out[167],
-      '_impl.efc__id': out[168],
-      '_impl.efc__jv': out[169],
-      '_impl.efc__lo': out[170],
-      '_impl.efc__lo_alpha': out[171],
-      '_impl.efc__lo_next': out[172],
-      '_impl.efc__lo_next_alpha': out[173],
-      '_impl.efc__ls_done': out[174],
-      '_impl.efc__margin': out[175],
-      '_impl.efc__mid': out[176],
-      '_impl.efc__mid_alpha': out[177],
-      '_impl.efc__mv': out[178],
-      '_impl.efc__p0': out[179],
-      '_impl.efc__pos': out[180],
-      '_impl.efc__prev_Mgrad': out[181],
-      '_impl.efc__prev_cost': out[182],
-      '_impl.efc__prev_grad': out[183],
-      '_impl.efc__quad': out[184],
-      '_impl.efc__quad_gauss': out[185],
-      '_impl.efc__search': out[186],
-      '_impl.efc__search_dot': out[187],
-      '_impl.efc__type': out[188],
-      '_impl.efc__u': out[189],
-      '_impl.efc__uu': out[190],
-      '_impl.efc__uv': out[191],
-      '_impl.efc__vel': out[192],
-      '_impl.efc__vv': out[193],
+      '_impl.efc__alpha': out[147],
+      '_impl.efc__aref': out[148],
+      '_impl.efc__beta': out[149],
+      '_impl.efc__cholesky_L_tmp': out[150],
+      '_impl.efc__cholesky_y_tmp': out[151],
+      '_impl.efc__cost': out[152],
+      '_impl.efc__cost_candidate': out[153],
+      '_impl.efc__done': out[154],
+      '_impl.efc__force': out[155],
+      '_impl.efc__frictionloss': out[156],
+      '_impl.efc__gauss': out[157],
+      '_impl.efc__grad': out[158],
+      '_impl.efc__grad_dot': out[159],
+      '_impl.efc__h': out[160],
+      '_impl.efc__id': out[161],
+      '_impl.efc__jv': out[162],
+      '_impl.efc__margin': out[163],
+      '_impl.efc__mv': out[164],
+      '_impl.efc__pos': out[165],
+      '_impl.efc__prev_Mgrad': out[166],
+      '_impl.efc__prev_cost': out[167],
+      '_impl.efc__prev_grad': out[168],
+      '_impl.efc__quad': out[169],
+      '_impl.efc__quad_gauss': out[170],
+      '_impl.efc__search': out[171],
+      '_impl.efc__search_dot': out[172],
+      '_impl.efc__state': out[173],
+      '_impl.efc__type': out[174],
+      '_impl.efc__vel': out[175],
   })
   return d
 

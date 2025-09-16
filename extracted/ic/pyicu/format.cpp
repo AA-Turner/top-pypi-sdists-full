@@ -964,7 +964,7 @@ static PyObject *t_measureformat_formatMeasure(t_measureformat *self,
 static PyObject *t_measureformat_formatMeasures(t_measureformat *self,
                                                 PyObject *args)
 {
-    std::unique_ptr<Measure *, decltype(free) *> measures(NULL, free);
+    std::unique_ptr<Measure *[]> measures;
     size_t len;
     FieldPosition dont_care(FieldPosition::DONT_CARE);
     FieldPosition *fp;
@@ -1288,7 +1288,7 @@ static PyObject *t_messageformat_getFormats(t_messageformat *self)
 static PyObject *t_messageformat_setFormats(t_messageformat *self,
                                             PyObject *arg)
 {
-    std::unique_ptr<Format *, decltype(free) *> formats(NULL, free);
+    std::unique_ptr<Format *[]> formats;
     size_t len;
 
     if (!parseArg(arg, arg::Q<Format>(TYPE_ID(Format), &formats, &len)))

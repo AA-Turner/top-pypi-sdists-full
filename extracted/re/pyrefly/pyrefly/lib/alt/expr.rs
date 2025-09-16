@@ -1115,6 +1115,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     *ty = Type::type_form(Type::Tuple(Tuple::unbounded(Type::Any(
                         AnyStyle::Implicit,
                     ))));
+                } else if cls.has_qname("typing", "Any") {
+                    *ty = Type::type_form(Type::any_explicit())
                 } else {
                     *ty = Type::type_form(self.promote(cls, range));
                 }
@@ -1521,6 +1523,133 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ));
         }
         TypeVarTuple::new(name, self.module().dupe(), default_value)
+    }
+
+    pub fn typealiastype_from_call(
+        &self,
+        name: Identifier,
+        x: &ExprCall,
+        errors: &ErrorCollector,
+    ) -> Option<(Expr, Vec<Expr>)> {
+        let mut arg_name = false;
+        let mut value = None;
+        let mut type_params = None;
+        let check_name_arg = |arg: &Expr| {
+            if let Expr::StringLiteral(lit) = arg {
+                if lit.value.to_str() != name.id.as_str() {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        format!(
+                            "TypeAliasType must be assigned to a variable named `{}`",
+                            lit.value.to_str()
+                        ),
+                    );
+                }
+            } else {
+                self.error(
+                    errors,
+                    arg.range(),
+                    ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                    "Expected first argument of `TypeAliasType` to be a string literal".to_owned(),
+                );
+            }
+        };
+        if let Some(arg) = x.arguments.args.first() {
+            check_name_arg(arg);
+            arg_name = true;
+        }
+        if let Some(arg) = x.arguments.args.get(1) {
+            value = Some(arg.clone());
+        }
+        if let Some(arg) = x.arguments.args.get(2) {
+            self.error(
+                errors,
+                arg.range(),
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Unexpected positional argument to `TypeAliasType`".to_owned(),
+            );
+        }
+        for kw in &x.arguments.keywords {
+            match &kw.arg {
+                Some(id) => match id.id.as_str() {
+                    "name" => {
+                        if arg_name {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Multiple values for argument `name`".to_owned(),
+                            );
+                        } else {
+                            check_name_arg(&kw.value);
+                            arg_name = true;
+                        }
+                    }
+                    "value" => {
+                        if value.is_some() {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Multiple values for argument `value`".to_owned(),
+                            );
+                        } else {
+                            value = Some(kw.value.clone());
+                        }
+                    }
+                    "type_params" => {
+                        if let Expr::Tuple(tuple) = &kw.value {
+                            type_params = Some(tuple.elts.clone());
+                        } else {
+                            self.error(
+                                errors,
+                                kw.range,
+                                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                                "Value for argument `type_params` must be a tuple literal"
+                                    .to_owned(),
+                            );
+                        }
+                    }
+                    _ => {
+                        self.error(
+                            errors,
+                            kw.range,
+                            ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                            format!("Unexpected keyword argument `{}` to `TypeAliasType`", id.id),
+                        );
+                    }
+                },
+                _ => {
+                    self.error(
+                        errors,
+                        kw.range,
+                        ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                        "Cannot pass unpacked keyword arguments to `TypeAliasType`".to_owned(),
+                    );
+                }
+            }
+        }
+        if !arg_name {
+            self.error(
+                errors,
+                x.range,
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Missing `name` argument".to_owned(),
+            );
+        }
+        if let Some(value) = value {
+            Some((value, type_params.unwrap_or_default()))
+        } else {
+            self.error(
+                errors,
+                x.range,
+                ErrorInfo::Kind(ErrorKind::TypeAliasError),
+                "Missing `value` argument".to_owned(),
+            );
+            None
+        }
     }
 
     /// Apply a decorator. This effectively synthesizes a function call.

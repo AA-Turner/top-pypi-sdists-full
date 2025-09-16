@@ -10,7 +10,7 @@ keywords = ['sonar', 'sonarqube', 'sonarcloud', 'cleancode']
 license = 'LGPL-3.0-only'
 name = 'pysonar'
 readme = 'README.md'
-version = "1.1.0.2035"
+version = "1.2.0.2419"
 
 [[project.authors]]
 email = 'quality.data-ml@sonarsource.com'
@@ -33,10 +33,10 @@ relative_files = true
 [tool.poetry]
 [tool.poetry.dependencies]
 jproperties = '2.1.2'
-pyfakefs = '5.8.0'
+pyfakefs = '5.9.3'
 python = '>=3.9'
-requests = '2.32.4'
-responses = '0.25.6'
+requests = '2.32.5'
+responses = '0.25.8'
 tomli = '2.2.1'
 
 [tool.poetry.group]
@@ -47,8 +47,8 @@ coverage = '>=7.3.3'
 debugpy = '1.8.13'
 licenseheaders = '>=0.8.8'
 mypy = '>=1.7.1'
-pytest = '8.3.5'
-pytest-cov = '6.1.1'
+pytest = '8.4.2'
+pytest-cov = '7.0.0'
 pytest-docker = '3.2.0'
 pytest-subtests = '0.14.1'
 types-requests = '^2.32.0.20250328'

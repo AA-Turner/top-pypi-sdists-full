@@ -19,6 +19,26 @@ def f(x: X):
 );
 
 testcase!(
+    test_type_alias_type,
+    r#"
+from typing import assert_type, TypeAliasType, TypeVar
+X1 = TypeAliasType("X1", int)
+def f(x: X1):
+    assert_type(x, int)
+
+T = TypeVar('T')
+T2 = TypeVar('T2')
+X2 = TypeAliasType("X2", list[T], type_params=(T,))
+X3 = TypeAliasType("X3", list[T])  # E: Type variable `T` is out of scope for this `TypeAliasType`
+X4 = TypeAliasType("X4", list[T] | list[T2], type_params=(T,))  # E: Type variable `T2` is out of scope for this `TypeAliasType`
+X5 = TypeAliasType(name="X5", value=int)
+
+def f2(x: X2[int]):
+    assert_type(x, list[int])
+    "#,
+);
+
+testcase!(
     test_type_alias_generic,
     r#"
 from typing import assert_type
@@ -61,6 +81,30 @@ X = list[T]
 def f(x: X[int]):
     assert_type(x, list[int])
     "#,
+);
+
+testcase!(
+    test_any_alias_implicit,
+    r#"
+from typing import Any, TypeAlias, assert_type
+T = Any
+def f(x: T):
+    assert_type(x, Any)
+f(0)
+f(None)
+"#,
+);
+
+testcase!(
+    test_any_alias_explicit,
+    r#"
+from typing import Any, TypeAlias, assert_type
+T: TypeAlias = Any
+def f(x: T):
+    assert_type(x, Any)
+f(0)
+f(None)
+"#,
 );
 
 testcase!(

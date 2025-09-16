@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-autoscaling',
-    install_requires=["tencentcloud-sdk-python-common>=3.0.1454,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.0.1459,<4.0.0"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Autoscaling SDK for Python',
     long_description=open('README.rst').read(),

@@ -276,11 +276,6 @@ pub struct ConfigFile {
              )]
     pub sub_configs: Vec<SubConfig>,
 
-    // TODO(connernilsen): fully deprecate this
-    /// Skips any `py.typed` checks we do when resolving `site_package_path` imports.
-    #[serde(default, skip_serializing, alias = "use_untyped_imports")]
-    pub use_untyped_imports: Option<bool>,
-
     /// Whether to respect ignore files (.gitignore, .ignore, .git/exclude).
     #[serde(
         default = "ConfigFile::default_true",
@@ -327,7 +322,6 @@ impl Default for ConfigFile {
             root: Default::default(),
             sub_configs: Default::default(),
             source_db: Default::default(),
-            use_untyped_imports: None,
             use_ignore_files: true,
             ignore_missing_source: true,
             typeshed_path: None,
@@ -383,7 +377,6 @@ impl ConfigFile {
     pub const ADDITIONAL_ROOT_FILE_NAMES: &[&str] = &["mypy.ini", "pyrightconfig.json"];
 
     /// Writes the configuration to a file in the specified directory.
-    /// TODO(connernilsen) relative these paths to the config file's directory
     pub fn write_to_toml_in_directory(&self, directory: &Path) -> Result<()> {
         let config_str =
             toml::to_string_pretty(&self).context("Failed to serialize config to TOML")?;
@@ -639,12 +632,6 @@ impl ConfigFile {
             configure_errors.push(anyhow::anyhow!(
                      "Cannot use both `python-interpreter` and `conda-environment`. Finding environment info using `python-interpreter`.",
              ));
-        }
-
-        if self.use_untyped_imports.is_some() {
-            configure_errors.push(anyhow::anyhow!(
-                    "Configuration option `use-untyped-imports` is deprecated and will be removed in a future update."
-            ));
         }
 
         if let ConfigSource::File(path) = &self.source {
@@ -925,7 +912,6 @@ mod tests {
                         permissive_ignores: None,
                     }
                 }],
-                use_untyped_imports: None,
                 ignore_missing_source: true,
                 typeshed_path: None,
             }
@@ -1148,7 +1134,6 @@ mod tests {
                 matches: Glob::new("sub/project/**".to_owned()).unwrap(),
                 settings: Default::default(),
             }],
-            use_untyped_imports: None,
             ignore_missing_source: false,
             typeshed_path: None,
         };
@@ -1203,7 +1188,6 @@ mod tests {
                 matches: sub_config_matches,
                 settings: Default::default(),
             }],
-            use_untyped_imports: None,
             ignore_missing_source: false,
             typeshed_path: None,
         };

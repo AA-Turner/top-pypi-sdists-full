@@ -11,15 +11,27 @@ class FieldType(str, Enum):
     MULTI_LINES = "MULTI_LINES"
 
 
-SemanticType = t.Literal[
-    "account-id",
-    "application-id",
-    "aws-external-id",
-    "password",
-    "key-pair",
-    "custom-attributes",
-    "service-account-client-id",
-]
+class SemanticType(str, Enum):
+    # Represents the ID of an account discovered by the connector
+    ACCOUNT_ID = "account-id"
+    # Represents the ID of an application discovered by the connector
+    APPLICATION_ID = "application-id"
+    # Represents an AWS external ID that can be used to authenticate with AWS
+    AWS_EXTERNAL_ID = "aws-external-id"
+    # Represents the ID of an entitlement discovered by the connector
+    ENTITLEMENT_ID = "entitlement-id"
+    # Represents the ID of a resource discovered by the connector
+    RESOURCE_ID = "resource-id"
+    # Represents the password of an account
+    PASSWORD = "password"
+    # Represents a cryptographic key pair that can be used to authenticate with a service
+    KEY_PAIR = "key-pair"
+    # Represents the custom attributes of an account
+    CUSTOM_ATTRIBUTES = "custom-attributes"
+    # Represents a client ID that can be used to authenticate with a service account
+    SERVICE_ACCOUNT_CLIENT_ID = "service-account-client-id"
+    # Represents a mapping from a SDK Enum to Customer provided Enum.
+    ENUM_MAPPING = "enum-mapping"
 
 
 @dataclass
@@ -56,6 +68,7 @@ def AnnotatedField(
     semantic_type: SemanticType | None = None,
     hidden: bool = False,
     discriminator: Discriminator | None = None,
+    enum_mapping: type[Enum] | None = None,
     **kwargs,
 ):
     """
@@ -84,9 +97,13 @@ def AnnotatedField(
     if not primary:
         json_schema_extra["x-primary"] = False
     if semantic_type:
-        json_schema_extra["x-semantic"] = semantic_type
+        json_schema_extra["x-semantic"] = semantic_type.value
     if hidden:
         json_schema_extra["x-field_type"] = FieldType.HIDDEN
+        json_schema_extra["x-hidden"] = True
+    if enum_mapping:
+        json_schema_extra["x-enum_mapping_options"] = list(enum_mapping.__members__.values())
+        json_schema_extra["x-semantic"] = SemanticType.ENUM_MAPPING.value
         json_schema_extra["x-hidden"] = True
     if discriminator:
         json_schema_extra["x-discriminator"] = {

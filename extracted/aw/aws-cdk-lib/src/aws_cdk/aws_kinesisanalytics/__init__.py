@@ -69,7 +69,1696 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationCloudWatchLoggingOptionV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_cloud_watch_logging_option_id": "applicationCloudWatchLoggingOptionId",
+    },
+)
+class ApplicationCloudWatchLoggingOptionV2Reference:
+    def __init__(
+        self,
+        *,
+        application_cloud_watch_logging_option_id: builtins.str,
+    ) -> None:
+        '''A reference to a ApplicationCloudWatchLoggingOption resource.
+
+        :param application_cloud_watch_logging_option_id: The Id of the ApplicationCloudWatchLoggingOption resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_cloud_watch_logging_option_v2_reference = kinesisanalytics.ApplicationCloudWatchLoggingOptionV2Reference(
+                application_cloud_watch_logging_option_id="applicationCloudWatchLoggingOptionId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__275e65457d7608514e9b93c1e03ee75855bfb2e9c049a7c41ec9e05233dda45d)
+            check_type(argname="argument application_cloud_watch_logging_option_id", value=application_cloud_watch_logging_option_id, expected_type=type_hints["application_cloud_watch_logging_option_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_cloud_watch_logging_option_id": application_cloud_watch_logging_option_id,
+        }
+
+    @builtins.property
+    def application_cloud_watch_logging_option_id(self) -> builtins.str:
+        '''The Id of the ApplicationCloudWatchLoggingOption resource.'''
+        result = self._values.get("application_cloud_watch_logging_option_id")
+        assert result is not None, "Required property 'application_cloud_watch_logging_option_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationCloudWatchLoggingOptionV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationOutputReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_output_id": "applicationOutputId"},
+)
+class ApplicationOutputReference:
+    def __init__(self, *, application_output_id: builtins.str) -> None:
+        '''A reference to a ApplicationOutput resource.
+
+        :param application_output_id: The Id of the ApplicationOutput resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_output_reference = kinesisanalytics.ApplicationOutputReference(
+                application_output_id="applicationOutputId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa81cf86b5e61ba18fdca9ace9e56fc18ae13f347b334acf37dd1d09e2da2f73)
+            check_type(argname="argument application_output_id", value=application_output_id, expected_type=type_hints["application_output_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_output_id": application_output_id,
+        }
+
+    @builtins.property
+    def application_output_id(self) -> builtins.str:
+        '''The Id of the ApplicationOutput resource.'''
+        result = self._values.get("application_output_id")
+        assert result is not None, "Required property 'application_output_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationOutputReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationOutputV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={"application_output_id": "applicationOutputId"},
+)
+class ApplicationOutputV2Reference:
+    def __init__(self, *, application_output_id: builtins.str) -> None:
+        '''A reference to a ApplicationOutput resource.
+
+        :param application_output_id: The Id of the ApplicationOutput resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_output_v2_reference = kinesisanalytics.ApplicationOutputV2Reference(
+                application_output_id="applicationOutputId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd7300d8fbffc0df5c5ee3c6d92ac0802a1cf93653de026a2b2008c12c70f0d3)
+            check_type(argname="argument application_output_id", value=application_output_id, expected_type=type_hints["application_output_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_output_id": application_output_id,
+        }
+
+    @builtins.property
+    def application_output_id(self) -> builtins.str:
+        '''The Id of the ApplicationOutput resource.'''
+        result = self._values.get("application_output_id")
+        assert result is not None, "Required property 'application_output_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationOutputV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationReference",
+    jsii_struct_bases=[],
+    name_mapping={"application_id": "applicationId"},
+)
+class ApplicationReference:
+    def __init__(self, *, application_id: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_id: The Id of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_reference = kinesisanalytics.ApplicationReference(
+                application_id="applicationId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b576de87536f7942a8edd61583e20736205d99ccfcbe62f89fa645227e72e355)
+            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_id": application_id,
+        }
+
+    @builtins.property
+    def application_id(self) -> builtins.str:
+        '''The Id of the Application resource.'''
+        result = self._values.get("application_id")
+        assert result is not None, "Required property 'application_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationReferenceDataSourceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_reference_data_source_id": "applicationReferenceDataSourceId",
+    },
+)
+class ApplicationReferenceDataSourceReference:
+    def __init__(self, *, application_reference_data_source_id: builtins.str) -> None:
+        '''A reference to a ApplicationReferenceDataSource resource.
+
+        :param application_reference_data_source_id: The Id of the ApplicationReferenceDataSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_reference_data_source_reference = kinesisanalytics.ApplicationReferenceDataSourceReference(
+                application_reference_data_source_id="applicationReferenceDataSourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__326a82b03712fa3e5b65a08c24d1ba75aff7efe2b9dd91d064750d3a32cc55fb)
+            check_type(argname="argument application_reference_data_source_id", value=application_reference_data_source_id, expected_type=type_hints["application_reference_data_source_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_reference_data_source_id": application_reference_data_source_id,
+        }
+
+    @builtins.property
+    def application_reference_data_source_id(self) -> builtins.str:
+        '''The Id of the ApplicationReferenceDataSource resource.'''
+        result = self._values.get("application_reference_data_source_id")
+        assert result is not None, "Required property 'application_reference_data_source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReferenceDataSourceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationReferenceDataSourceV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_reference_data_source_id": "applicationReferenceDataSourceId",
+    },
+)
+class ApplicationReferenceDataSourceV2Reference:
+    def __init__(self, *, application_reference_data_source_id: builtins.str) -> None:
+        '''A reference to a ApplicationReferenceDataSource resource.
+
+        :param application_reference_data_source_id: The Id of the ApplicationReferenceDataSource resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_reference_data_source_v2_reference = kinesisanalytics.ApplicationReferenceDataSourceV2Reference(
+                application_reference_data_source_id="applicationReferenceDataSourceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2af77617207f409caecaf5c78c954a0f635beb271328ed23d90d549b38b00bb)
+            check_type(argname="argument application_reference_data_source_id", value=application_reference_data_source_id, expected_type=type_hints["application_reference_data_source_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_reference_data_source_id": application_reference_data_source_id,
+        }
+
+    @builtins.property
+    def application_reference_data_source_id(self) -> builtins.str:
+        '''The Id of the ApplicationReferenceDataSource resource.'''
+        result = self._values.get("application_reference_data_source_id")
+        assert result is not None, "Required property 'application_reference_data_source_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationReferenceDataSourceV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.ApplicationV2Reference",
+    jsii_struct_bases=[],
+    name_mapping={"application_name": "applicationName"},
+)
+class ApplicationV2Reference:
+    def __init__(self, *, application_name: builtins.str) -> None:
+        '''A reference to a Application resource.
+
+        :param application_name: The ApplicationName of the Application resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            application_v2_reference = kinesisanalytics.ApplicationV2Reference(
+                application_name="applicationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__385c5943c53cbb25b4f27be74e35fbc0ae29787b46f74616fa5a4a16e1ade208)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The ApplicationName of the Application resource.'''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationV2Reference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "cloud_watch_logging_option": "cloudWatchLoggingOption",
+    },
+)
+class CfnApplicationCloudWatchLoggingOptionV2Props:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationCloudWatchLoggingOption``.
+
+        :param application_name: The name of the application.
+        :param cloud_watch_logging_option: Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_cloud_watch_logging_option_v2_props = kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2Props(
+                application_name="applicationName",
+                cloud_watch_logging_option=kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty(
+                    log_stream_arn="logStreamArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ee9ae02f0b09411c93d8784844abcdd5558bdd916832d9d00b6a416669aa90e)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument cloud_watch_logging_option", value=cloud_watch_logging_option, expected_type=type_hints["cloud_watch_logging_option"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "cloud_watch_logging_option": cloud_watch_logging_option,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cloud_watch_logging_option(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty"]:
+        '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-cloudwatchloggingoption
+        '''
+        result = self._values.get("cloud_watch_logging_option")
+        assert result is not None, "Required property 'cloud_watch_logging_option' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationCloudWatchLoggingOptionV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationOutputProps",
+    jsii_struct_bases=[],
+    name_mapping={"application_name": "applicationName", "output": "output"},
+)
+class CfnApplicationOutputProps:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        output: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationOutput.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationOutput``.
+
+        :param application_name: Name of the application to which you want to add the output configuration.
+        :param output: An array of objects, each describing one output configuration. In the output configuration, you specify the name of an in-application stream, a destination (that is, an Amazon Kinesis stream, an Amazon Kinesis Firehose delivery stream, or an AWS Lambda function), and record the formation to use when writing to the destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_output_props = kinesisanalytics.CfnApplicationOutputProps(
+                application_name="applicationName",
+                output=kinesisanalytics.CfnApplicationOutput.OutputProperty(
+                    destination_schema=kinesisanalytics.CfnApplicationOutput.DestinationSchemaProperty(
+                        record_format_type="recordFormatType"
+                    ),
+            
+                    # the properties below are optional
+                    kinesis_firehose_output=kinesisanalytics.CfnApplicationOutput.KinesisFirehoseOutputProperty(
+                        resource_arn="resourceArn",
+                        role_arn="roleArn"
+                    ),
+                    kinesis_streams_output=kinesisanalytics.CfnApplicationOutput.KinesisStreamsOutputProperty(
+                        resource_arn="resourceArn",
+                        role_arn="roleArn"
+                    ),
+                    lambda_output=kinesisanalytics.CfnApplicationOutput.LambdaOutputProperty(
+                        resource_arn="resourceArn",
+                        role_arn="roleArn"
+                    ),
+                    name="name"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09f8734ef4819b2bb934f6cc8df4c9274e93808969bbbb690b2df39d60110ad7)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "output": output,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''Name of the application to which you want to add the output configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html#cfn-kinesisanalytics-applicationoutput-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def output(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationOutput.OutputProperty"]:
+        '''An array of objects, each describing one output configuration.
+
+        In the output configuration, you specify the name of an in-application stream, a destination (that is, an Amazon Kinesis stream, an Amazon Kinesis Firehose delivery stream, or an AWS Lambda function), and record the formation to use when writing to the destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html#cfn-kinesisanalytics-applicationoutput-output
+        '''
+        result = self._values.get("output")
+        assert result is not None, "Required property 'output' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationOutput.OutputProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationOutputProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationOutputV2Props",
+    jsii_struct_bases=[],
+    name_mapping={"application_name": "applicationName", "output": "output"},
+)
+class CfnApplicationOutputV2Props:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        output: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationOutputV2.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationOutput``.
+
+        :param application_name: The name of the application.
+        :param output: Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_output_v2_props = kinesisanalytics.CfnApplicationOutputV2Props(
+                application_name="applicationName",
+                output=kinesisanalytics.CfnApplicationOutputV2.OutputProperty(
+                    destination_schema=kinesisanalytics.CfnApplicationOutputV2.DestinationSchemaProperty(
+                        record_format_type="recordFormatType"
+                    ),
+            
+                    # the properties below are optional
+                    kinesis_firehose_output=kinesisanalytics.CfnApplicationOutputV2.KinesisFirehoseOutputProperty(
+                        resource_arn="resourceArn"
+                    ),
+                    kinesis_streams_output=kinesisanalytics.CfnApplicationOutputV2.KinesisStreamsOutputProperty(
+                        resource_arn="resourceArn"
+                    ),
+                    lambda_output=kinesisanalytics.CfnApplicationOutputV2.LambdaOutputProperty(
+                        resource_arn="resourceArn"
+                    ),
+                    name="name"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3145628472b504933f167d7e52abe838591d1571d067aa40f3fd45443333c3f4)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument output", value=output, expected_type=type_hints["output"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "output": output,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def output(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationOutputV2.OutputProperty"]:
+        '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
+
+        The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-output
+        '''
+        result = self._values.get("output")
+        assert result is not None, "Required property 'output' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationOutputV2.OutputProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationOutputV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "inputs": "inputs",
+        "application_code": "applicationCode",
+        "application_description": "applicationDescription",
+        "application_name": "applicationName",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        inputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.InputProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        application_code: typing.Optional[builtins.str] = None,
+        application_description: typing.Optional[builtins.str] = None,
+        application_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param inputs: Use this parameter to configure the application input. You can configure your application to receive input from a single streaming source. In this configuration, you map this streaming source to an in-application stream that is created. Your application code can then query the in-application stream like a table (you can think of it as a constantly updating table). For the streaming source, you provide its Amazon Resource Name (ARN) and format of data on the stream (for example, JSON, CSV, etc.). You also must provide an IAM role that Amazon Kinesis Analytics can assume to read this stream on your behalf. To create the in-application stream, you need to specify a schema to transform your data into a schematized version used in SQL. In the schema, you provide the necessary mapping of the data elements in the streaming source to record columns in the in-app stream.
+        :param application_code: One or more SQL statements that read input data, transform it, and generate output. For example, you can write a SQL statement that reads data from one in-application stream, generates a running average of the number of advertisement clicks by vendor, and insert resulting rows in another in-application stream using pumps. For more information about the typical pattern, see `Application Code <https://docs.aws.amazon.com/kinesisanalytics/latest/dev/how-it-works-app-code.html>`_ . You can provide such series of SQL statements, where output of one statement can be used as the input for the next statement. You store intermediate results by creating in-application streams and pumps. Note that the application code must create the streams with names specified in the ``Outputs`` . For example, if your ``Outputs`` defines output streams named ``ExampleOutputStream1`` and ``ExampleOutputStream2`` , then your application code must create these streams.
+        :param application_description: Summary description of the application.
+        :param application_name: Name of your Amazon Kinesis Analytics application (for example, ``sample-app`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_props = kinesisanalytics.CfnApplicationProps(
+                inputs=[kinesisanalytics.CfnApplication.InputProperty(
+                    input_schema=kinesisanalytics.CfnApplication.InputSchemaProperty(
+                        record_columns=[kinesisanalytics.CfnApplication.RecordColumnProperty(
+                            name="name",
+                            sql_type="sqlType",
+            
+                            # the properties below are optional
+                            mapping="mapping"
+                        )],
+                        record_format=kinesisanalytics.CfnApplication.RecordFormatProperty(
+                            record_format_type="recordFormatType",
+            
+                            # the properties below are optional
+                            mapping_parameters=kinesisanalytics.CfnApplication.MappingParametersProperty(
+                                csv_mapping_parameters=kinesisanalytics.CfnApplication.CSVMappingParametersProperty(
+                                    record_column_delimiter="recordColumnDelimiter",
+                                    record_row_delimiter="recordRowDelimiter"
+                                ),
+                                json_mapping_parameters=kinesisanalytics.CfnApplication.JSONMappingParametersProperty(
+                                    record_row_path="recordRowPath"
+                                )
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        record_encoding="recordEncoding"
+                    ),
+                    name_prefix="namePrefix",
+            
+                    # the properties below are optional
+                    input_parallelism=kinesisanalytics.CfnApplication.InputParallelismProperty(
+                        count=123
+                    ),
+                    input_processing_configuration=kinesisanalytics.CfnApplication.InputProcessingConfigurationProperty(
+                        input_lambda_processor=kinesisanalytics.CfnApplication.InputLambdaProcessorProperty(
+                            resource_arn="resourceArn",
+                            role_arn="roleArn"
+                        )
+                    ),
+                    kinesis_firehose_input=kinesisanalytics.CfnApplication.KinesisFirehoseInputProperty(
+                        resource_arn="resourceArn",
+                        role_arn="roleArn"
+                    ),
+                    kinesis_streams_input=kinesisanalytics.CfnApplication.KinesisStreamsInputProperty(
+                        resource_arn="resourceArn",
+                        role_arn="roleArn"
+                    )
+                )],
+            
+                # the properties below are optional
+                application_code="applicationCode",
+                application_description="applicationDescription",
+                application_name="applicationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9dc7025a340282e0a5ef3744df4c9ec4e7ce3ac11fc41469ec07e61175b0de6)
+            check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
+            check_type(argname="argument application_code", value=application_code, expected_type=type_hints["application_code"])
+            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "inputs": inputs,
+        }
+        if application_code is not None:
+            self._values["application_code"] = application_code
+        if application_description is not None:
+            self._values["application_description"] = application_description
+        if application_name is not None:
+            self._values["application_name"] = application_name
+
+    @builtins.property
+    def inputs(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.InputProperty"]]]:
+        '''Use this parameter to configure the application input.
+
+        You can configure your application to receive input from a single streaming source. In this configuration, you map this streaming source to an in-application stream that is created. Your application code can then query the in-application stream like a table (you can think of it as a constantly updating table).
+
+        For the streaming source, you provide its Amazon Resource Name (ARN) and format of data on the stream (for example, JSON, CSV, etc.). You also must provide an IAM role that Amazon Kinesis Analytics can assume to read this stream on your behalf.
+
+        To create the in-application stream, you need to specify a schema to transform your data into a schematized version used in SQL. In the schema, you provide the necessary mapping of the data elements in the streaming source to record columns in the in-app stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-inputs
+        '''
+        result = self._values.get("inputs")
+        assert result is not None, "Required property 'inputs' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnApplication.InputProperty"]]], result)
+
+    @builtins.property
+    def application_code(self) -> typing.Optional[builtins.str]:
+        '''One or more SQL statements that read input data, transform it, and generate output.
+
+        For example, you can write a SQL statement that reads data from one in-application stream, generates a running average of the number of advertisement clicks by vendor, and insert resulting rows in another in-application stream using pumps. For more information about the typical pattern, see `Application Code <https://docs.aws.amazon.com/kinesisanalytics/latest/dev/how-it-works-app-code.html>`_ .
+
+        You can provide such series of SQL statements, where output of one statement can be used as the input for the next statement. You store intermediate results by creating in-application streams and pumps.
+
+        Note that the application code must create the streams with names specified in the ``Outputs`` . For example, if your ``Outputs`` defines output streams named ``ExampleOutputStream1`` and ``ExampleOutputStream2`` , then your application code must create these streams.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationcode
+        '''
+        result = self._values.get("application_code")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def application_description(self) -> typing.Optional[builtins.str]:
+        '''Summary description of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationdescription
+        '''
+        result = self._values.get("application_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''Name of your Amazon Kinesis Analytics application (for example, ``sample-app`` ).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationname
+        '''
+        result = self._values.get("application_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationReferenceDataSourceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "reference_data_source": "referenceDataSource",
+    },
+)
+class CfnApplicationReferenceDataSourceProps:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationReferenceDataSource.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationReferenceDataSource``.
+
+        :param application_name: Name of an existing application.
+        :param reference_data_source: The reference data source can be an object in your Amazon S3 bucket. Amazon Kinesis Analytics reads the object and copies the data into the in-application table that is created. You provide an S3 bucket, object key name, and the resulting in-application table that is created. You must also provide an IAM role with the necessary permissions that Amazon Kinesis Analytics can assume to read the object from your S3 bucket on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_reference_data_source_props = kinesisanalytics.CfnApplicationReferenceDataSourceProps(
+                application_name="applicationName",
+                reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSource.ReferenceDataSourceProperty(
+                    reference_schema=kinesisanalytics.CfnApplicationReferenceDataSource.ReferenceSchemaProperty(
+                        record_columns=[kinesisanalytics.CfnApplicationReferenceDataSource.RecordColumnProperty(
+                            name="name",
+                            sql_type="sqlType",
+            
+                            # the properties below are optional
+                            mapping="mapping"
+                        )],
+                        record_format=kinesisanalytics.CfnApplicationReferenceDataSource.RecordFormatProperty(
+                            record_format_type="recordFormatType",
+            
+                            # the properties below are optional
+                            mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.MappingParametersProperty(
+                                csv_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.CSVMappingParametersProperty(
+                                    record_column_delimiter="recordColumnDelimiter",
+                                    record_row_delimiter="recordRowDelimiter"
+                                ),
+                                json_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.JSONMappingParametersProperty(
+                                    record_row_path="recordRowPath"
+                                )
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        record_encoding="recordEncoding"
+                    ),
+            
+                    # the properties below are optional
+                    s3_reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty(
+                        bucket_arn="bucketArn",
+                        file_key="fileKey",
+                        reference_role_arn="referenceRoleArn"
+                    ),
+                    table_name="tableName"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f87dd7b060a0d0955f04c4cedcc8cad610c4776c13d95c6810948002c914de34)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument reference_data_source", value=reference_data_source, expected_type=type_hints["reference_data_source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "reference_data_source": reference_data_source,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''Name of an existing application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html#cfn-kinesisanalytics-applicationreferencedatasource-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def reference_data_source(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"]:
+        '''The reference data source can be an object in your Amazon S3 bucket.
+
+        Amazon Kinesis Analytics reads the object and copies the data into the in-application table that is created. You provide an S3 bucket, object key name, and the resulting in-application table that is created. You must also provide an IAM role with the necessary permissions that Amazon Kinesis Analytics can assume to read the object from your S3 bucket on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html#cfn-kinesisanalytics-applicationreferencedatasource-referencedatasource
+        '''
+        result = self._values.get("reference_data_source")
+        assert result is not None, "Required property 'reference_data_source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSource.ReferenceDataSourceProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationReferenceDataSourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationReferenceDataSourceV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "reference_data_source": "referenceDataSource",
+    },
+)
+class CfnApplicationReferenceDataSourceV2Props:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationReferenceDataSource``.
+
+        :param application_name: The name of the application.
+        :param reference_data_source: For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_reference_data_source_v2_props = kinesisanalytics.CfnApplicationReferenceDataSourceV2Props(
+                application_name="applicationName",
+                reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty(
+                    reference_schema=kinesisanalytics.CfnApplicationReferenceDataSourceV2.ReferenceSchemaProperty(
+                        record_columns=[kinesisanalytics.CfnApplicationReferenceDataSourceV2.RecordColumnProperty(
+                            name="name",
+                            sql_type="sqlType",
+            
+                            # the properties below are optional
+                            mapping="mapping"
+                        )],
+                        record_format=kinesisanalytics.CfnApplicationReferenceDataSourceV2.RecordFormatProperty(
+                            record_format_type="recordFormatType",
+            
+                            # the properties below are optional
+                            mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.MappingParametersProperty(
+                                csv_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.CSVMappingParametersProperty(
+                                    record_column_delimiter="recordColumnDelimiter",
+                                    record_row_delimiter="recordRowDelimiter"
+                                ),
+                                json_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.JSONMappingParametersProperty(
+                                    record_row_path="recordRowPath"
+                                )
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        record_encoding="recordEncoding"
+                    ),
+            
+                    # the properties below are optional
+                    s3_reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSourceV2.S3ReferenceDataSourceProperty(
+                        bucket_arn="bucketArn",
+                        file_key="fileKey"
+                    ),
+                    table_name="tableName"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__deb62d51e46e53b39111349bd208bf28bcfbc80ffe454dc8963f22b61a809f0c)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument reference_data_source", value=reference_data_source, expected_type=type_hints["reference_data_source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "reference_data_source": reference_data_source,
+        }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def reference_data_source(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty"]:
+        '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource
+        '''
+        result = self._values.get("reference_data_source")
+        assert result is not None, "Required property 'reference_data_source' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationReferenceDataSourceV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationV2Props",
+    jsii_struct_bases=[],
+    name_mapping={
+        "runtime_environment": "runtimeEnvironment",
+        "service_execution_role": "serviceExecutionRole",
+        "application_configuration": "applicationConfiguration",
+        "application_description": "applicationDescription",
+        "application_maintenance_configuration": "applicationMaintenanceConfiguration",
+        "application_mode": "applicationMode",
+        "application_name": "applicationName",
+        "run_configuration": "runConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnApplicationV2Props:
+    def __init__(
+        self,
+        *,
+        runtime_environment: builtins.str,
+        service_execution_role: builtins.str,
+        application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationV2.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_description: typing.Optional[builtins.str] = None,
+        application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationV2.ApplicationMaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        application_mode: typing.Optional[builtins.str] = None,
+        application_name: typing.Optional[builtins.str] = None,
+        run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationV2.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param runtime_environment: The runtime environment for the application.
+        :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
+        :param application_configuration: Use this parameter to configure the application.
+        :param application_description: The description of the application. Default: - ""
+        :param application_maintenance_configuration: Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+        :param application_mode: To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
+        :param application_name: The name of the application.
+        :param run_configuration: Describes the starting parameters for an Managed Service for Apache Flink application.
+        :param tags: A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
+            
+            cfn_application_v2_props = kinesisanalytics.CfnApplicationV2Props(
+                runtime_environment="runtimeEnvironment",
+                service_execution_role="serviceExecutionRole",
+            
+                # the properties below are optional
+                application_configuration=kinesisanalytics.CfnApplicationV2.ApplicationConfigurationProperty(
+                    application_code_configuration=kinesisanalytics.CfnApplicationV2.ApplicationCodeConfigurationProperty(
+                        code_content=kinesisanalytics.CfnApplicationV2.CodeContentProperty(
+                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentLocationProperty(
+                                bucket_arn="bucketArn",
+                                file_key="fileKey",
+            
+                                # the properties below are optional
+                                object_version="objectVersion"
+                            ),
+                            text_content="textContent",
+                            zip_file_content="zipFileContent"
+                        ),
+                        code_content_type="codeContentType"
+                    ),
+                    application_encryption_configuration=kinesisanalytics.CfnApplicationV2.ApplicationEncryptionConfigurationProperty(
+                        key_type="keyType",
+            
+                        # the properties below are optional
+                        key_id="keyId"
+                    ),
+                    application_snapshot_configuration=kinesisanalytics.CfnApplicationV2.ApplicationSnapshotConfigurationProperty(
+                        snapshots_enabled=False
+                    ),
+                    application_system_rollback_configuration=kinesisanalytics.CfnApplicationV2.ApplicationSystemRollbackConfigurationProperty(
+                        rollback_enabled=False
+                    ),
+                    environment_properties=kinesisanalytics.CfnApplicationV2.EnvironmentPropertiesProperty(
+                        property_groups=[kinesisanalytics.CfnApplicationV2.PropertyGroupProperty(
+                            property_group_id="propertyGroupId",
+                            property_map={
+                                "property_map_key": "propertyMap"
+                            }
+                        )]
+                    ),
+                    flink_application_configuration=kinesisanalytics.CfnApplicationV2.FlinkApplicationConfigurationProperty(
+                        checkpoint_configuration=kinesisanalytics.CfnApplicationV2.CheckpointConfigurationProperty(
+                            configuration_type="configurationType",
+            
+                            # the properties below are optional
+                            checkpointing_enabled=False,
+                            checkpoint_interval=123,
+                            min_pause_between_checkpoints=123
+                        ),
+                        monitoring_configuration=kinesisanalytics.CfnApplicationV2.MonitoringConfigurationProperty(
+                            configuration_type="configurationType",
+            
+                            # the properties below are optional
+                            log_level="logLevel",
+                            metrics_level="metricsLevel"
+                        ),
+                        parallelism_configuration=kinesisanalytics.CfnApplicationV2.ParallelismConfigurationProperty(
+                            configuration_type="configurationType",
+            
+                            # the properties below are optional
+                            auto_scaling_enabled=False,
+                            parallelism=123,
+                            parallelism_per_kpu=123
+                        )
+                    ),
+                    sql_application_configuration=kinesisanalytics.CfnApplicationV2.SqlApplicationConfigurationProperty(
+                        inputs=[kinesisanalytics.CfnApplicationV2.InputProperty(
+                            input_schema=kinesisanalytics.CfnApplicationV2.InputSchemaProperty(
+                                record_columns=[kinesisanalytics.CfnApplicationV2.RecordColumnProperty(
+                                    name="name",
+                                    sql_type="sqlType",
+            
+                                    # the properties below are optional
+                                    mapping="mapping"
+                                )],
+                                record_format=kinesisanalytics.CfnApplicationV2.RecordFormatProperty(
+                                    record_format_type="recordFormatType",
+            
+                                    # the properties below are optional
+                                    mapping_parameters=kinesisanalytics.CfnApplicationV2.MappingParametersProperty(
+                                        csv_mapping_parameters=kinesisanalytics.CfnApplicationV2.CSVMappingParametersProperty(
+                                            record_column_delimiter="recordColumnDelimiter",
+                                            record_row_delimiter="recordRowDelimiter"
+                                        ),
+                                        json_mapping_parameters=kinesisanalytics.CfnApplicationV2.JSONMappingParametersProperty(
+                                            record_row_path="recordRowPath"
+                                        )
+                                    )
+                                ),
+            
+                                # the properties below are optional
+                                record_encoding="recordEncoding"
+                            ),
+                            name_prefix="namePrefix",
+            
+                            # the properties below are optional
+                            input_parallelism=kinesisanalytics.CfnApplicationV2.InputParallelismProperty(
+                                count=123
+                            ),
+                            input_processing_configuration=kinesisanalytics.CfnApplicationV2.InputProcessingConfigurationProperty(
+                                input_lambda_processor=kinesisanalytics.CfnApplicationV2.InputLambdaProcessorProperty(
+                                    resource_arn="resourceArn"
+                                )
+                            ),
+                            kinesis_firehose_input=kinesisanalytics.CfnApplicationV2.KinesisFirehoseInputProperty(
+                                resource_arn="resourceArn"
+                            ),
+                            kinesis_streams_input=kinesisanalytics.CfnApplicationV2.KinesisStreamsInputProperty(
+                                resource_arn="resourceArn"
+                            )
+                        )]
+                    ),
+                    vpc_configurations=[kinesisanalytics.CfnApplicationV2.VpcConfigurationProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )],
+                    zeppelin_application_configuration=kinesisanalytics.CfnApplicationV2.ZeppelinApplicationConfigurationProperty(
+                        catalog_configuration=kinesisanalytics.CfnApplicationV2.CatalogConfigurationProperty(
+                            glue_data_catalog_configuration=kinesisanalytics.CfnApplicationV2.GlueDataCatalogConfigurationProperty(
+                                database_arn="databaseArn"
+                            )
+                        ),
+                        custom_artifacts_configuration=[kinesisanalytics.CfnApplicationV2.CustomArtifactConfigurationProperty(
+                            artifact_type="artifactType",
+            
+                            # the properties below are optional
+                            maven_reference=kinesisanalytics.CfnApplicationV2.MavenReferenceProperty(
+                                artifact_id="artifactId",
+                                group_id="groupId",
+                                version="version"
+                            ),
+                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentLocationProperty(
+                                bucket_arn="bucketArn",
+                                file_key="fileKey",
+            
+                                # the properties below are optional
+                                object_version="objectVersion"
+                            )
+                        )],
+                        deploy_as_application_configuration=kinesisanalytics.CfnApplicationV2.DeployAsApplicationConfigurationProperty(
+                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentBaseLocationProperty(
+                                bucket_arn="bucketArn",
+            
+                                # the properties below are optional
+                                base_path="basePath"
+                            )
+                        ),
+                        monitoring_configuration=kinesisanalytics.CfnApplicationV2.ZeppelinMonitoringConfigurationProperty(
+                            log_level="logLevel"
+                        )
+                    )
+                ),
+                application_description="applicationDescription",
+                application_maintenance_configuration=kinesisanalytics.CfnApplicationV2.ApplicationMaintenanceConfigurationProperty(
+                    application_maintenance_window_start_time="applicationMaintenanceWindowStartTime"
+                ),
+                application_mode="applicationMode",
+                application_name="applicationName",
+                run_configuration=kinesisanalytics.CfnApplicationV2.RunConfigurationProperty(
+                    application_restore_configuration=kinesisanalytics.CfnApplicationV2.ApplicationRestoreConfigurationProperty(
+                        application_restore_type="applicationRestoreType",
+            
+                        # the properties below are optional
+                        snapshot_name="snapshotName"
+                    ),
+                    flink_run_configuration=kinesisanalytics.CfnApplicationV2.FlinkRunConfigurationProperty(
+                        allow_non_restored_state=False
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1d4e68a295f71f8dff194d7db3ba9f1a75767b0ec11a07fe4c7f8f213efe33a)
+            check_type(argname="argument runtime_environment", value=runtime_environment, expected_type=type_hints["runtime_environment"])
+            check_type(argname="argument service_execution_role", value=service_execution_role, expected_type=type_hints["service_execution_role"])
+            check_type(argname="argument application_configuration", value=application_configuration, expected_type=type_hints["application_configuration"])
+            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
+            check_type(argname="argument application_maintenance_configuration", value=application_maintenance_configuration, expected_type=type_hints["application_maintenance_configuration"])
+            check_type(argname="argument application_mode", value=application_mode, expected_type=type_hints["application_mode"])
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument run_configuration", value=run_configuration, expected_type=type_hints["run_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "runtime_environment": runtime_environment,
+            "service_execution_role": service_execution_role,
+        }
+        if application_configuration is not None:
+            self._values["application_configuration"] = application_configuration
+        if application_description is not None:
+            self._values["application_description"] = application_description
+        if application_maintenance_configuration is not None:
+            self._values["application_maintenance_configuration"] = application_maintenance_configuration
+        if application_mode is not None:
+            self._values["application_mode"] = application_mode
+        if application_name is not None:
+            self._values["application_name"] = application_name
+        if run_configuration is not None:
+            self._values["run_configuration"] = run_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def runtime_environment(self) -> builtins.str:
+        '''The runtime environment for the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runtimeenvironment
+        '''
+        result = self._values.get("runtime_environment")
+        assert result is not None, "Required property 'runtime_environment' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_execution_role(self) -> builtins.str:
+        '''Specifies the IAM role that the application uses to access external resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-serviceexecutionrole
+        '''
+        result = self._values.get("service_execution_role")
+        assert result is not None, "Required property 'service_execution_role' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]]:
+        '''Use this parameter to configure the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationconfiguration
+        '''
+        result = self._values.get("application_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]], result)
+
+    @builtins.property
+    def application_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the application.
+
+        :default: - ""
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationdescription
+        '''
+        result = self._values.get("application_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def application_maintenance_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]]:
+        '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmaintenanceconfiguration
+        '''
+        result = self._values.get("application_maintenance_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]], result)
+
+    @builtins.property
+    def application_mode(self) -> typing.Optional[builtins.str]:
+        '''To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .
+
+        However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmode
+        '''
+        result = self._values.get("application_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationname
+        '''
+        result = self._values.get("application_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def run_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]]:
+        '''Describes the starting parameters for an Managed Service for Apache Flink application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runconfiguration
+        '''
+        result = self._values.get("run_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''A list of one or more tags to assign to the application.
+
+        A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationV2Props(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationCloudWatchLoggingOptionV2Ref"
+)
+class IApplicationCloudWatchLoggingOptionV2Ref(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationCloudWatchLoggingOptionRef")
+    def application_cloud_watch_logging_option_ref(
+        self,
+    ) -> ApplicationCloudWatchLoggingOptionV2Reference:
+        '''(experimental) A reference to a ApplicationCloudWatchLoggingOption resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationCloudWatchLoggingOptionV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationCloudWatchLoggingOptionV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationCloudWatchLoggingOptionRef")
+    def application_cloud_watch_logging_option_ref(
+        self,
+    ) -> ApplicationCloudWatchLoggingOptionV2Reference:
+        '''(experimental) A reference to a ApplicationCloudWatchLoggingOption resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationCloudWatchLoggingOptionV2Reference, jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationCloudWatchLoggingOptionV2Ref).__jsii_proxy_class__ = lambda : _IApplicationCloudWatchLoggingOptionV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationOutputRef")
+class IApplicationOutputRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputReference:
+        '''(experimental) A reference to a ApplicationOutput resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationOutputRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationOutputRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputReference:
+        '''(experimental) A reference to a ApplicationOutput resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationOutputReference, jsii.get(self, "applicationOutputRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationOutputRef).__jsii_proxy_class__ = lambda : _IApplicationOutputRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationOutputV2Ref")
+class IApplicationOutputV2Ref(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputV2Reference:
+        '''(experimental) A reference to a ApplicationOutput resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationOutputV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationOutputV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputV2Reference:
+        '''(experimental) A reference to a ApplicationOutput resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationOutputV2Reference, jsii.get(self, "applicationOutputRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationOutputV2Ref).__jsii_proxy_class__ = lambda : _IApplicationOutputV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationRef")
+class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationReferenceDataSourceRef"
+)
+class IApplicationReferenceDataSourceRef(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceReference:
+        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationReferenceDataSourceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationReferenceDataSourceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceReference:
+        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReferenceDataSourceReference, jsii.get(self, "applicationReferenceDataSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationReferenceDataSourceRef).__jsii_proxy_class__ = lambda : _IApplicationReferenceDataSourceRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationReferenceDataSourceV2Ref"
+)
+class IApplicationReferenceDataSourceV2Ref(
+    _constructs_77d1e7e8.IConstruct,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceV2Reference:
+        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationReferenceDataSourceV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationReferenceDataSourceV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceV2Reference:
+        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationReferenceDataSourceV2Reference, jsii.get(self, "applicationReferenceDataSourceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationReferenceDataSourceV2Ref).__jsii_proxy_class__ = lambda : _IApplicationReferenceDataSourceV2RefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationV2Ref")
+class IApplicationV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationV2Reference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IApplicationV2RefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Application.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationV2Ref"
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationV2Reference:
+        '''(experimental) A reference to a Application resource.
+
+        :stability: experimental
+        '''
+        return typing.cast(ApplicationV2Reference, jsii.get(self, "applicationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IApplicationV2Ref).__jsii_proxy_class__ = lambda : _IApplicationV2RefProxy
+
+
+@jsii.implements(_IInspectable_c2943556, IApplicationRef)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -206,6 +1895,12 @@ class CfnApplication(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationReference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1337,7 +3032,7 @@ class CfnApplication(
             )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationCloudWatchLoggingOptionV2Ref)
 class CfnApplicationCloudWatchLoggingOptionV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1421,6 +3116,14 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationCloudWatchLoggingOptionRef")
+    def application_cloud_watch_logging_option_ref(
+        self,
+    ) -> ApplicationCloudWatchLoggingOptionV2Reference:
+        '''A reference to a ApplicationCloudWatchLoggingOption resource.'''
+        return typing.cast(ApplicationCloudWatchLoggingOptionV2Reference, jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1519,86 +3222,7 @@ class CfnApplicationCloudWatchLoggingOptionV2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "cloud_watch_logging_option": "cloudWatchLoggingOption",
-    },
-)
-class CfnApplicationCloudWatchLoggingOptionV2Props:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationCloudWatchLoggingOption``.
-
-        :param application_name: The name of the application.
-        :param cloud_watch_logging_option: Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_cloud_watch_logging_option_v2_props = kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2Props(
-                application_name="applicationName",
-                cloud_watch_logging_option=kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty(
-                    log_stream_arn="logStreamArn"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ee9ae02f0b09411c93d8784844abcdd5558bdd916832d9d00b6a416669aa90e)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument cloud_watch_logging_option", value=cloud_watch_logging_option, expected_type=type_hints["cloud_watch_logging_option"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "cloud_watch_logging_option": cloud_watch_logging_option,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cloud_watch_logging_option(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty]:
-        '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-cloudwatchloggingoption
-        '''
-        result = self._values.get("cloud_watch_logging_option")
-        assert result is not None, "Required property 'cloud_watch_logging_option' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationCloudWatchLoggingOptionV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationOutputRef)
 class CfnApplicationOutput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1704,6 +3328,12 @@ class CfnApplicationOutput(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputReference:
+        '''A reference to a ApplicationOutput resource.'''
+        return typing.cast(ApplicationOutputReference, jsii.get(self, "applicationOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -2185,102 +3815,7 @@ class CfnApplicationOutput(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationOutputProps",
-    jsii_struct_bases=[],
-    name_mapping={"application_name": "applicationName", "output": "output"},
-)
-class CfnApplicationOutputProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationOutput``.
-
-        :param application_name: Name of the application to which you want to add the output configuration.
-        :param output: An array of objects, each describing one output configuration. In the output configuration, you specify the name of an in-application stream, a destination (that is, an Amazon Kinesis stream, an Amazon Kinesis Firehose delivery stream, or an AWS Lambda function), and record the formation to use when writing to the destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_output_props = kinesisanalytics.CfnApplicationOutputProps(
-                application_name="applicationName",
-                output=kinesisanalytics.CfnApplicationOutput.OutputProperty(
-                    destination_schema=kinesisanalytics.CfnApplicationOutput.DestinationSchemaProperty(
-                        record_format_type="recordFormatType"
-                    ),
-            
-                    # the properties below are optional
-                    kinesis_firehose_output=kinesisanalytics.CfnApplicationOutput.KinesisFirehoseOutputProperty(
-                        resource_arn="resourceArn",
-                        role_arn="roleArn"
-                    ),
-                    kinesis_streams_output=kinesisanalytics.CfnApplicationOutput.KinesisStreamsOutputProperty(
-                        resource_arn="resourceArn",
-                        role_arn="roleArn"
-                    ),
-                    lambda_output=kinesisanalytics.CfnApplicationOutput.LambdaOutputProperty(
-                        resource_arn="resourceArn",
-                        role_arn="roleArn"
-                    ),
-                    name="name"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09f8734ef4819b2bb934f6cc8df4c9274e93808969bbbb690b2df39d60110ad7)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument output", value=output, expected_type=type_hints["output"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "output": output,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''Name of the application to which you want to add the output configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html#cfn-kinesisanalytics-applicationoutput-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def output(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplicationOutput.OutputProperty]:
-        '''An array of objects, each describing one output configuration.
-
-        In the output configuration, you specify the name of an in-application stream, a destination (that is, an Amazon Kinesis stream, an Amazon Kinesis Firehose delivery stream, or an AWS Lambda function), and record the formation to use when writing to the destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationoutput.html#cfn-kinesisanalytics-applicationoutput-output
-        '''
-        result = self._values.get("output")
-        assert result is not None, "Required property 'output' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplicationOutput.OutputProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationOutputProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationOutputV2Ref)
 class CfnApplicationOutputV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2382,6 +3917,12 @@ class CfnApplicationOutputV2(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationOutputRef")
+    def application_output_ref(self) -> ApplicationOutputV2Reference:
+        '''A reference to a ApplicationOutput resource.'''
+        return typing.cast(ApplicationOutputV2Reference, jsii.get(self, "applicationOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -2791,269 +4332,7 @@ class CfnApplicationOutputV2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationOutputV2Props",
-    jsii_struct_bases=[],
-    name_mapping={"application_name": "applicationName", "output": "output"},
-)
-class CfnApplicationOutputV2Props:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutputV2.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationOutput``.
-
-        :param application_name: The name of the application.
-        :param output: Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_output_v2_props = kinesisanalytics.CfnApplicationOutputV2Props(
-                application_name="applicationName",
-                output=kinesisanalytics.CfnApplicationOutputV2.OutputProperty(
-                    destination_schema=kinesisanalytics.CfnApplicationOutputV2.DestinationSchemaProperty(
-                        record_format_type="recordFormatType"
-                    ),
-            
-                    # the properties below are optional
-                    kinesis_firehose_output=kinesisanalytics.CfnApplicationOutputV2.KinesisFirehoseOutputProperty(
-                        resource_arn="resourceArn"
-                    ),
-                    kinesis_streams_output=kinesisanalytics.CfnApplicationOutputV2.KinesisStreamsOutputProperty(
-                        resource_arn="resourceArn"
-                    ),
-                    lambda_output=kinesisanalytics.CfnApplicationOutputV2.LambdaOutputProperty(
-                        resource_arn="resourceArn"
-                    ),
-                    name="name"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3145628472b504933f167d7e52abe838591d1571d067aa40f3fd45443333c3f4)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument output", value=output, expected_type=type_hints["output"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "output": output,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def output(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplicationOutputV2.OutputProperty]:
-        '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
-
-        The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-output
-        '''
-        result = self._values.get("output")
-        assert result is not None, "Required property 'output' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplicationOutputV2.OutputProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationOutputV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "inputs": "inputs",
-        "application_code": "applicationCode",
-        "application_description": "applicationDescription",
-        "application_name": "applicationName",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        inputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        application_code: typing.Optional[builtins.str] = None,
-        application_description: typing.Optional[builtins.str] = None,
-        application_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param inputs: Use this parameter to configure the application input. You can configure your application to receive input from a single streaming source. In this configuration, you map this streaming source to an in-application stream that is created. Your application code can then query the in-application stream like a table (you can think of it as a constantly updating table). For the streaming source, you provide its Amazon Resource Name (ARN) and format of data on the stream (for example, JSON, CSV, etc.). You also must provide an IAM role that Amazon Kinesis Analytics can assume to read this stream on your behalf. To create the in-application stream, you need to specify a schema to transform your data into a schematized version used in SQL. In the schema, you provide the necessary mapping of the data elements in the streaming source to record columns in the in-app stream.
-        :param application_code: One or more SQL statements that read input data, transform it, and generate output. For example, you can write a SQL statement that reads data from one in-application stream, generates a running average of the number of advertisement clicks by vendor, and insert resulting rows in another in-application stream using pumps. For more information about the typical pattern, see `Application Code <https://docs.aws.amazon.com/kinesisanalytics/latest/dev/how-it-works-app-code.html>`_ . You can provide such series of SQL statements, where output of one statement can be used as the input for the next statement. You store intermediate results by creating in-application streams and pumps. Note that the application code must create the streams with names specified in the ``Outputs`` . For example, if your ``Outputs`` defines output streams named ``ExampleOutputStream1`` and ``ExampleOutputStream2`` , then your application code must create these streams.
-        :param application_description: Summary description of the application.
-        :param application_name: Name of your Amazon Kinesis Analytics application (for example, ``sample-app`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_props = kinesisanalytics.CfnApplicationProps(
-                inputs=[kinesisanalytics.CfnApplication.InputProperty(
-                    input_schema=kinesisanalytics.CfnApplication.InputSchemaProperty(
-                        record_columns=[kinesisanalytics.CfnApplication.RecordColumnProperty(
-                            name="name",
-                            sql_type="sqlType",
-            
-                            # the properties below are optional
-                            mapping="mapping"
-                        )],
-                        record_format=kinesisanalytics.CfnApplication.RecordFormatProperty(
-                            record_format_type="recordFormatType",
-            
-                            # the properties below are optional
-                            mapping_parameters=kinesisanalytics.CfnApplication.MappingParametersProperty(
-                                csv_mapping_parameters=kinesisanalytics.CfnApplication.CSVMappingParametersProperty(
-                                    record_column_delimiter="recordColumnDelimiter",
-                                    record_row_delimiter="recordRowDelimiter"
-                                ),
-                                json_mapping_parameters=kinesisanalytics.CfnApplication.JSONMappingParametersProperty(
-                                    record_row_path="recordRowPath"
-                                )
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        record_encoding="recordEncoding"
-                    ),
-                    name_prefix="namePrefix",
-            
-                    # the properties below are optional
-                    input_parallelism=kinesisanalytics.CfnApplication.InputParallelismProperty(
-                        count=123
-                    ),
-                    input_processing_configuration=kinesisanalytics.CfnApplication.InputProcessingConfigurationProperty(
-                        input_lambda_processor=kinesisanalytics.CfnApplication.InputLambdaProcessorProperty(
-                            resource_arn="resourceArn",
-                            role_arn="roleArn"
-                        )
-                    ),
-                    kinesis_firehose_input=kinesisanalytics.CfnApplication.KinesisFirehoseInputProperty(
-                        resource_arn="resourceArn",
-                        role_arn="roleArn"
-                    ),
-                    kinesis_streams_input=kinesisanalytics.CfnApplication.KinesisStreamsInputProperty(
-                        resource_arn="resourceArn",
-                        role_arn="roleArn"
-                    )
-                )],
-            
-                # the properties below are optional
-                application_code="applicationCode",
-                application_description="applicationDescription",
-                application_name="applicationName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9dc7025a340282e0a5ef3744df4c9ec4e7ce3ac11fc41469ec07e61175b0de6)
-            check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
-            check_type(argname="argument application_code", value=application_code, expected_type=type_hints["application_code"])
-            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "inputs": inputs,
-        }
-        if application_code is not None:
-            self._values["application_code"] = application_code
-        if application_description is not None:
-            self._values["application_description"] = application_description
-        if application_name is not None:
-            self._values["application_name"] = application_name
-
-    @builtins.property
-    def inputs(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.InputProperty]]]:
-        '''Use this parameter to configure the application input.
-
-        You can configure your application to receive input from a single streaming source. In this configuration, you map this streaming source to an in-application stream that is created. Your application code can then query the in-application stream like a table (you can think of it as a constantly updating table).
-
-        For the streaming source, you provide its Amazon Resource Name (ARN) and format of data on the stream (for example, JSON, CSV, etc.). You also must provide an IAM role that Amazon Kinesis Analytics can assume to read this stream on your behalf.
-
-        To create the in-application stream, you need to specify a schema to transform your data into a schematized version used in SQL. In the schema, you provide the necessary mapping of the data elements in the streaming source to record columns in the in-app stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-inputs
-        '''
-        result = self._values.get("inputs")
-        assert result is not None, "Required property 'inputs' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnApplication.InputProperty]]], result)
-
-    @builtins.property
-    def application_code(self) -> typing.Optional[builtins.str]:
-        '''One or more SQL statements that read input data, transform it, and generate output.
-
-        For example, you can write a SQL statement that reads data from one in-application stream, generates a running average of the number of advertisement clicks by vendor, and insert resulting rows in another in-application stream using pumps. For more information about the typical pattern, see `Application Code <https://docs.aws.amazon.com/kinesisanalytics/latest/dev/how-it-works-app-code.html>`_ .
-
-        You can provide such series of SQL statements, where output of one statement can be used as the input for the next statement. You store intermediate results by creating in-application streams and pumps.
-
-        Note that the application code must create the streams with names specified in the ``Outputs`` . For example, if your ``Outputs`` defines output streams named ``ExampleOutputStream1`` and ``ExampleOutputStream2`` , then your application code must create these streams.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationcode
-        '''
-        result = self._values.get("application_code")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def application_description(self) -> typing.Optional[builtins.str]:
-        '''Summary description of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationdescription
-        '''
-        result = self._values.get("application_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def application_name(self) -> typing.Optional[builtins.str]:
-        '''Name of your Amazon Kinesis Analytics application (for example, ``sample-app`` ).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-application.html#cfn-kinesisanalytics-application-applicationname
-        '''
-        result = self._values.get("application_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationReferenceDataSourceRef)
 class CfnApplicationReferenceDataSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3172,6 +4451,14 @@ class CfnApplicationReferenceDataSource(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceReference:
+        '''A reference to a ApplicationReferenceDataSource resource.'''
+        return typing.cast(ApplicationReferenceDataSourceReference, jsii.get(self, "applicationReferenceDataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -3954,121 +5241,7 @@ class CfnApplicationReferenceDataSource(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationReferenceDataSourceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "reference_data_source": "referenceDataSource",
-    },
-)
-class CfnApplicationReferenceDataSourceProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationReferenceDataSource``.
-
-        :param application_name: Name of an existing application.
-        :param reference_data_source: The reference data source can be an object in your Amazon S3 bucket. Amazon Kinesis Analytics reads the object and copies the data into the in-application table that is created. You provide an S3 bucket, object key name, and the resulting in-application table that is created. You must also provide an IAM role with the necessary permissions that Amazon Kinesis Analytics can assume to read the object from your S3 bucket on your behalf.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_reference_data_source_props = kinesisanalytics.CfnApplicationReferenceDataSourceProps(
-                application_name="applicationName",
-                reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSource.ReferenceDataSourceProperty(
-                    reference_schema=kinesisanalytics.CfnApplicationReferenceDataSource.ReferenceSchemaProperty(
-                        record_columns=[kinesisanalytics.CfnApplicationReferenceDataSource.RecordColumnProperty(
-                            name="name",
-                            sql_type="sqlType",
-            
-                            # the properties below are optional
-                            mapping="mapping"
-                        )],
-                        record_format=kinesisanalytics.CfnApplicationReferenceDataSource.RecordFormatProperty(
-                            record_format_type="recordFormatType",
-            
-                            # the properties below are optional
-                            mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.MappingParametersProperty(
-                                csv_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.CSVMappingParametersProperty(
-                                    record_column_delimiter="recordColumnDelimiter",
-                                    record_row_delimiter="recordRowDelimiter"
-                                ),
-                                json_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSource.JSONMappingParametersProperty(
-                                    record_row_path="recordRowPath"
-                                )
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        record_encoding="recordEncoding"
-                    ),
-            
-                    # the properties below are optional
-                    s3_reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSource.S3ReferenceDataSourceProperty(
-                        bucket_arn="bucketArn",
-                        file_key="fileKey",
-                        reference_role_arn="referenceRoleArn"
-                    ),
-                    table_name="tableName"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f87dd7b060a0d0955f04c4cedcc8cad610c4776c13d95c6810948002c914de34)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument reference_data_source", value=reference_data_source, expected_type=type_hints["reference_data_source"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "reference_data_source": reference_data_source,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''Name of an existing application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html#cfn-kinesisanalytics-applicationreferencedatasource-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reference_data_source(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplicationReferenceDataSource.ReferenceDataSourceProperty]:
-        '''The reference data source can be an object in your Amazon S3 bucket.
-
-        Amazon Kinesis Analytics reads the object and copies the data into the in-application table that is created. You provide an S3 bucket, object key name, and the resulting in-application table that is created. You must also provide an IAM role with the necessary permissions that Amazon Kinesis Analytics can assume to read the object from your S3 bucket on your behalf.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalytics-applicationreferencedatasource.html#cfn-kinesisanalytics-applicationreferencedatasource-referencedatasource
-        '''
-        result = self._values.get("reference_data_source")
-        assert result is not None, "Required property 'reference_data_source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplicationReferenceDataSource.ReferenceDataSourceProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationReferenceDataSourceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, IApplicationReferenceDataSourceV2Ref)
 class CfnApplicationReferenceDataSourceV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4182,6 +5355,14 @@ class CfnApplicationReferenceDataSourceV2(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationReferenceDataSourceRef")
+    def application_reference_data_source_ref(
+        self,
+    ) -> ApplicationReferenceDataSourceV2Reference:
+        '''A reference to a ApplicationReferenceDataSource resource.'''
+        return typing.cast(ApplicationReferenceDataSourceV2Reference, jsii.get(self, "applicationReferenceDataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -4933,118 +6114,7 @@ class CfnApplicationReferenceDataSourceV2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationReferenceDataSourceV2Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "reference_data_source": "referenceDataSource",
-    },
-)
-class CfnApplicationReferenceDataSourceV2Props:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationReferenceDataSource``.
-
-        :param application_name: The name of the application.
-        :param reference_data_source: For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_reference_data_source_v2_props = kinesisanalytics.CfnApplicationReferenceDataSourceV2Props(
-                application_name="applicationName",
-                reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty(
-                    reference_schema=kinesisanalytics.CfnApplicationReferenceDataSourceV2.ReferenceSchemaProperty(
-                        record_columns=[kinesisanalytics.CfnApplicationReferenceDataSourceV2.RecordColumnProperty(
-                            name="name",
-                            sql_type="sqlType",
-            
-                            # the properties below are optional
-                            mapping="mapping"
-                        )],
-                        record_format=kinesisanalytics.CfnApplicationReferenceDataSourceV2.RecordFormatProperty(
-                            record_format_type="recordFormatType",
-            
-                            # the properties below are optional
-                            mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.MappingParametersProperty(
-                                csv_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.CSVMappingParametersProperty(
-                                    record_column_delimiter="recordColumnDelimiter",
-                                    record_row_delimiter="recordRowDelimiter"
-                                ),
-                                json_mapping_parameters=kinesisanalytics.CfnApplicationReferenceDataSourceV2.JSONMappingParametersProperty(
-                                    record_row_path="recordRowPath"
-                                )
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        record_encoding="recordEncoding"
-                    ),
-            
-                    # the properties below are optional
-                    s3_reference_data_source=kinesisanalytics.CfnApplicationReferenceDataSourceV2.S3ReferenceDataSourceProperty(
-                        bucket_arn="bucketArn",
-                        file_key="fileKey"
-                    ),
-                    table_name="tableName"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__deb62d51e46e53b39111349bd208bf28bcfbc80ffe454dc8963f22b61a809f0c)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument reference_data_source", value=reference_data_source, expected_type=type_hints["reference_data_source"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "reference_data_source": reference_data_source,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reference_data_source(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty]:
-        '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource
-        '''
-        result = self._values.get("reference_data_source")
-        assert result is not None, "Required property 'reference_data_source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationReferenceDataSourceV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, IApplicationV2Ref, _ITaggable_36806126)
 class CfnApplicationV2(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5315,6 +6385,12 @@ class CfnApplicationV2(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> ApplicationV2Reference:
+        '''A reference to a Application resource.'''
+        return typing.cast(ApplicationV2Reference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -8957,369 +10033,14 @@ class CfnApplicationV2(
             )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationV2Props",
-    jsii_struct_bases=[],
-    name_mapping={
-        "runtime_environment": "runtimeEnvironment",
-        "service_execution_role": "serviceExecutionRole",
-        "application_configuration": "applicationConfiguration",
-        "application_description": "applicationDescription",
-        "application_maintenance_configuration": "applicationMaintenanceConfiguration",
-        "application_mode": "applicationMode",
-        "application_name": "applicationName",
-        "run_configuration": "runConfiguration",
-        "tags": "tags",
-    },
-)
-class CfnApplicationV2Props:
-    def __init__(
-        self,
-        *,
-        runtime_environment: builtins.str,
-        service_execution_role: builtins.str,
-        application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        application_description: typing.Optional[builtins.str] = None,
-        application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        application_mode: typing.Optional[builtins.str] = None,
-        application_name: typing.Optional[builtins.str] = None,
-        run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param runtime_environment: The runtime environment for the application.
-        :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
-        :param application_configuration: Use this parameter to configure the application.
-        :param application_description: The description of the application. Default: - ""
-        :param application_maintenance_configuration: Specifies the maintenance window parameters for a Kinesis Data Analytics application.
-        :param application_mode: To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
-        :param application_name: The name of the application.
-        :param run_configuration: Describes the starting parameters for an Managed Service for Apache Flink application.
-        :param tags: A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisanalytics as kinesisanalytics
-            
-            cfn_application_v2_props = kinesisanalytics.CfnApplicationV2Props(
-                runtime_environment="runtimeEnvironment",
-                service_execution_role="serviceExecutionRole",
-            
-                # the properties below are optional
-                application_configuration=kinesisanalytics.CfnApplicationV2.ApplicationConfigurationProperty(
-                    application_code_configuration=kinesisanalytics.CfnApplicationV2.ApplicationCodeConfigurationProperty(
-                        code_content=kinesisanalytics.CfnApplicationV2.CodeContentProperty(
-                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentLocationProperty(
-                                bucket_arn="bucketArn",
-                                file_key="fileKey",
-            
-                                # the properties below are optional
-                                object_version="objectVersion"
-                            ),
-                            text_content="textContent",
-                            zip_file_content="zipFileContent"
-                        ),
-                        code_content_type="codeContentType"
-                    ),
-                    application_encryption_configuration=kinesisanalytics.CfnApplicationV2.ApplicationEncryptionConfigurationProperty(
-                        key_type="keyType",
-            
-                        # the properties below are optional
-                        key_id="keyId"
-                    ),
-                    application_snapshot_configuration=kinesisanalytics.CfnApplicationV2.ApplicationSnapshotConfigurationProperty(
-                        snapshots_enabled=False
-                    ),
-                    application_system_rollback_configuration=kinesisanalytics.CfnApplicationV2.ApplicationSystemRollbackConfigurationProperty(
-                        rollback_enabled=False
-                    ),
-                    environment_properties=kinesisanalytics.CfnApplicationV2.EnvironmentPropertiesProperty(
-                        property_groups=[kinesisanalytics.CfnApplicationV2.PropertyGroupProperty(
-                            property_group_id="propertyGroupId",
-                            property_map={
-                                "property_map_key": "propertyMap"
-                            }
-                        )]
-                    ),
-                    flink_application_configuration=kinesisanalytics.CfnApplicationV2.FlinkApplicationConfigurationProperty(
-                        checkpoint_configuration=kinesisanalytics.CfnApplicationV2.CheckpointConfigurationProperty(
-                            configuration_type="configurationType",
-            
-                            # the properties below are optional
-                            checkpointing_enabled=False,
-                            checkpoint_interval=123,
-                            min_pause_between_checkpoints=123
-                        ),
-                        monitoring_configuration=kinesisanalytics.CfnApplicationV2.MonitoringConfigurationProperty(
-                            configuration_type="configurationType",
-            
-                            # the properties below are optional
-                            log_level="logLevel",
-                            metrics_level="metricsLevel"
-                        ),
-                        parallelism_configuration=kinesisanalytics.CfnApplicationV2.ParallelismConfigurationProperty(
-                            configuration_type="configurationType",
-            
-                            # the properties below are optional
-                            auto_scaling_enabled=False,
-                            parallelism=123,
-                            parallelism_per_kpu=123
-                        )
-                    ),
-                    sql_application_configuration=kinesisanalytics.CfnApplicationV2.SqlApplicationConfigurationProperty(
-                        inputs=[kinesisanalytics.CfnApplicationV2.InputProperty(
-                            input_schema=kinesisanalytics.CfnApplicationV2.InputSchemaProperty(
-                                record_columns=[kinesisanalytics.CfnApplicationV2.RecordColumnProperty(
-                                    name="name",
-                                    sql_type="sqlType",
-            
-                                    # the properties below are optional
-                                    mapping="mapping"
-                                )],
-                                record_format=kinesisanalytics.CfnApplicationV2.RecordFormatProperty(
-                                    record_format_type="recordFormatType",
-            
-                                    # the properties below are optional
-                                    mapping_parameters=kinesisanalytics.CfnApplicationV2.MappingParametersProperty(
-                                        csv_mapping_parameters=kinesisanalytics.CfnApplicationV2.CSVMappingParametersProperty(
-                                            record_column_delimiter="recordColumnDelimiter",
-                                            record_row_delimiter="recordRowDelimiter"
-                                        ),
-                                        json_mapping_parameters=kinesisanalytics.CfnApplicationV2.JSONMappingParametersProperty(
-                                            record_row_path="recordRowPath"
-                                        )
-                                    )
-                                ),
-            
-                                # the properties below are optional
-                                record_encoding="recordEncoding"
-                            ),
-                            name_prefix="namePrefix",
-            
-                            # the properties below are optional
-                            input_parallelism=kinesisanalytics.CfnApplicationV2.InputParallelismProperty(
-                                count=123
-                            ),
-                            input_processing_configuration=kinesisanalytics.CfnApplicationV2.InputProcessingConfigurationProperty(
-                                input_lambda_processor=kinesisanalytics.CfnApplicationV2.InputLambdaProcessorProperty(
-                                    resource_arn="resourceArn"
-                                )
-                            ),
-                            kinesis_firehose_input=kinesisanalytics.CfnApplicationV2.KinesisFirehoseInputProperty(
-                                resource_arn="resourceArn"
-                            ),
-                            kinesis_streams_input=kinesisanalytics.CfnApplicationV2.KinesisStreamsInputProperty(
-                                resource_arn="resourceArn"
-                            )
-                        )]
-                    ),
-                    vpc_configurations=[kinesisanalytics.CfnApplicationV2.VpcConfigurationProperty(
-                        security_group_ids=["securityGroupIds"],
-                        subnet_ids=["subnetIds"]
-                    )],
-                    zeppelin_application_configuration=kinesisanalytics.CfnApplicationV2.ZeppelinApplicationConfigurationProperty(
-                        catalog_configuration=kinesisanalytics.CfnApplicationV2.CatalogConfigurationProperty(
-                            glue_data_catalog_configuration=kinesisanalytics.CfnApplicationV2.GlueDataCatalogConfigurationProperty(
-                                database_arn="databaseArn"
-                            )
-                        ),
-                        custom_artifacts_configuration=[kinesisanalytics.CfnApplicationV2.CustomArtifactConfigurationProperty(
-                            artifact_type="artifactType",
-            
-                            # the properties below are optional
-                            maven_reference=kinesisanalytics.CfnApplicationV2.MavenReferenceProperty(
-                                artifact_id="artifactId",
-                                group_id="groupId",
-                                version="version"
-                            ),
-                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentLocationProperty(
-                                bucket_arn="bucketArn",
-                                file_key="fileKey",
-            
-                                # the properties below are optional
-                                object_version="objectVersion"
-                            )
-                        )],
-                        deploy_as_application_configuration=kinesisanalytics.CfnApplicationV2.DeployAsApplicationConfigurationProperty(
-                            s3_content_location=kinesisanalytics.CfnApplicationV2.S3ContentBaseLocationProperty(
-                                bucket_arn="bucketArn",
-            
-                                # the properties below are optional
-                                base_path="basePath"
-                            )
-                        ),
-                        monitoring_configuration=kinesisanalytics.CfnApplicationV2.ZeppelinMonitoringConfigurationProperty(
-                            log_level="logLevel"
-                        )
-                    )
-                ),
-                application_description="applicationDescription",
-                application_maintenance_configuration=kinesisanalytics.CfnApplicationV2.ApplicationMaintenanceConfigurationProperty(
-                    application_maintenance_window_start_time="applicationMaintenanceWindowStartTime"
-                ),
-                application_mode="applicationMode",
-                application_name="applicationName",
-                run_configuration=kinesisanalytics.CfnApplicationV2.RunConfigurationProperty(
-                    application_restore_configuration=kinesisanalytics.CfnApplicationV2.ApplicationRestoreConfigurationProperty(
-                        application_restore_type="applicationRestoreType",
-            
-                        # the properties below are optional
-                        snapshot_name="snapshotName"
-                    ),
-                    flink_run_configuration=kinesisanalytics.CfnApplicationV2.FlinkRunConfigurationProperty(
-                        allow_non_restored_state=False
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1d4e68a295f71f8dff194d7db3ba9f1a75767b0ec11a07fe4c7f8f213efe33a)
-            check_type(argname="argument runtime_environment", value=runtime_environment, expected_type=type_hints["runtime_environment"])
-            check_type(argname="argument service_execution_role", value=service_execution_role, expected_type=type_hints["service_execution_role"])
-            check_type(argname="argument application_configuration", value=application_configuration, expected_type=type_hints["application_configuration"])
-            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
-            check_type(argname="argument application_maintenance_configuration", value=application_maintenance_configuration, expected_type=type_hints["application_maintenance_configuration"])
-            check_type(argname="argument application_mode", value=application_mode, expected_type=type_hints["application_mode"])
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument run_configuration", value=run_configuration, expected_type=type_hints["run_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "runtime_environment": runtime_environment,
-            "service_execution_role": service_execution_role,
-        }
-        if application_configuration is not None:
-            self._values["application_configuration"] = application_configuration
-        if application_description is not None:
-            self._values["application_description"] = application_description
-        if application_maintenance_configuration is not None:
-            self._values["application_maintenance_configuration"] = application_maintenance_configuration
-        if application_mode is not None:
-            self._values["application_mode"] = application_mode
-        if application_name is not None:
-            self._values["application_name"] = application_name
-        if run_configuration is not None:
-            self._values["run_configuration"] = run_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def runtime_environment(self) -> builtins.str:
-        '''The runtime environment for the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runtimeenvironment
-        '''
-        result = self._values.get("runtime_environment")
-        assert result is not None, "Required property 'runtime_environment' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_execution_role(self) -> builtins.str:
-        '''Specifies the IAM role that the application uses to access external resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-serviceexecutionrole
-        '''
-        result = self._values.get("service_execution_role")
-        assert result is not None, "Required property 'service_execution_role' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.ApplicationConfigurationProperty]]:
-        '''Use this parameter to configure the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationconfiguration
-        '''
-        result = self._values.get("application_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.ApplicationConfigurationProperty]], result)
-
-    @builtins.property
-    def application_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.
-
-        :default: - ""
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationdescription
-        '''
-        result = self._values.get("application_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def application_maintenance_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.ApplicationMaintenanceConfigurationProperty]]:
-        '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmaintenanceconfiguration
-        '''
-        result = self._values.get("application_maintenance_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.ApplicationMaintenanceConfigurationProperty]], result)
-
-    @builtins.property
-    def application_mode(self) -> typing.Optional[builtins.str]:
-        '''To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .
-
-        However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmode
-        '''
-        result = self._values.get("application_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def application_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationname
-        '''
-        result = self._values.get("application_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def run_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.RunConfigurationProperty]]:
-        '''Describes the starting parameters for an Managed Service for Apache Flink application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runconfiguration
-        '''
-        result = self._values.get("run_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplicationV2.RunConfigurationProperty]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of one or more tags to assign to the application.
-
-        A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationV2Props(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
+    "ApplicationCloudWatchLoggingOptionV2Reference",
+    "ApplicationOutputReference",
+    "ApplicationOutputV2Reference",
+    "ApplicationReference",
+    "ApplicationReferenceDataSourceReference",
+    "ApplicationReferenceDataSourceV2Reference",
+    "ApplicationV2Reference",
     "CfnApplication",
     "CfnApplicationCloudWatchLoggingOptionV2",
     "CfnApplicationCloudWatchLoggingOptionV2Props",
@@ -9334,9 +10055,130 @@ __all__ = [
     "CfnApplicationReferenceDataSourceV2Props",
     "CfnApplicationV2",
     "CfnApplicationV2Props",
+    "IApplicationCloudWatchLoggingOptionV2Ref",
+    "IApplicationOutputRef",
+    "IApplicationOutputV2Ref",
+    "IApplicationRef",
+    "IApplicationReferenceDataSourceRef",
+    "IApplicationReferenceDataSourceV2Ref",
+    "IApplicationV2Ref",
 ]
 
 publication.publish()
+
+def _typecheckingstub__275e65457d7608514e9b93c1e03ee75855bfb2e9c049a7c41ec9e05233dda45d(
+    *,
+    application_cloud_watch_logging_option_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa81cf86b5e61ba18fdca9ace9e56fc18ae13f347b334acf37dd1d09e2da2f73(
+    *,
+    application_output_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd7300d8fbffc0df5c5ee3c6d92ac0802a1cf93653de026a2b2008c12c70f0d3(
+    *,
+    application_output_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b576de87536f7942a8edd61583e20736205d99ccfcbe62f89fa645227e72e355(
+    *,
+    application_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__326a82b03712fa3e5b65a08c24d1ba75aff7efe2b9dd91d064750d3a32cc55fb(
+    *,
+    application_reference_data_source_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2af77617207f409caecaf5c78c954a0f635beb271328ed23d90d549b38b00bb(
+    *,
+    application_reference_data_source_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__385c5943c53cbb25b4f27be74e35fbc0ae29787b46f74616fa5a4a16e1ade208(
+    *,
+    application_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ee9ae02f0b09411c93d8784844abcdd5558bdd916832d9d00b6a416669aa90e(
+    *,
+    application_name: builtins.str,
+    cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09f8734ef4819b2bb934f6cc8df4c9274e93808969bbbb690b2df39d60110ad7(
+    *,
+    application_name: builtins.str,
+    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3145628472b504933f167d7e52abe838591d1571d067aa40f3fd45443333c3f4(
+    *,
+    application_name: builtins.str,
+    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutputV2.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9dc7025a340282e0a5ef3744df4c9ec4e7ce3ac11fc41469ec07e61175b0de6(
+    *,
+    inputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    application_code: typing.Optional[builtins.str] = None,
+    application_description: typing.Optional[builtins.str] = None,
+    application_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f87dd7b060a0d0955f04c4cedcc8cad610c4776c13d95c6810948002c914de34(
+    *,
+    application_name: builtins.str,
+    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__deb62d51e46e53b39111349bd208bf28bcfbc80ffe454dc8963f22b61a809f0c(
+    *,
+    application_name: builtins.str,
+    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1d4e68a295f71f8dff194d7db3ba9f1a75767b0ec11a07fe4c7f8f213efe33a(
+    *,
+    runtime_environment: builtins.str,
+    service_execution_role: builtins.str,
+    application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_description: typing.Optional[builtins.str] = None,
+    application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    application_mode: typing.Optional[builtins.str] = None,
+    application_name: typing.Optional[builtins.str] = None,
+    run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f4287e75f0f408cee76f1a52f0a30a44e6753fb93aff8646e1b25f20a52d59fb(
     scope: _constructs_77d1e7e8.Construct,
@@ -9526,14 +10368,6 @@ def _typecheckingstub__1827505899f1f34a35011d3a2c5d57b9db28bc8392a7d255771217ced
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6ee9ae02f0b09411c93d8784844abcdd5558bdd916832d9d00b6a416669aa90e(
-    *,
-    application_name: builtins.str,
-    cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a27cca9a664b5a3e67a3fc595547c9a1280c471a1fb58296d73ec3929ce11e76(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9610,14 +10444,6 @@ def _typecheckingstub__91ab261348f979690ab330095ea8aa3c7b854d8d26ec753f29a5e1614
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__09f8734ef4819b2bb934f6cc8df4c9274e93808969bbbb690b2df39d60110ad7(
-    *,
-    application_name: builtins.str,
-    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutput.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__271bacb10dd6a875577035705b436387f7a448fbf7028ee2ca502030ea3c17e2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9687,24 +10513,6 @@ def _typecheckingstub__ea97722c4fe119db59dfb46f144ae90ba44bcd497f61292191eba51bf
     kinesis_streams_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutputV2.KinesisStreamsOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lambda_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutputV2.LambdaOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3145628472b504933f167d7e52abe838591d1571d067aa40f3fd45443333c3f4(
-    *,
-    application_name: builtins.str,
-    output: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationOutputV2.OutputProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9dc7025a340282e0a5ef3744df4c9ec4e7ce3ac11fc41469ec07e61175b0de6(
-    *,
-    inputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.InputProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    application_code: typing.Optional[builtins.str] = None,
-    application_description: typing.Optional[builtins.str] = None,
-    application_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9810,14 +10618,6 @@ def _typecheckingstub__26f7211b81d22c5ee005a1cdf635eb4dab03c5a13bcf048b56da674ed
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f87dd7b060a0d0955f04c4cedcc8cad610c4776c13d95c6810948002c914de34(
-    *,
-    application_name: builtins.str,
-    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSource.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f2c21e9367b4b82b411ec28921ad848b6f7487f126cfc392bff2c5844b5fd4bb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9914,14 +10714,6 @@ def _typecheckingstub__08ec7febb57961fde44d47e812ae98c4e1f7721edb5221e0051c861d8
     *,
     bucket_arn: builtins.str,
     file_key: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__deb62d51e46e53b39111349bd208bf28bcfbc80ffe454dc8963f22b61a809f0c(
-    *,
-    application_name: builtins.str,
-    reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10326,21 +11118,6 @@ def _typecheckingstub__acb0554bb560303e79ac35365a105f1ae26db6010f5e77860850996bb
 def _typecheckingstub__483d0347c9e2136bd775ca79c9d3276759a207a4c82ddafcaecd722bd71f1ff7(
     *,
     log_level: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1d4e68a295f71f8dff194d7db3ba9f1a75767b0ec11a07fe4c7f8f213efe33a(
-    *,
-    runtime_environment: builtins.str,
-    service_execution_role: builtins.str,
-    application_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_description: typing.Optional[builtins.str] = None,
-    application_maintenance_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.ApplicationMaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    application_mode: typing.Optional[builtins.str] = None,
-    application_name: typing.Optional[builtins.str] = None,
-    run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationV2.RunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
