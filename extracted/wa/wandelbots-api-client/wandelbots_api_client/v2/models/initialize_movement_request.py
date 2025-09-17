@@ -30,9 +30,8 @@ class InitializeMovementRequest(BaseModel):
     message_type: Optional[StrictStr] = Field(default='InitializeMovementRequest', description="Type specifier for server, set automatically. ")
     trajectory: InitializeMovementRequestTrajectory
     initial_location: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Location on trajectory where the execution will start. The default value is the start (forward movement) or end (backward movement) of the trajectory. If you want to start your movement from an arbitrary location, e.g. in combination with [streamMoveToTrajectoryViaJointPTP](streamMoveToTrajectoryViaJointPTP), set the location by respecting the following format: - The location is a scalar value that defines a position along a path, typically ranging from 0 to `n`,   where `n` denotes the number of motion commands - Each integer value of the location corresponds to a specific motion command,   while non-integer values interpolate positions within the segments. - The location is calculated from the joint path ")
-    response_rate: Optional[StrictInt] = Field(default=None, description="Update rate for the response message in milliseconds (ms). Default is 200 ms. Recommendation: As Wandelbots NOVA updates states in the controller's step rate, use either the controller's step rate or a multiple of it.                 Wandelbots NOVA will not interpolate the state but rather round it to the nearest step rate below the configured response rate. Minimal response rate is the step rate of controller. ")
     response_coordinate_system: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing a coordinate system to which the responses are transformed. If not set, world coordinate system is used. ")
-    __properties: ClassVar[List[str]] = ["message_type", "trajectory", "initial_location", "response_rate", "response_coordinate_system"]
+    __properties: ClassVar[List[str]] = ["message_type", "trajectory", "initial_location", "response_coordinate_system"]
 
     @field_validator('message_type')
     def message_type_validate_enum(cls, value):
@@ -105,7 +104,6 @@ class InitializeMovementRequest(BaseModel):
             "message_type": obj.get("message_type") if obj.get("message_type") is not None else 'InitializeMovementRequest',
             "trajectory": InitializeMovementRequestTrajectory.from_dict(obj["trajectory"]) if obj.get("trajectory") is not None else None,
             "initial_location": obj.get("initial_location"),
-            "response_rate": obj.get("response_rate"),
             "response_coordinate_system": obj.get("response_coordinate_system")
         })
         return _obj

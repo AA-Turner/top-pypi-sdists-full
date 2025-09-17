@@ -19,6 +19,7 @@ from functools import partial
 import numpy as np
 
 from jax._src import core
+from jax._src import literals
 from jax._src import dtypes
 
 from jax._src import traceback_util
@@ -60,6 +61,17 @@ def _make_shaped_array_for_numpy_array(x: np.ndarray) -> ShapedArray:
 core.pytype_aval_mappings[np.ndarray] = _make_shaped_array_for_numpy_array
 
 
+def _make_shaped_array_for_literal_array(
+    x: literals.LiteralArray,
+) -> ShapedArray:
+  dtype = x.dtype
+  dtypes.check_valid_dtype(dtype)
+  return ShapedArray(x.shape, dtype, sharding=None, weak_type=x.weak_type)
+
+
+core.pytype_aval_mappings[literals.LiteralArray] = _make_shaped_array_for_literal_array
+
+
 def _make_shaped_array_for_numpy_scalar(x: np.generic) -> ShapedArray:
   dtype = np.dtype(x)
   dtypes.check_valid_dtype(dtype)
@@ -72,35 +84,54 @@ for t in numpy_scalar_types:
 core.literalable_types.update(array_types)
 
 
+core.literalable_types.add(literals.LiteralArray)
+
 def _make_abstract_python_scalar(typ, val):
   # Note: all python scalar types are weak except bool, because bool only
   # comes in a single width.
-  return ShapedArray((), dtypes._scalar_type_to_dtype(typ, val),
+  return ShapedArray((), dtypes.scalar_type_to_dtype(typ, val),
                      weak_type=typ is not bool, sharding=None)
 
-for t in dtypes.python_scalar_dtypes:
+for t in dtypes.python_scalar_types:
   core.pytype_aval_mappings[t] = partial(_make_abstract_python_scalar, t)
 
-core.literalable_types.update(dtypes.python_scalar_dtypes.keys())
+core.literalable_types.update(dtypes.python_scalar_types)
+
+
+def _aval_for_literal_scalar(x):
+  return ShapedArray((), x.dtype, weak_type=True, sharding=None)
+
+for t in literals.literal_scalar_types:
+  core.pytype_aval_mappings[t] = _aval_for_literal_scalar
+core.literalable_types.update(literals.literal_scalar_types)
 
 
 def _canonicalize_ndarray_dtype(x):
-  return np.asarray(x, dtypes.canonicalize_dtype(x.dtype))
+  dtype = dtypes.canonicalize_dtype(x.dtype)
+  return literals.LiteralArray(np.asarray(x, dtype), weak_type=False)
 
 def _canonicalize_masked_array_dtype(x):
   raise ValueError("numpy masked arrays are not supported as direct inputs to JAX functions. "
                    "Use arr.filled() to convert the value to a standard numpy array.")
 
-def _canonicalize_python_scalar_dtype(typ, x):
-  return np.asarray(
-      x, dtypes.canonicalize_dtype(dtypes._scalar_type_to_dtype(typ, x)))
-
 dtypes.canonicalize_value_handlers.update(
     (t, _canonicalize_ndarray_dtype) for t in numpy_scalar_types)
 
+
+dtypes.canonicalize_value_handlers[literals.LiteralArray] = lambda x: x
+
 dtypes.canonicalize_value_handlers[np.ndarray] = _canonicalize_ndarray_dtype
 dtypes.canonicalize_value_handlers[np.ma.MaskedArray] = _canonicalize_masked_array_dtype
-dtypes.canonicalize_value_handlers.update(
-    (t, partial(_canonicalize_python_scalar_dtype, t))
-    for t in dtypes.python_scalar_dtypes.keys()
-)
+
+def _canonicalize_python_scalar(literal_type, typ):
+  def canonicalize_scalar(x):
+    return literal_type(x, dtypes.scalar_type_to_dtype(typ, x))  # pytype: disable=wrong-arg-types
+  return canonicalize_scalar
+
+dtypes.canonicalize_value_handlers[bool] = lambda x: x
+dtypes.canonicalize_value_handlers[int] = _canonicalize_python_scalar(
+    literals.LiteralInt, int)
+dtypes.canonicalize_value_handlers[float] = _canonicalize_python_scalar(
+    literals.LiteralFloat, float)
+dtypes.canonicalize_value_handlers[complex] = _canonicalize_python_scalar(
+    literals.LiteralComplex, complex)

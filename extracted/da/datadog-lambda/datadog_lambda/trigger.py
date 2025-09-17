@@ -54,6 +54,10 @@ class EventSubtypes(_stringTypedEnum):
     WEBSOCKET = "websocket"
     HTTP_API = "http-api"
 
+    ALB = "alb"  # regular alb
+    # ALB with the multi-value headers option checked on the target group
+    ALB_MULTI_VALUE_HEADERS = "alb-multi-value-headers"
+
 
 class _EventSource:
     """
@@ -133,7 +137,12 @@ def parse_event_source(event: dict) -> _EventSource:
             event_source.subtype = EventSubtypes.WEBSOCKET
 
     if request_context and request_context.get("elb"):
-        event_source = _EventSource(EventTypes.ALB)
+        if "multiValueHeaders" in event:
+            event_source = _EventSource(
+                EventTypes.ALB, EventSubtypes.ALB_MULTI_VALUE_HEADERS
+            )
+        else:
+            event_source = _EventSource(EventTypes.ALB, EventSubtypes.ALB)
 
     if event.get("awslogs"):
         event_source = _EventSource(EventTypes.CLOUDWATCH_LOGS)
@@ -288,7 +297,7 @@ def extract_http_tags(event):
     """
     Extracts HTTP facet tags from the triggering event
     """
-    http_tags = {}
+    http_tags = {"span.kind": "server"}
 
     # Safely get request_context and ensure it's a dictionary
     request_context = event.get("requestContext")

@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,16 +26,13 @@ class TrajectoryId(BaseModel):
     """
     TrajectoryId
     """ # noqa: E501
-    message_type: Optional[StrictStr] = Field(default='TrajectoryId', description="Type specifier for server, set automatically. ")
+    message_type: StrictStr = Field(description="Type specifier for server, set automatically. ")
     id: StrictStr = Field(description="The identifier of the trajectory which was returned by the [addTrajectory](addTrajectory) endpoint. ")
     __properties: ClassVar[List[str]] = ["message_type", "id"]
 
     @field_validator('message_type')
     def message_type_validate_enum(cls, value):
         """Validates the enum"""
-        if value is None:
-            return value
-
         if value not in set(['TrajectoryId']):
             raise ValueError("must be one of enum values ('TrajectoryId')")
         return value

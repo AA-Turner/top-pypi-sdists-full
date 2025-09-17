@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightrag-hku
-Version: 1.4.8.1
+Version: 1.4.8.2
 Summary: LightRAG: Simple and Fast Retrieval-Augmented Generation
 Author: Zirui Guo
 License: MIT
@@ -104,6 +104,9 @@ Dynamic: license-file
     <p>
       <a href="README-zh.md"><img src="https://img.shields.io/badge/🇨🇳中文版-1a1a2e?style=for-the-badge"></a>
       <a href="README.md"><img src="https://img.shields.io/badge/🇺🇸English-1a1a2e?style=for-the-badge"></a>
+    </p>
+    <p>
+      <a href="https://pepy.tech/projects/lightrag-hku"><img src="https://static.pepy.tech/personalized-badge/lightrag-hku?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads"></a>
     </p>
   </div>
 </div>

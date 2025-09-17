@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spaces"
-version = "0.40.3"
+version = "0.41.0"
 description = "Utilities for Hugging Face Spaces"
 authors = ["Charles Bensimon <charles@huggingface.co>"]
 readme = "README.md"
@@ -53,6 +53,7 @@ source = ["spaces"]
 omit = [
     "spaces/zero/api.py",
     "spaces/zero/torch/patching_legacy.py",
+    "spaces/zero/torch/bitsandbytes_legacy.py",
     "spaces/zero/torch/aoti.py", # Simpler for now (needs CUDA Toolkit on CI)
 ]
 concurrency = ["thread", "multiprocessing"]

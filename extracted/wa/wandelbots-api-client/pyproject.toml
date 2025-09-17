@@ -1,12 +1,11 @@
-[tool.poetry]
+[project]
 name = "wandelbots_api_client"
-version = "25.7.1"
+version = "25.8.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
-authors = ["Copyright (c) 2025 Wandelbots GmbH <contact@wandelbots.com>"]
+authors = [{ name="Copyright (c) 2025 Wandelbots GmbH", email="contact@wandelbots.com" }]
 license = "Apache-2.0"
 readme = "README.md"
-homepage = "https://wandelbots.com/"
-include = ["wandelbots_api_client/py.typed"]
+urls = { homepage = "https://wandelbots.com/" }
 
 classifiers = [
     'Typing :: Typed',
@@ -17,22 +16,26 @@ classifiers = [
     'Operating System :: MacOS',
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+requires-python = ">=3.9"
 
-urllib3 = ">= 1.25.3"
-python-dateutil = ">=2.8.2"
-aiohttp = ">= 3.8.4"
-aiohttp-retry = ">= 2.8.3"
-pydantic = ">=2"
-websockets = "*"
-typing-extensions = ">=4.7.1"
-furl = "*"
-pyhumps = "*"
-pydantic_core = "*"
-annotated-types = "*"
+dependencies = [
+  "urllib3 >= 1.25.3",
+  "python-dateutil >=2.8.2",
+  "aiohttp >= 3.8.4",
+  "aiohttp-retry >= 2.8.3",
+  "pydantic >=2",
+  "websockets",
+  "typing-extensions >=4.7.1",
+  "furl",
+  "pyhumps",
+  "pydantic_core",
+  "annotated-types",
+]
 
-[tool.poetry.dev-dependencies]
+[tool.setuptools.package-data]
+wandelbots_api_client = ["py.typed"]
+
+[tool.poetry.group.dev.dependencies]
 pytest = ">=7.2.1"
 tox = ">=3.9.0"
 flake8 = ">=4.0.0"

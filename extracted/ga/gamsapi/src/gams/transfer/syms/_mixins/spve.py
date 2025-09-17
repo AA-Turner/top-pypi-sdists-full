@@ -126,15 +126,6 @@ class SPVEMixin:
                 "All 'domain' elements must be type Set, Alias, UniverseAlias, or str"
             )
 
-        if any(
-            getattr(i, "is_singleton", False)
-            for i in domain
-            if isinstance(i, abcs.AnyContainerDomainSymbol)
-        ):
-            raise Exception(
-                "Singleton sets cannot be used to set the domain of a symbol"
-            )
-
         if not all(
             i.dimension == 1
             for i in domain
@@ -1430,13 +1421,6 @@ class SPVEMixin:
                             f"Symbol defined over domain symbol `{i.name}`, "
                             "however this object is not a valid object in the Container"
                             " -- all domain objects must be valid."
-                        )
-
-                    # cannot use singleton sets as domain sets
-                    if getattr(i, "is_singleton", False):
-                        raise Exception(
-                            "Singleton sets cannot be used as a symbol domain set. "
-                            f"Symbol '{self.name}' currently uses singleton set '{i.name}' in its domain definition."
                         )
 
             # if records exist do some checks

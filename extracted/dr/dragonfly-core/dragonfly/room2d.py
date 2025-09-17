@@ -12,7 +12,8 @@ from ladybug_geometry.intersection2d import closest_point2d_between_line2d, \
     closest_point2d_on_line2d
 from ladybug_geometry.intersection3d import closest_point3d_on_line3d, \
     closest_point3d_on_line3d_infinite, intersect_line3d_plane_infinite
-from ladybug_geometry.bounding import bounding_box, overlapping_bounding_boxes
+from ladybug_geometry.bounding import bounding_box, overlapping_bounding_boxes, \
+    overlapping_bounding_rect
 import ladybug_geometry.boolean as pb
 from ladybug_geometry_polyskel.polysplit import perimeter_core_subfaces
 
@@ -1295,11 +1296,19 @@ class Room2D(_BaseGeometry):
         # determine criteria for the bounding box around the room
         floor_segments = self.floor_segments
         ftc = self.floor_to_ceiling_height
-        if self.has_parent and self.parent.roof is not None:
-            max_roof = self.parent.roof.max_height
-            roof_ftc = max_roof - self.floor_height
-            if roof_ftc > ftc:
-                ftc = roof_ftc
+        if self.is_top_exposed and self.has_parent and self.parent.roof is not None:
+            rel_roofs = []
+            for roof in self.parent.roof:
+                if overlapping_bounding_rect(self.floor_geometry, roof, tolerance):
+                    rel_roofs.append(roof)
+            if len(rel_roofs) != 0:
+                max_roof = rel_roofs[0].max.z
+                for r_geo in rel_roofs[1:]:
+                    if r_geo.max.z > max_roof:
+                        max_roof = r_geo.max.z
+                roof_ftc = max_roof - self.floor_height
+                if roof_ftc > ftc:
+                    ftc = roof_ftc
 
         # search all of the sub-faces that could be relevant
         r_min_pt, max_pt = self.floor_geometry.min, self.floor_geometry.max
@@ -5613,11 +5622,26 @@ class Room2D(_BaseGeometry):
             ang_tol = math.radians(1)
             ceil_vec = Vector3D(0, 0, self.floor_to_ceiling_height)
             ceil_geo = self.floor_geometry.move(ceil_vec)
+            # first attempt a coplanar difference with all geometry together
             cover_faces = ceil_geo.coplanar_difference(subtract_geo, tolerance, ang_tol)
             up_tol_area = max_len * tolerance
+            all_fail = True
             for f in cover_faces:
                 if f.area <= area_diff + up_tol_area:
                     roof_faces.append(f)
+                    all_fail = False
+            # if all of them failed, try subtracting them individually
+            if all_fail:
+                cover_faces = [ceil_geo]
+                for sub_geo in subtract_geo:
+                    new_cover = []
+                    for c_geo in cover_faces:
+                        cf = c_geo.coplanar_difference([sub_geo], tolerance, ang_tol)
+                        new_cover.extend(cf)
+                    cover_faces = new_cover
+                for f in cover_faces:
+                    if f.area <= area_diff + up_tol_area:
+                        roof_faces.append(f)
 
         # perform a final check to remove all colinear vertices from the roof
         clean_roofs = []
@@ -5678,7 +5702,7 @@ class Room2D(_BaseGeometry):
             rot_poly = rm_poly.vertices[1:] + (pt1,)
 
             # loop through segments and make a wall face for each one
-            for c, (pt2, seg) in enumerate(zip(rot_poly, rm_segs)):
+            for pt2, seg in zip(rot_poly, rm_segs):
                 # find the polygon that the first segment vertex is located in
                 current_poly, current_plane = None, None
                 other_poly, other_planes = rel_rf_polys[:], rel_rf_planes[:]  # copy lists
@@ -6126,6 +6150,8 @@ class Room2D(_BaseGeometry):
                     # split the face into to 3 smaller faces along its height
                     lseg = LineSegment3D.from_end_points(face.geometry[0],
                                                          face.geometry[1])
+                    if lseg.length == 0:
+                        continue
                     mid_dist = self.floor_to_ceiling_height - ciel_diff - flr_diff
                     vec1 = Vector3D(0, 0, flr_diff)
                     vec2 = Vector3D(0, 0, self.floor_to_ceiling_height - ciel_diff)
@@ -6153,6 +6179,8 @@ class Room2D(_BaseGeometry):
                     # split the face into to 2 smaller faces along its height
                     lseg = LineSegment3D.from_end_points(face.geometry[0],
                                                          face.geometry[1])
+                    if lseg.length == 0:
+                        continue
                     mid_dist = self.floor_to_ceiling_height - flr_diff
                     vec1 = Vector3D(0, 0, flr_diff)
                     below = Face3D.from_extrusion(lseg, vec1)
@@ -6170,6 +6198,8 @@ class Room2D(_BaseGeometry):
                     # split the face into to 2 smaller faces along its height
                     lseg = LineSegment3D.from_end_points(face.geometry[0],
                                                          face.geometry[1])
+                    if lseg.length == 0:
+                        continue
                     mid_dist = self.floor_to_ceiling_height - ciel_diff
                     vec1 = Vector3D(0, 0, mid_dist)
                     mid = Face3D.from_extrusion(lseg, vec1)

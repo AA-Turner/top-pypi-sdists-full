@@ -88,9 +88,12 @@ if TYPE_CHECKING:
     from .get_windows_update_alert_summary_report.get_windows_update_alert_summary_report_request_builder import GetWindowsUpdateAlertSummaryReportRequestBuilder
     from .get_zebra_fota_deployment_report.get_zebra_fota_deployment_report_request_builder import GetZebraFotaDeploymentReportRequestBuilder
     from .retrieve_android_work_profile_device_migration_statuses.retrieve_android_work_profile_device_migration_statuses_request_builder import RetrieveAndroidWorkProfileDeviceMigrationStatusesRequestBuilder
+    from .retrieve_apple_device_o_s_update_status.retrieve_apple_device_o_s_update_status_request_builder import RetrieveAppleDeviceOSUpdateStatusRequestBuilder
+    from .retrieve_apple_o_s_update_failures.retrieve_apple_o_s_update_failures_request_builder import RetrieveAppleOSUpdateFailuresRequestBuilder
     from .retrieve_cloud_pki_leaf_certificate_report.retrieve_cloud_pki_leaf_certificate_report_request_builder import RetrieveCloudPkiLeafCertificateReportRequestBuilder
     from .retrieve_cloud_pki_leaf_certificate_summary_report.retrieve_cloud_pki_leaf_certificate_summary_report_request_builder import RetrieveCloudPkiLeafCertificateSummaryReportRequestBuilder
     from .retrieve_device_app_installation_status_report.retrieve_device_app_installation_status_report_request_builder import RetrieveDeviceAppInstallationStatusReportRequestBuilder
+    from .retrieve_enrollment_time_grouping_failure_report.retrieve_enrollment_time_grouping_failure_report_request_builder import RetrieveEnrollmentTimeGroupingFailureReportRequestBuilder
     from .retrieve_security_task_apps_report.retrieve_security_task_apps_report_request_builder import RetrieveSecurityTaskAppsReportRequestBuilder
     from .retrieve_win32_catalog_apps_update_report.retrieve_win32_catalog_apps_update_report_request_builder import RetrieveWin32CatalogAppsUpdateReportRequestBuilder
 
@@ -864,6 +867,24 @@ class ReportsRequestBuilder(BaseRequestBuilder):
         return RetrieveAndroidWorkProfileDeviceMigrationStatusesRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
+    def retrieve_apple_device_o_s_update_status(self) -> RetrieveAppleDeviceOSUpdateStatusRequestBuilder:
+        """
+        Provides operations to call the retrieveAppleDeviceOSUpdateStatus method.
+        """
+        from .retrieve_apple_device_o_s_update_status.retrieve_apple_device_o_s_update_status_request_builder import RetrieveAppleDeviceOSUpdateStatusRequestBuilder
+
+        return RetrieveAppleDeviceOSUpdateStatusRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def retrieve_apple_o_s_update_failures(self) -> RetrieveAppleOSUpdateFailuresRequestBuilder:
+        """
+        Provides operations to call the retrieveAppleOSUpdateFailures method.
+        """
+        from .retrieve_apple_o_s_update_failures.retrieve_apple_o_s_update_failures_request_builder import RetrieveAppleOSUpdateFailuresRequestBuilder
+
+        return RetrieveAppleOSUpdateFailuresRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def retrieve_cloud_pki_leaf_certificate_report(self) -> RetrieveCloudPkiLeafCertificateReportRequestBuilder:
         """
         Provides operations to call the retrieveCloudPkiLeafCertificateReport method.
@@ -889,6 +910,15 @@ class ReportsRequestBuilder(BaseRequestBuilder):
         from .retrieve_device_app_installation_status_report.retrieve_device_app_installation_status_report_request_builder import RetrieveDeviceAppInstallationStatusReportRequestBuilder
 
         return RetrieveDeviceAppInstallationStatusReportRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def retrieve_enrollment_time_grouping_failure_report(self) -> RetrieveEnrollmentTimeGroupingFailureReportRequestBuilder:
+        """
+        Provides operations to call the retrieveEnrollmentTimeGroupingFailureReport method.
+        """
+        from .retrieve_enrollment_time_grouping_failure_report.retrieve_enrollment_time_grouping_failure_report_request_builder import RetrieveEnrollmentTimeGroupingFailureReportRequestBuilder
+
+        return RetrieveEnrollmentTimeGroupingFailureReportRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def retrieve_security_task_apps_report(self) -> RetrieveSecurityTaskAppsReportRequestBuilder:

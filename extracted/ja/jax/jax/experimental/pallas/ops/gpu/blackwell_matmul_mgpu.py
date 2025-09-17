@@ -13,8 +13,11 @@
 # limitations under the License.
 """Matrix Multiplication kernel for Blackwell GPUs."""
 import dataclasses
+import enum
 import functools
 import itertools
+import statistics
+
 import jax
 from jax import lax
 from jax._src import test_util as jtu  # noqa: F401
@@ -25,6 +28,10 @@ from jax.extend import backend
 import jax.numpy as jnp
 import numpy as np
 
+class MatmulDimension(enum.IntEnum):
+  M = 0
+  N = 1
+
 
 @dataclasses.dataclass(frozen=True)
 class TuningConfig:
@@ -33,8 +40,9 @@ class TuningConfig:
   tile_k: int
   max_concurrent_steps: int
   collective: bool
-  grid_tile_n: int | None = None
   epilogue_tile_n: int = 64
+  grid_minor_dim: MatmulDimension = MatmulDimension.N
+  grid_tile_width: int = 1
 
 
 def matmul_kernel(a, b, config: TuningConfig):
@@ -67,6 +75,12 @@ def matmul_kernel(a, b, config: TuningConfig):
       plgpu.TilingTransform((8, swizzle_elems)),
       plgpu.SwizzleTransform(swizzle),
   )
+  out_swizzle = plgpu.find_swizzle(epilogue_tile_n * jnp.dtype(dtype).itemsize * 8)
+  out_swizzle_elems = out_swizzle // jnp.dtype(dtype).itemsize
+  out_transforms = (
+      plgpu.TilingTransform((8, out_swizzle_elems)),
+      plgpu.SwizzleTransform(out_swizzle),
+  )
   if m % tile_m != 0:
     raise ValueError(f"{m=} must be divisible by {tile_m=}")
   if n % tile_n != 0:
@@ -85,35 +99,24 @@ def matmul_kernel(a, b, config: TuningConfig):
 
   def kernel(a_gmem, b_gmem, out_gmem,
              a_smem, b_smem, acc_tmem, acc_smem,
-             a_tma_barrier, b_tma_barrier, store_done_barrier, mma_done_barrier,
+             ab_tma_barrier, store_done_barrier, mma_done_barrier,
              consumed_barrier):
-    if collective:
-      grid = (m_iters, n_iters, 2)
-      collective_axes = ("sm", "x")
-    else:
-      grid = (m_iters, n_iters)
-      collective_axes = ("sm",)
-    if config.grid_tile_n is not None:
-      grid_tiling = (m_iters, config.grid_tile_n)
-      if collective:
-        grid_tiling += (2,)
-    else:
-      grid_tiling = None
     wg_idx = lax.axis_index("wg")
+    cluster_idx = lax.axis_index("x")
+    is_lead_block = cluster_idx == 0
 
-    @plgpu.nd_loop(grid,
-                   collective_axes=collective_axes,
-                   tiling=grid_tiling,
+    @plgpu.nd_loop((m_iters * n_iters,),
+                   collective_axes="sm",
                    include_wave_step=True)
     def mn_loop(idx, wave_step):  # pylint: disable=unused-variable
-      if collective:
-        m_index, n_index, cluster_idx = idx
-        block_m_index = m_index * 2 + cluster_idx
-        is_lead_block = cluster_idx == 0
-      else:
-        m_index, n_index = idx
-        block_m_index = m_index
-        is_lead_block = True
+      (lin_idx,) = idx
+      m_index, n_index = plgpu.planar_snake(
+          lin_idx,
+          (m_iters, n_iters),
+          config.grid_minor_dim,
+          config.grid_tile_width,
+      )
+      block_m_index = m_index * 2 + cluster_idx if collective else m_index
 
       block_slice_m = pl.ds(block_m_index * block_tile_m, block_tile_m)
       slice_m = pl.ds(m_index * tile_m, tile_m)
@@ -137,14 +140,14 @@ def matmul_kernel(a, b, config: TuningConfig):
               plgpu.copy_gmem_to_smem(
                   a_gmem.at[slice_m, slice_k],
                   a_smem.at[slot],
-                  a_tma_barrier.at[slot],
+                  ab_tma_barrier.at[slot],
                   partitioned_axis=0 if collective else None,
                   collective_axes="x" if collective else None,
               )
               plgpu.copy_gmem_to_smem(
                   b_gmem.at[slice_k, slice_n],
                   b_smem.at[slot],
-                  b_tma_barrier.at[slot],
+                  ab_tma_barrier.at[slot],
                   partitioned_axis=1 if collective else None,
                   collective_axes="x" if collective else None,
               )
@@ -157,8 +160,7 @@ def matmul_kernel(a, b, config: TuningConfig):
           def _compute():
             def _loop_body(ki, _):
               slot = lax.rem(ki, max_concurrent_steps)
-              plgpu.barrier_wait(a_tma_barrier.at[slot])
-              plgpu.barrier_wait(b_tma_barrier.at[slot])
+              plgpu.barrier_wait(ab_tma_barrier.at[slot])
 
               is_last_iter = ki >= k_iters - 1
               acc_tmem_slice = acc_tmem.at[:, pl.ds(acc_slot * tile_n, tile_n)]
@@ -204,8 +206,8 @@ def matmul_kernel(a, b, config: TuningConfig):
       grid_names=("sm",),
       num_threads=2,
       thread_name="wg",
-      cluster_names=("x",) if collective else (),
-      cluster=(2,) if collective else (),
+      cluster_names=("x",),
+      cluster=(1 + collective,),
       scratch_shapes=(  # type: ignore
           # LHS and RHS SMEM.
           plgpu.SMEM(
@@ -221,10 +223,10 @@ def matmul_kernel(a, b, config: TuningConfig):
               (block_tile_m, tile_n * 2), jnp.float32, collective=collective),
           # Temporary SMEM used for storing accumulator output to GMEM.
           plgpu.SMEM(
-              (block_tile_m, epilogue_tile_n), dtype, transforms=transforms),
-          # a/b_tma_barrier
-          plgpu.Barrier(num_arrivals=1, num_barriers=max_concurrent_steps),
-          plgpu.Barrier(num_arrivals=1, num_barriers=max_concurrent_steps),
+              (block_tile_m, epilogue_tile_n), dtype, transforms=out_transforms
+          ),
+          # ab_tma_barrier
+          plgpu.Barrier(num_arrivals=2, num_barriers=max_concurrent_steps),
           # store_done_barrier, double-buffered
           plgpu.Barrier(num_arrivals=1, num_barriers=2,
                         orders_tensor_core=True),
@@ -243,9 +245,7 @@ def matmul_kernel(a, b, config: TuningConfig):
 
 
 def main(_) -> None:
-  problem_it = itertools.product(
-      (1024, 4096, 8192), (1024, 4096, 8192), (1024, 8192)
-  )
+  problem_it = [(4096, 8192, 4096)]
   for M, N, K in problem_it:
     print(f"==== {M=} {N=} {K=} ====")
     matmul_flops = 2 * M * N * K
@@ -255,14 +255,16 @@ def main(_) -> None:
     tuning_it = itertools.product(
         (128,),  # tile_m
         (128, 256),  # tile_n
-        (64, 128),  # tile_k
-        (None, 4, 8, 16),  # grid_tile_n
+        (64,),  # tile_k
+        MatmulDimension,  # grid_minor_dim
+        (1, 4, 8, 12, 16),  # grid_tile_width
         (2, 4, 6),  # max_concurrent_steps
         (False, True),  # collective
+        (64,),  # epilogue_tile_n
     )
     best_util = -float("inf")
-    for (tile_m, tile_n, tile_k, grid_tile_n,
-         max_concurrent_steps, collective) in tuning_it:
+    for (tile_m, tile_n, tile_k, grid_minor_dim, grid_tile_width,
+         max_concurrent_steps, collective, epilogue_tile_n) in tuning_it:
       # Only N <= 128 are supported for collective MMAs
       if collective and tile_n > 128:
         continue
@@ -272,17 +274,19 @@ def main(_) -> None:
           tile_k=tile_k,
           max_concurrent_steps=max_concurrent_steps,
           collective=collective,
-          grid_tile_n=grid_tile_n,
+          epilogue_tile_n=epilogue_tile_n,
+          grid_minor_dim=grid_minor_dim,
+          grid_tile_width=grid_tile_width,
       )
       if collective:
         tile_m *= 2
         tile_n *= 2
-      if grid_tile_n is not None and (N // tile_n) % grid_tile_n != 0:
-        continue
       try:
-        out, runtime_ms = profiler.measure(
-            functools.partial(matmul_kernel, config=config)
+        out, runtimes_ms = profiler.measure(
+            functools.partial(matmul_kernel, config=config), iterations=10
         )(a, b)
+        assert runtimes_ms is not None
+        runtime_ms = statistics.median(runtimes_ms)
       except ValueError as e:
         if ("exceeds available shared memory" in e.args[0] or
             "Accumulator layout mismatch:" in e.args[0]):
@@ -299,7 +303,8 @@ def main(_) -> None:
         best_util = achieved_tc_util
       print(
           f"{tile_m=} {tile_n=} {tile_k=} {max_concurrent_steps=} "
-          f"{grid_tile_n=} "
+          f"{grid_minor_dim=} {grid_tile_width=} "
+          f"{epilogue_tile_n=} "
           f"{collective=} : "
           f"{runtime_us:<7.1f}us"
           f" = {achieved_tc_util:4.1f}% TC utilization"

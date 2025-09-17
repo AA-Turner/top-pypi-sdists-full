@@ -20,7 +20,6 @@ use super::parse_general_names;
 use crate::backend::keys;
 use crate::error::{CryptographyError, CryptographyResult};
 use crate::types;
-use crate::utils::cstr_from_literal;
 use crate::x509::certificate::Certificate as PyCertificate;
 use crate::x509::common::{datetime_now, py_to_datetime};
 use crate::x509::sign;
@@ -35,13 +34,13 @@ impl CryptoOps for PyCryptoOps {
     type PolicyExtra = pyo3::Py<PyPolicy>;
 
     fn public_key(&self, cert: &Certificate<'_>) -> Result<Self::Key, Self::Err> {
-        pyo3::Python::with_gil(|py| -> Result<Self::Key, Self::Err> {
+        pyo3::Python::attach(|py| -> Result<Self::Key, Self::Err> {
             Ok(keys::load_der_public_key_bytes(py, cert.tbs_cert.spki.tlv().full_data())?.unbind())
         })
     }
 
     fn verify_signed_by(&self, cert: &Certificate<'_>, key: &Self::Key) -> Result<(), Self::Err> {
-        pyo3::Python::with_gil(|py| -> CryptographyResult<()> {
+        pyo3::Python::attach(|py| -> CryptographyResult<()> {
             sign::verify_signature_with_signature_algorithm(
                 py,
                 key.bind(py).clone(),
@@ -53,11 +52,11 @@ impl CryptoOps for PyCryptoOps {
     }
 
     fn clone_public_key(key: &Self::Key) -> Self::Key {
-        pyo3::Python::with_gil(|py| key.clone_ref(py))
+        pyo3::Python::attach(|py| key.clone_ref(py))
     }
 
     fn clone_extra(extra: &Self::CertificateExtra) -> Self::CertificateExtra {
-        pyo3::Python::with_gil(|py| extra.clone_ref(py))
+        pyo3::Python::attach(|py| extra.clone_ref(py))
     }
 }
 
@@ -217,7 +216,7 @@ impl PolicyBuilder {
     fn build_server_verifier(
         &self,
         py: pyo3::Python<'_>,
-        subject: pyo3::PyObject,
+        subject: pyo3::Py<pyo3::PyAny>,
     ) -> CryptographyResult<PyServerVerifier> {
         let store = match self.store.as_ref() {
             Some(s) => s.clone_ref(py),
@@ -306,25 +305,6 @@ pub(crate) struct PyVerifiedClient {
     chain: pyo3::Py<pyo3::types::PyList>,
 }
 
-macro_rules! warn_verifier_deprecated_getter {
-    ($py: expr, $class_name: literal, $property_name: literal) => {{
-        let warning_cls = types::DEPRECATED_IN_45.get($py)?;
-        let message = cstr_from_literal!(concat!(
-            "The `",
-            $property_name,
-            "` property on `",
-            $class_name,
-            "` is deprecated and will be removed in cryptography 46.0.",
-            " Access via `",
-            $class_name,
-            ".policy.",
-            $property_name,
-            "` instead."
-        ));
-        pyo3::PyErr::warn($py, &warning_cls, message, 1)
-    }};
-}
-
 #[pyo3::pyclass(
     frozen,
     name = "ClientVerifier",
@@ -345,18 +325,6 @@ impl PyClientVerifier {
 
 #[pyo3::pymethods]
 impl PyClientVerifier {
-    #[getter]
-    fn validation_time(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::PyObject> {
-        warn_verifier_deprecated_getter!(py, "ClientVerifier", "validation_time")?;
-        self.py_policy.get().validation_time(py)
-    }
-
-    #[getter]
-    fn max_chain_depth(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<u8> {
-        warn_verifier_deprecated_getter!(py, "ClientVerifier", "max_chain_depth")?;
-        Ok(self.py_policy.get().max_chain_depth())
-    }
-
     fn verify(
         &self,
         py: pyo3::Python<'_>,
@@ -429,24 +397,6 @@ impl PyServerVerifier {
 
 #[pyo3::pymethods]
 impl PyServerVerifier {
-    #[getter]
-    fn subject(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::PyObject> {
-        warn_verifier_deprecated_getter!(py, "ServerVerifier", "subject")?;
-        Ok(self.py_policy.get().subject(py))
-    }
-
-    #[getter]
-    fn validation_time(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::PyObject> {
-        warn_verifier_deprecated_getter!(py, "ServerVerifier", "validation_time")?;
-        self.py_policy.get().validation_time(py)
-    }
-
-    #[getter]
-    fn max_chain_depth(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<u8> {
-        warn_verifier_deprecated_getter!(py, "ServerVerifier", "max_chain_depth")?;
-        Ok(self.py_policy.get().max_chain_depth())
-    }
-
     fn verify<'p>(
         &self,
         py: pyo3::Python<'p>,

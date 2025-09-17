@@ -28,5 +28,8 @@ class PrefixedSizeRotatingFileHandler(RotatingFileHandler):
         # Import Application to access configuration settings
         from orionis.support.facades.application import Application
 
+        # Retrieve the chunk size configuration, defaulting to 5 MB if not set
+        chunk_size = Application.config('logging.channels.chunked.mb_size') or 5
+
         # Generate the new filename using FileNameLogger, which adds a timestamp prefix.
-        return FileNameLogger(default_name).generate('chunked', Application.config('logging.channels.chunked.mb_size', 5))
+        return FileNameLogger(default_name).generate('chunked', chunk_size)

@@ -120,6 +120,31 @@ class TrajectoryDetailsState(BaseModel):
             raise ValueError("Failed to lookup data type from the field `kind` in the input.")
 
         # check if data type is `TrajectoryEnded`
+        if _data_type == "END_OF_TRAJECTORY":
+            instance.actual_instance = TrajectoryEnded.from_json(json_str)
+            return instance
+
+        # check if data type is `TrajectoryPausedByUser`
+        if _data_type == "PAUSED_BY_USER":
+            instance.actual_instance = TrajectoryPausedByUser.from_json(json_str)
+            return instance
+
+        # check if data type is `TrajectoryPausedOnIO`
+        if _data_type == "PAUSED_ON_IO":
+            instance.actual_instance = TrajectoryPausedOnIO.from_json(json_str)
+            return instance
+
+        # check if data type is `TrajectoryRunning`
+        if _data_type == "RUNNING":
+            instance.actual_instance = TrajectoryRunning.from_json(json_str)
+            return instance
+
+        # check if data type is `TrajectoryWaitForIO`
+        if _data_type == "WAIT_FOR_IO":
+            instance.actual_instance = TrajectoryWaitForIO.from_json(json_str)
+            return instance
+
+        # check if data type is `TrajectoryEnded`
         if _data_type == "TrajectoryEnded":
             instance.actual_instance = TrajectoryEnded.from_json(json_str)
             return instance

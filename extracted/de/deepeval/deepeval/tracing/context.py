@@ -4,7 +4,6 @@ from contextvars import ContextVar
 from deepeval.tracing.types import BaseSpan, Trace
 from deepeval.test_case.llm_test_case import ToolCall, LLMTestCase
 from deepeval.tracing.types import LlmSpan, RetrieverSpan
-from deepeval.metrics import BaseMetric
 from deepeval.prompt.prompt import Prompt
 
 current_span_context: ContextVar[Optional[BaseSpan]] = ContextVar(
@@ -117,6 +116,7 @@ def update_llm_span(
     output_token_count: Optional[float] = None,
     cost_per_input_token: Optional[float] = None,
     cost_per_output_token: Optional[float] = None,
+    token_intervals: Optional[Dict[float, str]] = None,
     prompt: Optional[Prompt] = None,
 ):
     current_span = current_span_context.get()
@@ -132,6 +132,8 @@ def update_llm_span(
         current_span.cost_per_input_token = cost_per_input_token
     if cost_per_output_token:
         current_span.cost_per_output_token = cost_per_output_token
+    if token_intervals:
+        current_span.token_intervals = token_intervals
     if prompt:
         current_span.prompt = prompt
 

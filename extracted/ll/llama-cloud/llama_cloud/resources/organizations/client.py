@@ -229,7 +229,9 @@ class OrganizationsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def update_organization(self, organization_id: str, *, name: str) -> Organization:
+    def update_organization(
+        self, organization_id: str, *, name: str, feature_flags: typing.Optional[typing.Dict[str, typing.Any]] = OMIT
+    ) -> Organization:
         """
         Update an existing organization.
 
@@ -237,6 +239,8 @@ class OrganizationsClient:
             - organization_id: str.
 
             - name: str. A name for the organization.
+
+            - feature_flags: typing.Optional[typing.Dict[str, typing.Any]].
         ---
         from llama_cloud.client import LlamaCloud
 
@@ -248,10 +252,13 @@ class OrganizationsClient:
             name="string",
         )
         """
+        _request: typing.Dict[str, typing.Any] = {"name": name}
+        if feature_flags is not OMIT:
+            _request["feature_flags"] = feature_flags
         _response = self._client_wrapper.httpx_client.request(
             "PUT",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/organizations/{organization_id}"),
-            json=jsonable_encoder({"name": name}),
+            json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -937,7 +944,9 @@ class AsyncOrganizationsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def update_organization(self, organization_id: str, *, name: str) -> Organization:
+    async def update_organization(
+        self, organization_id: str, *, name: str, feature_flags: typing.Optional[typing.Dict[str, typing.Any]] = OMIT
+    ) -> Organization:
         """
         Update an existing organization.
 
@@ -945,6 +954,8 @@ class AsyncOrganizationsClient:
             - organization_id: str.
 
             - name: str. A name for the organization.
+
+            - feature_flags: typing.Optional[typing.Dict[str, typing.Any]].
         ---
         from llama_cloud.client import AsyncLlamaCloud
 
@@ -956,10 +967,13 @@ class AsyncOrganizationsClient:
             name="string",
         )
         """
+        _request: typing.Dict[str, typing.Any] = {"name": name}
+        if feature_flags is not OMIT:
+            _request["feature_flags"] = feature_flags
         _response = await self._client_wrapper.httpx_client.request(
             "PUT",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/organizations/{organization_id}"),
-            json=jsonable_encoder({"name": name}),
+            json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )

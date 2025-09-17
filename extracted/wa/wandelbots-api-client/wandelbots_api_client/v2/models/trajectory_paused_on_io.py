@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class TrajectoryPausedOnIO(BaseModel):
     """
-    TrajectoryPausedOnIO
+    Execution was paused because of an I/O event. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

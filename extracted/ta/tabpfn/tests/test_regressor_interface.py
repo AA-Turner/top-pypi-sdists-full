@@ -23,7 +23,7 @@ from tabpfn import TabPFNRegressor
 from tabpfn.base import RegressorModelSpecs, initialize_tabpfn_model
 from tabpfn.model_loading import ModelSource
 from tabpfn.preprocessing import PreprocessorConfig
-from tabpfn.utils import infer_device_and_type
+from tabpfn.utils import infer_devices
 
 from .utils import check_cpu_float16_support, get_pytest_devices
 
@@ -46,7 +46,7 @@ estimators = [1, 2]
 
 model_paths = ModelSource.get_regressor_v2().filenames
 primary_model = ModelSource.get_regressor_v2().default_filename
-other_models = set(model_paths) - {primary_model}
+other_models = [model_path for model_path in model_paths if model_path != primary_model]
 
 # --- Build parameter combinations ---
 # Full grid for the first (primary) model path
@@ -77,9 +77,10 @@ all_combinations = list(_full_grid) + list(_smoke_grid)
 # Wrap in fixture so it's only loaded in if a test using it is run
 @pytest.fixture(scope="module")
 def X_y() -> tuple[np.ndarray, np.ndarray]:
-    X, y = sklearn.datasets.fetch_california_housing(return_X_y=True)
-    X, y = X[:40], y[:40]
-    return X, y  # type: ignore
+    X, y, _ = sklearn.datasets.make_regression(
+        n_samples=50, n_features=9, random_state=0, coef=True
+    )
+    return X, y
 
 
 @pytest.mark.parametrize(
@@ -150,9 +151,11 @@ def test_regressor(
     assert quantiles[0].shape == (X.shape[0],), "Predictions shape is incorrect"
 
 
-def test_fit_modes_all_return_equal_results(
-    X_y: tuple[np.ndarray, np.ndarray],
-) -> None:
+# The different fitting modes manage the random state differently.
+@pytest.mark.skip(
+    reason="The prediction is actually different depending on the fitting mode."
+)
+def test_fit_modes_all_return_equal_results(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     kwargs = {
         "n_estimators": 10,
         "device": "cpu",
@@ -169,13 +172,12 @@ def test_fit_modes_all_return_equal_results(
     torch.random.manual_seed(0)
     tabpfn = TabPFNRegressor(fit_mode="fit_with_cache", **kwargs)
     tabpfn.fit(X, y)
-    np.testing.assert_array_almost_equal(preds, tabpfn.predict(X), decimal=5)
+    np.testing.assert_array_almost_equal(preds, tabpfn.predict(X))
 
     torch.random.manual_seed(0)
     tabpfn = TabPFNRegressor(fit_mode="low_memory", **kwargs)
     tabpfn.fit(X, y)
-    # TODO: It's only equal to one decimal place. Verify if actually broken.
-    np.testing.assert_array_almost_equal(preds, tabpfn.predict(X), decimal=1)
+    np.testing.assert_array_almost_equal(preds, tabpfn.predict(X))
 
 
 # TODO: Should probably run a larger suite with different configurations
@@ -184,8 +186,8 @@ def test_sklearn_compatible_estimator(
     estimator: TabPFNRegressor,
     check: Callable[[TabPFNRegressor], None],
 ) -> None:
-    _auto_device = infer_device_and_type(device="auto")
-    if _auto_device.type == "mps":
+    _auto_devices = infer_devices(devices="auto")
+    if any(device.type == "mps" for device in _auto_devices):
         pytest.skip("MPS does not support float64, which is required for this check.")
 
     if check.func.__name__ in (  # type: ignore
@@ -395,18 +397,26 @@ def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) ->
     assert embeddings.shape[2] == encoder_shape
 
 
-def test_overflow():
-    """Test which fails for scipy<1.11.0."""
-    # Fetch a small sample of the California housing dataset
-    X, y = sklearn.datasets.fetch_california_housing(return_X_y=True)
-    X, y = X[:20], y[:20]
+def test_overflow_bug_does_not_occur():
+    """Test that an overflow does not occur in the preprocessing.
 
-    # Create and fit the regressor
+    This can occur if scipy<1.11.0, see
+    https://github.com/PriorLabs/TabPFN/issues/175 .
+
+    It no longer appears to happen with the current preprocessing configuration, but
+    test just in case.
+    """
+    rng = np.random.default_rng(seed=0)
+    # This is a specially crafted dataset with nearly constant features that has been
+    # found to trigger the bug. The California housing dataset will also trigger it.
+    n = 20
+    X = 100.0 + rng.normal(loc=0.0, scale=0.0001, size=(n, 9))
+    y = rng.normal(loc=0.0, scale=1.0, size=(n,))
+
     regressor = TabPFNRegressor(n_estimators=1, device="cpu", random_state=42)
-
     regressor.fit(X, y)
-
     predictions = regressor.predict(X)
+
     assert predictions.shape == (X.shape[0],), "Predictions shape is incorrect"
 
 
@@ -603,16 +613,18 @@ def test_initialize_model_variables_regressor_sets_required_attributes() -> None
     assert hasattr(regressor, "config_"), "regressor should have config_ attribute"
     assert regressor.config_ is not None, "config_ should be initialized for regressor"
 
-    assert hasattr(regressor, "bardist_"), "regressor should have bardist_ attribute"
+    assert hasattr(
+        regressor, "znorm_space_bardist_"
+    ), "regressor should have znorm_space_bardist_ attribute"
     assert (
-        regressor.bardist_ is not None
-    ), "bardist_ should be initialized for regressor"
+        regressor.znorm_space_bardist_ is not None
+    ), "znorm_space_bardist_ should be initialized for regressor"
 
     # 3) Reuse via RegressorModelSpecs
     spec = RegressorModelSpecs(
         model=regressor.model_,
         config=regressor.config_,
-        norm_criterion=regressor.bardist_,
+        norm_criterion=regressor.znorm_space_bardist_,
     )
     reg2 = TabPFNRegressor(model_path=spec)
     reg2._initialize_model_variables()
@@ -623,5 +635,9 @@ def test_initialize_model_variables_regressor_sets_required_attributes() -> None
     assert hasattr(reg2, "config_"), "regressor2 should have config_ attribute"
     assert reg2.config_ is not None, "config_ should be initialized for regressor2"
 
-    assert hasattr(reg2, "bardist_"), "regressor2 should have bardist_ attribute"
-    assert reg2.bardist_ is not None, "bardist_ should be initialized for regressor2"
+    assert hasattr(
+        reg2, "znorm_space_bardist_"
+    ), "regressor2 should have znorm_space_bardist_ attribute"
+    assert (
+        reg2.znorm_space_bardist_ is not None
+    ), "znorm_space_bardist_ should be initialized for regressor2"

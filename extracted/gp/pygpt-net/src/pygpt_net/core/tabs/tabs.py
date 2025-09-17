@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.16 02:00:00                  #
+# Updated Date: 2025.09.16 22:00:00                  #
 # ================================================== #
 
 import uuid
@@ -17,7 +17,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QLayout
 
 from pygpt_net.ui.widget.tabs.body import TabBody
-from pygpt_net.utils import trans
+from pygpt_net.utils import trans, mem_clean
 
 from .tab import Tab
 
@@ -299,25 +299,23 @@ class Tabs:
             if tab.type == Tab.TAB_CHAT:
                 node = self.window.ui.nodes['output'].get(tab.pid)
                 if node:
-                    node.unload()  # unload web page
-                    tab.child.remove_widget(node)
+                    node.unload()  # unload page completely
+                    tab.unwrap(node)
                     self.window.ui.nodes['output'].pop(pid, None)
-                    node.on_delete()
                 node_plain = self.window.ui.nodes['output_plain'].get(tab.pid)
                 if node_plain:
-                    tab.child.remove_widget(node_plain)
+                    tab.unwrap(node_plain)
                     self.window.ui.nodes['output_plain'].pop(pid, None)
-                    node_plain.on_delete()
 
             if tab.type in (Tab.TAB_CHAT, Tab.TAB_NOTEPAD, Tab.TAB_TOOL):
-                tab.cleanup()  # unload assigned data from memory
-
-            # tab.delete_refs()
+                tab.cleanup()  # unload refs from memory
+                # IMPORTANT: leave refs to painter and calendar to keep only one instance of each
 
         except Exception as e:
             print(f"Error unloading tab {pid}: {e}")
             self.window.core.debug.log(e)
 
+        mem_clean(force=True)
         column_idx = tab.column_idx
         self.window.ui.layout.get_tabs_by_idx(column_idx).removeTab(tab.idx)
         del self.pids[pid]
@@ -325,8 +323,9 @@ class Tabs:
 
     def remove_all(self):
         """Remove all tabs"""
-        for pid in list(self.pids):
+        for pid in list(self.pids.keys()):
             self.remove(pid)  # delete from PIDs and UI
+            self.window.controller.chat.render.remove_pid(pid)  # remove pid data from renderer registry
         self.pids = {}
         self.window.core.ctx.output.clear()  # clear mapping
 

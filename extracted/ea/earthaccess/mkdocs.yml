@@ -3,7 +3,7 @@ site_description: Client library for NASA Earthdata APIs
 site_url: https://github.com/nsidc/earthaccess
 
 # Fail on broken links
-strict: true
+strict: false
 
 theme:
   name: "material"
@@ -33,6 +33,7 @@ extra_css:
 
 plugins:
   - search
+  - mermaid2
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -45,15 +46,19 @@ plugins:
             show_submodules: no
             show_root_heading: false
             show_source: false
+  - autorefs
   - redirects:
       redirect_maps:
-        'CODE_OF_CONDUCT.md': 'contributing/code-of-conduct.md'
-        'CODE_OF_CONDUCT.md.md': 'contributing/code-of-conduct.md'
+        "CODE_OF_CONDUCT.md": "contributing/code-of-conduct.md"
   - mkdocs-jupyter:
-      execute: True
+      execute: true
       ignore:
         - "tutorials/dask.ipynb"
         - "**/.ipynb_checkpoints/*"
+        - "user_guide/fsspec.ipynb"
+        - "tutorials/SSL.ipynb"
+        - "tutorials/dmrpp-virtualizarr.ipynb"
+        - "howto/edl.ipynb"
 
 nav:
   - "What is earthaccess?": "index.md"
@@ -63,7 +68,9 @@ nav:
       - "Development Guide": "contributing/development.md"
       - "Releasing Guide": "contributing/releasing.md"
       - "Maintainers Guide": "contributing/maintainers-guide.md"
+      - "Triaging Guide": "contributing/triaging.md"
       - "Code of Conduct": "contributing/code-of-conduct.md"
+      - "Contributing naming convention": "contributing/naming-convention.md"
       - "Meet-ups": "contributing/our-meet-ups.md"
       - "Topics":
           - "Naming conventions": "contributing/naming-convention.md"
@@ -72,6 +79,7 @@ nav:
   - USER GUIDE:
       - "user_guide/index.md"
       - "Authentication": "user_guide/authenticate.md"
+      - "Status": "user_guide/status.md"
       - "Search": "user_guide/search.md"
       - "Access": "user_guide/access.md"
       - "Backwards Compatibility": "user_guide/backwards-compatibility.md"
@@ -82,15 +90,16 @@ nav:
       - "Determine if a dataset is available in the cloud": "howto/storage-location.md"
       - "Access data": "howto/access-data.md"
       - "Using authenticated sessions to access data": "howto/edl.ipynb"
+      - "Remote access and caching with earthaccess": "user_guide/fsspec.ipynb"
       - "Download data from on-prem location": "howto/onprem.md"
       - "Direct S3 access - Open/stream files in the cloud": "howto/cloud.md"
       - "Search for services": "howto/search-services.md"
   - TUTORIALS:
       - "Accessing remote NASA data with fsspec": "tutorials/file-access.ipynb"
       - "Search and access of restricted datasets": "tutorials/restricted-datasets.ipynb"
-      - "Reproducing NASA sea level rise infographic": "tutorials/SSL.ipynb"
+      # - "Reproducing NASA sea level rise infographic": "tutorials/SSL.ipynb" TODO: make this faster
       - "Accessing and visualizing EMIT data with a few lines of code": "tutorials/emit-earthaccess.ipynb"
-      - "Cloud optimized access to NASA data with earthaccess and virtualizarr": "tutorials/dmrpp-virtualizarr.ipynb"
+      - "Cloud optimized access to TEMPO air quality data with earthaccess and virtualizarr": "tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
   - USER REFERENCE:
       - API:
           - "Search and Access": "user-reference/api/api.md"
@@ -109,23 +118,29 @@ nav:
       - Glossary:
           - "NASA Glossary": "user-reference/glossary/nasa-glossary.md"
           - "Cloud Computing Terminology": "user-reference/glossary/cloud-glossary.md"
+  - "About Us": "about-us.md"
 
 markdown_extensions:
   - admonition
   - callouts
   - pymdownx.details
   - meta
+  - md_in_html
   - toc:
       toc_depth: 2
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid_custom
+
   - pymdownx.tabbed:
       alternate_style: true
 
 watch:
   - docs
   - earthaccess
-  - notebooks

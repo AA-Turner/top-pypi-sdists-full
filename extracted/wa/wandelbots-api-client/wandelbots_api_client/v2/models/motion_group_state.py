@@ -18,10 +18,9 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from wandelbots_api_client.v2.models.execute import Execute
-from wandelbots_api_client.v2.models.joints import Joints
 from wandelbots_api_client.v2.models.motion_group_state_joint_limit_reached import MotionGroupStateJointLimitReached
 from wandelbots_api_client.v2.models.pose import Pose
 from typing import Optional, Set
@@ -35,10 +34,10 @@ class MotionGroupState(BaseModel):
     sequence_number: StrictInt = Field(description="Sequence number of the controller state. It starts with 0 upon establishing the connection with a physical controller. The sequence number is reset when the connection to the physical controller is closed and re-established. ")
     motion_group: StrictStr = Field(description="Identifier of the motion group.")
     controller: StrictStr = Field(description="Convenience: Identifier of the robot controller the motion group is attached to.")
-    joint_position: Joints = Field(description="Current joint position of each joint in [rad] ")
+    joint_position: List[Union[StrictFloat, StrictInt]] = Field(description="This structure describes a set of joint values (e.g. positions, currents, torques) of a motion group.  Float precision is the default. ")
     joint_limit_reached: MotionGroupStateJointLimitReached = Field(description="Indicates whether the joint is in a limit for all joints of the motion group. ")
-    joint_torque: Optional[Joints] = Field(default=None, description="Current joint torque of each joint in [Nm]. Is only available if the robot controller supports it, e.g. available for UR controllers. ")
-    joint_current: Optional[Joints] = Field(default=None, description="Current at TCP in [A]. Is only available if the robot controller supports it, e.g. available for UR controllers. ")
+    joint_torque: Optional[List[Union[StrictFloat, StrictInt]]] = Field(default=None, description="This structure describes a set of joint values (e.g. positions, currents, torques) of a motion group.  Float precision is the default. ")
+    joint_current: Optional[List[Union[StrictFloat, StrictInt]]] = Field(default=None, description="This structure describes a set of joint values (e.g. positions, currents, torques) of a motion group.  Float precision is the default. ")
     flange_pose: Optional[Pose] = Field(default=None, description="Pose of the flange. Positions are in [mm]. Oriantations are in [rad]. The pose is relative to the response_coordinate_system specified in the request. For robot arms a flange pose is always returned, for positioners the flange might not be available, depending on the model. ")
     tcp: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing the active TCP. Might not be returned for positioners as some do not support TCPs, depending on the model. ")
     tcp_pose: Optional[Pose] = Field(default=None, description="Pose of the TCP selected on the robot control panel. Positions are in [mm]. Oriantations are in [rad]. The pose is relative to the response_coordinate_system specified in the request. Might not be returned for positioners as some do not support TCPs, depending on the model. ")
@@ -91,18 +90,9 @@ class MotionGroupState(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of joint_position
-        if self.joint_position:
-            _dict['joint_position'] = self.joint_position.to_dict()
         # override the default output from pydantic by calling `to_dict()` of joint_limit_reached
         if self.joint_limit_reached:
             _dict['joint_limit_reached'] = self.joint_limit_reached.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of joint_torque
-        if self.joint_torque:
-            _dict['joint_torque'] = self.joint_torque.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of joint_current
-        if self.joint_current:
-            _dict['joint_current'] = self.joint_current.to_dict()
         # override the default output from pydantic by calling `to_dict()` of flange_pose
         if self.flange_pose:
             _dict['flange_pose'] = self.flange_pose.to_dict()
@@ -128,10 +118,10 @@ class MotionGroupState(BaseModel):
             "sequence_number": obj.get("sequence_number"),
             "motion_group": obj.get("motion_group"),
             "controller": obj.get("controller"),
-            "joint_position": Joints.from_dict(obj["joint_position"]) if obj.get("joint_position") is not None else None,
+            "joint_position": obj.get("joint_position"),
             "joint_limit_reached": MotionGroupStateJointLimitReached.from_dict(obj["joint_limit_reached"]) if obj.get("joint_limit_reached") is not None else None,
-            "joint_torque": Joints.from_dict(obj["joint_torque"]) if obj.get("joint_torque") is not None else None,
-            "joint_current": Joints.from_dict(obj["joint_current"]) if obj.get("joint_current") is not None else None,
+            "joint_torque": obj.get("joint_torque"),
+            "joint_current": obj.get("joint_current"),
             "flange_pose": Pose.from_dict(obj["flange_pose"]) if obj.get("flange_pose") is not None else None,
             "tcp": obj.get("tcp"),
             "tcp_pose": Pose.from_dict(obj["tcp_pose"]) if obj.get("tcp_pose") is not None else None,

@@ -2,6 +2,7 @@
 // 2.0, and the BSD License. See the LICENSE file in the root of this repository
 // for complete details.
 
+use cryptography_crypto::constant_time;
 use pyo3::types::PyBytesMethods;
 
 use crate::backend::hashes::message_digest_from_algorithm;
@@ -90,7 +91,7 @@ impl Hmac {
     fn verify(&mut self, py: pyo3::Python<'_>, signature: &[u8]) -> CryptographyResult<()> {
         let actual_bound = self.finalize(py)?;
         let actual = actual_bound.as_bytes();
-        if actual.len() != signature.len() || !openssl::memcmp::eq(actual, signature) {
+        if !constant_time::bytes_eq(actual, signature) {
             return Err(CryptographyError::from(
                 exceptions::InvalidSignature::new_err("Signature did not match digest."),
             ));
@@ -99,7 +100,7 @@ impl Hmac {
         Ok(())
     }
 
-    fn copy(&self, py: pyo3::Python<'_>) -> CryptographyResult<Hmac> {
+    pub(crate) fn copy(&self, py: pyo3::Python<'_>) -> CryptographyResult<Hmac> {
         Ok(Hmac {
             ctx: Some(self.get_ctx()?.copy()?),
             algorithm: self.algorithm.clone_ref(py),
@@ -107,7 +108,7 @@ impl Hmac {
     }
 }
 
-#[pyo3::pymodule]
+#[pyo3::pymodule(gil_used = false)]
 pub(crate) mod hmac {
     #[pymodule_export]
     use super::Hmac;

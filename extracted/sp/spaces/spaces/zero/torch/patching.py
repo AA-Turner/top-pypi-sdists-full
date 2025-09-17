@@ -7,11 +7,13 @@ from __future__ import annotations
 import gc
 import multiprocessing
 import os
+import shutil
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from contextvars import copy_context
+from pathlib import Path
 from typing import Any
 from typing import Callable
 
@@ -111,12 +113,14 @@ class ZeroGPUFunctionMode(TorchFunctionMode):
         # Redispatch: tensor.to('cuda') -> tensor.to(device='cuda')
         if func == torch.Tensor.to and len(args) > 1:
             parse_to_args, parse_to_kwargs = no_int_device(*args[1:], **kwargs)
+            # We are using nn._parse_to utility to parse generic Tensor.to but nn does not accept copy kwarg
+            copy_kwarg = {'copy': parse_to_kwargs.pop('copy')} if 'copy' in parse_to_kwargs else {}
             device, dtype, _, memory_format = torch._C._nn._parse_to(*parse_to_args, **parse_to_kwargs) # pyright: ignore [reportAttributeAccessIssue]
             return self.__torch_function__(torch.Tensor.to, types, (args[0],), {
                 'device': device,
                 'dtype': dtype,
                 'memory_format': memory_format,
-            })
+            } | copy_kwarg)
 
         if func == torch.Tensor.data.__set__: # pyright: ignore [reportAttributeAccessIssue]
             self, target = args
@@ -386,6 +390,8 @@ def _pack(offload_dir: str):
     return total_size
 
 def pack():
+    shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
+    Path(Config.zerogpu_offload_dir).mkdir(parents=True)
     total_size = _pack(Config.zerogpu_offload_dir)
     gc.collect()
     malloc_trim()
@@ -405,6 +411,7 @@ def _move(callback: Callable[[int]] | None = None):
     moved: dict[AliasId, torch.Tensor] = {}
     for fake, original in cuda_aliases.items():
         if original is not None:
+            original = torch.Tensor(original) # unwrap subclass
             original_id = AliasId.from_tensor(original)
             if original_id not in moved:
                 if original.numel() * original.element_size() < pinned_limit:

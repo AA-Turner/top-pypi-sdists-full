@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: yalexs
-Version: 9.0.1
+Version: 9.1.0
 Summary: Python API for Yale Access (formerly August) Smart Lock and Doorbell
 License: MIT
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
 Requires-Python: >=3.10,<4.0
@@ -16,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: aiofiles (>=23)
 Requires-Dist: aiohttp (>=3.10.5)

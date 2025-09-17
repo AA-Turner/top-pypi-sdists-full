@@ -91,6 +91,7 @@ from .forward_kinematics_response import ForwardKinematicsResponse
 from .forward_kinematics_validation_error import ForwardKinematicsValidationError
 from .get_trajectory_response import GetTrajectoryResponse
 from .http_validation_error import HTTPValidationError
+from .http_validation_error2 import HTTPValidationError2
 from .io_boolean_value import IOBooleanValue
 from .io_description import IODescription
 from .io_description2 import IODescription2
@@ -98,6 +99,7 @@ from .io_description_min import IODescriptionMin
 from .io_direction import IODirection
 from .io_float_value import IOFloatValue
 from .io_integer_value import IOIntegerValue
+from .io_origin import IOOrigin
 from .io_value import IOValue
 from .io_value_type import IOValueType
 from .image_credentials import ImageCredentials
@@ -128,13 +130,11 @@ from .joint_limits import JointLimits
 from .joint_trajectory import JointTrajectory
 from .joint_velocity_request import JointVelocityRequest
 from .joint_velocity_response import JointVelocityResponse
-from .joints import Joints
 from .kuka_controller import KukaController
 from .kuka_controller_rsi_server import KukaControllerRsiServer
 from .license import License
 from .license_status import LicenseStatus
 from .license_status_enum import LicenseStatusEnum
-from .limit_config import LimitConfig
 from .limit_range import LimitRange
 from .limit_set import LimitSet
 from .limits_override import LimitsOverride
@@ -193,6 +193,10 @@ from .profinet_io_type_enum import ProfinetIOTypeEnum
 from .profinet_input_output_config import ProfinetInputOutputConfig
 from .profinet_slot_description import ProfinetSlotDescription
 from .profinet_sub_slot_description import ProfinetSubSlotDescription
+from .program import Program
+from .program_run import ProgramRun
+from .program_run_state import ProgramRunState
+from .program_start_request import ProgramStartRequest
 from .rrt_connect_algorithm import RRTConnectAlgorithm
 from .rectangle import Rectangle
 from .rectangular_capsule import RectangularCapsule
@@ -210,6 +214,7 @@ from .service_status_phase import ServiceStatusPhase
 from .service_status_response import ServiceStatusResponse
 from .service_status_severity import ServiceStatusSeverity
 from .service_status_status import ServiceStatusStatus
+from .set_io import SetIO
 from .settable_robot_system_mode import SettableRobotSystemMode
 from .singularity_type_enum import SingularityTypeEnum
 from .sphere import Sphere
@@ -236,6 +241,7 @@ from .unit_type import UnitType
 from .universalrobots_controller import UniversalrobotsController
 from .update_nova_version_request import UpdateNovaVersionRequest
 from .validation_error import ValidationError
+from .validation_error2 import ValidationError2
 from .validation_error_loc_inner import ValidationErrorLocInner
 from .virtual_controller import VirtualController
 from .virtual_controller_types import VirtualControllerTypes
@@ -321,6 +327,7 @@ __all__ = [
     "ForwardKinematicsValidationError", 
     "GetTrajectoryResponse", 
     "HTTPValidationError", 
+    "HTTPValidationError2", 
     "IOBooleanValue", 
     "IODescription", 
     "IODescription2", 
@@ -328,6 +335,7 @@ __all__ = [
     "IODirection", 
     "IOFloatValue", 
     "IOIntegerValue", 
+    "IOOrigin", 
     "IOValue", 
     "IOValueType", 
     "ImageCredentials", 
@@ -358,13 +366,11 @@ __all__ = [
     "JointTrajectory", 
     "JointVelocityRequest", 
     "JointVelocityResponse", 
-    "Joints", 
     "KukaController", 
     "KukaControllerRsiServer", 
     "License", 
     "LicenseStatus", 
     "LicenseStatusEnum", 
-    "LimitConfig", 
     "LimitRange", 
     "LimitSet", 
     "LimitsOverride", 
@@ -423,6 +429,10 @@ __all__ = [
     "ProfinetInputOutputConfig", 
     "ProfinetSlotDescription", 
     "ProfinetSubSlotDescription", 
+    "Program", 
+    "ProgramRun", 
+    "ProgramRunState", 
+    "ProgramStartRequest", 
     "RRTConnectAlgorithm", 
     "Rectangle", 
     "RectangularCapsule", 
@@ -440,6 +450,7 @@ __all__ = [
     "ServiceStatusResponse", 
     "ServiceStatusSeverity", 
     "ServiceStatusStatus", 
+    "SetIO", 
     "SettableRobotSystemMode", 
     "SingularityTypeEnum", 
     "Sphere", 
@@ -466,6 +477,7 @@ __all__ = [
     "UniversalrobotsController", 
     "UpdateNovaVersionRequest", 
     "ValidationError", 
+    "ValidationError2", 
     "ValidationErrorLocInner", 
     "VirtualController", 
     "VirtualControllerTypes", 

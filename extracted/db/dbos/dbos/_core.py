@@ -19,8 +19,6 @@ from typing import (
     cast,
 )
 
-import psycopg
-
 from dbos._outcome import Immediate, NoResult, Outcome, Pending
 from dbos._utils import GlobalParams, retriable_postgres_exception
 
@@ -52,12 +50,14 @@ from ._error import (
     DBOSException,
     DBOSMaxStepRetriesExceeded,
     DBOSNonExistentWorkflowError,
+    DBOSQueueDeduplicatedError,
     DBOSRecoveryError,
     DBOSUnexpectedStepError,
     DBOSWorkflowCancelledError,
     DBOSWorkflowConflictIDError,
     DBOSWorkflowFunctionNotFoundError,
 )
+from ._logger import dbos_logger
 from ._registrations import (
     DEFAULT_MAX_RECOVERY_ATTEMPTS,
     get_config_name,
@@ -96,6 +96,15 @@ R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 F = TypeVar("F", bound=Callable[..., Any])
 
 TEMP_SEND_WF_NAME = "<temp>.temp_send_workflow"
+DEBOUNCER_WORKFLOW_NAME = "_dbos_debouncer_workflow"
+
+
+def check_is_in_coroutine() -> bool:
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
 
 
 class WorkflowHandleFuture(Generic[R]):
@@ -303,10 +312,22 @@ def _init_workflow(
     }
 
     # Synchronously record the status and inputs for workflows
-    wf_status, workflow_deadline_epoch_ms = dbos._sys_db.init_workflow(
-        status,
-        max_recovery_attempts=max_recovery_attempts,
-    )
+    try:
+        wf_status, workflow_deadline_epoch_ms = dbos._sys_db.init_workflow(
+            status,
+            max_recovery_attempts=max_recovery_attempts,
+        )
+    except DBOSQueueDeduplicatedError as e:
+        if ctx.has_parent():
+            result: OperationResultInternal = {
+                "workflow_uuid": ctx.parent_workflow_id,
+                "function_id": ctx.parent_workflow_fid,
+                "function_name": wf_name,
+                "output": None,
+                "error": _serialization.serialize_exception(e),
+            }
+            dbos._sys_db.record_operation_result(result)
+        raise
 
     if workflow_deadline_epoch_ms is not None:
         evt = threading.Event()
@@ -830,11 +851,16 @@ def workflow_wrapper(
             dbos._sys_db.record_get_result(workflow_id, serialized_r, None)
             return r
 
+        if check_is_in_coroutine() and not inspect.iscoroutinefunction(func):
+            dbos_logger.warning(
+                f"Sync workflow ({get_dbos_func_name(func)}) shouldn't be invoked from within another async function. Define it as async or use asyncio.to_thread instead."
+            )
+
         outcome = (
-            wfOutcome.wrap(init_wf)
+            wfOutcome.wrap(init_wf, dbos=dbos)
             .also(DBOSAssumeRole(rr))
             .also(enterWorkflowCtxMgr(attributes))
-            .then(record_get_result)
+            .then(record_get_result, dbos=dbos)
         )
         return outcome()  # type: ignore
 
@@ -959,7 +985,7 @@ def decorate_transaction(
                                 dbapi_error
                             ) or dbos._app_db._is_serialization_error(dbapi_error):
                                 # Retry on serialization failure
-                                span = ctx.get_current_span()
+                                span = ctx.get_current_dbos_span()
                                 if span:
                                     span.add_event(
                                         "Transaction Failure",
@@ -1011,6 +1037,10 @@ def decorate_transaction(
                 assert (
                     ctx.is_workflow()
                 ), "Transactions must be called from within workflows"
+                if check_is_in_coroutine():
+                    dbos_logger.warning(
+                        f"Transaction function ({get_dbos_func_name(func)}) shouldn't be invoked from within another async function. Use asyncio.to_thread instead."
+                    )
                 with DBOSAssumeRole(rr):
                     return invoke_tx(*args, **kwargs)
             else:
@@ -1074,7 +1104,7 @@ def decorate_step(
                     exc_info=error,
                 )
                 ctx = assert_current_dbos_context()
-                span = ctx.get_current_span()
+                span = ctx.get_current_dbos_span()
                 if span:
                     span.add_event(
                         f"Step attempt {attempt} failed",
@@ -1146,7 +1176,7 @@ def decorate_step(
 
             outcome = (
                 stepOutcome.then(record_step_result)
-                .intercept(check_existing_result)
+                .intercept(check_existing_result, dbos=dbos)
                 .also(EnterDBOSStep(attributes))
             )
             return outcome()
@@ -1155,6 +1185,10 @@ def decorate_step(
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if check_is_in_coroutine() and not inspect.iscoroutinefunction(func):
+                dbos_logger.warning(
+                    f"Sync step ({get_dbos_func_name(func)}) shouldn't be invoked from within another async function. Define it as async or use asyncio.to_thread instead."
+                )
             # If the step is called from a workflow, run it as a step.
             # Otherwise, run it as a normal function.
             ctx = get_local_dbos_context()

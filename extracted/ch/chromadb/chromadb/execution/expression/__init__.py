@@ -3,13 +3,9 @@ Chromadb execution expression module for search operations.
 """
 
 from chromadb.execution.expression.operator import (
-    # Core filter components
-    SearchFilter,
-    
     # Field proxy for building Where conditions
     Key,
     K,
-    Doc,
     
     # Where expressions
     Where,
@@ -31,7 +27,6 @@ from chromadb.execution.expression.operator import (
     # Search configuration
     Limit,
     Select,
-    SelectField,
     
     # Rank expressions
     Rank,
@@ -56,13 +51,9 @@ __all__ = [
     # Main search class
     "Search",
     
-    # Filter components
-    "SearchFilter",
-    
     # Field proxy
     "Key",
     "K",
-    "Doc",
     
     # Where expressions
     "Where",
@@ -84,7 +75,6 @@ __all__ = [
     # Search configuration
     "Limit",
     "Select",
-    "SelectField",
     
     # Rank expressions
     "Rank",

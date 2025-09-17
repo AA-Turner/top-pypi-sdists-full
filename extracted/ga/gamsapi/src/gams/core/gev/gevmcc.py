@@ -354,6 +354,10 @@ def gevGetLShandle(pgev):
     r"""gevGetLShandle(pgev) -> void *"""
     return _gevmcc.gevGetLShandle(pgev)
 
+def gevGetLSCBInfo(pgev, lshandle, lsw, usrmem):
+    r"""gevGetLSCBInfo(pgev, lshandle, lsw, usrmem) -> int"""
+    return _gevmcc.gevGetLSCBInfo(pgev, lshandle, lsw, usrmem)
+
 def gevRestoreLogStat(pgev, lshandle):
     r"""gevRestoreLogStat(pgev, lshandle) -> int"""
     return _gevmcc.gevRestoreLogStat(pgev, lshandle)

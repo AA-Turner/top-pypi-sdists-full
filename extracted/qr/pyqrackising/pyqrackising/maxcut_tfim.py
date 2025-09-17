@@ -106,17 +106,16 @@ def maxcut_hamming_cdf(n_qubits, J_func, degrees, quality, hamming_prob):
     hamming_prob[-1] = 2.0
 
 
-# Written by Elara (OpenAI custom GPT)
+# Written by Elara (OpenAI custom GPT) and improved by Dan Strano
 @njit
-def local_repulsion_choice(adjacency, degrees, weights, n, m):
+def local_repulsion_choice(adjacency_data, adjacency_rows, weights, n, m):
     """
+
 
     Pick m nodes out of n with repulsion bias:
     - High-degree nodes are already less likely
     - After choosing a node, its neighbors' probabilities are further reduced
-    adjacency: 2D int array (n x max_deg), padded with -1
-
-    degrees: int array of shape (n,)
+    adjacency_data, adjacency_rows: CSR-format sparse adjacency data
     weights: float64 array of shape (n,)
     """
 
@@ -156,10 +155,8 @@ def local_repulsion_choice(adjacency, degrees, weights, n, m):
         mask[node] = True
 
         # Repulsion: penalize neighbors
-        for j in range(degrees[node]):
-            nbr = adjacency[node, j]
-            if nbr < 0:
-                break
+        for j in range(adjacency_rows[node], adjacency_rows[node + 1]):
+            nbr = adjacency_data[j]
             if available[nbr]:
                 weights[nbr] *= 0.5  # tunable penalty factor
 
@@ -171,19 +168,38 @@ def compute_energy(sample, G_m, n_qubits):
     energy = 0
     for u in range(n_qubits):
         for v in range(u + 1, n_qubits):
-            eigen = 1 if sample[u] == sample[v] else -1
-            energy += G_m[u, v] * eigen
+            energy += G_m[u, v] * (1 if sample[u] == sample[v] else -1)
 
     return energy
 
 
 @njit(parallel=True)
-def sample_for_solution(G_m, shots, thresholds, degrees, J_eff, n):
-    adjacency = compute_adjacency(G_m, degrees.max())
+def compute_adjacency(G_m, size):
+    n_qubits = G_m.shape[0]
+    adjacency_rows = np.empty(n_qubits + 1, dtype=np.int32)
+    adjacency_rows[0] = 0
+    adjacency_data = np.full(size, -1, dtype=np.int32)
+    k = 0
+    for i in prange(n_qubits):
+        for j in range(n_qubits):
+            if (i == j) or (G_m[i, j] <= 0.0):
+                continue
+            adjacency_data[k] = j
+            k += 1
+        adjacency_rows[i + 1] = k
+
+    np.resize(adjacency_data, k)
+
+    return adjacency_data, adjacency_rows
+
+
+@njit(parallel=True)
+def sample_for_solution(G_m, shots, thresholds, degrees_sum, J_eff, n):
+    adjacency_data, adjacency_rows = compute_adjacency(G_m, degrees_sum)
     weights = 1.0 / (1.0 + (2 ** -52) - J_eff)
 
-    best_solution = np.zeros(n, dtype=np.bool_)
-    best_energy = compute_energy(best_solution, G_m, n)
+    solutions = np.empty((shots, n), dtype=np.bool_)
+    energies = np.empty(shots, dtype=np.float64)
 
     for s in prange(shots):
         # First dimension: Hamming weight
@@ -194,20 +210,20 @@ def sample_for_solution(G_m, shots, thresholds, degrees, J_eff, n):
         m += 1
 
         # Second dimension: permutation within Hamming weight
-        sample = local_repulsion_choice(adjacency, degrees, weights, n, m)
+        sample = local_repulsion_choice(adjacency_data, adjacency_rows, weights, n, m)
 
-        energy = compute_energy(sample, G_m, n)
-        if energy < best_energy:
-            best_energy = energy
-            best_solution = sample
+        solutions[s] = sample
+        energies[s] = compute_energy(sample, G_m, n)
 
-    best_value = 0
+    best_solution = solutions[np.argmin(energies)]
+
+    best_value = 0.0
     for u in range(n):
         for v in range(u + 1, n):
             if best_solution[u] != best_solution[v]:
                 best_value += G_m[u, v]
 
-    return best_solution, float(best_value)
+    return best_solution, best_value
 
 
 @njit
@@ -227,6 +243,7 @@ def init_J_and_z(G_m):
     J_eff /= J_max
 
     return J_eff, degrees
+
 
 @njit
 def init_thresholds(n_qubits):
@@ -266,21 +283,6 @@ def init_theta(delta_t, tot_t, h_mult, n_qubits, J_eff, degrees):
         )
 
     return theta
-
-@njit(parallel=True)
-def compute_adjacency(G_m, max_degree):
-    n_qubits = len(G_m)
-    adjacency = np.full((n_qubits, max_degree), -1, dtype=np.int32)
-    for i in prange(n_qubits):
-        k = 0
-        for j in range(n_qubits):
-            if i == j:
-                continue
-            if G_m[i, j] > 0.0:
-                adjacency[i, k] = j
-                k += 1
-
-    return adjacency
 
 
 def maxcut_tfim(
@@ -368,7 +370,7 @@ def maxcut_tfim(
     else:
         maxcut_hamming_cdf(n_qubits, J_eff, degrees, quality, hamming_prob)
 
-    best_solution, best_value = sample_for_solution(G_m, shots, hamming_prob, degrees, J_eff, n_qubits)
+    best_solution, best_value = sample_for_solution(G_m, shots, hamming_prob, degrees.sum(), J_eff, n_qubits)
 
     bit_string = ""
     l, r = [], []

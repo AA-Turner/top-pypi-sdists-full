@@ -114,7 +114,7 @@ class TraceManager:
             self._print_trace_status(
                 message=f"WARNING: Exiting with {queue_size + in_flight} abaonded trace(s).",
                 trace_worker_status=TraceWorkerStatus.WARNING,
-                description=f"Set {CONFIDENT_TRACE_FLUSH}=YES as an environment variable to flush remaining traces to Confident AI.",
+                description=f"Set {CONFIDENT_TRACE_FLUSH}=1 as an environment variable to flush remaining traces to Confident AI.",
             )
 
     def mask(self, data: Any):
@@ -314,7 +314,7 @@ class TraceManager:
                     env_text,
                     message + ":",
                     description,
-                    f"\nTo disable dev logging, set {CONFIDENT_TRACE_VERBOSE}=NO as an environment variable.",
+                    f"\nTo disable dev logging, set {CONFIDENT_TRACE_VERBOSE}=0 as an environment variable.",
                 )
             else:
                 console.print(message_prefix, env_text, message)
@@ -716,6 +716,16 @@ class TraceManager:
             api_span.cost_per_output_token = span.cost_per_output_token
             api_span.input_token_count = span.input_token_count
             api_span.output_token_count = span.output_token_count
+
+            processed_token_intervals = {}
+            if span.token_intervals:
+                for key, value in span.token_intervals.items():
+                    time = to_zod_compatible_iso(
+                        perf_counter_to_datetime(key),
+                        microsecond_precision=True,
+                    )
+                    processed_token_intervals[time] = value
+                api_span.token_intervals = processed_token_intervals
 
         return api_span
 

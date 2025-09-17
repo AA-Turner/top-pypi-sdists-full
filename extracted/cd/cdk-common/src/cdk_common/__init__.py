@@ -5652,6 +5652,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSOBSERVABILITY_ADMIN_LOGS_CENTRALIZATION_SERVICE_ROLE_POLICY = "AWSOBSERVABILITY_ADMIN_LOGS_CENTRALIZATION_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

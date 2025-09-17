@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class TrajectoryWaitForIO(BaseModel):
     """
-    TrajectoryWaitForIO
+    Waiting for an I/O event to start execution. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

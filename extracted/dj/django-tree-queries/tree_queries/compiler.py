@@ -1,4 +1,5 @@
 import django
+from django.core.exceptions import FieldDoesNotExist
 from django.db import connections
 from django.db.models import Expression, F, QuerySet, Value, Window
 from django.db.models.functions import RowNumber
@@ -281,7 +282,7 @@ class TreeCompiler(SQLCompiler):
         tree_fields = self.query.get_tree_fields()
         if tree_fields:
             model = _find_tree_model(self.query.model)
-            for name, column in tree_fields.items():
+            for _name, column in tree_fields.items():
                 # Only allow simple column names (no complex expressions)
                 if not isinstance(column, str):
                     return False
@@ -319,7 +320,7 @@ class TreeCompiler(SQLCompiler):
         if not hasattr(field, "get_internal_type"):
             return False
         field_type = field.get_internal_type()
-        if field_type not in (
+        return field_type in (
             "AutoField",
             "BigAutoField",
             "IntegerField",
@@ -327,10 +328,7 @@ class TreeCompiler(SQLCompiler):
             "PositiveIntegerField",
             "PositiveSmallIntegerField",
             "SmallIntegerField",
-        ):
-            return False
-
-        return True
+        )
 
     def get_rank_table(self):
         # Get and validate sibling_order

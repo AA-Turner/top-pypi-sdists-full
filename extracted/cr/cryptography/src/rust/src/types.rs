@@ -7,7 +7,7 @@ use pyo3::types::PyAnyMethods;
 pub struct LazyPyImport {
     module: &'static str,
     names: &'static [&'static str],
-    value: pyo3::sync::GILOnceCell<pyo3::PyObject>,
+    value: pyo3::sync::PyOnceLock<pyo3::Py<pyo3::PyAny>>,
 }
 
 impl LazyPyImport {
@@ -15,7 +15,7 @@ impl LazyPyImport {
         LazyPyImport {
             module,
             names,
-            value: pyo3::sync::GILOnceCell::new(),
+            value: pyo3::sync::PyOnceLock::new(),
         }
     }
 
@@ -37,7 +37,6 @@ pub static DATETIME_TIMEZONE_UTC: LazyPyImport =
     LazyPyImport::new("datetime", &["timezone", "utc"]);
 pub static IPADDRESS_IPADDRESS: LazyPyImport = LazyPyImport::new("ipaddress", &["ip_address"]);
 pub static IPADDRESS_IPNETWORK: LazyPyImport = LazyPyImport::new("ipaddress", &["ip_network"]);
-pub static OS_URANDOM: LazyPyImport = LazyPyImport::new("os", &["urandom"]);
 
 pub static DEPRECATED_IN_36: LazyPyImport =
     LazyPyImport::new("cryptography.utils", &["DeprecatedIn36"]);
@@ -47,8 +46,6 @@ pub static DEPRECATED_IN_42: LazyPyImport =
     LazyPyImport::new("cryptography.utils", &["DeprecatedIn42"]);
 pub static DEPRECATED_IN_43: LazyPyImport =
     LazyPyImport::new("cryptography.utils", &["DeprecatedIn43"]);
-pub static DEPRECATED_IN_45: LazyPyImport =
-    LazyPyImport::new("cryptography.utils", &["DeprecatedIn45"]);
 
 pub static ENCODING: LazyPyImport = LazyPyImport::new(
     "cryptography.hazmat.primitives.serialization",
@@ -611,10 +608,10 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        pyo3::prepare_freethreaded_python();
+        pyo3::Python::initialize();
 
         let v = LazyPyImport::new("foo", &["bar"]);
-        pyo3::Python::with_gil(|py| {
+        pyo3::Python::attach(|py| {
             assert!(v.get(py).is_err());
         });
     }

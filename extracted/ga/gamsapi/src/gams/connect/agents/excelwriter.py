@@ -407,12 +407,10 @@ class ExcelWriter(ExcelAgent):
 
         self._validate_range(sym_name, df, rdim, cdim, nw_col, nw_row, se_col, se_row)
 
-        if gt_sym.records is None or gt_sym.number_records == 0:
-            if self._toc and self._toc["emptySymbols"]:
-                self._toc_symbols.append((gt_sym, toc_range))
-            return
-
         self._toc_symbols.append((gt_sym, toc_range))
+
+        if gt_sym.records is None or gt_sym.number_records == 0:
+            return
 
         self._write(
             df,
@@ -430,8 +428,6 @@ class ExcelWriter(ExcelAgent):
             self._describe_container(self._cdb.container, "Connect Container:")
 
         toc = self._inst_raw.get("tableOfContents")
-        if isinstance(toc, dict) and "emptySymbols" in toc:
-            warnings.warn("Option 'emptySymbols' is deprecated and will be removed in a future release. Empty symbols will always be contained in the table of contents.", category=Warning)
 
         self._open()
 

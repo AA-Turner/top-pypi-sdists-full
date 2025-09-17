@@ -742,6 +742,8 @@ class SubscriptionFilterTypeDef(TypedDict):
     distribution: NotRequired[DistributionType]
     applyOnTransformedLogs: NotRequired[bool]
     creationTime: NotRequired[int]
+    fieldSelectionCriteria: NotRequired[str]
+    emitSystemFields: NotRequired[List[str]]
 
 class DisassociateKmsKeyRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -1099,6 +1101,8 @@ class PutSubscriptionFilterRequestTypeDef(TypedDict):
     roleArn: NotRequired[str]
     distribution: NotRequired[DistributionType]
     applyOnTransformedLogs: NotRequired[bool]
+    fieldSelectionCriteria: NotRequired[str]
+    emitSystemFields: NotRequired[Sequence[str]]
 
 class RenameKeyEntryTypeDef(TypedDict):
     key: str
@@ -1615,6 +1619,8 @@ class MetricFilterTypeDef(TypedDict):
     creationTime: NotRequired[int]
     logGroupName: NotRequired[str]
     applyOnTransformedLogs: NotRequired[bool]
+    fieldSelectionCriteria: NotRequired[str]
+    emitSystemFieldDimensions: NotRequired[List[str]]
 
 MetricTransformationUnionTypeDef = Union[
     MetricTransformationTypeDef, MetricTransformationOutputTypeDef
@@ -1782,6 +1788,8 @@ class PutMetricFilterRequestTypeDef(TypedDict):
     filterPattern: str
     metricTransformations: Sequence[MetricTransformationUnionTypeDef]
     applyOnTransformedLogs: NotRequired[bool]
+    fieldSelectionCriteria: NotRequired[str]
+    emitSystemFieldDimensions: NotRequired[Sequence[str]]
 
 MoveKeysUnionTypeDef = Union[MoveKeysTypeDef, MoveKeysOutputTypeDef]
 

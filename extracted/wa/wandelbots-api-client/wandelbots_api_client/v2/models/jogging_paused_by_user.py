@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class JoggingPausedByUser(BaseModel):
     """
-    JoggingPausedByUser
+    User has paused jogging. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

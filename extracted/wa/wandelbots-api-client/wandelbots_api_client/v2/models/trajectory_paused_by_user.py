@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class TrajectoryPausedByUser(BaseModel):
     """
-    TrajectoryPausedByUser
+    User has paused execution. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

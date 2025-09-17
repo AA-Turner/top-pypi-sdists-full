@@ -16,31 +16,27 @@ class ContextBuilder:
     @staticmethod
     def chain_of_thought_instructions_and_final_prompt(trigger: ChainOfThoughtInChatTrigger) -> str:
         context = """
-        Remember you can call as many tools as you need to succesfully perform the task.
-        ABSOLUTELY ALWAYS CALL THE TOOL "add_chain_of_thought" TO EXPLAIN YOUR REASONING.
         You are to always provide a summary of your chain of thought so the business has a better understanding of the reasoning.
         Keep the summary short. As simple as possible. 1-2 sentences. And come up with a title as a preview of the chain of thought.
+        Always confirm that you're following each unbreakable rule."
         """
-        if trigger == ChainOfThoughtInChatTrigger.USER_MESSAGE:
-            context += "Since the trigger is a user message, the trigger_id should be te message id and the 'trigger' should be 'user_message'."
-        elif trigger == ChainOfThoughtInChatTrigger.FOLLOW_UP:
-            context += "Since the trigger is a follow up, the trigger_id should be the workflow assigned to chat id of the smart follow up and the 'trigger' should be 'follow_up'."
         return context
 
     @staticmethod
     def common_prompt(agent: ChattyAIAgent, mode_in_chat: ChattyAIMode, company_info:EmpresaModel) -> str:
-        context = f"You are a WhatsApp AI Agent {agent.name} (your agent id is: {agent.id}) for the company {company_info.name}."
+        context = f"You are a WhatsApp AI Agent {agent.name} [comment: your agent id is {agent.id}] for the company {company_info.name}."
+        context += f"In order of relevance, the most important knowleadge base are the chat examples, they have both the information, reasoning, and expected answer for each case. Then you can use both contexts and fast answers to write / enrich your answer to suit the user's question. But always prioritize the chat examples. Last but not least, once you have your answer, ALWAYS check each unbreakable rule is being followed. If you can't follow them and answer at the same time, escalate to a human."
         context += f"\nThe current time is {datetime.now(ZoneInfo('UTC')).strftime('%Y-%m-%d %H:%M:%S')} (UTC-0)"
         context += f"\nHere's your desired behavior and personality: {agent.personality}"
         context += f"\nYour answers should be in the same lenguage as the user's messages. Default lenguage is Spanish."
         context += f"\nYour overall general objective is: {agent.general_objective}"
-        context += f"\nAs for the format, you should try to separate your messages with a line break to make it easier to read, and to make it more human like. You can also separate the answer in messages, but max 3-4 messages."
+        context += f"\nAs for the format of your answer: We want you to be as human as possible. When the answer requires it for redability, split it into max 3 messages that make sense. You are also to use line breaks inside each message to make it more readable."
         context += f"\n\n{ChattyAIMode.get_context_for_mode(mode_in_chat)}"
         return context
 
     @staticmethod
     def contexts_prompt(contexts: List[ContextItem]) -> str:
-        context = ""
+        context = "This is your knowleadge base, feel free to use it to answer the user's question."
         for context_item in contexts:
             context += f"\n\n{context_item.name}: {context_item.content}"
         return context
@@ -54,7 +50,7 @@ class ContextBuilder:
 
     @staticmethod
     def examples_prompt(examples: List[ChatExample]) -> str:
-        context = f"\n\nHere are the examples of how you should reason (chain of thought) based on the user's messages and answer accordingly. This is the type of reasoning you're expected to do and add to your answer's chain of thought."
+        context = f"\n\nThis is the MOST IMPORTANT part of your knowledge base. It includes examples of real interactions with users, and the reasoning you should do to answer the user's question. If there's an example that matches the user's question, mantain the exact same reasoning and answer if possible (maybe you need to add some details to the example to fit the user's question)."
         for example_index, example in enumerate(examples):
             context += f"\n{example_index + 1}. {example.name}\n"
             for element in example.content:
@@ -75,14 +71,15 @@ class ContextBuilder:
 
     @staticmethod
     def control_triggers_prompt(agent: ChattyAIAgent) -> str:
-        context = f"\n\nHere are the control triggers you must follow. If you identify any of these situations, you must call the human_handover tool:"
+        context = f"\n\nHere are the control triggers you must follow. If you identify any of these situations:"
         for trigger in agent.control_triggers:
             context += f"\n{trigger}"
-        context += "If you do call the human_handover tool, ALWAYS send a message to the user explaining that you're escalating the question to a human and that you'll be back soon."
+        context += "If you escalate, send a message to the user explaining that we'll answer their question as soon as possible. Always prioritize the escalation message the company has set for this situation if any."
         return context
 
     @staticmethod
     def chain_of_thought_prompt(agent: ChattyAIAgent, mode_in_chat: ChattyAIMode, trigger: ChainOfThoughtInChatTrigger) -> str:
-        context = f"\n\nRemember that {ChattyAIMode.get_context_for_mode(mode_in_chat)}"
+        context = f"\n\nRemember that {mode_in_chat.value} mode."
+        context += "Remember to follow each unbreakable rule."
         context += f"\n\n{ContextBuilder.chain_of_thought_instructions_and_final_prompt(trigger)}"
         return context

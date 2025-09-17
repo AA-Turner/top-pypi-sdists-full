@@ -345,9 +345,7 @@ def var_to_struct(val, name, format='%s', do_trim=True, evaluate_full_value=True
     # data type info to xml (for arrays and tensors)
     debug_value.arrayElementType = ''
     try:
-        if (is_container_with_shape_dtype(type_qualifier, typeName, v)
-                and hasattr(v, 'dtype')
-                and hasattr(v.dtype, 'name')):
+        if is_container_with_shape_dtype(type_qualifier, typeName, v) and hasattr(v, 'dtype'):
             debug_value.arrayElementType = str(v.dtype)
     except:
         pass

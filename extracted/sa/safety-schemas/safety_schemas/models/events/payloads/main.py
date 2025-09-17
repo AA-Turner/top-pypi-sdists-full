@@ -64,6 +64,7 @@ class ToolCommandExecutedPayload(PayloadBase):
     tool: ToolType = Field(
         description="Tool Type (e.g., 'pip', 'uv', 'poetry', 'npm')"
     )
+    tool_path: Optional[str] = Field(default=None, description="Absolute path to the tool's executable")
     raw_command: List[LimitedStr] = Field(
         description="Complete command as a list (equivalent to sys.argv)"
     )    
@@ -95,6 +96,8 @@ class CommandErrorPayload(PayloadBase):
 class PackagePayloadBase(PayloadBase):
     package_name: str = Field(description="Name of the package")
     tool: ToolType = Field(description="ToolType used (e.g., pip, conda)")
+    tool_path: Optional[str] = Field(default=None, description="Absolute path to the tool's executable")
+    location: Optional[str] = Field(default=None, description="Location of the package")
 
 
 class SingleVersionPackagePayload(PackagePayloadBase):

@@ -24,7 +24,11 @@ else:
 __all__ = (
     "ChangeProgressStageStatusesType",
     "ChangeProgressStatusesType",
+    "ListPipelineEndpointConnectionsPaginatorName",
+    "ListPipelineEndpointsPaginatorName",
     "OpenSearchIngestionServiceName",
+    "PaginatorName",
+    "PipelineEndpointStatusType",
     "PipelineStatusType",
     "RegionName",
     "ResourceServiceName",
@@ -35,6 +39,11 @@ __all__ = (
 
 ChangeProgressStageStatusesType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
 ChangeProgressStatusesType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
+ListPipelineEndpointConnectionsPaginatorName = Literal["list_pipeline_endpoint_connections"]
+ListPipelineEndpointsPaginatorName = Literal["list_pipeline_endpoints"]
+PipelineEndpointStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "REVOKED", "REVOKING"
+]
 PipelineStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",
@@ -415,7 +424,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -468,6 +476,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_pipeline_endpoint_connections", "list_pipeline_endpoints"]
 RegionName = Literal[
     "ap-northeast-1",
     "ap-northeast-2",

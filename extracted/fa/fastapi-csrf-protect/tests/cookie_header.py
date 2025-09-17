@@ -2,7 +2,7 @@
 # coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/tests/cookie_header.py
-# VERSION:     1.0.6
+# VERSION:     1.0.7
 # CREATED:     2025-02-04 11:14
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION:
@@ -89,6 +89,7 @@ def test_submit_csrf_token_in_headers_and_cookie(
       ("token_location", "header"),
     ),
   ),
+  ids=("cookie-header-secure-http",),
 )
 def test_submit_csrf_token_in_headers_and_cookies_secure_but_using_http(
   csrf_settings: tuple[tuple[str, str], ...], test_client: TestClient
@@ -142,10 +143,10 @@ def test_submit_csrf_token_in_headers_and_cookies_secure_but_using_http(
     ),
   ),
   ids=(
-    "cookie-headers-secure",
-    "cookie-headers-samesite-lax-secure",
-    "cookie-headers-samesite-none-secure",
-    "cookie-headers-samesite-strict-secure",
+    "cookie-header-secure-https",
+    "cookie-header-samesite-lax-secure-https",
+    "cookie-header-samesite-none-secure-https",
+    "cookie-header-samesite-strict-secure-https",
   ),
 )
 def test_submit_csrf_token_in_headers_and_cookie_secure(

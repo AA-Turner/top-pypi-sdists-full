@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0"]
 
 [project]
 name = "aioshelly"
-version = "13.9.0"
+version = "13.10.0"
 license = "Apache-2.0"
 description = "Asynchronous library to control Shelly devices."
 readme = "README.md"
@@ -30,16 +30,16 @@ dependencies = [
 
 [project.optional-dependencies]
 lint = [
-  "mypy==1.17.1",
+  "mypy==1.18.1",
   "pydocstyle==6.3.0",
-  "ruff==0.12.12",
+  "ruff==0.13.0",
   "types-requests",
 ]
 dev = [
   "aioresponses==0.7.8",
   "pre-commit==4.3.0",
-  "pytest-asyncio==1.1.0",
-  "pytest-cov==6.3.0",
+  "pytest-asyncio==1.2.0",
+  "pytest-cov==7.0.0",
   "pytest==8.4.2",
   "requests",
   "tox==4.30.2",

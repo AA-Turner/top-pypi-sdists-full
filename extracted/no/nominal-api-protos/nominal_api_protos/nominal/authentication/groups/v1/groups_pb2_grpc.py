@@ -5,7 +5,7 @@ import warnings
 
 from nominal.authentication.groups.v1 import groups_pb2 as nominal_dot_authentication_dot_groups_dot_v1_dot_groups__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

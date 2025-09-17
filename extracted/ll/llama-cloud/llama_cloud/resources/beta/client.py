@@ -12,6 +12,9 @@ from ...core.jsonable_encoder import jsonable_encoder
 from ...core.remove_none_from_dict import remove_none_from_dict
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.agent_data import AgentData
+from ...types.api_key import ApiKey
+from ...types.api_key_query_response import ApiKeyQueryResponse
+from ...types.api_key_type import ApiKeyType
 from ...types.batch import Batch
 from ...types.batch_paginated_list import BatchPaginatedList
 from ...types.batch_public_output import BatchPublicOutput
@@ -45,6 +48,220 @@ OMIT = typing.cast(typing.Any, ...)
 class BetaClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def list_api_keys(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        key_type: typing.Optional[ApiKeyType] = None,
+    ) -> ApiKeyQueryResponse:
+        """
+        List API keys.
+
+        If project_id is provided, validates user has access to that project.
+        If project_id is not provided, scopes results to the current user.
+
+        Args:
+        user: Current user
+        db: Database session
+        page_size: Number of items per page
+        page_token: Token for pagination
+        name: Filter by API key name
+        project_id: Filter by project ID
+        key_type: Filter by key type
+
+        Returns:
+        Paginated response with API keys
+
+        Parameters:
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - name: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - key_type: typing.Optional[ApiKeyType].
+        ---
+        from llama_cloud import ApiKeyType
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.list_api_keys(
+            key_type=ApiKeyType.USER,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/api-keys"),
+            params=remove_none_from_dict(
+                {
+                    "page_size": page_size,
+                    "page_token": page_token,
+                    "name": name,
+                    "project_id": project_id,
+                    "key_type": key_type,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKeyQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create_api_key(
+        self,
+        *,
+        name: typing.Optional[str] = OMIT,
+        project_id: typing.Optional[str] = OMIT,
+        key_type: typing.Optional[ApiKeyType] = OMIT,
+    ) -> ApiKey:
+        """
+        Create a new API key.
+
+        If project_id is specified, validates user has admin permissions for that project.
+
+        Args:
+        api_key_create: API key creation data
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created API key with the secret key visible in redacted_api_key field
+
+        Parameters:
+            - name: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - key_type: typing.Optional[ApiKeyType].
+        ---
+        from llama_cloud import ApiKeyType
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.create_api_key(
+            key_type=ApiKeyType.USER,
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if name is not OMIT:
+            _request["name"] = name
+        if project_id is not OMIT:
+            _request["project_id"] = project_id
+        if key_type is not OMIT:
+            _request["key_type"] = key_type
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/api-keys"),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKey, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get_api_key(self, api_key_id: str) -> ApiKey:
+        """
+        Get an API key by ID.
+
+        Args:
+        api_key_id: The ID of the API key
+        user: Current user
+        db: Database session
+
+        Returns:
+        The API key
+
+        Parameters:
+            - api_key_id: str.
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.get_api_key(
+            api_key_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/api-keys/{api_key_id}"),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKey, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_api_key(self, api_key_id: str) -> None:
+        """
+        Delete an API key.
+
+        If the API key belongs to a project, validates user has admin permissions for that project.
+        If the API key has no project, validates it belongs to the current user.
+
+        Args:
+        api_key_id: The ID of the API key to delete
+        user: Current user
+        db: Database session
+
+        Parameters:
+            - api_key_id: str.
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.delete_api_key(
+            api_key_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/api-keys/{api_key_id}"),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def list_batches(
         self,
@@ -350,7 +567,7 @@ class BetaClient:
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         data: typing.Dict[str, typing.Any],
     ) -> AgentData:
@@ -362,7 +579,7 @@ class BetaClient:
 
             - organization_id: typing.Optional[str].
 
-            - agent_slug: str.
+            - deployment_name: str.
 
             - collection: typing.Optional[str].
 
@@ -374,11 +591,11 @@ class BetaClient:
             token="YOUR_TOKEN",
         )
         client.beta.create_agent_data(
-            agent_slug="string",
+            deployment_name="string",
             data={"string": {}},
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug, "data": data}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name, "data": data}
         if collection is not OMIT:
             _request["collection"] = collection
         _response = self._client_wrapper.httpx_client.request(
@@ -408,7 +625,7 @@ class BetaClient:
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
         order_by: typing.Optional[str] = OMIT,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         include_total: typing.Optional[bool] = OMIT,
         offset: typing.Optional[int] = OMIT,
@@ -429,7 +646,7 @@ class BetaClient:
 
             - order_by: typing.Optional[str].
 
-            - agent_slug: str. The agent deployment's agent_slug to search within
+            - deployment_name: str. The agent deployment's name to search within
 
             - collection: typing.Optional[str]. The logical agent data collection to search within
 
@@ -443,10 +660,10 @@ class BetaClient:
             token="YOUR_TOKEN",
         )
         client.beta.search_agent_data_api_v_1_beta_agent_data_search_post(
-            agent_slug="string",
+            deployment_name="string",
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name}
         if page_size is not OMIT:
             _request["page_size"] = page_size
         if page_token is not OMIT:
@@ -488,7 +705,7 @@ class BetaClient:
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
         order_by: typing.Optional[str] = OMIT,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         group_by: typing.Optional[typing.List[str]] = OMIT,
         count: typing.Optional[bool] = OMIT,
@@ -511,7 +728,7 @@ class BetaClient:
 
             - order_by: typing.Optional[str].
 
-            - agent_slug: str. The agent deployment's agent_slug to aggregate data for
+            - deployment_name: str. The agent deployment's name to aggregate data for
 
             - collection: typing.Optional[str]. The logical agent data collection to aggregate data for
 
@@ -529,10 +746,10 @@ class BetaClient:
             token="YOUR_TOKEN",
         )
         client.beta.aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
-            agent_slug="string",
+            deployment_name="string",
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name}
         if page_size is not OMIT:
             _request["page_size"] = page_size
         if page_token is not OMIT:
@@ -1357,6 +1574,220 @@ class AsyncBetaClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    async def list_api_keys(
+        self,
+        *,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        project_id: typing.Optional[str] = None,
+        key_type: typing.Optional[ApiKeyType] = None,
+    ) -> ApiKeyQueryResponse:
+        """
+        List API keys.
+
+        If project_id is provided, validates user has access to that project.
+        If project_id is not provided, scopes results to the current user.
+
+        Args:
+        user: Current user
+        db: Database session
+        page_size: Number of items per page
+        page_token: Token for pagination
+        name: Filter by API key name
+        project_id: Filter by project ID
+        key_type: Filter by key type
+
+        Returns:
+        Paginated response with API keys
+
+        Parameters:
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - name: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - key_type: typing.Optional[ApiKeyType].
+        ---
+        from llama_cloud import ApiKeyType
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.list_api_keys(
+            key_type=ApiKeyType.USER,
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/api-keys"),
+            params=remove_none_from_dict(
+                {
+                    "page_size": page_size,
+                    "page_token": page_token,
+                    "name": name,
+                    "project_id": project_id,
+                    "key_type": key_type,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKeyQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_api_key(
+        self,
+        *,
+        name: typing.Optional[str] = OMIT,
+        project_id: typing.Optional[str] = OMIT,
+        key_type: typing.Optional[ApiKeyType] = OMIT,
+    ) -> ApiKey:
+        """
+        Create a new API key.
+
+        If project_id is specified, validates user has admin permissions for that project.
+
+        Args:
+        api_key_create: API key creation data
+        user: Current user
+        db: Database session
+
+        Returns:
+        The created API key with the secret key visible in redacted_api_key field
+
+        Parameters:
+            - name: typing.Optional[str].
+
+            - project_id: typing.Optional[str].
+
+            - key_type: typing.Optional[ApiKeyType].
+        ---
+        from llama_cloud import ApiKeyType
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.create_api_key(
+            key_type=ApiKeyType.USER,
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if name is not OMIT:
+            _request["name"] = name
+        if project_id is not OMIT:
+            _request["project_id"] = project_id
+        if key_type is not OMIT:
+            _request["key_type"] = key_type
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/api-keys"),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKey, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get_api_key(self, api_key_id: str) -> ApiKey:
+        """
+        Get an API key by ID.
+
+        Args:
+        api_key_id: The ID of the API key
+        user: Current user
+        db: Database session
+
+        Returns:
+        The API key
+
+        Parameters:
+            - api_key_id: str.
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.get_api_key(
+            api_key_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/api-keys/{api_key_id}"),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(ApiKey, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_api_key(self, api_key_id: str) -> None:
+        """
+        Delete an API key.
+
+        If the API key belongs to a project, validates user has admin permissions for that project.
+        If the API key has no project, validates it belongs to the current user.
+
+        Args:
+        api_key_id: The ID of the API key to delete
+        user: Current user
+        db: Database session
+
+        Parameters:
+            - api_key_id: str.
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.delete_api_key(
+            api_key_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/api-keys/{api_key_id}"),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     async def list_batches(
         self,
         *,
@@ -1661,7 +2092,7 @@ class AsyncBetaClient:
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         data: typing.Dict[str, typing.Any],
     ) -> AgentData:
@@ -1673,7 +2104,7 @@ class AsyncBetaClient:
 
             - organization_id: typing.Optional[str].
 
-            - agent_slug: str.
+            - deployment_name: str.
 
             - collection: typing.Optional[str].
 
@@ -1685,11 +2116,11 @@ class AsyncBetaClient:
             token="YOUR_TOKEN",
         )
         await client.beta.create_agent_data(
-            agent_slug="string",
+            deployment_name="string",
             data={"string": {}},
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug, "data": data}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name, "data": data}
         if collection is not OMIT:
             _request["collection"] = collection
         _response = await self._client_wrapper.httpx_client.request(
@@ -1719,7 +2150,7 @@ class AsyncBetaClient:
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
         order_by: typing.Optional[str] = OMIT,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         include_total: typing.Optional[bool] = OMIT,
         offset: typing.Optional[int] = OMIT,
@@ -1740,7 +2171,7 @@ class AsyncBetaClient:
 
             - order_by: typing.Optional[str].
 
-            - agent_slug: str. The agent deployment's agent_slug to search within
+            - deployment_name: str. The agent deployment's name to search within
 
             - collection: typing.Optional[str]. The logical agent data collection to search within
 
@@ -1754,10 +2185,10 @@ class AsyncBetaClient:
             token="YOUR_TOKEN",
         )
         await client.beta.search_agent_data_api_v_1_beta_agent_data_search_post(
-            agent_slug="string",
+            deployment_name="string",
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name}
         if page_size is not OMIT:
             _request["page_size"] = page_size
         if page_token is not OMIT:
@@ -1799,7 +2230,7 @@ class AsyncBetaClient:
         page_token: typing.Optional[str] = OMIT,
         filter: typing.Optional[typing.Dict[str, typing.Optional[FilterOperation]]] = OMIT,
         order_by: typing.Optional[str] = OMIT,
-        agent_slug: str,
+        deployment_name: str,
         collection: typing.Optional[str] = OMIT,
         group_by: typing.Optional[typing.List[str]] = OMIT,
         count: typing.Optional[bool] = OMIT,
@@ -1822,7 +2253,7 @@ class AsyncBetaClient:
 
             - order_by: typing.Optional[str].
 
-            - agent_slug: str. The agent deployment's agent_slug to aggregate data for
+            - deployment_name: str. The agent deployment's name to aggregate data for
 
             - collection: typing.Optional[str]. The logical agent data collection to aggregate data for
 
@@ -1840,10 +2271,10 @@ class AsyncBetaClient:
             token="YOUR_TOKEN",
         )
         await client.beta.aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
-            agent_slug="string",
+            deployment_name="string",
         )
         """
-        _request: typing.Dict[str, typing.Any] = {"agent_slug": agent_slug}
+        _request: typing.Dict[str, typing.Any] = {"deployment_name": deployment_name}
         if page_size is not OMIT:
             _request["page_size"] = page_size
         if page_token is not OMIT:

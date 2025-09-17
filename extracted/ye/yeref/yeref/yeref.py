@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # region data
 import ast
-import copy
 import asyncio
 import base64
 import gzip
@@ -47,7 +46,6 @@ from urllib.parse import parse_qsl
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from aiohttp import FormData
 import aiofiles
 import aiohttp
 import aiosqlite
@@ -121,7 +119,7 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_tools_has_restricted, l_bot_need_start_add, l_chn_need_boost_for_story, l_bot_need_restart_extra_bot, \
     l_bot_pub_with_payment, l_sub_to_private_channel, l_payment_6_months, l_payment_1_months, l_material, \
     l_payment_success, l_payment_hashtag, l_inline_codex, l_permissions_add_members, l_admin_closed_group_reject, \
-    l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required, l_telegraph_title
+    l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required
 
 # region group links
 payment_link = 'http://bagazhznaniy.ru/wp-content/uploads/2014/03/zhivaya-priroda.jpg'
@@ -2892,6 +2890,130 @@ async def get_time_time(is_bid=False):
     return result
 
 
+async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_P, lz, prompt='', BOT_TOKEN_=None):
+    result_txt = [{'role': 'system', 'content': f'You are a helpful assistant for Telegram {ENT_TYPE}.'},
+                  {'role': 'assistant', 'content': 'ok'}, ]
+    result_img = ''
+    try:
+        KEYS_JSON = os.path.join(EXTRA_D, 'keys.json')
+        print(f"train_ent_chatgpt start, {ENT_TYPE=}")
+        tid = str(ENT_TID).replace('-', '')
+
+        # region init
+        if ENT_TYPE == 'bot':
+            extra_bot = Bot(token=BOT_TOKEN_)
+            short = await extra_bot.get_my_short_description()
+            short = short.short_description if short.short_description else ''
+            desc = await extra_bot.get_my_description()
+            desc = desc.description if desc.description else ''
+
+            bot_info = f'Now I give you some details about this telegram app: @username is `@{ENT_USERNAME}`, ' \
+                       f'description is `{desc}`. ' \
+                       f'And short description is `{short}`'
+            result_txt.append({'role': 'user', 'content': bot_info}),
+            result_img = f"{short}"
+            if len(result_img) < 40: result_img = f"{result_img} {desc}"
+            await extra_bot.session.close()
+        elif ENT_TYPE in ['channel', 'group', 'supergroup']:
+            get_chat_ = await bot.get_chat(int(ENT_TID))
+            info_ = f'Now I give you some details about this telegram {ENT_TYPE}: link is `{ENT_USERNAME}`, ' \
+                    f'description is `{get_chat_.description}`, title is `{get_chat_.title}`'
+            result_txt.append({'role': 'user', 'content': info_}),
+            result_img = f"{get_chat_.description}, {get_chat_.title}"
+        # endregion
+
+        print(f"0 {BASE_P=}")
+        if ENT_TYPE == 'bot':
+            # region MSG
+            sql = f"SELECT MSG_TEXT, MSG_BUTTONS FROM BOT_{tid}.MSG"
+            data = await db_select_pg(sql, (), BASE_P)
+
+            for item in data[:5]:
+                try:
+                    MSG_TEXT, MSG_BUTTONS = item
+                    MSG_BUTTONS = json.loads(MSG_BUTTONS) if MSG_BUTTONS else []
+                    MSG_BUTTONS = ', '.join([it['lbl'] for it in MSG_BUTTONS if it and 'lbl' in it])
+
+                    if MSG_TEXT:
+                        result_txt.append({'role': 'user',
+                                           'content': f'There is a message of this telegram {ENT_TYPE}: {MSG_TEXT[:128]}'})  # result_img = f"{result_img}{MSG_TEXT}\n"
+                    if MSG_BUTTONS:
+                        result_txt.append({'role': 'user',
+                                           'content': f'There are some buttons of this telegram {ENT_TYPE}: {MSG_BUTTONS}'})  # result_img = f"{result_img}{MSG_BUTTONS}\n"
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))  # endregion
+        elif ENT_TYPE in ['channel']:
+            print(1, BASE_P, ENT_TID)
+            sql = "SELECT CHANNEL_LASTMSG FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
+            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
+            CHANNEL_LASTMSG = data_chn[0][0]
+
+            if CHANNEL_LASTMSG:
+                result_txt.append({'role': 'user',
+                                   'content': f'There is a message of this telegram {ENT_TYPE}: {CHANNEL_LASTMSG}'})  # result_img = f"{result_img}. {CHANNEL_LASTMSG[:32]}\n"
+        elif ENT_TYPE in ['group']:
+            sql = "SELECT GROUPP_LASTMSG FROM \"GROUPP\" WHERE GROUPP_TID=$1"
+            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
+            GROUPP_LASTMSG = data_chn[0][0]
+
+            if GROUPP_LASTMSG:
+                result_txt.append({'role': 'user',
+                                   'content': f'There is a message of this telegram {ENT_TYPE}: {GROUPP_LASTMSG}'})  # result_img = f"{result_img}. {CHANNEL_LASTMSG[:32]}\n"
+
+        # region pst
+        schema_name = 'USER'
+        if ENT_TYPE == 'bot':
+            schema_name = 'BOT'
+        elif ENT_TYPE == 'channel':
+            schema_name = 'CHANNEL'
+        elif ENT_TYPE == 'group':
+            schema_name = 'GROUPP'
+
+        sql = f"SELECT POST_TEXT, POST_BUTTONS FROM {schema_name}_{tid}.POST"
+        data = await db_select_pg(sql, (), BASE_P)
+
+        for item in data[:5]:
+            try:
+                POST_TEXT, POST_BUTTONS = item
+
+                if POST_TEXT:
+                    result_txt.append({'role': 'user',
+                                       'content': f'There is a message of this telegram {ENT_TYPE}: {POST_TEXT[:64]}'})  # if POST_BUTTONS:  #     result_txt.append({'role': 'user',  #                        'content': f'There are some buttons of this telegram {ENT_TYPE}: {POST_BUTTONS}'})
+            except Exception as e:
+                logger.info(log_ % str(e))
+                await asyncio.sleep(round(random.uniform(0, 1), 2))
+        # endregion
+
+        result_txt.append(
+            {'role': 'user', 'content': f'So, this is all the information that exists about this {ENT_TYPE}. '
+                                        'Your task is to generate new marketing text no more than 1024 symbols'})
+
+        if prompt:
+            result_txt.append({'role': 'user', 'content': prompt})
+
+        result_txt.append({'role': 'user', 'content': f'. Please give answer in ISO language code: `{lz}`'})
+        result_inter = f"{result_img} {prompt}".replace('  ', '')
+
+        print(f"{result_inter=}")
+        if is_all_latin(result_inter):
+            result_img = f"{result_inter}"
+            # result_img = f"{prompt}"
+        else:
+            lst = await outsource_generate({'type': 'tl', 'prompt': result_inter}, KEYS_JSON)
+            if len(lst) and lst[0]['answer']:
+                if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
+                    result_inter = lst[0]['answer'].split(':')[-1]
+                else:
+                    result_inter = lst[0]['answer']
+            result_img = f"{result_inter}"
+            print(f"{result_img=}")
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result_txt, result_img
+
+
 async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MEDIA, ENT_TID, PROJECT_TYPE, ENT_USERNAME,
                        ENT_TITLE, MEDIA_D, EXTRA_D, BASE_P, prompt='', ENT_TOKEN_=None, request_app=None):
     result = dst = None
@@ -4761,7 +4883,8 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
             rnd_words = random.choices(trg_utms, k=random.randint(2, 5))
             size_kb = 256000 if mem_format == 'video' else 512000
             side_sz = '512' if mem_type == 'regular' else '100'
-            w, h = await resize_to_max_side(file_logo, side_sz, mem_type)
+            # w, h = await resize_to_max_side(file_logo, side_sz, mem_type)
+            await resize_to_max_side(file_logo, side_sz, mem_type)
             pixels_str = f"{side_sz}x{side_sz}"
 
             # region size
@@ -4979,7 +5102,7 @@ async def photo_to_circle(file_photo, mem_type):
 
         max_diameter = 512 if mem_type == 'regular' else 100
         if side > max_diameter:
-            circle.thumbnail((max_diameter, max_diameter), Image.LANCZOS)
+            circle.thumbnail((max_diameter, max_diameter), Image.Resampling.LANCZOS)
 
         # Paste onto transparent canvas
         canvas = Image.new('RGBA', (max_diameter, max_diameter), (0, 0, 0, 0))
@@ -6609,6 +6732,7 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
             for item in items:
                 try:
                     name, url, headers = item
+                    print(f"{name=}")
 
                     if name == 'tonapi':
                         async with aiohttp.ClientSession() as session:
@@ -6616,7 +6740,8 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                                 response.raise_for_status()
                                 data = await response.json()
 
-                        if 'error' in data or not data['success']: return result
+                        print(f"!..{data=}")
+                        if 'error' in data or not data['success']: continue
                         print(f'{name}: success {data=}')
                         result['next_item_index'] = data['decoded']['next_item_index']
                         result['owner_address'] = data['decoded']['owner_address']
@@ -7993,7 +8118,7 @@ async def is_subscription_expired(USER_VARS, USER_LSTS):
 
         subs_dt = []
         for p in USER_LSTS.get('USER_PAYMENTS', []):
-            dt_end = p.get('DT_END', None);
+            dt_end = p.get('DT_END', None)
             if not dt_end: continue
             try:
                 subs_dt.append(datetime.strptime(dt_end, '%d-%m-%Y_%H-%M-%S').replace(tzinfo=timezone.utc))
@@ -9325,7 +9450,7 @@ async def return_acquisition_retention_metrics(bot, data_users, EXTRA_D):
 
         f_name = os.path.join(EXTRA_D, "6_acquisition_retention_metrics.csv")
         async with aiofiles.open(f_name, "w", newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
+            # writer = csv.writer(f)
             for r in rows:
                 await f.write(",".join(r) + "\n")
         print(f"Written CSV to {f_name}")
@@ -9796,8 +9921,8 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
         POST_MEDIA = json.loads(POST_MEDIA)
         POST_BUTTONS = json.loads(POST_BUTTONS)
         POST_CHKBOX = json.loads(POST_CHKBOX)
-        POST_MEDIA_COPY = copy.deepcopy(POST_MEDIA)
-        EXTRA_D = os.path.join(os.path.dirname(MEDIA_D), "EXTRA")
+        # POST_MEDIA_COPY = copy.deepcopy(POST_MEDIA)
+        # EXTRA_D = os.path.join(os.path.dirname(MEDIA_D), "EXTRA")
 
         POST_ISTAG = POST_CHKBOX['POST_ISTAG'] if 'POST_ISTAG' in POST_CHKBOX else False
         POST_ISCOLLAPSE = POST_CHKBOX['POST_ISCOLLAPSE'] if 'POST_ISCOLLAPSE' in POST_CHKBOX else False
@@ -10248,14 +10373,6 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
 
 async def balance_html_tags_async(txt, self_closing=None):
-    """
-    Асинхронная функция:
-      1) подставляет '>' для незакрытых открывающих тегов вида "<tag" или "<tag attr='...'" (если перед следующим '<' или концом строки нет '>'),
-      2) затем балансирует теги: удаляет лишние закрывающие теги и закрывает пропущенные в LIFO-порядке.
-    Возвращает исправлённую строку.
-    Использование:
-      fixed = await balance_html_tags_async(orig_html)
-    """
     result = txt
     try:
         if txt is None: return ''
@@ -10263,8 +10380,6 @@ async def balance_html_tags_async(txt, self_closing=None):
         if self_closing is None:
             self_closing = {'br', 'img', 'hr', 'input', 'meta', 'link'}
 
-        # 1) Нормализуем незакрытые открывающие теги: если встречаем "<tag ..." и до следующего "<" или конца строки нет ">", добавляем ">"
-        #    Шаблон ищет '<' + имя тега + опциональные атрибуты, и только если до следующего '<' или конца строки нет символа '>'
         txt = re.sub(
             r'(<\s*[\w:-]+(?:\s[^<>]*)?)(?=[^>]*?(?:<|$))',
             r'\1>',
@@ -10272,7 +10387,6 @@ async def balance_html_tags_async(txt, self_closing=None):
             flags=re.DOTALL
         )
 
-        # 2) Разделяем на теги и текст и балансируем
         parts = re.split(r'(<\/?[\w:-]+(?:\s[^<>]*?)?>)', txt, flags=re.DOTALL)
         tag_re = re.compile(r'^\s*<\s*(\/?)\s*([\w:-]+)(?:\s[^<>]*?)?>\s*$', re.DOTALL)
 
@@ -10309,12 +10423,10 @@ async def balance_html_tags_async(txt, self_closing=None):
             else:
                 out.append(p)
 
-        # Закрываем незакрытые теги в обратном порядке
         while stack:
             t = stack.pop()
             out.append(f'</{t}>')
 
-        # Не блокируем event loop
         await asyncio.sleep(0)
         result = ''.join(out)
     except Exception as e:
@@ -10326,11 +10438,13 @@ async def balance_html_tags_async(txt, self_closing=None):
 async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_UN):
     result = None
     try:
+        POST_TEXT = str(POST_TEXT or '').strip()
+        if not POST_TEXT: return
+
         POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else (POST_MEDIA or [])
         if isinstance(POST_MEDIA, dict):
             POST_MEDIA = [POST_MEDIA]
 
-        POST_TEXT = POST_TEXT or ''
         placeholders = []
 
         def sanitize_pre_content(tag_html):
@@ -10367,22 +10481,22 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
             m = re.match(r'(?is)^<code\b[^>]*>(.*?)</code>$', tag_html)
             if not m:
                 return tag_html
-            inner = m.group(1)
+            inner_ = m.group(1)
             # удалить теги внутри code — оставить только текст
-            inner = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', inner)
-            inner = re.sub(r'(?is)<[^>]+>', '', inner)
-            inner = inner.strip()
-            return f'<code>{inner}</code>'
+            inner_ = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', inner_)
+            inner_ = re.sub(r'(?is)<[^>]+>', '', inner_)
+            inner_ = inner_.strip()
+            return f'<code>{inner_}</code>'
 
         def hide_pre_code(text):
             def repl(m):
                 tag = m.group(0)
                 if tag.lower().startswith('<pre'):
-                    safe = sanitize_pre_content(tag)
+                    safe_ = sanitize_pre_content(tag)
                 else:
-                    safe = sanitize_code_content(tag)
+                    safe_ = sanitize_code_content(tag)
                 i = len(placeholders)
-                placeholders.append(safe)
+                placeholders.append(safe_)
                 return f"__PRECODE_PLACEHOLDER_{i}__"
             # сначала pre затем code
             text = re.sub(r'(?is)(<pre\b[^>]*>.*?</pre>)', repl, text)
@@ -10394,33 +10508,33 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 text = text.replace(f"__PRECODE_PLACEHOLDER_{i}__", val)
             return text
 
-        safe = hide_pre_code(POST_TEXT)
+        safe_ = hide_pre_code(POST_TEXT)
 
-        safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
+        safe_ = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe_)
 
-        safe = safe.replace('&nbsp;', ' ').replace('<br>', '\n')
+        safe_ = safe_.replace('&nbsp;', ' ').replace('<br>', '\n')
 
-        safe = safe.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
+        safe_ = safe_.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
 
-        safe = re.sub(r'(?is)<span[^>]*style="[^"]*background-color:[^"]*"[^>]*>(.*?)</span>', r'\1', safe)
+        safe_ = re.sub(r'(?is)<span[^>]*style="[^"]*background-color:[^"]*"[^>]*>(.*?)</span>', r'\1', safe_)
 
-        safe = re.sub(r'(?is)<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>\s*(#[^<\s]+)\s*</span>', r'\1', safe)
+        safe_ = re.sub(r'(?is)<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>\s*(#[^<\s]+)\s*</span>', r'\1', safe_)
 
         prev = None
-        while prev != safe:
-            prev = safe
-            safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
+        while prev != safe_:
+            prev = safe_
+            safe_ = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe_)
 
-        safe = safe.replace('<strike>', '<s>').replace('</strike>', '</s>')
+        safe_ = safe_.replace('<strike>', '<s>').replace('</strike>', '</s>')
 
         inline_tags = r'(?:b|i|u|strong|em|a)'
         block_tags = r'(?:blockquote|pre|figure|aside|div|code)'
         pattern_unwrap = re.compile(rf'(?is)<\s*({inline_tags})\b[^>]*>\s*(<(?:{block_tags})\b[^>]*>.*?</(?:{block_tags})>)\s*</\1\s*>')
         while True:
-            new = pattern_unwrap.sub(r'\2', safe)
-            if new == safe:
+            new = pattern_unwrap.sub(r'\2', safe_)
+            if new == safe_:
                 break
-            safe = new
+            safe_ = new
 
         # Обработка специфичных tgui-div'ов:
         # tgui-79024... — если border-left -> blockquote, если display:inline* -> unwrap inner, иначе blockquote
@@ -10433,25 +10547,25 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 return f'<blockquote>{inner_}</blockquote>'
             return f'<blockquote>{inner_}</blockquote>'
 
-        safe = re.sub(r'(?is)<div\s+class="tgui-79024fcb6d81ad79"([^>]*)>(.*?)</div>', lambda m: replace_tgui_790(m), safe)
+        safe_ = re.sub(r'(?is)<div\s+class="tgui-79024fcb6d81ad79"([^>]*)>(.*?)</div>', lambda m: replace_tgui_790(m), safe_)
 
-        safe = re.sub(r'(?is)<div\s+class="tgui-86f452d8e92a2075[^"]*"[^>]*>(.*?)</div>', r'<blockquote>\1</blockquote>', safe)
+        safe_ = re.sub(r'(?is)<div\s+class="tgui-86f452d8e92a2075[^"]*"[^>]*>(.*?)</div>', r'<blockquote>\1</blockquote>', safe_)
 
-        safe = re.sub(r'(?is)</\s*div\s*>', '\n', safe)
-        safe = re.sub(r'(?is)<\s*div\b[^>]*>', '\n', safe)
+        safe_ = re.sub(r'(?is)</\s*div\s*>', '\n', safe_)
+        safe_ = re.sub(r'(?is)<\s*div\b[^>]*>', '\n', safe_)
 
-        safe = re.sub(r'\r', '\n', safe)
-        safe = re.sub(r'\n\s*\n+', '\n\n', safe)
-        safe = safe.strip()
+        safe_ = re.sub(r'\r', '\n', safe_)
+        safe_ = re.sub(r'\n\s*\n+', '\n\n', safe_)
+        safe_ = safe_.strip()
 
-        safe = restore_pre_code(safe)
+        safe_ = restore_pre_code(safe_)
 
-        safe = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe)
-        safe = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe)
-        safe = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe)
+        safe_ = re.sub(r'(?is)<tg-spoiler\b[^>]*>(.*?)</tg-spoiler>', r'\1', safe_)
+        safe_ = re.sub(r'(?is)<\s*div\b[^>]*>(.*?)</\s*div\s*>', r'\1', safe_)
+        safe_ = re.sub(r'(?is)<span\b[^>]*>(.*?)</span>', r'\1', safe_)
 
         blocks = []
-        for raw in safe.split('\n\n'):
+        for raw in safe_.split('\n\n'):
             b = raw.strip()
             if not b:
                 continue
@@ -15511,7 +15625,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] correct_orientation returned image")
         except Exception as e:
             print("[warn] correct_orientation raised exception, will continue with original image")
-            traceback.print_exc()
+            
 
         print("[step] Converting to RGB...")
         image = image.convert('RGB')
@@ -15523,7 +15637,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] intermediate save done")
         except Exception as e:
             print(f"[warn] failed to save intermediate JPEG to {POST_FNAME}: {e}")
-            traceback.print_exc()
+            
 
         width, height = image.size
         print(f"[info] image width={width}, height={height}")
@@ -15548,7 +15662,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
                 print("[ok] fallback font loaded (ImageFont.load_default())")
             except Exception as e2:
                 print("[error] fallback font load failed!")
-                traceback.print_exc()
+                
                 font = None
 
         text = POST_WATER or ""
@@ -15567,7 +15681,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
                 print(f"[ok] textsize -> text_w={text_w}, text_h={text_h}")
             except Exception as e2:
                 print(f"[error] textsize also failed: {e2}")
-                traceback.print_exc()
+                
                 text_w, text_h = (0, 0)
 
         padding = 10
@@ -15590,13 +15704,13 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] rounded rectangle drawn")
         except Exception as e:
             print(f"[error] Failed to create/draw bg layer: {e}")
-            traceback.print_exc()
+            
             try:
                 bg = Image.new("RGBA", (bg_x2 - bg_x1, bg_y2 - bg_y1), bg_color)
                 print("[ok] fallback: plain bg created")
             except Exception as e2:
                 print(f"[fatal] couldn't create fallback bg: {e2}")
-                traceback.print_exc()
+                
                 bg = None
 
         try:
@@ -15608,7 +15722,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
                 print("[warn] bg is None, skipping paste")
         except Exception as e:
             print(f"[error] paste bg failed: {e}")
-            traceback.print_exc()
+            
 
         try:
             print(f"[step] Drawing text at {(x, y)} ...")
@@ -15616,7 +15730,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             print("[ok] text drawn")
         except Exception as e:
             print(f"[error] draw.text failed: {e}")
-            traceback.print_exc()
+            
 
         try:
             print(f"[step] Saving final image to {POST_FNAME_COPY} ...")
@@ -15625,7 +15739,7 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
             result = POST_FNAME_COPY
         except Exception as e:
             print(f"[error] Failed to save final image: {e}")
-            traceback.print_exc()
+            
             await asyncio.sleep(round(random.uniform(0, 1), 2))
         finally:
             try:
@@ -16481,7 +16595,8 @@ async def ogg_to_mp3(src_ogg: str, dst_mp3: str | None = None, timeout: int = 60
     try:
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill(); await proc.wait()
+        proc.kill()
+        await proc.wait()
         if os.path.exists(tmp): os.remove(tmp)
         raise
 
@@ -16522,7 +16637,8 @@ async def video_to_mp3(src_video: str, dst_mp3: str | None = None, timeout: int 
     try:
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill(); await proc.wait()
+        proc.kill()
+        await proc.wait()
         if os.path.exists(tmp): os.remove(tmp)
         raise
     if proc.returncode != 0:

@@ -75,7 +75,7 @@ class DataFrame:
         age: [[2,5]]
         name: [["Alice","Bob"]]
         """
-        return self.relation.arrow()
+        return self.relation.to_arrow_table()
 
     def createOrReplaceTempView(self, name: str) -> None:
         """Creates or replaces a local temporary view with this :class:`DataFrame`.
@@ -1402,6 +1402,36 @@ class DataFrame:
 
         rows = [construct_row(x, columns) for x in result]
         return rows
+
+    def cache(self) -> "DataFrame":
+        """Persists the :class:`DataFrame` with the default storage level (`MEMORY_AND_DISK_DESER`).
+
+        .. versionadded:: 1.3.0
+
+        .. versionchanged:: 3.4.0
+            Supports Spark Connect.
+
+        Notes
+        -----
+        The default storage level has changed to `MEMORY_AND_DISK_DESER` to match Scala in 3.0.
+
+        Returns
+        -------
+        :class:`DataFrame`
+            Cached DataFrame.
+
+        Examples
+        --------
+        >>> df = spark.range(1)
+        >>> df.cache()
+        DataFrame[id: bigint]
+
+        >>> df.explain()
+        == Physical Plan ==
+        InMemoryTableScan ...
+        """
+        cached_relation = self.relation.execute()
+        return DataFrame(cached_relation, self.session)
 
 
 __all__ = ["DataFrame"]

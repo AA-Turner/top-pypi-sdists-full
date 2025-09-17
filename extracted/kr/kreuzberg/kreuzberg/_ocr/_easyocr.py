@@ -33,22 +33,39 @@ except ImportError:  # pragma: no cover
 
 if TYPE_CHECKING:
     import easyocr
-    import numpy as np
     import torch
+else:
+    easyocr: Any = None
+    torch: Any = None
 
-HAS_EASYOCR: bool
-if not TYPE_CHECKING:
+HAS_EASYOCR: bool = False
+
+
+def _import_easyocr() -> tuple[Any, Any]:
+    global HAS_EASYOCR, easyocr, torch
+
+    # If easyocr is already set (either real module or mock), return it
+    if easyocr is not None:
+        return easyocr, torch
+
+    # If explicitly disabled for testing
+    if not HAS_EASYOCR and easyocr is None:
+        return None, None
+
     try:
-        import easyocr
-        import numpy as np
-        import torch
+        import easyocr as _easyocr  # noqa: PLC0415
 
+        try:
+            import torch as _torch  # noqa: PLC0415
+        except ImportError:
+            _torch = None  # type: ignore[assignment]
+
+        easyocr = _easyocr
+        torch = _torch
         HAS_EASYOCR = True
+        return easyocr, torch
     except ImportError:
-        HAS_EASYOCR = False
-        easyocr: Any = None
-        np: Any = None
-        torch: Any = None
+        return None, None
 
 
 EASYOCR_SUPPORTED_LANGUAGE_CODES: Final[set[str]] = {
@@ -142,6 +159,11 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
     _reader: ClassVar[Any] = None
 
     async def process_image(self, image: Image.Image, **kwargs: Unpack[EasyOCRConfig]) -> ExtractionResult:
+        try:
+            import numpy as np  # noqa: PLC0415
+        except ImportError as e:
+            raise MissingDependencyError("EasyOCR requires numpy: pip install 'kreuzberg[easyocr]'") from e
+
         use_cache = kwargs.pop("use_cache", True)
 
         cache_kwargs = None
@@ -292,7 +314,8 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
     @classmethod
     def _is_gpu_available(cls) -> bool:
-        if not HAS_EASYOCR or torch is None:
+        # Use the module-level torch variable directly to respect patches
+        if torch is None:
             return False
         return bool(torch.cuda.is_available())
 
@@ -301,12 +324,14 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         if cls._reader is not None:
             return
 
-        if not HAS_EASYOCR or easyocr is None:
+        # Validate language first before attempting import
+        languages = cls._validate_language_code(kwargs.pop("language", "en"))
+
+        easyocr_module, _ = _import_easyocr()
+        if easyocr_module is None:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
             )
-
-        languages = cls._validate_language_code(kwargs.pop("language", "en"))
 
         device_info = cls._resolve_device_config(**kwargs)
         use_gpu = device_info.device_type in ("cuda", "mps")
@@ -318,7 +343,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
 
         try:
             cls._reader = await run_sync(
-                easyocr.Reader,
+                easyocr_module.Reader,
                 languages,
                 gpu=use_gpu,
                 verbose=False,
@@ -382,6 +407,11 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         return languages
 
     def process_image_sync(self, image: Image.Image, **kwargs: Unpack[EasyOCRConfig]) -> ExtractionResult:
+        try:
+            import numpy as np  # noqa: PLC0415
+        except ImportError as e:
+            raise MissingDependencyError("EasyOCR requires numpy: pip install 'kreuzberg[easyocr]'") from e
+
         use_cache = kwargs.pop("use_cache", True)
 
         cache_kwargs = None
@@ -453,12 +483,14 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         if cls._reader is not None:
             return
 
-        if not HAS_EASYOCR or easyocr is None:
+        # Validate language first before attempting import
+        languages = cls._validate_language_code(kwargs.pop("language", "en"))
+
+        easyocr_module, _ = _import_easyocr()
+        if easyocr_module is None:
             raise MissingDependencyError.create_for_package(
                 dependency_group="easyocr", functionality="EasyOCR as an OCR backend", package_name="easyocr"
             )
-
-        languages = cls._validate_language_code(kwargs.pop("language", "en"))
 
         device_info = cls._resolve_device_config(**kwargs)
         use_gpu = device_info.device_type in ("cuda", "mps")
@@ -469,7 +501,7 @@ class EasyOCRBackend(OCRBackend[EasyOCRConfig]):
         kwargs.setdefault("recog_network", "standard")
 
         try:
-            cls._reader = easyocr.Reader(
+            cls._reader = easyocr_module.Reader(
                 languages,
                 gpu=use_gpu,
                 verbose=False,

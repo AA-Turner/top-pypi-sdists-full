@@ -273,9 +273,8 @@ class Equation(
         2. 'geq', 'G', or '=G=' -- greater than or equal to inequality
         3. 'leq', 'L', or '=L=''  -- less than or equal to inequality
         4. 'nonbinding', 'N', or '=N='  -- nonbinding relationship
-        5. 'cone', 'C', or '=C=' -- cone equation
-        6. 'external', 'X', or '=X=' -- external equation
-        7. 'boolean', 'B', or '=B=' -- boolean equation
+        5. 'external', 'X', or '=X=' -- external equation
+        6. 'boolean', 'B', or '=B=' -- boolean equation
 
         Returns
         -------
@@ -292,9 +291,8 @@ class Equation(
         2. 'geq', 'G', or '=G=' -- greater than or equal to inequality
         3. 'leq', 'L', or '=L=''  -- less than or equal to inequality
         4. 'nonbinding', 'N', or '=N='  -- nonbinding relationship
-        5. 'cone', 'C', or '=C=' -- cone equation
-        6. 'external', 'X', or '=X=' -- external equation
-        7. 'boolean', 'B', or '=B=' -- boolean equation
+        5. 'external', 'X', or '=X=' -- external equation
+        6. 'boolean', 'B', or '=B=' -- boolean equation
 
         Parameters
         ----------
@@ -313,9 +311,8 @@ class Equation(
                 "2. 'geq', 'G', or '=G=' -- greater than or equal to inequality \n"
                 "3. 'leq', 'L', or '=L=''  -- less than or equal to inequality \n"
                 "4. 'nonbinding', 'N', or '=N='  -- nonbinding relationship \n"
-                "5. 'cone', 'C', or '=C=' -- cone equation \n"
-                "6. 'external', 'X', or '=X=' -- external equation \n"
-                "7. 'boolean', 'B', or '=B=' -- boolean equation \n\n"
+                "5. 'external', 'X', or '=X=' -- external equation \n"
+                "6. 'boolean', 'B', or '=B=' -- boolean equation \n\n"
                 f"User passed: `{typ}`"
             )
 

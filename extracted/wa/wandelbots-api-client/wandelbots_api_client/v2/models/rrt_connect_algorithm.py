@@ -17,19 +17,23 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
 class RRTConnectAlgorithm(BaseModel):
     """
-    <!-- theme: danger -->  > **Experimental**  RRT Connect algorithm configuration for collision-free path planning. Rapidly-exploring Random Trees (RRT) builds trees of valid configurations by randomly sampling the joint space and connecting feasible points. RRT Connect grows two trees simultaneously from start and target positions until they meet. This is a custom implementation optimized for manipulator kinematics and collision checking in industrial contexts. 
+    RRTConnectAlgorithm
     """ # noqa: E501
-    algorithm_name: StrictStr = Field(description="Algorithm discriminator. ")
+    algorithm_name: StrictStr = Field(description="Algorithm discriminator.  RRT Connect algorithm configuration for collision-free path planning. Rapidly-exploring Random Trees (RRT) builds trees of valid configurations by randomly sampling the joint space and connecting feasible points with JointPTP motions. RRT Connect grows two trees simultaneously from start and target positions until they meet. This is a custom implementation optimized for manipulator kinematics and collision checking in industrial contexts. ")
     max_iterations: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=10000, description="Maximum number of iterations for the RRT Connect algorithm. Higher values increase likelihood of success, but also computation time. ")
-    __properties: ClassVar[List[str]] = ["algorithm_name", "max_iterations"]
+    max_step_size: Optional[Union[StrictFloat, StrictInt]] = Field(default=1, description="Maximum step size for tree extension in joint space.")
+    adaptive_step_size: Optional[StrictBool] = Field(default=True, description="Adjust the maximum step size during the search based on the recent success rate of tree expansion.")
+    apply_smoothing: Optional[StrictBool] = Field(default=True, description="Apply smoothing after the search has succeeded. This will remove as many intermediate points as possible while keeping the path valid.")
+    apply_blending: Optional[StrictBool] = Field(default=True, description="Apply blending after the search has succeeded and smoothing has been applied. This will apply the largest viable blending at each intermediate point.")
+    __properties: ClassVar[List[str]] = ["algorithm_name", "max_iterations", "max_step_size", "adaptive_step_size", "apply_smoothing", "apply_blending"]
 
     @field_validator('algorithm_name')
     def algorithm_name_validate_enum(cls, value):
@@ -94,7 +98,11 @@ class RRTConnectAlgorithm(BaseModel):
 
         _obj = cls.model_validate({
             "algorithm_name": obj.get("algorithm_name"),
-            "max_iterations": obj.get("max_iterations") if obj.get("max_iterations") is not None else 10000
+            "max_iterations": obj.get("max_iterations") if obj.get("max_iterations") is not None else 10000,
+            "max_step_size": obj.get("max_step_size") if obj.get("max_step_size") is not None else 1,
+            "adaptive_step_size": obj.get("adaptive_step_size") if obj.get("adaptive_step_size") is not None else True,
+            "apply_smoothing": obj.get("apply_smoothing") if obj.get("apply_smoothing") is not None else True,
+            "apply_blending": obj.get("apply_blending") if obj.get("apply_blending") is not None else True
         })
         return _obj
 

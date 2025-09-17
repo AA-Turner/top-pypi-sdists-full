@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class TrajectoryRunning(BaseModel):
     """
-    TrajectoryRunning
+    Trajectory is being executed. 
     """ # noqa: E501
     kind: StrictStr
     time_to_end: StrictInt = Field(description="Remaining time in milliseconds (ms) to reach the end of the motion.")

@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class JoggingPausedNearJointLimit(BaseModel):
     """
-    JoggingPausedNearJointLimit
+    Jogging was paused because a joint is near its limit. 
     """ # noqa: E501
     kind: StrictStr
     joint_indices: List[StrictInt]

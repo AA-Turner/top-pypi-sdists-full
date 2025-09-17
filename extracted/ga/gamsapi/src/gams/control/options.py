@@ -771,6 +771,13 @@ class GamsOptions(object):
     ## @brief GAMS processing request
     action = property(get_action, set_action)
 
+    def _get_allowcequ(self):
+        return optGetIntStr(self._opt, "AllowCEqu")
+
+    def _set_allowcequ(self, value):
+        optSetIntStr(self._opt, "AllowCEqu", value)
+    _allowcequ = property(_get_allowcequ, _set_allowcequ)
+
     def get_appendexpand(self):
         return optGetIntStr(self._opt, "AppendExpand")
 

@@ -1,4 +1,3 @@
-import inspect
 import io
 import json
 import logging
@@ -117,18 +116,6 @@ class UnitTest(IUnitTest):
 
         # Use live console output during test execution
         self.__live_console: bool = True
-
-        # Load and set internal paths for test discovery and result storage
-        self.__loadPaths()
-
-        # Load and validate the testing configuration from the application
-        self.__loadConfig()
-
-        # Discover and import test modules based on the configuration
-        self.__loadModules()
-
-        # Discover and load all test cases from the imported modules into the suite
-        self.__loadTests()
 
     def __loadPaths(
         self
@@ -736,6 +723,18 @@ class UnitTest(IUnitTest):
 
         # Record the start time in seconds
         performance_counter.start()
+
+        # Load and set internal paths for test discovery and result storage
+        self.__loadPaths()
+
+        # Load and validate the testing configuration from the application
+        self.__loadConfig()
+
+        # Discover and import test modules based on the configuration
+        self.__loadModules()
+
+        # Discover and load all test cases from the imported modules into the suite
+        self.__loadTests()
 
         # Length of all tests in the suite
         total_tests = self.getTestCount()

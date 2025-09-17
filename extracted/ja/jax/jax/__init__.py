@@ -57,6 +57,7 @@ from jax._src.config import (
   debug_infs as debug_infs,
   log_compiles as log_compiles,
   no_tracing as no_tracing,
+  no_execution as no_execution,
   explain_cache_misses as explain_cache_misses,
   default_device as default_device,
   default_matmul_precision as default_matmul_precision,
@@ -70,6 +71,8 @@ from jax._src.config import (
   transfer_guard_host_to_device as transfer_guard_host_to_device,
   transfer_guard_device_to_device as transfer_guard_device_to_device,
   transfer_guard_device_to_host as transfer_guard_device_to_host,
+  make_user_context as make_user_context,
+  remove_size_one_mesh_axis_from_type as remove_size_one_mesh_axis_from_type,
 )
 from jax._src.core import ensure_compile_time_eval as ensure_compile_time_eval
 from jax._src.environment_info import print_environment_info as print_environment_info
@@ -136,7 +139,9 @@ from jax._src.partition_spec import P as P
 from jax._src.shard_map import shard_map as shard_map
 from jax._src.shard_map import smap as smap
 
+from jax.ref import new_ref as new_ref
 from jax.ref import array_ref as array_ref
+from jax.ref import Ref as Ref
 from jax.ref import ArrayRef as ArrayRef
 
 # Force import, allowing jax.interpreters.* to be used after import jax.

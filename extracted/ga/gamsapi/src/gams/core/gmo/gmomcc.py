@@ -498,6 +498,10 @@ def gmoGetMatrixCplex(pgmo, colstart, collength, rowidx, jacval):
     r"""gmoGetMatrixCplex(pgmo, colstart, collength, rowidx, jacval) -> int"""
     return _gmomcc.gmoGetMatrixCplex(pgmo, colstart, collength, rowidx, jacval)
 
+def gmoUpdateJac(pgmo, mi, mj, v):
+    r"""gmoUpdateJac(pgmo, mi, mj, v) -> int"""
+    return _gmomcc.gmoUpdateJac(pgmo, mi, mj, v)
+
 def gmoGetObjName(pgmo):
     r"""gmoGetObjName(pgmo) -> char *"""
     return _gmomcc.gmoGetObjName(pgmo)

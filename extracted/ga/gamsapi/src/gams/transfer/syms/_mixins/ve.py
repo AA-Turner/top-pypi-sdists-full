@@ -371,8 +371,9 @@ class VEMixin:
         records = self._remap_str_special_values(records)
 
         # must be able to convert data columns to type float
+        cols = list(records.columns)
         for i in records.columns[self.dimension :]:
-            records[i] = records[i].astype(float)
+            records.isetitem(cols.index(i), records[i].astype(float))
 
         # reset column names
         records.columns = (
@@ -671,8 +672,9 @@ class VEMixin:
         records = self._remap_str_special_values(records)
 
         # must be able to convert data columns to type float
+        cols = list(records.columns)
         for i in records.columns[self.dimension :]:
-            records[i] = records[i].astype(float)
+            records.isetitem(cols.index(i), records[i].astype(float))
 
         # reset column names
         records.columns = generate_unique_labels(self.domain_names) + self._attributes

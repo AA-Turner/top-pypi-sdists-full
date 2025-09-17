@@ -1,0 +1,50 @@
+[package]
+name = "obstore"
+version = "0.8.2"
+authors = { workspace = true }
+edition = { workspace = true }
+description = "The simplest, highest-throughput interface to Amazon S3, Google Cloud Storage, Azure Blob Storage, and S3-compliant APIs like Cloudflare R2."
+readme = "README.md"
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+rust-version = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_obstore"
+crate-type = ["cdylib"]
+
+[dependencies]
+arrow = "56"
+bytes = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+http = { workspace = true }
+indexmap = { workspace = true }
+object_store = { workspace = true }
+pyo3 = { workspace = true, features = ["chrono"] }
+pyo3-arrow = "0.12"
+pyo3-async-runtimes = { workspace = true, features = ["tokio-runtime"] }
+pyo3-bytes = "0.4"
+pyo3-file = { workspace = true }
+pyo3-object_store = { path = "../pyo3-object_store" }
+tokio = { workspace = true, features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+] }
+url = { workspace = true }
+
+# We opt-in to using rustls as the TLS provider for reqwest, which is the HTTP
+# library used by object_store.
+# https://github.com/seanmonstar/reqwest/issues/2025
+reqwest = { version = "*", default-features = false, features = [
+    "rustls-tls-native-roots",
+] }
+
+[build-dependencies]
+cargo-lock = "10.1.0"

@@ -18,11 +18,12 @@ class OperateBaseModel():
     """
     :description: 操作日志相关处理业务模型   操作配置字段说明{"field": 数据库字段,"remark": 要显示的字段名字,"value": 值,"is_show": 是否显示（1是0否）,"sort_index":排序，默认按数组顺序,"out_ways":输出方式（默认0文本1图片）}
     """
-    def __init__(self, context=None, logging_error=None, logging_info=None):
-        
+    def __init__(self, context=None, logging_error=None, logging_info=None, db_config_dict=None):
+
         self.context = context
         self.logging_link_error = logging_error
         self.logging_link_info = logging_info
+        self.db_config_dict = db_config_dict
 
     def add_operation_log(self, operation_type, title, operation_desc, model_name, handler_name, old_detail, update_detail, app_id, act_id, operate_user_id, operate_user_name, operate_role_id, request_dict, ip , request_code, add_action_to_title=True):
         """
@@ -45,7 +46,7 @@ class OperateBaseModel():
         :return: 
         :last_editors: HuangJianYi
         """
-        operation_log_model = OperationLogModel(context=self.context)
+        operation_log_model = OperationLogModel(context=self.context, db_config_dict=self.db_config_dict)
         operation_log = OperationLog()
         operation_log.app_id = app_id
         operation_log.act_id = act_id
@@ -96,7 +97,7 @@ class OperateBaseModel():
         :return list: 
         :last_editors: HuangJianYi
         """
-        operation_log_model = OperationLogModel(context=self.context, is_auto=True)
+        operation_log_model = OperationLogModel(context=self.context, db_config_dict=self.db_config_dict, is_auto=True)
         condition_where = ConditionWhere()
         condition_where.add_condition("app_id=%s")
         params = [app_id]
@@ -144,14 +145,14 @@ class OperateBaseModel():
         :return list: 
         :last_editors: HuangJianYi
         """
-        operation_log_model = OperationLogModel(context=self.context)
+        operation_log_model = OperationLogModel(context=self.context, db_config_dict=self.db_config_dict)
         operation_log = operation_log_model.get_dict_by_id(id)
         if is_contrast and operation_log:
             operation_log["detail"] = SevenHelper.json_loads(operation_log["detail"]) if operation_log["detail"] else {}
             operation_log["update_detail"] = SevenHelper.json_loads(operation_log["update_detail"]) if operation_log["update_detail"] else {}
             operation_log = self.get_contrast_info(operation_log, is_all_fields)
         return operation_log
-    
+
     def _convert_remark(self, config_field, value):
         """
         :description:  转换备注
@@ -187,7 +188,7 @@ class OperateBaseModel():
             else:
                 value_remark = value
         return value_remark
-        
+
     def get_contrast_info(self, operation_log, is_all_fields=False):
         """
         :description:  获取操作日志对比信息
@@ -199,7 +200,7 @@ class OperateBaseModel():
         try:
             operation_log["contrast_info"] = []
             if operation_log["update_detail"] and isinstance(operation_log["update_detail"], dict):
-                operation_config_model = OperationConfigModel(context=self.context)
+                operation_config_model = OperationConfigModel(context=self.context, db_config_dict=self.db_config_dict)
                 operation_config = operation_config_model.get_dict("model_name=%s",params=[operation_log["model_name"]])
                 if operation_config:
                     for key in operation_log["update_detail"]:
@@ -247,7 +248,7 @@ class OperateBaseModel():
                 self.logging_link_error("【获取操作日志对比信息】" + traceback.format_exc())
         operation_log["contrast_info"] = sorted(operation_log["contrast_info"], key=lambda x:x['sort_index'])
         return operation_log
-    
+
     def get_operation_type_name(self, operation_type):
         """
         :description:  获取操作类型名称

@@ -8,6 +8,7 @@ from .fields import (
     ColorPickerField,
     DateField,
     DateRangeField,
+    TimeRange,
     DateTimeField,
     DateTimeRangeField,
     DecimalField,

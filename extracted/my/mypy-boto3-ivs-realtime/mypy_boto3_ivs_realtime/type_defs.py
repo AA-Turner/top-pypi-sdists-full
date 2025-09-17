@@ -420,6 +420,7 @@ class GridConfigurationTypeDef(TypedDict):
     videoAspectRatio: NotRequired[VideoAspectRatioType]
     videoFillMode: NotRequired[VideoFillModeType]
     gridGap: NotRequired[int]
+    participantOrderAttribute: NotRequired[str]
 
 
 class ImportPublicKeyRequestTypeDef(TypedDict):
@@ -449,6 +450,7 @@ class PipConfigurationTypeDef(TypedDict):
     pipPosition: NotRequired[PipPositionType]
     pipWidth: NotRequired[int]
     pipHeight: NotRequired[int]
+    participantOrderAttribute: NotRequired[str]
 
 
 class ListCompositionsRequestTypeDef(TypedDict):

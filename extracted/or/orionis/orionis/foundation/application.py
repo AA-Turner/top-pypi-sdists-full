@@ -2118,6 +2118,7 @@ class Application(Container, IApplication):
         duplicate initialization. The startup time is calculated and logged
         for performance monitoring purposes.
         """
+
         # Check if already booted
         if not self.__booted:
 
@@ -2125,7 +2126,7 @@ class Application(Container, IApplication):
             self.instance(
                 IApplication,
                 self,
-                alias=f"x-{IApplication.__module__}.{IApplication.__name__}",
+                alias=f"x-orionis.foundation.contracts.application.IApplication",
                 enforce_decoupling=None
             )
 
@@ -2149,11 +2150,8 @@ class Application(Container, IApplication):
             # Calculate elapsed time in milliseconds since application start
             elapsed_ms = (time.time_ns() - self.startAt) // 1_000_000
 
-            # Compose the boot message
-            boot_message = f"Orionis Framework has been successfully booted. Startup time: {elapsed_ms} ms. Started at: {self.startAt} ns"
-
             # Log message to the logger
-            logger.info(boot_message)
+            logger.info(f"Orionis Framework has been successfully booted. Startup time: {elapsed_ms} ms. Started at: {self.startAt} ns")
 
         # Return the application instance for method chaining
         return self

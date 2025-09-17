@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: checkmk-dev-tools
-Version: 0.12.1
+Version: 0.12.2
 Summary: Checkmk DevOps tools
 Author: Frans Fürst
 Author-email: frans.fuerst@checkmk.com
@@ -15,7 +15,7 @@ Requires-Dist: python-jenkins (>=1.8.3,<1.9.0)
 Requires-Dist: retry
 Requires-Dist: rich
 Requires-Dist: trickkiste (>=0.2.1,<0.3.0)
-Project-URL: Changelog, https://github.com/Checkmk/checkmk-dev-tools/blob/release/0.12.1/changelog.md
+Project-URL: Changelog, https://github.com/Checkmk/checkmk-dev-tools/blob/release/0.12.2/changelog.md
 Project-URL: Repository, https://github.com/Checkmk/checkmk-dev-tools
 Description-Content-Type: text/markdown
 

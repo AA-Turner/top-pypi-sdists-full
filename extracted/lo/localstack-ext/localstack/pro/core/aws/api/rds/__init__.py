@@ -140,6 +140,11 @@ class DatabaseInsightsMode(StrEnum):
     advanced = "advanced"
 
 
+class DefaultAuthScheme(StrEnum):
+    IAM_AUTH = "IAM_AUTH"
+    NONE = "NONE"
+
+
 class EndpointNetworkType(StrEnum):
     IPV4 = "IPV4"
     IPV6 = "IPV6"
@@ -3308,7 +3313,8 @@ UserAuthConfigList = List[UserAuthConfig]
 class CreateDBProxyRequest(ServiceRequest):
     DBProxyName: String
     EngineFamily: EngineFamily
-    Auth: UserAuthConfigList
+    DefaultAuthScheme: Optional[DefaultAuthScheme]
+    Auth: Optional[UserAuthConfigList]
     RoleArn: String
     VpcSubnetIds: StringList
     VpcSecurityGroupIds: Optional[StringList]
@@ -3350,6 +3356,7 @@ class DBProxy(TypedDict, total=False):
     VpcId: Optional[String]
     VpcSecurityGroupIds: Optional[StringList]
     VpcSubnetIds: Optional[StringList]
+    DefaultAuthScheme: Optional[String]
     Auth: Optional[UserAuthConfigInfoList]
     RoleArn: Optional[String]
     Endpoint: Optional[String]
@@ -5475,6 +5482,7 @@ class ModifyDBProxyEndpointResponse(TypedDict, total=False):
 class ModifyDBProxyRequest(ServiceRequest):
     DBProxyName: String
     NewDBProxyName: Optional[String]
+    DefaultAuthScheme: Optional[DefaultAuthScheme]
     Auth: Optional[UserAuthConfigList]
     RequireTLS: Optional[BooleanOptional]
     IdleClientTimeout: Optional[IntegerOptional]
@@ -7748,9 +7756,10 @@ class RdsApi:
         context: RequestContext,
         db_proxy_name: String,
         engine_family: EngineFamily,
-        auth: UserAuthConfigList,
         role_arn: String,
         vpc_subnet_ids: StringList,
+        default_auth_scheme: DefaultAuthScheme | None = None,
+        auth: UserAuthConfigList | None = None,
         vpc_security_group_ids: StringList | None = None,
         require_tls: Boolean | None = None,
         idle_client_timeout: IntegerOptional | None = None,
@@ -7764,10 +7773,13 @@ class RdsApi:
 
         :param db_proxy_name: The identifier for the proxy.
         :param engine_family: The kinds of databases that the proxy can connect to.
-        :param auth: The authorization mechanism that the proxy uses.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to
         access secrets in Amazon Web Services Secrets Manager.
         :param vpc_subnet_ids: One or more VPC subnet IDs to associate with the new proxy.
+        :param default_auth_scheme: The default authentication scheme that the proxy uses for client
+        connections to the proxy and connections from the proxy to the
+        underlying database.
+        :param auth: The authorization mechanism that the proxy uses.
         :param vpc_security_group_ids: One or more VPC security group IDs to associate with the new proxy.
         :param require_tls: Specifies whether Transport Layer Security (TLS) encryption is required
         for connections to the proxy.
@@ -10930,6 +10942,7 @@ class RdsApi:
         context: RequestContext,
         db_proxy_name: String,
         new_db_proxy_name: String | None = None,
+        default_auth_scheme: DefaultAuthScheme | None = None,
         auth: UserAuthConfigList | None = None,
         require_tls: BooleanOptional | None = None,
         idle_client_timeout: IntegerOptional | None = None,
@@ -10942,6 +10955,9 @@ class RdsApi:
 
         :param db_proxy_name: The identifier for the ``DBProxy`` to modify.
         :param new_db_proxy_name: The new identifier for the ``DBProxy``.
+        :param default_auth_scheme: The default authentication scheme that the proxy uses for client
+        connections to the proxy and connections from the proxy to the
+        underlying database.
         :param auth: The new authentication settings for the ``DBProxy``.
         :param require_tls: Whether Transport Layer Security (TLS) encryption is required for
         connections to the proxy.

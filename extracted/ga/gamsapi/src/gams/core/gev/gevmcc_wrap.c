@@ -5667,6 +5667,60 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_gevGetLSCBInfo(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gevHandle_t arg1 ;
+  void *arg2 = (void *) 0 ;
+  void **arg3 = (void **) 0 ;
+  void **arg4 = (void **) 0 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  PyObject *swig_obj[4] ;
+  int result;
+  
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "gevGetLSCBInfo", 4, 4, swig_obj)) SWIG_fail;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gevHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gevGetLSCBInfo" "', argument " "1"" of type '" "gevHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gevGetLSCBInfo" "', argument " "1"" of type '" "gevHandle_t""'");
+    } else {
+      arg1 = *((gevHandle_t *)(argp1));
+    }
+  }
+  {
+    int res = SWIG_ConvertPtr(swig_obj[1],SWIG_as_voidptrptr(&arg2), SWIGTYPE_p_void, 0);
+    if (!SWIG_IsOK(res)) {
+      SWIG_exception_fail(SWIG_ArgError(res), "in method '" "gevGetLSCBInfo" "', argument " " of type '" "void *""'");
+    }
+  }
+  {
+    void *arg3__p;
+    int res = SWIG_ConvertPtr(swig_obj[2],SWIG_as_voidptrptr(&arg3__p), SWIGTYPE_p_void, 0);
+    if (!SWIG_IsOK(res)) {
+      SWIG_exception_fail(SWIG_ArgError(res), "in method '" "gevGetLSCBInfo" "', argument " " of type '" "void *""'");
+    }
+    arg3 = &arg3__p;
+  }
+  {
+    void *arg4__p;
+    int res = SWIG_ConvertPtr(swig_obj[3],SWIG_as_voidptrptr(&arg4__p), SWIGTYPE_p_void, 0);
+    if (!SWIG_IsOK(res)) {
+      SWIG_exception_fail(SWIG_ArgError(res), "in method '" "gevGetLSCBInfo" "', argument " " of type '" "void *""'");
+    }
+    arg4 = &arg4__p;
+  }
+  result = (int)gevGetLSCBInfo(arg1,arg2,arg3,arg4);
+  resultobj = SWIG_From_int((int)(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_gevRestoreLogStat(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   gevHandle_t arg1 ;
@@ -9397,6 +9451,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "gevSwitchLogStat", _wrap_gevSwitchLogStat, METH_VARARGS, "gevSwitchLogStat(pgev, lo, logfn, logappend, statfn, statappend, lsw, usrmem, lshandle) -> int"},
 	 { "gevSwitchLogStatEx", _wrap_gevSwitchLogStatEx, METH_VARARGS, "gevSwitchLogStatEx(pgev, lo, logfn, logappend, statfn, statappend, lsw, usrmem, lshandle, doStack) -> int"},
 	 { "gevGetLShandle", _wrap_gevGetLShandle, METH_O, "gevGetLShandle(pgev) -> void *"},
+	 { "gevGetLSCBInfo", _wrap_gevGetLSCBInfo, METH_VARARGS, "gevGetLSCBInfo(pgev, lshandle, lsw, usrmem) -> int"},
 	 { "gevRestoreLogStat", _wrap_gevRestoreLogStat, METH_VARARGS, "gevRestoreLogStat(pgev, lshandle) -> int"},
 	 { "gevRestoreLogStatRewrite", _wrap_gevRestoreLogStatRewrite, METH_VARARGS, "gevRestoreLogStatRewrite(pgev, lshandle) -> int"},
 	 { "gevLog", _wrap_gevLog, METH_VARARGS, "gevLog(pgev, s)"},

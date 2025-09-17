@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-google-community
-Version: 2.0.9
+Version: 2.0.10
 Summary: An integration package connecting miscellaneous Google's products and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-google/tree/main/libs/community
@@ -11,6 +11,7 @@ Requires-Dist: google-api-core<3,>=2.25
 Requires-Dist: google-api-python-client<3,>=2.161
 Requires-Dist: google-cloud-core<3,>=2.4.3
 Requires-Dist: grpcio<2,>=1.74
+Requires-Dist: google-cloud-modelarmor>=0.2.8
 Provides-Extra: bigquery
 Requires-Dist: google-cloud-bigquery<4,>=3.21; extra == "bigquery"
 Provides-Extra: calendar

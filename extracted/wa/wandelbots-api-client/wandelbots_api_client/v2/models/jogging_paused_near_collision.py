@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class JoggingPausedNearCollision(BaseModel):
     """
-    JoggingPausedNearCollision
+    Jogging was paused because the motion group neared a collision. 
     """ # noqa: E501
     kind: StrictStr
     description: StrictStr

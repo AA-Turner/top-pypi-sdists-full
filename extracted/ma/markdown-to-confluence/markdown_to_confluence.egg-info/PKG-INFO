@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.4.6
+Version: 0.4.7
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -581,6 +581,9 @@ options:
   --headers KEY=VALUE [KEY=VALUE ...]
                         Apply custom headers to all Confluence API requests.
   --webui-links         Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)
+  --alignment {center,left,right}
+                        Alignment for block-level images and formulas (default: 'center').
+  --use-panel           Transform admonitions and alerts into a Confluence custom panel.
 ```
 
 ### Using the Docker container

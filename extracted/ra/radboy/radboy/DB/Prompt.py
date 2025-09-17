@@ -954,7 +954,7 @@ class Prompt(object):
 
     def __init2__(self,func,ptext='do what',helpText='',data={},noHistory=False,qc=None,replace_ptext=None,alt_input=None):
         with localcontext() as PROMPT_CONTEXT:
-            ROUNDTO=int(db.detectGetOrSet("TotalSpent ROUNDTO default",4,setValue=False,literal=True))
+            ROUNDTO=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
             PROMPT_CONTEXT.prec=ROUNDTO
             '''
             lsbld - bldls()
@@ -1464,11 +1464,11 @@ class Prompt(object):
                             ptext=ptext
                         holidate=f'{Fore.light_cyan}CWD:{cwd}\n{msg_holidate}\n{Fore.light_magenta}Holiday: {Fore.dark_goldenrod}{isit} | {Fore.light_sea_green}{holiname}{Style.reset}'
                         m=f"{holidate}|{Fore.light_blue}DUR="+str(datetime.now()-datetime.fromtimestamp(lastTime)).split(".")[0]
-                        CHEAT=f'''{Fore.light_sea_green+((os.get_terminal_size().columns)-len(m))*'*'}
-    {Fore.light_steel_blue+os.get_terminal_size().columns*'*'}
-    {m}{Fore.black}{Back.grey_70} P_CMDS SncLstCmd:{str(duration).split(".")[0]} {Style.reset}|{Fore.black}{Back.grey_50} TmInShl:{str(InShellElapsed).split(".")[0]}|DT:{now.ctime()}| {Fore.dark_blue}{Style.bold}{Style.underline}Week {datetime.now().strftime("%W")} {Style.reset}|{Fore.light_magenta}#RPLC#={Fore.tan}rplc {Fore.light_magenta}#RPLC#{Fore.tan} frm {Fore.light_red}CB{Fore.orange_3}.{Fore.light_green}default={Fore.light_yellow}True{Fore.light_steel_blue} or by {Fore.light_red}CB{Fore.orange_3}.{Fore.light_green}doe={Fore.light_yellow}Newest{Style.reset}|{Fore.light_salmon_1}c2c=calc2cmd={Fore.sky_blue_2}clctr rslt to inpt{Style.reset}|b={color2}back|{Fore.light_red}h={color3}help{color4}|{Fore.light_red}h+={color3}help+{color4}|{Fore.light_magenta}i={color3}info|{Fore.light_green}{Fore.light_steel_blue}CMD#c2cb[{Fore.light_red}e{Fore.light_steel_blue}]{Fore.light_green}{Fore.light_red}|{Fore.orange_3}c2cb[{Fore.light_red}e{Fore.orange_3}]#CMD{Fore.light_green} - copy CMD to cb and set default | Note: optional [{Fore.light_red}e{Fore.light_green}] executes after copy{Style.reset} {Fore.light_steel_blue}NTE: cmd ends/start-swith [{Fore.light_red}#clr|clr#{Fore.light_green}{Fore.light_steel_blue}] clrs crnt ln 4 a rtry{Style.reset} {Fore.orange_red_1}|c{Fore.light_steel_blue}=calc|{Fore.spring_green_3a}cb={Fore.light_blue}clipboard{Style.reset}|{Fore.light_salmon_1}cdp={Fore.green_yellow}paste cb dflt {Fore.green}|q={Fore.green_yellow}Quit Menu (qm)
-    {Fore.light_red+os.get_terminal_size().columns*'.'}
-    {Fore.rgb(55,191,78)}HFL:{Fore.rgb(55,130,191)}{lineTotal()}{Fore.light_red}{Fore.light_green}{Back.grey_15}'''
+                        CHEAT=f'''{Fore.light_green}Stored Precision={Fore.light_red}{PROMPT_CONTEXT.prec}\n{Fore.light_sea_green+((os.get_terminal_size().columns)-len(m))*'*'}
+{Fore.light_steel_blue+os.get_terminal_size().columns*'*'}
+{m}{Fore.black}{Back.grey_70} P_CMDS SncLstCmd:{str(duration).split(".")[0]} {Style.reset}|{Fore.black}{Back.grey_50} TmInShl:{str(InShellElapsed).split(".")[0]}|DT:{now.ctime()}| {Fore.dark_blue}{Style.bold}{Style.underline}Week {datetime.now().strftime("%W")} {Style.reset}|{Fore.light_magenta}#RPLC#={Fore.tan}rplc {Fore.light_magenta}#RPLC#{Fore.tan} frm {Fore.light_red}CB{Fore.orange_3}.{Fore.light_green}default={Fore.light_yellow}True{Fore.light_steel_blue} or by {Fore.light_red}CB{Fore.orange_3}.{Fore.light_green}doe={Fore.light_yellow}Newest{Style.reset}|{Fore.light_salmon_1}c2c=calc2cmd={Fore.sky_blue_2}clctr rslt to inpt{Style.reset}|b={color2}back|{Fore.light_red}h={color3}help{color4}|{Fore.light_red}h+={color3}help+{color4}|{Fore.light_magenta}i={color3}info|{Fore.light_green}{Fore.light_steel_blue}CMD#c2cb[{Fore.light_red}e{Fore.light_steel_blue}]{Fore.light_green}{Fore.light_red}|{Fore.orange_3}c2cb[{Fore.light_red}e{Fore.orange_3}]#CMD{Fore.light_green} - copy CMD to cb and set default | Note: optional [{Fore.light_red}e{Fore.light_green}] executes after copy{Style.reset} {Fore.light_steel_blue}NTE: cmd ends/start-swith [{Fore.light_red}#clr|clr#{Fore.light_green}{Fore.light_steel_blue}] clrs crnt ln 4 a rtry{Style.reset} {Fore.orange_red_1}|c{Fore.light_steel_blue}=calc|{Fore.spring_green_3a}cb={Fore.light_blue}clipboard{Style.reset}|{Fore.light_salmon_1}cdp={Fore.green_yellow}paste cb dflt {Fore.green}|q={Fore.green_yellow}Quit Menu (qm)
+{Fore.light_red+os.get_terminal_size().columns*'.'}
+{Fore.rgb(55,191,78)}HFL:{Fore.rgb(55,130,191)}{lineTotal()}{Fore.light_red}{Fore.light_green}{Back.grey_15}'''
                         if alt_input is not None and callable(alt_input):
                             cmd=alt_input(f"{db.ROBS}{Fore.light_yellow}{db.ROBE}{'.'*os.get_terminal_size().columns}\n{db.ROBS}{Back.grey_15}{Fore.light_yellow}{db.ROBE}{ptext}{db.ROBS}{Fore.light_steel_blue}{db.ROBE}\n[{db.ROBS}{Fore.light_green}{db.ROBE}cheat/cht=brief cmd helpt{db.ROBS}{Fore.light_steel_blue}{db.ROBE}] ({db.ROBS}{Fore.orange_red_1}{db.ROBE}Exec{db.ROBS}{Fore.light_steel_blue}{db.ROBE})\n ->{db.ROBS}{Style.reset}{db.ROBE}")
                         else:
@@ -2833,6 +2833,34 @@ class Prompt(object):
         {Fore.light_red}Total=(({Fore.cyan}CRV+{Fore.light_blue}Price)*{Fore.light_magenta}(Sales Tax Rate(0.0925)))+{Fore.light_blue}Price{Style.reset}
         {Fore.light_red}Tax=(({Fore.cyan}CRV+{Fore.light_blue}Price)*{Fore.light_magenta}(Sales Tax Rate(0.0925))){Style.reset}
         '''
+                                print(sales_tax_msg)
+                                n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="yes or no",data="boolean")
+                                if n in ['d',True]:
+                                    pass
+                                elif n is None:
+                                    fail=True
+                                    break
+                                else:
+                                    continue
+                                sales_tax_msg=f'''
+(UNITS_TOTAL/PRICE)=UNITS/1 of PRICE
+    'PRICE*100' for 'UNITS/1 of PRICE in pennies' where PRICE is $1.00
+(PRICE/UNITS_TOTAL)*UNITS_CONSUMED=PRICE_CONSUMED
+When Charging for materials and I have to purchase an extra
+when I only need a fraction of the extra, provide the client
+with some options:
+    1.) [MCKUM,Minimum Charge, Keep Unused Materials] Charge the lower price for the the labor and the used materials; keep the unused portion for another project.
+    2.) [C4EG2C,Charge for Excess, give to client] Charge a higher price for the extra purchased, and give the unused materials to the customer.
+        -508 pages are used from from 2 reems of 500 sheets of paper
+            -give the customer the remaining paper at a lower cost
+            -keep the 492 extra sheets of paper of and charge for 508 sheets of paper used at (500 sheets/PRICE)
+            -if a barter offers a better sitch, opt for it
+                -if money is the absolute, then this is a no go
+                -if endangerment of other forms seems apparent, NO GO
+    3.) [BRTR,Barter] Charge the better of the costs (Not Necessarily money being better) if something becomes present/apparent
+        -Ensure You have a new ledger made to track their repayment
+            -And for Future payments made in this manner should they be beneficial
+    4.) [PBUC,PurchasedBaseUnitCharge] Charge by the Unit purchased 1 Reem of 500 Paper = 1, I need 1.001 of 1, then charge for 2, but don't give the remainder to the customer; ensure the customer is aware of the Purchased Base Unit Charge'''
                                 print(sales_tax_msg)
                                 n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="yes or no",data="boolean")
                                 if n in ['d',True]:

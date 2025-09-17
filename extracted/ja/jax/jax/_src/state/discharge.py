@@ -24,6 +24,7 @@ from typing import Any, Protocol, TypeVar
 from jax._src import ad_util
 from jax._src import api_util
 from jax._src import core
+from jax._src import literals
 from jax._src import linear_util as lu
 from jax._src import pjit
 from jax._src import sharding_impls
@@ -38,13 +39,8 @@ from jax._src.lax import slicing as lax_slicing
 from jax._src.state import indexing
 from jax._src.state.primitives import addupdate_p, get_p, swap_p
 from jax._src.state.types import (
-    AbstractRef,
-    RefBitcaster,
-    RefEffect,
-    RefReshaper,
-    get_ref_aval_from_value,
-    uninitialized,
-)
+    AbstractRef, RefBitcaster, RefEffect, RefReshaper, get_ref_aval_from_value,
+    uninitialized,)
 from jax._src.state.utils import bitcast, hoist_consts_to_refs
 from jax._src.typing import Array
 from jax._src.util import (foreach, safe_map, safe_zip, split_list, unzip2,
@@ -75,7 +71,7 @@ def discharge_state(jaxpr: core.Jaxpr, consts: Sequence[Any], * ,
               else v.aval for v, d in zip(jaxpr.invars, should_discharge)]
   eval_jaxpr = lu.wrap_init(partial(_eval_jaxpr_discharge_state, jaxpr,
                                     should_discharge, consts),
-                            debug_info=jaxpr.debug_info)
+                            debug_info=jaxpr.debug_info.with_unknown_names())
   new_jaxpr, _ , new_consts = pe.trace_to_jaxpr_dynamic(eval_jaxpr, in_avals)
   return new_jaxpr, new_consts
 
@@ -363,7 +359,7 @@ def _convert_to_gather_arrays(indexer: indexing.NDIndexer) -> tuple[Array, ...]:
       diff = len(total_shape) - idx_in_shape_after_indexing - 1
       arr = arr.reshape(arr.shape + (1,) * diff)
       arrs.append(arr)
-    elif isinstance(idxer, (np.ndarray, Array)):
+    elif isinstance(idxer, (np.ndarray, Array, literals.LiteralArray)):
       diff = n_idxers - 1 - last_int_index_idx
       arr = idxer.reshape(idxer.shape + (1,) * diff)
       arrs.append(arr)
@@ -587,6 +583,26 @@ def _closed_call_discharge_rule(
 run_state_p = core.Primitive("run_state")
 run_state_p.multiple_results = True
 
+def _run_state_is_high(*_, jaxpr, **__):
+  return jaxpr.is_high
+run_state_p.is_high = _run_state_is_high  # type: ignore
+
+def _run_state_to_lojax(*args, jaxpr, is_initialized, **params):
+  assert not jaxpr.constvars
+  closed_jaxpr = core.ClosedJaxpr(jaxpr, ())
+  arg_avals = map(core.typeof, args)
+  args, is_initialized = unzip2(
+      (lo_val, is_init) for a, x, is_init in zip(arg_avals, args, is_initialized)
+      for lo_val in (a.read_loval(x) if a.has_qdd else a.lower_val(x)))
+  lo_jaxpr = pe.lower_jaxpr(closed_jaxpr)
+  all_outs = run_state_p.bind(*lo_jaxpr.consts, *args, jaxpr=lo_jaxpr.jaxpr,
+                              is_initialized=is_initialized, **params)
+  out_mut, lo_outs = split_list(all_outs, [pe.num_himuts_out(jaxpr)])
+  pe.apply_himut(jaxpr, args, out_mut)
+  return pe.raise_lo_outs(arg_avals, lo_outs)
+run_state_p.to_lojax = _run_state_to_lojax
+
+
 def _default_initialization(x):
   assert hasattr(x, 'shape')
   assert hasattr(x, 'dtype')
@@ -772,6 +788,21 @@ def run_state_reference(f: Callable[..., None]):
 def _pjit_state_discharge_rule(
     in_avals, out_avals, *args, jaxpr, in_shardings, out_shardings,
     in_layouts, out_layouts, **params):
+  if not (any(isinstance(e, RefEffect) for e in jaxpr.effects)
+          or any(isinstance(a, AbstractRef) for a in jaxpr.in_avals)):
+    # Only internal ref effects
+    jaxpr_ = discharge_state2(jaxpr)
+    out = pjit.jit_p.bind(
+        *args,
+        jaxpr=jaxpr_,
+        in_shardings=in_shardings,
+        out_shardings=out_shardings,
+        in_layouts=in_layouts,
+        out_layouts=out_layouts,
+        **params,
+    )
+    new_invals = [None] * len(in_avals)
+    return new_invals, out
   if not all(isinstance(s, sharding_impls.UnspecifiedValue) for s in (*in_shardings, *out_shardings)):
     raise NotImplementedError
 

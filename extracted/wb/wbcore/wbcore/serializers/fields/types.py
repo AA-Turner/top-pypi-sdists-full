@@ -14,6 +14,7 @@ class WBCoreType(Enum):
     DATETIMERANGE = "datetimerange"
     DATE = "date"
     DATERANGE = "daterange"
+    TIMERANGE = "timerange"
     DURATION = "duration"
     TIME = "time"
     PRIMARY_KEY = "primary_key"

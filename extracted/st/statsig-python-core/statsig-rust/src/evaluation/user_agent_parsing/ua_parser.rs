@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use crate::evaluation::dynamic_string::DynamicString;
+use crate::evaluation::user_agent_parsing::ParsedUserAgentValue;
+use crate::interned_string::InternedString;
 use crate::user::StatsigUserInternal;
-use crate::{log_w, DynamicValue};
+use crate::{log_w, unwrap_or_return, DynamicValue, StatsigOptions, StatsigUser};
 
 use super::experimental_ua_parser::ExperimentalUserAgentParser;
 use super::third_party_ua_parser::ThirdPartyUserAgentParser;
@@ -13,6 +17,18 @@ const TAG: &str = "UserAgentParser";
 const UNINITIALIZED_REASON: &str = "UAParserNotLoaded";
 
 pub struct UserAgentParser;
+
+fn get_experimental_ua_value(key: &str, ua: &str) -> Option<InternedString> {
+    ExperimentalUserAgentParser::get_value_from_user_agent(key, ua)
+        .and_then(|v| v.string_value.map(|s| s.value))
+}
+
+fn get_third_party_ua_value(key: &str, ua: &str) -> Option<InternedString> {
+    ThirdPartyUserAgentParser::get_value_from_user_agent(key, ua)
+        .ok()
+        .flatten()
+        .and_then(|dv| dv.string_value.map(|s| s.value))
+}
 
 impl UserAgentParser {
     pub fn get_value_from_user_agent(
@@ -57,5 +73,26 @@ impl UserAgentParser {
 
     pub fn load_parser() {
         ThirdPartyUserAgentParser::load_parser();
+    }
+
+    pub fn get_parsed_user_agent_value_for_user(
+        user: &StatsigUser,
+        options: &Arc<StatsigOptions>,
+    ) -> Option<ParsedUserAgentValue> {
+        let user_agent_str = unwrap_or_return!(user.get_user_agent(), None);
+        match options.__experimental_ua_parsing_enabled {
+            Some(true) => Some(ParsedUserAgentValue {
+                os_name: get_experimental_ua_value("os_name", user_agent_str),
+                os_version: get_experimental_ua_value("os_version", user_agent_str),
+                browser_name: get_experimental_ua_value("browser_name", user_agent_str),
+                browser_version: get_experimental_ua_value("browser_version", user_agent_str),
+            }),
+            _ => Some(ParsedUserAgentValue {
+                os_name: get_third_party_ua_value("os_name", user_agent_str),
+                os_version: get_third_party_ua_value("os_version", user_agent_str),
+                browser_name: get_third_party_ua_value("browser_name", user_agent_str),
+                browser_version: get_third_party_ua_value("browser_version", user_agent_str),
+            }),
+        }
     }
 }

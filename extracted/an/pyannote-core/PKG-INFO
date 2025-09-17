@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyannote-core
-Version: 6.0.0
+Version: 6.0.1
 Summary: Advanced data structures for handling temporal segments with attached labels
 Author-email: Hervé BREDIN <herve@pyannote.ai>
 License-File: LICENSE

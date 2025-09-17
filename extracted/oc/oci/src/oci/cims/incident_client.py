@@ -171,7 +171,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/create_incident.py.html>`__ to see an example of how to use create_incident API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/create_incident.py.html>`__ to see an example of how to use create_incident API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -302,7 +302,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/get_incident.py.html>`__ to see an example of how to use get_incident API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/get_incident.py.html>`__ to see an example of how to use get_incident API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['incidentKey', 'compartmentId']
@@ -472,7 +472,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/list_incident_resource_types.py.html>`__ to see an example of how to use list_incident_resource_types API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/list_incident_resource_types.py.html>`__ to see an example of how to use list_incident_resource_types API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['problemType', 'compartmentId']
@@ -651,7 +651,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/list_incidents.py.html>`__ to see an example of how to use list_incidents API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/list_incidents.py.html>`__ to see an example of how to use list_incidents API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -839,7 +839,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/put_attachment.py.html>`__ to see an example of how to use put_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/put_attachment.py.html>`__ to see an example of how to use put_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['incidentKey', 'attachmentName', 'compartmentId', 'isRestrictedFlag']
@@ -1021,7 +1021,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/update_incident.py.html>`__ to see an example of how to use update_incident API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/update_incident.py.html>`__ to see an example of how to use update_incident API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['incidentKey', 'compartmentId']
@@ -1171,7 +1171,7 @@ class IncidentClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/cims/validate_user.py.html>`__ to see an example of how to use validate_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/cims/validate_user.py.html>`__ to see an example of how to use validate_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

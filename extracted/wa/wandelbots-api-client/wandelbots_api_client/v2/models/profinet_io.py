@@ -29,13 +29,13 @@ class ProfinetIO(BaseModel):
     """
     ProfinetIO
     """ # noqa: E501
-    name: StrictStr = Field(description="The name of the input/output variable. This is a human-readable identifier for the value. It distinguishes between different inputs/outputs variables in the system. The variables may be used to set bits or bytes at their pointed to address via [setBusIOValues](setBusIOValues). ")
+    description: StrictStr = Field(description="Descriptive name or note for the input/output variable. ")
     type: ProfinetIOTypeEnum
     direction: ProfinetIODirection = Field(description="The direction of the input/output variable, indicating whether it is an input or output for the PROFINET device, e.g. NOVA's PROFINET service. ")
     byte_address: Annotated[int, Field(strict=True, ge=0)] = Field(description="The byte address of the input/output variable in the PROFINET device, e.g. NOVA's PROFINET service. The byte address is used to locate the specific input/output variable within the device's memory or data structure. ")
     bit_address: Optional[Annotated[int, Field(le=7, strict=True, ge=0)]] = Field(default=None, description="The bit address of the input/output variable within the byte or word address. The bit address is used to specify the exact bit within the byte or word that corresponds to the input/output variable. ")
     io: StrictStr = Field(description="The unique identifier for the input/output value. This identifier is used to reference the specific input/output variable in the PROFINET device, e.g. NOVA's PROFINET service. ")
-    __properties: ClassVar[List[str]] = ["name", "type", "direction", "byte_address", "bit_address", "io"]
+    __properties: ClassVar[List[str]] = ["description", "type", "direction", "byte_address", "bit_address", "io"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,7 +92,7 @@ class ProfinetIO(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "name": obj.get("name"),
+            "description": obj.get("description"),
             "type": obj.get("type"),
             "direction": obj.get("direction"),
             "byte_address": obj.get("byte_address"),

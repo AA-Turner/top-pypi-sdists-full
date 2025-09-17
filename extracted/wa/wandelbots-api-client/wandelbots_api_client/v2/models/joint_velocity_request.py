@@ -17,9 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
-from wandelbots_api_client.v2.models.joints import Joints
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +27,7 @@ class JointVelocityRequest(BaseModel):
     Sets target joint velocities for jogging a motion group.
     """ # noqa: E501
     message_type: Optional[StrictStr] = Field(default='JointVelocityRequest', description="Type specifier for server, set automatically.")
-    velocity: Joints = Field(description="in [rad/s]")
+    velocity: List[Union[StrictFloat, StrictInt]] = Field(description="This structure describes a set of joint values (e.g. positions, currents, torques) of a motion group.  Float precision is the default. ")
     __properties: ClassVar[List[str]] = ["message_type", "velocity"]
 
     @field_validator('message_type')
@@ -84,9 +83,6 @@ class JointVelocityRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of velocity
-        if self.velocity:
-            _dict['velocity'] = self.velocity.to_dict()
         return _dict
 
     @classmethod
@@ -100,7 +96,7 @@ class JointVelocityRequest(BaseModel):
 
         _obj = cls.model_validate({
             "message_type": obj.get("message_type") if obj.get("message_type") is not None else 'JointVelocityRequest',
-            "velocity": Joints.from_dict(obj["velocity"]) if obj.get("velocity") is not None else None
+            "velocity": obj.get("velocity")
         })
         return _obj
 

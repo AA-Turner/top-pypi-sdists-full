@@ -35,7 +35,6 @@ class TestCustomerFacingDependencyLicense(unittest.TestCase):
         model = CustomerFacingDependencyLicense()
         if include_optional:
             return CustomerFacingDependencyLicense(
-                id = '',
                 name = '',
                 source = 'Dependabot'
             )

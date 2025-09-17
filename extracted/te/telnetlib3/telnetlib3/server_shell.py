@@ -1,4 +1,5 @@
 import types
+import asyncio
 
 CR, LF, NUL = "\r\n\x00"
 from . import slc
@@ -15,62 +16,94 @@ async def telnet_server_shell(reader, writer):
     This shell provides a very simple REPL, allowing introspection and state
     toggling of the connected client session.
     """
-    writer.write("Ready." + CR + LF)
-
     linereader = readline(reader, writer)
     linereader.send(None)
 
+    writer.write("Ready." + CR + LF)
+
     command = None
-    while True:
+    while not writer.is_closing():
         if command:
             writer.write(CR + LF)
         writer.write("tel:sh> ")
+        await writer.drain()
+
         command = None
         while command is None:
             await writer.drain()
             inp = await reader.read(1)
             if not inp:
+                # close/eof by client at prompt
                 return
             command = linereader.send(inp)
         writer.write(CR + LF)
+
         if command == "quit":
+            # server hangs up on client
             writer.write("Goodbye." + CR + LF)
             break
         elif command == "help":
             writer.write("quit, writer, slc, toggle [option|all], reader, proto, dump")
         elif command == "writer":
+            # show 'writer' status
             writer.write(repr(writer))
         elif command == "reader":
+            # show 'reader' status
             writer.write(repr(reader))
         elif command == "proto":
+            # show 'proto' details of writer
             writer.write(repr(writer.protocol))
         elif command == "version":
             writer.write(accessories.get_version())
         elif command == "slc":
+            # show 'slc' support and data tables
             writer.write(get_slcdata(writer))
         elif command.startswith("toggle"):
+            # toggle specified options
             option = command[len("toggle ") :] or None
             writer.write(do_toggle(writer, option))
         elif command.startswith("dump"):
-            # dump [kb] [ms_delay] [drain|nodrain]
+            # dump [kb] [ms_delay] [drain|nodrain] [close|noclose]
+            #
+            # this allows you to experiment with the effects of 'drain', and,
+            # some longer-running programs that check for early break through
+            # writer.is_closing().
             try:
                 kb_limit = int(command.split()[1])
             except (ValueError, IndexError):
                 kb_limit = 1000
             try:
-                ms_delay = int(command.split()[2]) * 1000
+                delay = int(float(command.split()[2]) / 1000)
             except (ValueError, IndexError):
-                ms_delay = 0
+                delay = 0
+            # experiment with large sizes and 'nodrain', the server pretty much
+            # locks up and stops talking to new clients.
             try:
-                drain = command.split()[3] == "drain"
+                drain = command.split()[3].lower() == "nodrain"
             except IndexError:
-                drain = False
+                drain = True
+            try:
+                do_close = command.split()[4].lower() == "close"
+            except IndexError:
+                do_close = False
+            writer.write(
+                "kb_limit={}, delay={}, drain={}, do_close={}:\r\n".format(
+                    kb_limit, delay, drain, do_close
+                )
+            )
             for lineout in character_dump(kb_limit):
+                if writer.is_closing():
+                    break
                 writer.write(lineout)
-                if ms_delay:
-                    await asyncio.sleep(ms_delay)
                 if drain:
                     await writer.drain()
+                if delay:
+                    await asyncio.sleep(delay)
+
+            if not writer.is_closing():
+                writer.write("\r\n{} OK".format(kb_limit))
+            if do_close:
+                break
         elif command:
             writer.write("no such command.")
     writer.close()
@@ -86,10 +119,30 @@ def character_dump(kb_limit):
     yield ("\033[1G" + "wrote " + str(num_bytes) + " bytes")
 
 
+async def get_next_ascii(reader, writer):
+    """
+    A coroutine that accepts the next character from `reader` that is not a
+    part of an ANSI escape sequence.
+    """
+    escape_sequence = False
+    while not writer.is_closing():
+        next_char = await reader.read(1)
+        if next_char == "\x1b":
+            escape_sequence = True
+        elif escape_sequence:
+            if 61 <= ord(next_char) <= 90 or 97 <= ord(next_char) <= 122:
+                escape_sequence = False
+        else:
+            return next_char
+    return None
+
+
 @types.coroutine
 def readline(reader, writer):
     """
-    A very crude readline coroutine interface.
+    A very crude readline coroutine interface. This is a legacy function
+    designed for Python 3.4 and remains here for compatibility, superseded by
+    :func:`~.readline2`
     """
     command, inp, last_inp = "", "", ""
     inp = yield None
@@ -118,6 +171,41 @@ def readline(reader, writer):
             writer.echo(inp)
             last_inp = inp
             inp = yield None
+
+
+async def readline2(reader, writer):
+    """
+    Another crude readline interface as a more amiable asynchronous function
+    than :func:`readline` supplied with the earliest version of this library.
+
+    This version attempts to filter away escape sequences, such as when a user
+    presses an arrow or function key. Delete key is backspace.
+
+    However, this function does not handle all possible types of carriage
+    returns and so it is not used by default shell, :func:`telnet_server_shell`.
+    """
+    command = ""
+    while True:
+        next_char = await filter_ansi(reader, writer)
+
+        if next_char == CR:
+            return command
+
+        elif next_char in (LF, NUL) and len(command) == 0:
+            continue
+
+        elif next_char in ("\b", "\x7f"):
+            # backspace over input
+            if len(command) > 0:
+                command = command[:-1]
+                writer.echo("\b \b")
+
+        elif next_char == "":
+            return None
+
+        else:
+            command += next_char
+            writer.echo(next_char)
 
 
 def get_slcdata(writer):

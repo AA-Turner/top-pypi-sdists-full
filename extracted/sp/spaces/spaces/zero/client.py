@@ -53,6 +53,8 @@ def startup_report(cgroup_path: str, gpu_size: GPUSize):
         time.sleep(1)
         if (retries := retries + 1) > max_retries:
             raise RuntimeError("Error while initializing ZeroGPU: NotFound")
+    if status is httpx.codes.CONFLICT: # pragma: no cover (quickfix: should be fixed at device-api level)
+        return
     if status is not httpx.codes.OK: # pragma: no cover
         raise RuntimeError("Error while initializing ZeroGPU: Unknown")
 

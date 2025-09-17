@@ -248,6 +248,33 @@ def cursor_set(
     :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
+def custom_region_set(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    xmin: int | None = 0,
+    xmax: int | None = 0,
+    ymin: int | None = 0,
+    ymax: int | None = 0,
+    wait_for_input: bool | None = True,
+) -> None:
+    """Set the boundaries of the user region
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    :param xmin: X Min
+    :type xmin: int | None
+    :param xmax: X Max
+    :type xmax: int | None
+    :param ymin: Y Min
+    :type ymin: int | None
+    :param ymax: Y Max
+    :type ymax: int | None
+    :param wait_for_input: Wait for Input
+    :type wait_for_input: bool | None
+    """
+
 def cylinder_project(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -473,7 +500,9 @@ def pack_islands(
     undo: bool | None = None,
     /,
     *,
-    udim_source: typing.Literal["CLOSEST_UDIM", "ACTIVE_UDIM", "ORIGINAL_AABB"]
+    udim_source: typing.Literal[
+        "CLOSEST_UDIM", "ACTIVE_UDIM", "ORIGINAL_AABB", "CUSTOM_REGION"
+    ]
     | None = "CLOSEST_UDIM",
     rotate: bool | None = True,
     rotate_method: typing.Literal[
@@ -503,7 +532,10 @@ def pack_islands(
 
     ORIGINAL_AABB
     Original bounding box -- Pack to starting bounding box of islands.
-        :type udim_source: typing.Literal['CLOSEST_UDIM','ACTIVE_UDIM','ORIGINAL_AABB'] | None
+
+    CUSTOM_REGION
+    Custom Region -- Pack islands to custom region.
+        :type udim_source: typing.Literal['CLOSEST_UDIM','ACTIVE_UDIM','ORIGINAL_AABB','CUSTOM_REGION'] | None
         :param rotate: Rotate, Rotate islands to improve layout
         :type rotate: bool | None
         :param rotate_method: Rotation Method

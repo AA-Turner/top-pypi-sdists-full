@@ -157,7 +157,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/add_email_domain_lock.py.html>`__ to see an example of how to use add_email_domain_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/add_email_domain_lock.py.html>`__ to see an example of how to use add_email_domain_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -267,7 +267,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/add_return_path_lock.py.html>`__ to see an example of how to use add_return_path_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/add_return_path_lock.py.html>`__ to see an example of how to use add_return_path_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailReturnPathId']
@@ -375,7 +375,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/add_sender_lock.py.html>`__ to see an example of how to use add_sender_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/add_sender_lock.py.html>`__ to see an example of how to use add_sender_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']
@@ -502,7 +502,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/change_email_domain_compartment.py.html>`__ to see an example of how to use change_email_domain_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/change_email_domain_compartment.py.html>`__ to see an example of how to use change_email_domain_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -622,7 +622,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/change_sender_compartment.py.html>`__ to see an example of how to use change_sender_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/change_sender_compartment.py.html>`__ to see an example of how to use change_sender_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']
@@ -739,7 +739,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/create_dkim.py.html>`__ to see an example of how to use create_dkim API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/create_dkim.py.html>`__ to see an example of how to use create_dkim API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -835,7 +835,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/create_email_domain.py.html>`__ to see an example of how to use create_email_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/create_email_domain.py.html>`__ to see an example of how to use create_email_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -931,7 +931,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/create_email_return_path.py.html>`__ to see an example of how to use create_email_return_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/create_email_return_path.py.html>`__ to see an example of how to use create_email_return_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1020,7 +1020,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/create_sender.py.html>`__ to see an example of how to use create_sender API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/create_sender.py.html>`__ to see an example of how to use create_sender API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1109,7 +1109,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/create_suppression.py.html>`__ to see an example of how to use create_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/create_suppression.py.html>`__ to see an example of how to use create_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1207,7 +1207,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/delete_dkim.py.html>`__ to see an example of how to use delete_dkim API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/delete_dkim.py.html>`__ to see an example of how to use delete_dkim API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dkimId']
@@ -1313,7 +1313,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/delete_email_domain.py.html>`__ to see an example of how to use delete_email_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/delete_email_domain.py.html>`__ to see an example of how to use delete_email_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -1427,7 +1427,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/delete_email_return_path.py.html>`__ to see an example of how to use delete_email_return_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/delete_email_return_path.py.html>`__ to see an example of how to use delete_email_return_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailReturnPathId']
@@ -1540,7 +1540,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/delete_sender.py.html>`__ to see an example of how to use delete_sender API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/delete_sender.py.html>`__ to see an example of how to use delete_sender API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']
@@ -1645,7 +1645,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/delete_suppression.py.html>`__ to see an example of how to use delete_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/delete_suppression.py.html>`__ to see an example of how to use delete_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['suppressionId']
@@ -1741,7 +1741,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_dkim.py.html>`__ to see an example of how to use get_dkim API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_dkim.py.html>`__ to see an example of how to use get_dkim API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dkimId']
@@ -1837,7 +1837,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_email_configuration.py.html>`__ to see an example of how to use get_email_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_email_configuration.py.html>`__ to see an example of how to use get_email_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1930,7 +1930,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_email_domain.py.html>`__ to see an example of how to use get_email_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_email_domain.py.html>`__ to see an example of how to use get_email_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -2028,7 +2028,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_email_return_path.py.html>`__ to see an example of how to use get_email_return_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_email_return_path.py.html>`__ to see an example of how to use get_email_return_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailReturnPathId']
@@ -2124,7 +2124,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_sender.py.html>`__ to see an example of how to use get_sender API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_sender.py.html>`__ to see an example of how to use get_sender API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']
@@ -2221,7 +2221,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_suppression.py.html>`__ to see an example of how to use get_suppression API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_suppression.py.html>`__ to see an example of how to use get_suppression API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['suppressionId']
@@ -2317,7 +2317,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2456,7 +2456,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_dkims.py.html>`__ to see an example of how to use list_dkims API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_dkims.py.html>`__ to see an example of how to use list_dkims API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -2623,7 +2623,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_email_domains.py.html>`__ to see an example of how to use list_email_domains API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_email_domains.py.html>`__ to see an example of how to use list_email_domains API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2795,7 +2795,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_email_return_paths.py.html>`__ to see an example of how to use list_email_return_paths API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_email_return_paths.py.html>`__ to see an example of how to use list_email_return_paths API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -2962,7 +2962,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_senders.py.html>`__ to see an example of how to use list_senders API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_senders.py.html>`__ to see an example of how to use list_senders API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3144,7 +3144,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_suppressions.py.html>`__ to see an example of how to use list_suppressions API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_suppressions.py.html>`__ to see an example of how to use list_suppressions API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3277,7 +3277,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -3397,7 +3397,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -3520,7 +3520,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3627,7 +3627,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/remove_email_domain_lock.py.html>`__ to see an example of how to use remove_email_domain_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/remove_email_domain_lock.py.html>`__ to see an example of how to use remove_email_domain_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -3737,7 +3737,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/remove_return_path_lock.py.html>`__ to see an example of how to use remove_return_path_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/remove_return_path_lock.py.html>`__ to see an example of how to use remove_return_path_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailReturnPathId']
@@ -3845,7 +3845,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/remove_sender_lock.py.html>`__ to see an example of how to use remove_sender_lock API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/remove_sender_lock.py.html>`__ to see an example of how to use remove_sender_lock API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']
@@ -3955,7 +3955,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/update_dkim.py.html>`__ to see an example of how to use update_dkim API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/update_dkim.py.html>`__ to see an example of how to use update_dkim API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['dkimId']
@@ -4066,7 +4066,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/update_email_domain.py.html>`__ to see an example of how to use update_email_domain API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/update_email_domain.py.html>`__ to see an example of how to use update_email_domain API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailDomainId']
@@ -4185,7 +4185,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/update_email_return_path.py.html>`__ to see an example of how to use update_email_return_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/update_email_return_path.py.html>`__ to see an example of how to use update_email_return_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['emailReturnPathId']
@@ -4307,7 +4307,7 @@ class EmailClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/email/update_sender.py.html>`__ to see an example of how to use update_sender API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/email/update_sender.py.html>`__ to see an example of how to use update_sender API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['senderId']

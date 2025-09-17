@@ -120,26 +120,32 @@ pub struct FetchLog {
 /// # Parameters
 /// - `query_ids`: The user provided ids, which specifies the domain of the filter if provided
 /// - `where_clause`: The predicate on individual record
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Filter {
     #[serde(default)]
     pub query_ids: Option<Vec<String>>,
-    #[serde(default, deserialize_with = "Filter::deserialize_where")]
+    #[serde(default)]
     pub where_clause: Option<Where>,
 }
 
-impl Filter {
-    fn deserialize_where<'de, D: Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<Option<Where>, D::Error> {
+impl<'de> Deserialize<'de> for Filter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // For the new search API, the entire JSON is the where clause
         let where_json = Value::deserialize(deserializer)?;
-        if where_json.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(
-                parse_where(&where_json).map_err(|e| D::Error::custom(e.to_string()))?,
-            ))
-        }
+        let where_clause =
+            if where_json.is_null() || where_json.as_object().is_some_and(|obj| obj.is_empty()) {
+                None
+            } else {
+                Some(parse_where(&where_json).map_err(|e| D::Error::custom(e.to_string()))?)
+            };
+
+        Ok(Filter {
+            query_ids: None, // Always None for new search API
+            where_clause,
+        })
     }
 }
 
@@ -697,48 +703,89 @@ impl TryFrom<QueryVector> for chroma_proto::QueryVector {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KnnQuery {
-    pub embedding: QueryVector,
+    pub query: QueryVector,
     pub key: String,
     pub limit: u32,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Rank {
+    pub expr: Option<RankExpr>,
+}
+
+impl Rank {
+    pub fn knn_queries(&self) -> Vec<KnnQuery> {
+        self.expr
+            .as_ref()
+            .map(RankExpr::knn_queries)
+            .unwrap_or_default()
+    }
+}
+
+impl TryFrom<chroma_proto::RankOperator> for Rank {
+    type Error = QueryConversionError;
+
+    fn try_from(proto_rank: chroma_proto::RankOperator) -> Result<Self, Self::Error> {
+        Ok(Rank {
+            expr: proto_rank.expr.map(TryInto::try_into).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<Rank> for chroma_proto::RankOperator {
+    type Error = QueryConversionError;
+
+    fn try_from(rank: Rank) -> Result<Self, Self::Error> {
+        Ok(chroma_proto::RankOperator {
+            expr: rank.expr.map(TryInto::try_into).transpose()?,
+        })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum Rank {
+pub enum RankExpr {
     #[serde(rename = "$abs")]
-    Absolute(Box<Rank>),
+    Absolute(Box<RankExpr>),
     #[serde(rename = "$div")]
-    Division { left: Box<Rank>, right: Box<Rank> },
+    Division {
+        left: Box<RankExpr>,
+        right: Box<RankExpr>,
+    },
     #[serde(rename = "$exp")]
-    Exponentiation(Box<Rank>),
+    Exponentiation(Box<RankExpr>),
     #[serde(rename = "$knn")]
     Knn {
-        embedding: QueryVector,
-        #[serde(default = "Rank::default_knn_key")]
+        query: QueryVector,
+        #[serde(default = "RankExpr::default_knn_key")]
         key: String,
-        #[serde(default = "Rank::default_knn_limit")]
+        #[serde(default = "RankExpr::default_knn_limit")]
         limit: u32,
         #[serde(default)]
         default: Option<f32>,
         #[serde(default)]
-        ordinal: bool,
+        return_rank: bool,
     },
     #[serde(rename = "$log")]
-    Logarithm(Box<Rank>),
+    Logarithm(Box<RankExpr>),
     #[serde(rename = "$max")]
-    Maximum(Vec<Rank>),
+    Maximum(Vec<RankExpr>),
     #[serde(rename = "$min")]
-    Minimum(Vec<Rank>),
+    Minimum(Vec<RankExpr>),
     #[serde(rename = "$mul")]
-    Multiplication(Vec<Rank>),
+    Multiplication(Vec<RankExpr>),
     #[serde(rename = "$sub")]
-    Subtraction { left: Box<Rank>, right: Box<Rank> },
+    Subtraction {
+        left: Box<RankExpr>,
+        right: Box<RankExpr>,
+    },
     #[serde(rename = "$sum")]
-    Summation(Vec<Rank>),
+    Summation(Vec<RankExpr>),
     #[serde(rename = "$val")]
     Value(f32),
 }
 
-impl Rank {
+impl RankExpr {
     pub fn default_knn_key() -> String {
         "#embedding".to_string()
     }
@@ -749,27 +796,27 @@ impl Rank {
 
     pub fn knn_queries(&self) -> Vec<KnnQuery> {
         match self {
-            Rank::Absolute(rank) | Rank::Exponentiation(rank) | Rank::Logarithm(rank) => {
-                rank.knn_queries()
-            }
-            Rank::Division { left, right } | Rank::Subtraction { left, right } => left
+            RankExpr::Absolute(expr)
+            | RankExpr::Exponentiation(expr)
+            | RankExpr::Logarithm(expr) => expr.knn_queries(),
+            RankExpr::Division { left, right } | RankExpr::Subtraction { left, right } => left
                 .knn_queries()
                 .into_iter()
                 .chain(right.knn_queries())
                 .collect(),
-            Rank::Maximum(ranks)
-            | Rank::Minimum(ranks)
-            | Rank::Multiplication(ranks)
-            | Rank::Summation(ranks) => ranks.iter().flat_map(Rank::knn_queries).collect(),
-            Rank::Value(_) => Vec::new(),
-            Rank::Knn {
-                embedding,
+            RankExpr::Maximum(exprs)
+            | RankExpr::Minimum(exprs)
+            | RankExpr::Multiplication(exprs)
+            | RankExpr::Summation(exprs) => exprs.iter().flat_map(RankExpr::knn_queries).collect(),
+            RankExpr::Value(_) => Vec::new(),
+            RankExpr::Knn {
+                query,
                 key,
                 limit,
                 default: _,
-                ordinal: _,
+                return_rank: _,
             } => vec![KnnQuery {
-                embedding: embedding.clone(),
+                query: query.clone(),
                 key: key.clone(),
                 limit: *limit,
             }],
@@ -777,174 +824,174 @@ impl Rank {
     }
 }
 
-impl TryFrom<chroma_proto::Rank> for Rank {
+impl TryFrom<chroma_proto::RankExpr> for RankExpr {
     type Error = QueryConversionError;
 
-    fn try_from(proto_rank: chroma_proto::Rank) -> Result<Self, Self::Error> {
-        match proto_rank.rank {
-            Some(chroma_proto::rank::Rank::Absolute(abs)) => {
-                Ok(Rank::Absolute(Box::new(Rank::try_from(*abs)?)))
+    fn try_from(proto_expr: chroma_proto::RankExpr) -> Result<Self, Self::Error> {
+        match proto_expr.rank {
+            Some(chroma_proto::rank_expr::Rank::Absolute(expr)) => {
+                Ok(RankExpr::Absolute(Box::new(RankExpr::try_from(*expr)?)))
             }
-            Some(chroma_proto::rank::Rank::Division(div)) => {
+            Some(chroma_proto::rank_expr::Rank::Division(div)) => {
                 let left = div.left.ok_or(QueryConversionError::field("left"))?;
                 let right = div.right.ok_or(QueryConversionError::field("right"))?;
-                Ok(Rank::Division {
-                    left: Box::new(Rank::try_from(*left)?),
-                    right: Box::new(Rank::try_from(*right)?),
+                Ok(RankExpr::Division {
+                    left: Box::new(RankExpr::try_from(*left)?),
+                    right: Box::new(RankExpr::try_from(*right)?),
                 })
             }
-            Some(chroma_proto::rank::Rank::Exponentiation(exp)) => {
-                Ok(Rank::Exponentiation(Box::new(Rank::try_from(*exp)?)))
-            }
-            Some(chroma_proto::rank::Rank::Knn(knn)) => {
-                let embedding = knn
-                    .embedding
-                    .ok_or(QueryConversionError::field("embedding"))?
+            Some(chroma_proto::rank_expr::Rank::Exponentiation(expr)) => Ok(
+                RankExpr::Exponentiation(Box::new(RankExpr::try_from(*expr)?)),
+            ),
+            Some(chroma_proto::rank_expr::Rank::Knn(knn)) => {
+                let query = knn
+                    .query
+                    .ok_or(QueryConversionError::field("query"))?
                     .try_into()?;
-                Ok(Rank::Knn {
-                    embedding,
+                Ok(RankExpr::Knn {
+                    query,
                     key: knn.key,
                     limit: knn.limit,
                     default: knn.default,
-                    ordinal: knn.ordinal,
+                    return_rank: knn.return_rank,
                 })
             }
-            Some(chroma_proto::rank::Rank::Logarithm(log)) => {
-                Ok(Rank::Logarithm(Box::new(Rank::try_from(*log)?)))
+            Some(chroma_proto::rank_expr::Rank::Logarithm(expr)) => {
+                Ok(RankExpr::Logarithm(Box::new(RankExpr::try_from(*expr)?)))
             }
-            Some(chroma_proto::rank::Rank::Maximum(max)) => {
-                let ranks = max
-                    .ranks
+            Some(chroma_proto::rank_expr::Rank::Maximum(max)) => {
+                let exprs = max
+                    .exprs
                     .into_iter()
-                    .map(Rank::try_from)
+                    .map(RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(Rank::Maximum(ranks))
+                Ok(RankExpr::Maximum(exprs))
             }
-            Some(chroma_proto::rank::Rank::Minimum(min)) => {
-                let ranks = min
-                    .ranks
+            Some(chroma_proto::rank_expr::Rank::Minimum(min)) => {
+                let exprs = min
+                    .exprs
                     .into_iter()
-                    .map(Rank::try_from)
+                    .map(RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(Rank::Minimum(ranks))
+                Ok(RankExpr::Minimum(exprs))
             }
-            Some(chroma_proto::rank::Rank::Multiplication(mul)) => {
-                let ranks = mul
-                    .ranks
+            Some(chroma_proto::rank_expr::Rank::Multiplication(mul)) => {
+                let exprs = mul
+                    .exprs
                     .into_iter()
-                    .map(Rank::try_from)
+                    .map(RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(Rank::Multiplication(ranks))
+                Ok(RankExpr::Multiplication(exprs))
             }
-            Some(chroma_proto::rank::Rank::Subtraction(sub)) => {
+            Some(chroma_proto::rank_expr::Rank::Subtraction(sub)) => {
                 let left = sub.left.ok_or(QueryConversionError::field("left"))?;
                 let right = sub.right.ok_or(QueryConversionError::field("right"))?;
-                Ok(Rank::Subtraction {
-                    left: Box::new(Rank::try_from(*left)?),
-                    right: Box::new(Rank::try_from(*right)?),
+                Ok(RankExpr::Subtraction {
+                    left: Box::new(RankExpr::try_from(*left)?),
+                    right: Box::new(RankExpr::try_from(*right)?),
                 })
             }
-            Some(chroma_proto::rank::Rank::Summation(sum)) => {
-                let ranks = sum
-                    .ranks
+            Some(chroma_proto::rank_expr::Rank::Summation(sum)) => {
+                let exprs = sum
+                    .exprs
                     .into_iter()
-                    .map(Rank::try_from)
+                    .map(RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(Rank::Summation(ranks))
+                Ok(RankExpr::Summation(exprs))
             }
-            Some(chroma_proto::rank::Rank::Value(value)) => Ok(Rank::Value(value)),
+            Some(chroma_proto::rank_expr::Rank::Value(value)) => Ok(RankExpr::Value(value)),
             None => Err(QueryConversionError::field("rank")),
         }
     }
 }
 
-impl TryFrom<Rank> for chroma_proto::Rank {
+impl TryFrom<RankExpr> for chroma_proto::RankExpr {
     type Error = QueryConversionError;
 
-    fn try_from(rank: Rank) -> Result<Self, Self::Error> {
-        let proto_rank = match rank {
-            Rank::Absolute(rank) => {
-                chroma_proto::rank::Rank::Absolute(Box::new(chroma_proto::Rank::try_from(*rank)?))
-            }
-            Rank::Division { left, right } => {
-                chroma_proto::rank::Rank::Division(Box::new(chroma_proto::rank::Division {
-                    left: Some(Box::new(chroma_proto::Rank::try_from(*left)?)),
-                    right: Some(Box::new(chroma_proto::Rank::try_from(*right)?)),
-                }))
-            }
-            Rank::Exponentiation(rank) => chroma_proto::rank::Rank::Exponentiation(Box::new(
-                chroma_proto::Rank::try_from(*rank)?,
+    fn try_from(rank_expr: RankExpr) -> Result<Self, Self::Error> {
+        let proto_rank = match rank_expr {
+            RankExpr::Absolute(expr) => chroma_proto::rank_expr::Rank::Absolute(Box::new(
+                chroma_proto::RankExpr::try_from(*expr)?,
             )),
-            Rank::Knn {
-                embedding,
+            RankExpr::Division { left, right } => chroma_proto::rank_expr::Rank::Division(
+                Box::new(chroma_proto::rank_expr::RankPair {
+                    left: Some(Box::new(chroma_proto::RankExpr::try_from(*left)?)),
+                    right: Some(Box::new(chroma_proto::RankExpr::try_from(*right)?)),
+                }),
+            ),
+            RankExpr::Exponentiation(expr) => chroma_proto::rank_expr::Rank::Exponentiation(
+                Box::new(chroma_proto::RankExpr::try_from(*expr)?),
+            ),
+            RankExpr::Knn {
+                query,
                 key,
                 limit,
                 default,
-                ordinal,
-            } => chroma_proto::rank::Rank::Knn(chroma_proto::rank::Knn {
-                embedding: Some(embedding.try_into()?),
+                return_rank,
+            } => chroma_proto::rank_expr::Rank::Knn(chroma_proto::rank_expr::Knn {
+                query: Some(query.try_into()?),
                 key,
                 limit,
                 default,
-                ordinal,
+                return_rank,
             }),
-            Rank::Logarithm(rank) => {
-                chroma_proto::rank::Rank::Logarithm(Box::new(chroma_proto::Rank::try_from(*rank)?))
-            }
-            Rank::Maximum(ranks) => {
-                let proto_ranks = ranks
+            RankExpr::Logarithm(expr) => chroma_proto::rank_expr::Rank::Logarithm(Box::new(
+                chroma_proto::RankExpr::try_from(*expr)?,
+            )),
+            RankExpr::Maximum(exprs) => {
+                let proto_exprs = exprs
                     .into_iter()
-                    .map(chroma_proto::Rank::try_from)
+                    .map(chroma_proto::RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                chroma_proto::rank::Rank::Maximum(chroma_proto::rank::RankList {
-                    ranks: proto_ranks,
+                chroma_proto::rank_expr::Rank::Maximum(chroma_proto::rank_expr::RankList {
+                    exprs: proto_exprs,
                 })
             }
-            Rank::Minimum(ranks) => {
-                let proto_ranks = ranks
+            RankExpr::Minimum(exprs) => {
+                let proto_exprs = exprs
                     .into_iter()
-                    .map(chroma_proto::Rank::try_from)
+                    .map(chroma_proto::RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                chroma_proto::rank::Rank::Minimum(chroma_proto::rank::RankList {
-                    ranks: proto_ranks,
+                chroma_proto::rank_expr::Rank::Minimum(chroma_proto::rank_expr::RankList {
+                    exprs: proto_exprs,
                 })
             }
-            Rank::Multiplication(ranks) => {
-                let proto_ranks = ranks
+            RankExpr::Multiplication(exprs) => {
+                let proto_exprs = exprs
                     .into_iter()
-                    .map(chroma_proto::Rank::try_from)
+                    .map(chroma_proto::RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                chroma_proto::rank::Rank::Multiplication(chroma_proto::rank::RankList {
-                    ranks: proto_ranks,
+                chroma_proto::rank_expr::Rank::Multiplication(chroma_proto::rank_expr::RankList {
+                    exprs: proto_exprs,
                 })
             }
-            Rank::Subtraction { left, right } => {
-                chroma_proto::rank::Rank::Subtraction(Box::new(chroma_proto::rank::Subtraction {
-                    left: Some(Box::new(chroma_proto::Rank::try_from(*left)?)),
-                    right: Some(Box::new(chroma_proto::Rank::try_from(*right)?)),
-                }))
-            }
-            Rank::Summation(ranks) => {
-                let proto_ranks = ranks
+            RankExpr::Subtraction { left, right } => chroma_proto::rank_expr::Rank::Subtraction(
+                Box::new(chroma_proto::rank_expr::RankPair {
+                    left: Some(Box::new(chroma_proto::RankExpr::try_from(*left)?)),
+                    right: Some(Box::new(chroma_proto::RankExpr::try_from(*right)?)),
+                }),
+            ),
+            RankExpr::Summation(exprs) => {
+                let proto_exprs = exprs
                     .into_iter()
-                    .map(chroma_proto::Rank::try_from)
+                    .map(chroma_proto::RankExpr::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
-                chroma_proto::rank::Rank::Summation(chroma_proto::rank::RankList {
-                    ranks: proto_ranks,
+                chroma_proto::rank_expr::Rank::Summation(chroma_proto::rank_expr::RankList {
+                    exprs: proto_exprs,
                 })
             }
-            Rank::Value(value) => chroma_proto::rank::Rank::Value(value),
+            RankExpr::Value(value) => chroma_proto::rank_expr::Rank::Value(value),
         };
 
-        Ok(chroma_proto::Rank {
+        Ok(chroma_proto::RankExpr {
             rank: Some(proto_rank),
         })
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ToSchema)]
-pub enum SelectField {
-    // Predefined fields
+pub enum Key {
+    // Predefined keys
     Document,
     Embedding,
     Metadata,
@@ -952,34 +999,34 @@ pub enum SelectField {
     MetadataField(String),
 }
 
-impl Serialize for SelectField {
+impl Serialize for Key {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            SelectField::Document => serializer.serialize_str("#document"),
-            SelectField::Embedding => serializer.serialize_str("#embedding"),
-            SelectField::Metadata => serializer.serialize_str("#metadata"),
-            SelectField::Score => serializer.serialize_str("#score"),
-            SelectField::MetadataField(field) => serializer.serialize_str(field),
+            Key::Document => serializer.serialize_str("#document"),
+            Key::Embedding => serializer.serialize_str("#embedding"),
+            Key::Metadata => serializer.serialize_str("#metadata"),
+            Key::Score => serializer.serialize_str("#score"),
+            Key::MetadataField(field) => serializer.serialize_str(field),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for SelectField {
+impl<'de> Deserialize<'de> for Key {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         Ok(match s.as_str() {
-            "#document" => SelectField::Document,
-            "#embedding" => SelectField::Embedding,
-            "#metadata" => SelectField::Metadata,
-            "#score" => SelectField::Score,
+            "#document" => Key::Document,
+            "#embedding" => Key::Embedding,
+            "#metadata" => Key::Metadata,
+            "#score" => Key::Score,
             // Any other string is treated as a metadata field key
-            field => SelectField::MetadataField(field.to_string()),
+            field => Key::MetadataField(field.to_string()),
         })
     }
 }
@@ -987,24 +1034,24 @@ impl<'de> Deserialize<'de> for SelectField {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Select {
     #[serde(default)]
-    pub fields: HashSet<SelectField>,
+    pub keys: HashSet<Key>,
 }
 
 impl TryFrom<chroma_proto::SelectOperator> for Select {
     type Error = QueryConversionError;
 
     fn try_from(value: chroma_proto::SelectOperator) -> Result<Self, Self::Error> {
-        let fields = value
-            .fields
+        let keys = value
+            .keys
             .into_iter()
-            .map(|field| {
-                // Try to deserialize each string as a SelectField
-                serde_json::from_value(serde_json::Value::String(field))
-                    .map_err(|_| QueryConversionError::field("fields"))
+            .map(|key| {
+                // Try to deserialize each string as a Key
+                serde_json::from_value(serde_json::Value::String(key))
+                    .map_err(|_| QueryConversionError::field("keys"))
             })
             .collect::<Result<HashSet<_>, _>>()?;
 
-        Ok(Self { fields })
+        Ok(Self { keys })
     }
 }
 
@@ -1012,19 +1059,19 @@ impl TryFrom<Select> for chroma_proto::SelectOperator {
     type Error = QueryConversionError;
 
     fn try_from(value: Select) -> Result<Self, Self::Error> {
-        let fields = value
-            .fields
+        let keys = value
+            .keys
             .into_iter()
-            .map(|field| {
-                // Serialize each SelectField back to string
-                serde_json::to_value(&field)
+            .map(|key| {
+                // Serialize each Key back to string
+                serde_json::to_value(&key)
                     .ok()
                     .and_then(|v| v.as_str().map(String::from))
-                    .ok_or(QueryConversionError::field("fields"))
+                    .ok_or(QueryConversionError::field("keys"))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(Self { fields })
+        Ok(Self { keys })
     }
 }
 
@@ -1220,160 +1267,249 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_json_serialization() {
-        // Test basic filter serialization
-        let filter = Filter {
-            query_ids: Some(vec!["id1".to_string(), "id2".to_string()]),
-            where_clause: None,
-        };
+    fn test_filter_json_deserialization() {
+        // For the new search API, deserialization treats the entire JSON as a where clause
 
-        let json = serde_json::to_string(&filter).unwrap();
-        let deserialized: Filter = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(deserialized.query_ids, filter.query_ids);
-        assert_eq!(deserialized.where_clause, filter.where_clause);
-
-        // Test filter deserialization from JSON with composite where clause
-        // This includes both document filters ($contains, $regex) and metadata filters ($gte, $eq)
-        let json_str = r#"{
-            "query_ids": ["doc1", "doc2", "doc3"],
-            "where_clause": {
-                "$and": [
-                    {
-                        "content": {
-                            "$contains": "machine learning"
-                        }
-                    },
-                    {
-                        "author": "John Doe"
-                    },
-                    {
-                        "year": {
-                            "$gte": 2020
-                        }
-                    },
-                    {
-                        "description": {
-                            "$regex": "^[A-Z].*learning.*"
-                        }
-                    },
-                    {
-                        "tags": {
-                            "$in": ["AI", "ML", "Deep Learning"]
-                        }
-                    }
-                ]
-            }
-        }"#;
-
-        let filter: Filter = serde_json::from_str(json_str).unwrap();
-
-        // Verify query_ids
-        assert_eq!(
-            filter.query_ids,
-            Some(vec![
-                "doc1".to_string(),
-                "doc2".to_string(),
-                "doc3".to_string()
-            ])
-        );
-
-        // Verify where_clause structure
+        // Test 1: Simple direct metadata comparison
+        let simple_where = r#"{"author": "John Doe"}"#;
+        let filter: Filter = serde_json::from_str(simple_where).unwrap();
+        assert_eq!(filter.query_ids, None);
         assert!(filter.where_clause.is_some());
-        let where_clause = filter.where_clause.unwrap();
 
-        // Should be a composite AND expression
-        if let crate::metadata::Where::Composite(composite) = where_clause {
-            assert_eq!(composite.operator, crate::metadata::BooleanOperator::And);
-            assert_eq!(composite.children.len(), 5);
-
-            // Check first child - document $contains filter
-            if let crate::metadata::Where::Document(doc) = &composite.children[0] {
-                assert_eq!(doc.operator, crate::metadata::DocumentOperator::Contains);
-                assert_eq!(doc.pattern, "machine learning");
-            } else {
-                panic!("Expected document filter as first child");
+        // Test 2: ID filter using #id with $in operator
+        let id_filter_json = serde_json::json!({
+            "#id": {
+                "$in": ["doc1", "doc2", "doc3"]
             }
+        });
+        let filter: Filter = serde_json::from_value(id_filter_json).unwrap();
+        assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
 
-            // Check second child - metadata equality filter (direct form)
-            if let crate::metadata::Where::Metadata(meta) = &composite.children[1] {
-                assert_eq!(meta.key, "author");
-                if let crate::metadata::MetadataComparison::Primitive(op, val) = &meta.comparison {
-                    assert_eq!(*op, crate::metadata::PrimitiveOperator::Equal);
-                    assert_eq!(
-                        *val,
-                        crate::metadata::MetadataValue::Str("John Doe".to_string())
-                    );
-                } else {
-                    panic!("Expected primitive comparison for author");
-                }
-            } else {
-                panic!("Expected metadata filter as second child");
-            }
-
-            // Check third child - metadata $gte filter
-            if let crate::metadata::Where::Metadata(meta) = &composite.children[2] {
-                assert_eq!(meta.key, "year");
-                if let crate::metadata::MetadataComparison::Primitive(op, val) = &meta.comparison {
-                    assert_eq!(*op, crate::metadata::PrimitiveOperator::GreaterThanOrEqual);
-                    assert_eq!(*val, crate::metadata::MetadataValue::Int(2020));
-                } else {
-                    panic!("Expected primitive comparison for year");
-                }
-            } else {
-                panic!("Expected metadata filter as third child");
-            }
-
-            // Check fourth child - document $regex filter
-            if let crate::metadata::Where::Document(doc) = &composite.children[3] {
-                assert_eq!(doc.operator, crate::metadata::DocumentOperator::Regex);
-                assert_eq!(doc.pattern, "^[A-Z].*learning.*");
-            } else {
-                panic!("Expected document regex filter as fourth child");
-            }
-
-            // Check fifth child - metadata $in filter
-            if let crate::metadata::Where::Metadata(meta) = &composite.children[4] {
-                assert_eq!(meta.key, "tags");
-                if let crate::metadata::MetadataComparison::Set(op, val) = &meta.comparison {
-                    assert_eq!(*op, crate::metadata::SetOperator::In);
-                    if let crate::metadata::MetadataSetValue::Str(tags) = val {
-                        assert_eq!(tags.len(), 3);
-                        assert!(tags.contains(&"AI".to_string()));
-                        assert!(tags.contains(&"ML".to_string()));
-                        assert!(tags.contains(&"Deep Learning".to_string()));
-                    } else {
-                        panic!("Expected string set for tags");
+        // Test 3: Complex nested expression with AND, OR, and various operators
+        let complex_json = serde_json::json!({
+            "$and": [
+                {
+                    "#id": {
+                        "$in": ["doc1", "doc2", "doc3"]
                     }
-                } else {
-                    panic!("Expected set comparison for tags");
+                },
+                {
+                    "$or": [
+                        {
+                            "author": {
+                                "$eq": "John Doe"
+                            }
+                        },
+                        {
+                            "author": {
+                                "$eq": "Jane Smith"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "year": {
+                        "$gte": 2020
+                    }
+                },
+                {
+                    "tags": {
+                        "$contains": "machine-learning"
+                    }
                 }
+            ]
+        });
+
+        let filter: Filter = serde_json::from_value(complex_json.clone()).unwrap();
+        assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
+
+        // Verify the structure
+        if let crate::metadata::Where::Composite(composite) = filter.where_clause.unwrap() {
+            assert_eq!(composite.operator, crate::metadata::BooleanOperator::And);
+            assert_eq!(composite.children.len(), 4);
+
+            // Check that the second child is an OR
+            if let crate::metadata::Where::Composite(or_composite) = &composite.children[1] {
+                assert_eq!(or_composite.operator, crate::metadata::BooleanOperator::Or);
+                assert_eq!(or_composite.children.len(), 2);
             } else {
-                panic!("Expected metadata filter as fifth child");
+                panic!("Expected OR composite in second child");
             }
         } else {
-            panic!("Expected composite where clause");
+            panic!("Expected AND composite where clause");
         }
 
-        // Test filter with empty query_ids
-        let json_str = r#"{
-            "query_ids": [],
-            "where_clause": null
-        }"#;
+        // Test 4: Mixed operators - $ne, $lt, $gt, $lte
+        let mixed_operators_json = serde_json::json!({
+            "$and": [
+                {
+                    "status": {
+                        "$ne": "deleted"
+                    }
+                },
+                {
+                    "score": {
+                        "$gt": 0.5
+                    }
+                },
+                {
+                    "score": {
+                        "$lt": 0.9
+                    }
+                },
+                {
+                    "priority": {
+                        "$lte": 10
+                    }
+                }
+            ]
+        });
 
-        let filter: Filter = serde_json::from_str(json_str).unwrap();
-        assert_eq!(filter.query_ids, Some(vec![]));
-        assert_eq!(filter.where_clause, None);
-
-        // Test filter with null query_ids
-        let json_str = r#"{
-            "query_ids": null,
-            "where_clause": null
-        }"#;
-
-        let filter: Filter = serde_json::from_str(json_str).unwrap();
+        let filter: Filter = serde_json::from_value(mixed_operators_json).unwrap();
         assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
+
+        // Test 5: Deeply nested expression
+        let deeply_nested_json = serde_json::json!({
+            "$or": [
+                {
+                    "$and": [
+                        {
+                            "#id": {
+                                "$in": ["id1", "id2"]
+                            }
+                        },
+                        {
+                            "$or": [
+                                {
+                                    "category": "tech"
+                                },
+                                {
+                                    "category": "science"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "$and": [
+                        {
+                            "author": "Admin"
+                        },
+                        {
+                            "published": true
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let filter: Filter = serde_json::from_value(deeply_nested_json).unwrap();
+        assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
+
+        // Verify it's an OR at the top level
+        if let crate::metadata::Where::Composite(composite) = filter.where_clause.unwrap() {
+            assert_eq!(composite.operator, crate::metadata::BooleanOperator::Or);
+            assert_eq!(composite.children.len(), 2);
+
+            // Both children should be AND composites
+            for child in &composite.children {
+                if let crate::metadata::Where::Composite(and_composite) = child {
+                    assert_eq!(
+                        and_composite.operator,
+                        crate::metadata::BooleanOperator::And
+                    );
+                } else {
+                    panic!("Expected AND composite in OR children");
+                }
+            }
+        } else {
+            panic!("Expected OR composite at top level");
+        }
+
+        // Test 6: Single ID filter (edge case)
+        let single_id_json = serde_json::json!({
+            "#id": {
+                "$eq": "single-doc-id"
+            }
+        });
+
+        let filter: Filter = serde_json::from_value(single_id_json).unwrap();
+        assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
+
+        // Test 7: Empty object should create empty filter
+        let empty_json = serde_json::json!({});
+        let filter: Filter = serde_json::from_value(empty_json).unwrap();
+        assert_eq!(filter.query_ids, None);
+        // Empty object results in None where_clause
         assert_eq!(filter.where_clause, None);
+
+        // Test 8: Combining #id filter with $not_contains and numeric comparisons
+        let advanced_json = serde_json::json!({
+            "$and": [
+                {
+                    "#id": {
+                        "$in": ["doc1", "doc2", "doc3", "doc4", "doc5"]
+                    }
+                },
+                {
+                    "tags": {
+                        "$not_contains": "deprecated"
+                    }
+                },
+                {
+                    "$or": [
+                        {
+                            "$and": [
+                                {
+                                    "confidence": {
+                                        "$gte": 0.8
+                                    }
+                                },
+                                {
+                                    "verified": true
+                                }
+                            ]
+                        },
+                        {
+                            "$and": [
+                                {
+                                    "confidence": {
+                                        "$gte": 0.6
+                                    }
+                                },
+                                {
+                                    "confidence": {
+                                        "$lt": 0.8
+                                    }
+                                },
+                                {
+                                    "reviews": {
+                                        "$gte": 5
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let filter: Filter = serde_json::from_value(advanced_json).unwrap();
+        assert_eq!(filter.query_ids, None);
+        assert!(filter.where_clause.is_some());
+
+        // Verify top-level structure
+        if let crate::metadata::Where::Composite(composite) = filter.where_clause.unwrap() {
+            assert_eq!(composite.operator, crate::metadata::BooleanOperator::And);
+            assert_eq!(composite.children.len(), 3);
+        } else {
+            panic!("Expected AND composite at top level");
+        }
     }
 
     #[test]
@@ -1406,55 +1542,52 @@ mod tests {
     }
 
     #[test]
-    fn test_select_field_json_serialization() {
+    fn test_select_key_json_serialization() {
         use std::collections::HashSet;
 
-        // Test predefined fields
-        let doc_field = SelectField::Document;
-        assert_eq!(serde_json::to_string(&doc_field).unwrap(), "\"#document\"");
+        // Test predefined keys
+        let doc_key = Key::Document;
+        assert_eq!(serde_json::to_string(&doc_key).unwrap(), "\"#document\"");
 
-        let embed_field = SelectField::Embedding;
+        let embed_key = Key::Embedding;
+        assert_eq!(serde_json::to_string(&embed_key).unwrap(), "\"#embedding\"");
+
+        let meta_key = Key::Metadata;
+        assert_eq!(serde_json::to_string(&meta_key).unwrap(), "\"#metadata\"");
+
+        let score_key = Key::Score;
+        assert_eq!(serde_json::to_string(&score_key).unwrap(), "\"#score\"");
+
+        // Test metadata key
+        let custom_key = Key::MetadataField("custom_key".to_string());
         assert_eq!(
-            serde_json::to_string(&embed_field).unwrap(),
-            "\"#embedding\""
-        );
-
-        let meta_field = SelectField::Metadata;
-        assert_eq!(serde_json::to_string(&meta_field).unwrap(), "\"#metadata\"");
-
-        let score_field = SelectField::Score;
-        assert_eq!(serde_json::to_string(&score_field).unwrap(), "\"#score\"");
-
-        // Test metadata field
-        let custom_field = SelectField::MetadataField("custom_key".to_string());
-        assert_eq!(
-            serde_json::to_string(&custom_field).unwrap(),
+            serde_json::to_string(&custom_key).unwrap(),
             "\"custom_key\""
         );
 
         // Test deserialization
-        let deserialized: SelectField = serde_json::from_str("\"#document\"").unwrap();
-        assert!(matches!(deserialized, SelectField::Document));
+        let deserialized: Key = serde_json::from_str("\"#document\"").unwrap();
+        assert!(matches!(deserialized, Key::Document));
 
-        let deserialized: SelectField = serde_json::from_str("\"custom_field\"").unwrap();
-        assert!(matches!(deserialized, SelectField::MetadataField(s) if s == "custom_field"));
+        let deserialized: Key = serde_json::from_str("\"custom_field\"").unwrap();
+        assert!(matches!(deserialized, Key::MetadataField(s) if s == "custom_field"));
 
-        // Test Select struct with multiple fields
-        let mut fields = HashSet::new();
-        fields.insert(SelectField::Document);
-        fields.insert(SelectField::Embedding);
-        fields.insert(SelectField::MetadataField("author".to_string()));
+        // Test Select struct with multiple keys
+        let mut keys = HashSet::new();
+        keys.insert(Key::Document);
+        keys.insert(Key::Embedding);
+        keys.insert(Key::MetadataField("author".to_string()));
 
-        let select = Select { fields };
+        let select = Select { keys };
         let json = serde_json::to_string(&select).unwrap();
         let deserialized: Select = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(deserialized.fields.len(), 3);
-        assert!(deserialized.fields.contains(&SelectField::Document));
-        assert!(deserialized.fields.contains(&SelectField::Embedding));
+        assert_eq!(deserialized.keys.len(), 3);
+        assert!(deserialized.keys.contains(&Key::Document));
+        assert!(deserialized.keys.contains(&Key::Embedding));
         assert!(deserialized
-            .fields
-            .contains(&SelectField::MetadataField("author".to_string())));
+            .keys
+            .contains(&Key::MetadataField("author".to_string())));
     }
 
     #[test]

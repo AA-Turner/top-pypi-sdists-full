@@ -2618,7 +2618,7 @@ class BUSInputsOutputsApi:
     ) -> List[IODescription2]:
         """List Descriptions
 
-        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the BUS service. 
+        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the BUS service. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2686,7 +2686,7 @@ class BUSInputsOutputsApi:
     ) -> ApiResponse[List[IODescription2]]:
         """List Descriptions
 
-        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the BUS service. 
+        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the BUS service. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2754,7 +2754,7 @@ class BUSInputsOutputsApi:
     ) -> RESTResponseType:
         """List Descriptions
 
-        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the BUS service. 
+        List all input/output descriptions for configured BUS services.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the BUS service. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2879,7 +2879,7 @@ class BUSInputsOutputsApi:
     ) -> List[ProfinetIO]:
         """List PROFINET Input/Output Configuration
 
-        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an I/O variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
+        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2947,7 +2947,7 @@ class BUSInputsOutputsApi:
     ) -> ApiResponse[List[ProfinetIO]]:
         """List PROFINET Input/Output Configuration
 
-        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an I/O variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
+        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3015,7 +3015,7 @@ class BUSInputsOutputsApi:
     ) -> RESTResponseType:
         """List PROFINET Input/Output Configuration
 
-        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The I/O direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an I/O variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
+        List descriptions for all configured input/output variables of the PROFINET service.  The input/output descriptions contain information such as the name, the type and the unit. The input/output direction is given in perspective of the PROFINET Device, e.g. the configured PROFINET service.  The byte and bit addresses are the locations in the PROFINET input/output process image the variable points to. The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input and output process image. The NOVA PROFINET service's configuration is modified via [addProfinetIO](addProfinetIO) and [setProfinetIOsFromFile](setProfinetIOsFromFile). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding third party software, e.g. TIA portal. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3434,7 +3434,7 @@ class BUSInputsOutputsApi:
     ) -> None:
         """Set PROFINET Inputs/Outputs from File
 
-        Sets Input/Output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The Inputs/Outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller (i.e. a connected PLC), refer to the corresponding engineering system (i.e. TIA portal).  You can export the variable configuration of the PROFINET controller as XML file from you engineering system, i.e. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled, meaning that you can paste the exported XML file here without modifying. 
+        Sets input/output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The inputs/outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding engineering system, e.g. TIA portal.  You can export the variable configuration of the PROFINET controller as XML file from your engineering system, e.g. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled (PROFINET device input is PROFINET controller output), meaning that you can paste the exported XML file here without modifying. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3507,7 +3507,7 @@ class BUSInputsOutputsApi:
     ) -> ApiResponse[None]:
         """Set PROFINET Inputs/Outputs from File
 
-        Sets Input/Output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The Inputs/Outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller (i.e. a connected PLC), refer to the corresponding engineering system (i.e. TIA portal).  You can export the variable configuration of the PROFINET controller as XML file from you engineering system, i.e. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled, meaning that you can paste the exported XML file here without modifying. 
+        Sets input/output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The inputs/outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding engineering system, e.g. TIA portal.  You can export the variable configuration of the PROFINET controller as XML file from your engineering system, e.g. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled (PROFINET device input is PROFINET controller output), meaning that you can paste the exported XML file here without modifying. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3580,7 +3580,7 @@ class BUSInputsOutputsApi:
     ) -> RESTResponseType:
         """Set PROFINET Inputs/Outputs from File
 
-        Sets Input/Output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The Inputs/Outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller (i.e. a connected PLC), refer to the corresponding engineering system (i.e. TIA portal).  You can export the variable configuration of the PROFINET controller as XML file from you engineering system, i.e. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled, meaning that you can paste the exported XML file here without modifying. 
+        Sets input/output variable configuration on the PROFINET device (i.e. NOVA's PROFINET service) from XML file.  The inputs/outputs map variables to specific memory addresses in the process image.  The default process image has buffer lengths of 64 bytes for input and output. The size of the buffer is determined by the `config_file_content` that is passed in [addBusIOService](addBusIOService) and has to be in accordance with the GSDML file describing the PROFINET device.  The PROFINET controller as well as NOVA's PROFINET service use an input/output variable configuration to interpret the bits of the input/output process image. The NOVA's PROFINET service's configuration can be viewed via [listProfinetIOs](listProfinetIOs). For the PROFINET controller, e.g. a connected PLC, refer to the corresponding engineering system, e.g. TIA portal.  You can export the variable configuration of the PROFINET controller as XML file from your engineering system, e.g. TIA portal. The endpoint is built so that the perspective of input and output (PROFINET Device's input is PROFINET Controller's output) is internally handled (PROFINET device input is PROFINET controller output), meaning that you can paste the exported XML file here without modifying. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str

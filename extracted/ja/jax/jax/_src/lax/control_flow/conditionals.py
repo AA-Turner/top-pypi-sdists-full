@@ -47,7 +47,7 @@ from jax._src.interpreters import pxla
 from jax._src.lax import lax
 from jax._src.traceback_util import api_boundary
 from jax._src.typing import ArrayLike
-from jax._src.util import safe_map, split_list, partition_list, unzip2
+from jax._src.util import safe_map, safe_zip, split_list, partition_list, unzip2
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import hlo
 import numpy as np
@@ -57,6 +57,7 @@ from jax._src.lax.control_flow.common import (
     _make_closed_jaxpr, _prune_zeros)
 
 map, unsafe_map = safe_map, map
+zip, unsafe_zip = safe_zip, zip
 
 
 # For backward compatibility with a previous switch/cond calling convention,
@@ -261,6 +262,9 @@ def _cond(pred, true_fun: Callable, false_fun: Callable, *operands,
 
   ops, ops_tree = tree_flatten(operands)
   ops_avals = tuple(map(core.get_aval, ops))
+  ops_avals = tuple(core.AvalQDD(a, cur_qdd(x)) if a.has_qdd  # type: ignore
+                    else a for a, x in zip(ops_avals, ops))
+
 
   dbg_true_fun = api_util.debug_info("cond", true_fun, operands, {})
   if config.mutable_array_checks.value:
@@ -915,7 +919,8 @@ def _cond_transpose_fancy(cts_in, index, *args, branches, **params):
   in_avals = tuple(core.AvalQDD(a, cur_qdd(x)) if (a := typeof(x)).has_qdd  # type: ignore
                    else a for x in in_flat)
   trans_branches, out_trees = unzip2(
-      _transpose_jaxpr_fancy(j, in_tree, in_avals, specs) for j in branches)
+      _transpose_jaxpr_fancy(j, in_tree, in_avals, specs, (False,) * len(args))
+      for j in branches)
   out_nzs = [[not isinstance(x, ad.Zero) for x in tree_unflatten(t, j.out_avals)]
              for t, j in zip(out_trees, trans_branches)]
   out_nz = tuple(map(partial(functools.reduce, operator.or_), zip(*out_nzs)))
@@ -927,9 +932,8 @@ def _cond_transpose_fancy(cts_in, index, *args, branches, **params):
     if isinstance(x, ad.ValAccum): x.accum(ct)
 
 @util.weakref_lru_cache
-def _transpose_jaxpr_fancy(jaxpr, in_tree, in_avals, specs, inst_out=None):
+def _transpose_jaxpr_fancy(jaxpr, in_tree, in_avals, specs, inst_out):
   cell = lambda: None
-  inst_out = inst_out or [False] * len(in_avals)
   maybe_inst = lambda x, inst: ad.instantiate_zeros(x) if inst else x
   def transposed(*in_flat):
     primals_ctrefs, cts_in = tree_unflatten(in_tree, in_flat)
@@ -939,7 +943,7 @@ def _transpose_jaxpr_fancy(jaxpr, in_tree, in_avals, specs, inst_out=None):
                else None for x, inst in zip(args, inst_out)]
     cts_out, cell.out_tree = tree_flatten(cts_out)  # type: ignore
     return cts_out
-  dbg = jaxpr.jaxpr.debug_info._replace(arg_names=(), result_paths=())
+  dbg = jaxpr.jaxpr.debug_info.with_unknown_names()
   trans_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
       lu.wrap_init(transposed, debug_info=dbg), in_avals)
   return core.ClosedJaxpr(trans_jaxpr, consts), cell.out_tree  # type: ignore
@@ -1027,6 +1031,39 @@ pe.partial_eval_jaxpr_custom_rules[cond_p] = _cond_partial_eval_custom
 pe.dce_rules[cond_p] = _cond_dce_rule
 batching.ragged_prop_rules[cond_p] = batching.ragged_mask_assert_no_op_rule
 
+def _cond_is_high(*_, branches, **__) -> bool:
+  return any(j.jaxpr.is_high for j in branches)
+cond_p.is_high = _cond_is_high  # type: ignore
+
+def _cond_to_lojax(pred, *hi_args, branches):
+  jaxpr = branches[0]
+  lo_branches = tuple(pe.lower_jaxpr(j) for j in branches)
+  lo_args = [lo_val for aval, x in zip(branches[0].in_aval_qdds, hi_args)
+             for lo_val in (aval.read_loval(x) if aval.has_qdd
+                            else aval.lower_val(x))]
+  all_outs = cond_p.bind(pred, *lo_args, branches=lo_branches)
+  lo_muts_out = sum(len(aval.lo_ty()) for aval in branches[0].final_aval_qdds if aval.has_qdd)
+  out_mut, lo_outs = split_list(all_outs, [lo_muts_out])
+
+  # collect and apply mutations
+  out_mut_ = iter(out_mut)
+  in_idx = {v: i for i, v in enumerate(jaxpr.jaxpr.invars)}
+
+  for v in jaxpr.jaxpr.invars:
+    if v.final_qdd is not None:
+      qdd = v.final_qdd
+      lo_vals = itertools.islice(out_mut_, len(v.aval.lo_ty_qdd(qdd)))
+      v.aval.update_from_loval(qdd, hi_args[in_idx[v]], *lo_vals)
+
+  lo_outs_ = iter(lo_outs)
+
+  hi_outs = [t.raise_val(*itertools.islice(lo_outs_, len(t.lo_ty())))
+             for t in jaxpr.out_avals]
+  assert next(lo_outs_, None) is None
+  return hi_outs
+
+cond_p.to_lojax = _cond_to_lojax
+
 def _cond_lowering(ctx, index, *args, branches,
                    **params):
   if (branches_platforms := params.get("branches_platforms", None)) is not None:
@@ -1078,7 +1115,10 @@ def _cond_lowering(ctx, index, *args, branches,
   for i, jaxpr in enumerate(branches):
     branch = case_op.regions[i].blocks.append()
     with ir.InsertionPoint(branch):
-      consts = [mlir.ir_constant(dtypes.canonicalize_value(x)) for x in jaxpr.consts]
+      consts = [
+          mlir.ir_constant(x, aval=var.aval)
+          for x, var in zip(jaxpr.consts, jaxpr.jaxpr.constvars)
+      ]
       out_vals, tokens_out = mlir.jaxpr_subcomp(
           ctx.module_context, jaxpr.jaxpr, name_stack.extend(f'branch_{i}_fun'),
           tokens_in, consts, *args,

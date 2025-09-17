@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Matrix Multiplication kernel for Hopper GPUs."""
+import statistics
 import dataclasses
+import enum
 import functools
 import itertools
 import jax
@@ -26,22 +28,28 @@ import jax.numpy as jnp
 import numpy as np
 
 
+class MatmulDimension(enum.IntEnum):
+  M = 0
+  N = 1
+
+  def __str__(self):
+    return self.name
+
+  def __repr__(self):
+    return self.name
+
+
 @dataclasses.dataclass(frozen=True)
 class TuningConfig:
   tile_m: int
   tile_n: int
   tile_k: int
   max_concurrent_steps: int
-
-
-def _find_swizzle(dim_size_bits: int):
-  """Finds the largest swizzle that fits the dimension size."""
-  for swizzle_bytes in (128, 64, 32, 16):
-    if dim_size_bits % (swizzle_bytes * 8) == 0:
-      return swizzle_bytes
-  raise ValueError(
-      f"Dimension size has {dim_size_bits} bits, which is not a multiple of 128"
-  )
+  epi_tile_n: int | None = 64  # This needs to be lowered for for small N.
+  epi_tile_m: int | None = 64
+  grid_minor_dim: MatmulDimension = MatmulDimension.N
+  grid_tile_width: int = 1
+  wg_dimension: MatmulDimension = MatmulDimension.N
 
 
 def matmul_kernel(a, b, config: TuningConfig):
@@ -58,7 +66,7 @@ def matmul_kernel(a, b, config: TuningConfig):
     )
   tile_m, tile_n, tile_k = config.tile_m, config.tile_n, config.tile_k
   max_concurrent_steps = config.max_concurrent_steps
-  swizzle = _find_swizzle(tile_k * jnp.dtype(dtype).itemsize * 8)
+  swizzle = plgpu.find_swizzle(tile_k * jnp.dtype(dtype).itemsize * 8)
   swizzle_elems = swizzle // jnp.dtype(dtype).itemsize
   transforms = (
       plgpu.TilingTransform((8, swizzle_elems)), plgpu.SwizzleTransform(swizzle)
@@ -69,60 +77,123 @@ def matmul_kernel(a, b, config: TuningConfig):
     raise ValueError(f"{n=} must be divisible by {tile_n=}")
   if k % tile_k != 0:
     raise ValueError(f"{k=} must be divisible by {tile_k=}")
-  m_iters = m // (2 * tile_m)
-  n_iters = n // tile_n
+  epi_tile_n = config.epi_tile_n or tile_n
+  epi_tile_m = config.epi_tile_m or tile_m
+  if tile_n % epi_tile_n != 0:
+    raise ValueError(f"{tile_n=} must be divisible by {epi_tile_n=}")
+  if tile_m % epi_tile_m != 0:
+    raise ValueError(f"{tile_m=} must be divisible by {epi_tile_m=}")
+  cta_tile_m = tile_m * (1 + (config.wg_dimension == MatmulDimension.M))
+  cta_tile_n = tile_n * (1 + (config.wg_dimension == MatmulDimension.N))
+  m_iters = m // cta_tile_m
+  n_iters = n // cta_tile_n
   k_iters = k // tile_k
 
   def kernel(a_gmem, b_gmem, out_gmem, out_smem):
-    # TODO(apaszke): Grid tiling
-    @plgpu.nd_loop((m_iters, n_iters), collective_axes="sm")
-    def _mn_loop(idx):
-      m_idx, n_idx = idx
-      m_slice = pl.ds(m_idx * 2 * tile_m, 2 * tile_m)
-      wg_m_slice = pl.ds(lax.axis_index("wg") * tile_m, tile_m)
-      n_slice = pl.ds(n_idx * tile_n, tile_n)
 
-      def prologue_epilogue(eval_pipeline):
-        @functools.partial(
-            pl.run_scoped, acc_ref=plgpu.ACC((tile_m, tile_n), jnp.float32)
-        )
-        def _acc_scope(acc_ref):
-          eval_pipeline(acc_ref)
-          plgpu.wait_smem_to_gmem(0, wait_read_only=True)
-          out_smem[wg_m_slice] = acc_ref[...].astype(dtype)
-          plgpu.commit_smem()
-          plgpu.copy_smem_to_gmem(out_smem.at[wg_m_slice], out_gmem.at[m_slice, n_slice].at[wg_m_slice])
-
-      def mma_body(_, a_smem, b_smem, acc_ref):
-        plgpu.wgmma(acc_ref, a_smem.at[wg_m_slice], b_smem)
-        return acc_ref
-
-      plgpu.emit_pipeline_warp_specialized(
-          mma_body,
+    def get_pipeline(pipeline_body, compute_context):
+      return plgpu.emit_pipeline_warp_specialized(
+          pipeline_body,
           grid=(k_iters,),
           memory_registers=40,
           in_specs=[
               plgpu.BlockSpec(
-                  (2 * tile_m, tile_k),
+                  (cta_tile_m, tile_k),
                   lambda k: (0, k),
                   transforms=transforms,
-                  memory_space=plgpu.SMEM
+                  memory_space=plgpu.SMEM,
               ),
               plgpu.BlockSpec(
-                  (tile_k, tile_n),
+                  (tile_k, cta_tile_n),
                   lambda k: (k, 0),
                   transforms=transforms,
-                  memory_space=plgpu.SMEM
+                  memory_space=plgpu.SMEM,
               ),
           ],
           wg_axis="wg",
           num_compute_wgs=2,
-          delay_release=1,
           max_concurrent_steps=max_concurrent_steps,
-          compute_context=prologue_epilogue,
-      )(a_gmem.at[m_slice, :], b_gmem.at[:, n_slice])
-      plgpu.wait_smem_to_gmem(0, wait_read_only=True)
+          compute_context=compute_context,
+      )
 
+    # Functions don't influence the allocations necessary to run the pipeline.
+    ignore = lambda *_, **__: None
+    @functools.partial(
+        pl.run_scoped,
+        pipeline_allocs=get_pipeline(ignore, ignore).get_allocations(a_gmem, b_gmem),
+        collective_axes="wg",
+    )
+    def _pipeline_scope(pipeline_allocs):
+      wg_idx = lax.axis_index("wg")
+      @plgpu.nd_loop((m_iters * n_iters,), collective_axes="sm")
+      def _mn_loop(idxs):
+        (lin_idx,) = idxs
+        m_idx, n_idx = plgpu.planar_snake(
+            lin_idx,
+            (m_iters, n_iters),
+            config.grid_minor_dim,
+            config.grid_tile_width,
+        )
+        cta_m_slice = pl.ds(m_idx * cta_tile_m, cta_tile_m)
+        cta_n_slice = pl.ds(n_idx * cta_tile_n, cta_tile_n)
+        if config.wg_dimension == MatmulDimension.M:
+          wg_m_slice = pl.ds(wg_idx * tile_m, tile_m)
+          wg_n_slice = slice(None)
+        else:
+          wg_m_slice = slice(None)
+          wg_n_slice = pl.ds(wg_idx * tile_n, tile_n)
+
+        def compute_context(eval_pipeline):
+          @functools.partial(
+              pl.run_scoped, acc_ref=plgpu.ACC((tile_m, tile_n), jnp.float32)
+          )
+          def _acc_scope(acc_ref):
+            eval_pipeline(acc_ref)
+            acc = acc_ref[...].astype(dtype)
+            plgpu.wait_smem_to_gmem(0, wait_read_only=True)
+            for epi_mi in range(tile_m // epi_tile_m):
+              for epi_ni in range(tile_n // epi_tile_n):
+                epi_m_slice = slice(epi_mi * epi_tile_m, (epi_mi + 1) * epi_tile_m)
+                epi_n_slice = slice(epi_ni * epi_tile_n, (epi_ni + 1) * epi_tile_n)
+                slot = (epi_mi * (tile_n // epi_tile_n) + epi_ni) % 2
+                plgpu.wait_smem_to_gmem(1, wait_read_only=True)
+                out_smem[wg_idx, slot] = acc[epi_m_slice, epi_n_slice]
+                plgpu.commit_smem()
+                plgpu.copy_smem_to_gmem(
+                    out_smem.at[wg_idx, slot],
+                    out_gmem.at[cta_m_slice, cta_n_slice]
+                    .at[wg_m_slice, wg_n_slice]
+                    .at[epi_m_slice, epi_n_slice],
+                )
+
+        def mma_body(_, a_smem, b_smem, acc_ref):
+          plgpu.wgmma(acc_ref, a_smem.at[wg_m_slice], b_smem.at[:, wg_n_slice])
+          plgpu.wgmma_wait(0)
+          return acc_ref
+
+        get_pipeline(mma_body, compute_context)(
+            a_gmem.at[cta_m_slice, :],
+            b_gmem.at[:, cta_n_slice],
+            allocations=pipeline_allocs,
+        )
+    # Await all transfers before we exit.
+    plgpu.wait_smem_to_gmem(0, wait_read_only=True)
+
+  # We don't need multiple slots if there's only one epilogue tile.
+  num_out_slots = min(2, (tile_m * tile_n) // (epi_tile_m * epi_tile_n))
+  out_swizzle = plgpu.find_swizzle(epi_tile_n * jnp.dtype(dtype).itemsize * 8)
+  out_swizzle_elems = out_swizzle // jnp.dtype(dtype).itemsize
+  out_transforms = (
+      plgpu.TilingTransform((8, out_swizzle_elems)),
+      plgpu.SwizzleTransform(out_swizzle),
+  )
+  scratch_shapes = [
+      plgpu.SMEM(
+          (2, num_out_slots, epi_tile_m, epi_tile_n),
+          dtype,
+          transforms=out_transforms,
+      ),
+  ]
   num_sms = backend.get_default_device().core_count
   f = plgpu.kernel(
       kernel,
@@ -131,13 +202,13 @@ def matmul_kernel(a, b, config: TuningConfig):
       grid_names=("sm",),
       num_threads=3,
       thread_name="wg",
-      scratch_shapes=[plgpu.SMEM((2 * tile_m, tile_n), dtype, transforms=transforms)],
+      scratch_shapes=scratch_shapes,
   )
   return f(a, b)
 
 
 def main(_) -> None:
-  problem_it = [(4096, 4096, 4096)]
+  problem_it = [(4096, 8192, 4096)]
   for M, N, K in problem_it:
     print(f"==== {M=} {N=} {K=} ====")
     matmul_flops = 2 * M * N * K
@@ -145,24 +216,35 @@ def main(_) -> None:
     a = jax.random.uniform(jax.random.key(0), (M, K), jnp.float16)
     b = jax.random.uniform(jax.random.key(1), (K, N), jnp.float16)
     tuning_it = itertools.product(
-        (64, 128),  # tile_m
-        (64, 128, 256),  # tile_n
-        (64, 128),  # tile_k
-        (2, 4),  # max_concurrent_steps
+        (128,),  # tile_m
+        (128,),  # tile_n
+        (64,),  # tile_k
+        (4,),  # max_concurrent_steps
+        (True,),  # Tiled epilogue
+        (MatmulDimension.M, MatmulDimension.N),  # grid_minor_dim
+        (1, 4, 8, 16),  # grid_tile_width
+        (MatmulDimension.M,),  # wg_dimension
     )
     best_util = 0.0
     best_runtime = float("inf")
-    for tile_m, tile_n, tile_k, max_concurrent_steps in tuning_it:
+    for tile_m, tile_n, tile_k, max_concurrent_steps, tiled_epilogue, grid_minor_dim, grid_tile_width, wg_dimension in tuning_it:
       config = TuningConfig(
           tile_m=tile_m,
           tile_n=tile_n,
           tile_k=tile_k,
           max_concurrent_steps=max_concurrent_steps,
+          epi_tile_n=64 if tiled_epilogue else None,
+          epi_tile_m=64 if tiled_epilogue else None,
+          grid_minor_dim=grid_minor_dim,
+          grid_tile_width=grid_tile_width,
+          wg_dimension=wg_dimension,
       )
       try:
-        out, runtime_ms = profiler.measure(
-            functools.partial(matmul_kernel, config=config)
+        out, runtimes_ms = profiler.measure(
+            functools.partial(matmul_kernel, config=config), iterations=10,
         )(a, b)
+        assert runtimes_ms is not None
+        runtime_ms = statistics.median(runtimes_ms)
       except ValueError as e:
         if "exceeds available shared memory" in e.args[0]:  # Ignore SMEM OOMs.
           continue
@@ -175,9 +257,8 @@ def main(_) -> None:
         best_runtime = runtime_us
         best_util = achieved_tc_util
       print(
-          f"{tile_m=} {tile_n=} {tile_k=} {max_concurrent_steps=}: "
-          f"{runtime_us:<7.1f}us"
-          f" = {achieved_tc_util:4.1f}% TC utilization"
+          f"{tile_m=} {tile_n=} {tile_k=} {max_concurrent_steps=} {tiled_epilogue=} {grid_minor_dim=} {grid_tile_width=} {wg_dimension=}:"
+          f" {runtime_us:<7.1f}us = {achieved_tc_util:4.1f}% TC utilization"
       )
     print(f"\tBest: {best_runtime:<7.1f}us = {best_util:4.1f}% TC utilization")
 

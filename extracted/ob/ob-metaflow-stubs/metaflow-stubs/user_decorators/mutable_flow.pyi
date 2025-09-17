@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-16T01:38:51.243377                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-16T23:23:08.689344                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ import typing
 if typing.TYPE_CHECKING:
     import metaflow.parameters
     import typing
-    import metaflow.user_decorators.mutable_step
+    import functools
     import metaflow.user_configs.config_parameters
     import metaflow.flowspec
-    import functools
+    import metaflow.user_decorators.mutable_step
 
 from ..exception import MetaflowException as MetaflowException
 from ..user_configs.config_parameters import ConfigValue as ConfigValue

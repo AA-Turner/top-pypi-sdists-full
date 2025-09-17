@@ -132,7 +132,10 @@ ExecutionTypeType = Literal[
     "APPROVE_BUDGET_ACTION", "RESET_BUDGET_ACTION", "RETRY_BUDGET_ACTION", "REVERSE_BUDGET_ACTION"
 ]
 HealthStatusReasonType = Literal[
-    "BILLING_VIEW_NO_ACCESS", "BILLING_VIEW_UNHEALTHY", "FILTER_INVALID"
+    "BILLING_VIEW_NO_ACCESS",
+    "BILLING_VIEW_UNHEALTHY",
+    "FILTER_INVALID",
+    "MULTI_YEAR_HISTORICAL_DATA_DISABLED",
 ]
 HealthStatusValueType = Literal["HEALTHY", "UNHEALTHY"]
 MatchOptionType = Literal[
@@ -159,7 +162,7 @@ NotificationStateType = Literal["ALARM", "OK"]
 NotificationTypeType = Literal["ACTUAL", "FORECASTED"]
 SubscriptionTypeType = Literal["EMAIL", "SNS"]
 ThresholdTypeType = Literal["ABSOLUTE_VALUE", "PERCENTAGE"]
-TimeUnitType = Literal["ANNUALLY", "DAILY", "MONTHLY", "QUARTERLY"]
+TimeUnitType = Literal["ANNUALLY", "CUSTOM", "DAILY", "MONTHLY", "QUARTERLY"]
 BudgetsServiceName = Literal["budgets"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -200,8 +203,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -443,8 +448,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -526,7 +529,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -577,16 +579,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_budget_action_histories",

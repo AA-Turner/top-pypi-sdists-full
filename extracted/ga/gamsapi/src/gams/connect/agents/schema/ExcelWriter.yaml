@@ -27,9 +27,6 @@ tableOfContents:
       sort:
         type: boolean
         default: false
-      emptySymbols:
-        type: boolean
-        default: true
 valueSubstitutions:
   type: dict
   default: null

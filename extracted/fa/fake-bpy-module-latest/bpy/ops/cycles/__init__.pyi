@@ -47,7 +47,7 @@ def use_shading_nodes(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Enable nodes on a material or light
+    """Enable nodes on a light
 
     :type execution_context: int | str | None
     :type undo: bool | None

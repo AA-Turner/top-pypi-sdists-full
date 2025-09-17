@@ -5,7 +5,7 @@ import warnings
 
 from nominal.connect.demo_apps.v1 import connect_demo_apps_pb2 as nominal_dot_connect_dot_demo__apps_dot_v1_dot_connect__demo__apps__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

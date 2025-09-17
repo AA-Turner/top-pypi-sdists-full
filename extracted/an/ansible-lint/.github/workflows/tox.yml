@@ -52,7 +52,7 @@ jobs:
       # which might confuse users.
       GITHUB_ACTIONS_TEST: "true"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Self test 1 # Test without explicit ref - fallback to main
         uses: ./
         with:
@@ -76,6 +76,11 @@ jobs:
         with:
           args: .ansible-lint
           gh_action_ref: "v25.5.0"
+      - name: Self test 5 # Test explicit ref to be own ref
+        uses: ./
+        with:
+          args: .ansible-lint
+          gh_action_ref: ${{ github.ref }}
 
   build:
     name: ${{ matrix.name }}
@@ -95,7 +100,7 @@ jobs:
       # proof that we failed to catch a bug by not running it. Using
       # distribution should be preferred instead of custom builds.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # needed by setuptools-scm
           submodules: true
@@ -115,14 +120,14 @@ jobs:
 
       - name: Set up Python ${{ matrix.python_version || '3.10' }}
         if: "!contains(matrix.shell, 'wsl')"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           cache: pip
           python-version: ${{ matrix.python_version || '3.10' }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
           cache-dependency-path: test/schemas/package-lock.json
 
@@ -185,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
@@ -221,10 +226,10 @@ jobs:
 
     steps:
       # checkout needed for codecov action which needs codecov.yml file
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python # likely needed for coverage
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -240,7 +245,7 @@ jobs:
           separate-directories: true
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         continue-on-error: true # to allow rerunning this job
         with:
           name: logs.zip
@@ -255,7 +260,7 @@ jobs:
           fi
 
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5.4.3
+        uses: codecov/codecov-action@v5.5.1
         with:
           name: ${{ matrix.name }}
           # verbose: true # optional (default = false)

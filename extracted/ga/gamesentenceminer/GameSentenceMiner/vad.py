@@ -1,6 +1,7 @@
 import tempfile
 import time
 import warnings
+import requests
 from abc import abstractmethod, ABC
 
 from GameSentenceMiner.util import configuration, ffmpeg
@@ -37,19 +38,7 @@ class VADSystem:
             if not result.success and get_config().vad.backup_vad_model != configuration.OFF:
                 logger.info("No voice activity detected, using backup VAD model.")
                 result = self._do_vad_processing(get_config().vad.backup_vad_model, input_audio, output_audio, game_line)
-            if not result.success:
-                if get_config().vad.add_audio_on_no_results:
-                    logger.info("No voice activity detected, using full audio.")
-                    result.output_audio = input_audio
-                else:
-                    logger.info("No voice activity detected.")
-                    return result
-            else:
-                logger.info(result.trim_successful_string())
             return result
-        else:
-            return VADResult(True, 0, get_audio_length(input_audio), "OFF", [], input_audio)
-
 
     def _do_vad_processing(self, model, input_audio, output_audio, game_line):
         match model:

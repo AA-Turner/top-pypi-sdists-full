@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-sat
-Version: 1.8.dev20
+Version: 1.8.dev21
 Summary: A Python library for prototyping with SAT oracles
 Home-page: https://github.com/pysathq/pysat
 Author: Alexey Ignatiev, Joao Marques-Silva, Antonio Morgado
@@ -19,6 +19,16 @@ Provides-Extra: pblib
 Requires-Dist: pypblib>=0.0.3; extra == "pblib"
 Provides-Extra: unigen
 Requires-Dist: pyunigen>=4.1.20; extra == "unigen"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 
 A Python library providing a simple interface to a number of state-of-art

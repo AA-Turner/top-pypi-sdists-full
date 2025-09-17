@@ -11,16 +11,9 @@ class ShaderWrapper:
     material: typing.Any
     node_out: typing.Any
     node_texcoords: typing.Any
-    use_nodes: typing.Any
 
     def node_texcoords_get(self) -> None: ...
     def update(self) -> None: ...
-    def use_nodes_get(self) -> None: ...
-    def use_nodes_set(self, val) -> None:
-        """
-
-        :param val:
-        """
 
 class ShaderImageTextureWrapper:
     """Generic image texture-like wrapper, handling image node, some mapping (texture coordinates transformations),
@@ -145,7 +138,6 @@ class PrincipledBSDFWrapper(ShaderWrapper):
     specular_tint_texture: typing.Any
     transmission: typing.Any
     transmission_texture: typing.Any
-    use_nodes: typing.Any
 
     def alpha_get(self) -> None: ...
     def alpha_set(self, value) -> None:

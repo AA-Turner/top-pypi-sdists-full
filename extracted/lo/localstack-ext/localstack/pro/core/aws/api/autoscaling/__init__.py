@@ -21,6 +21,7 @@ BlockDeviceEbsIops = int
 BlockDeviceEbsThroughput = int
 BlockDeviceEbsVolumeSize = int
 BlockDeviceEbsVolumeType = str
+BooleanType = bool
 CapacityRebalanceEnabled = bool
 CheckpointDelay = int
 Context = str
@@ -1173,6 +1174,7 @@ class CancelInstanceRefreshAnswer(TypedDict, total=False):
 
 class CancelInstanceRefreshType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
+    WaitForTransitioningInstances: Optional[BooleanType]
 
 
 PredictiveScalingForecastValues = List[MetricScale]
@@ -2600,7 +2602,11 @@ class AutoscalingApi:
 
     @handler("CancelInstanceRefresh")
     def cancel_instance_refresh(
-        self, context: RequestContext, auto_scaling_group_name: XmlStringMaxLen255, **kwargs
+        self,
+        context: RequestContext,
+        auto_scaling_group_name: XmlStringMaxLen255,
+        wait_for_transitioning_instances: BooleanType | None = None,
+        **kwargs,
     ) -> CancelInstanceRefreshAnswer:
         """Cancels an instance refresh or rollback that is in progress. If an
         instance refresh or rollback is not in progress, an
@@ -2617,6 +2623,8 @@ class AutoscalingApi:
         API to roll back instead.
 
         :param auto_scaling_group_name: The name of the Auto Scaling group.
+        :param wait_for_transitioning_instances: When cancelling an instance refresh, this indicates whether to wait for
+        in-flight launches and terminations to complete.
         :returns: CancelInstanceRefreshAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:

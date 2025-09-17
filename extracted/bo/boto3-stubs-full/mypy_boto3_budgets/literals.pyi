@@ -132,7 +132,10 @@ ExecutionTypeType = Literal[
     "APPROVE_BUDGET_ACTION", "RESET_BUDGET_ACTION", "RETRY_BUDGET_ACTION", "REVERSE_BUDGET_ACTION"
 ]
 HealthStatusReasonType = Literal[
-    "BILLING_VIEW_NO_ACCESS", "BILLING_VIEW_UNHEALTHY", "FILTER_INVALID"
+    "BILLING_VIEW_NO_ACCESS",
+    "BILLING_VIEW_UNHEALTHY",
+    "FILTER_INVALID",
+    "MULTI_YEAR_HISTORICAL_DATA_DISABLED",
 ]
 HealthStatusValueType = Literal["HEALTHY", "UNHEALTHY"]
 MatchOptionType = Literal[
@@ -159,7 +162,7 @@ NotificationStateType = Literal["ALARM", "OK"]
 NotificationTypeType = Literal["ACTUAL", "FORECASTED"]
 SubscriptionTypeType = Literal["EMAIL", "SNS"]
 ThresholdTypeType = Literal["ABSOLUTE_VALUE", "PERCENTAGE"]
-TimeUnitType = Literal["ANNUALLY", "DAILY", "MONTHLY", "QUARTERLY"]
+TimeUnitType = Literal["ANNUALLY", "CUSTOM", "DAILY", "MONTHLY", "QUARTERLY"]
 BudgetsServiceName = Literal["budgets"]
 ServiceName = Literal[
     "accessanalyzer",

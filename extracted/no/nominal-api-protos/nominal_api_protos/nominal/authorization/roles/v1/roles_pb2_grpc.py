@@ -5,7 +5,7 @@ import warnings
 
 from nominal.authorization.roles.v1 import roles_pb2 as nominal_dot_authorization_dot_roles_dot_v1_dot_roles__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

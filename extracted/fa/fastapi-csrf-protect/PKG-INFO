@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-csrf-protect
-Version: 1.0.6
+Version: 1.0.7
 Summary: Stateless implementation of Cross-Site Request Forgery (XSRF) Protection by using Double Submit Cookie mitigation pattern
 Author-email: Sitt Guruvanich <aekazitt+github@gmail.com>
 License-Expression: MIT
@@ -233,6 +233,18 @@ open-sourced registry defined under `pyproject.toml` file.
   ```
 </details>
 
+### Roadmap
+
+* Fix CI/CD and GitHub Pages integration
+* Add code samples when setting up and running tests
+* Drop support for Python 3.9 by October, 2025
+* (Syntax 3.9 -> 3.10) Replace `Optional[...]` with `None | ...`
+* (Syntax 3.9 -> 3.10) Replace `Union[..., ...]` with `... | ...`
+* Correct front-end samples in `README.md`
+* Add `flexible` examples
+* Rewrite `Flexible Mode` section in `README.md`
+* Experiment with `granian[uvloop]` and `granian[rloop]`
+
 ### Getting started
 
 To contribute to the project, fork the repository and clone to your local device
@@ -275,6 +287,7 @@ pytest
 
 * **1.0.5** Remove `@dataclass` leftover from failed experiment; Clarify failure reasons under tests
 * **1.0.6** Fix `Stream consumed` when submitted tokens via form data, `isinstance` consumes body
+* **1.0.7** Fix add preverification content submitted in `Flexible Mode`; Add test selection flags
 
 ### Run Examples
 

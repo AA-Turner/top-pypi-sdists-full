@@ -95,6 +95,7 @@ class UnifiedPaintPanel:
         unified_paint_settings_override=None,
         unified_name=None,
         pressure_name=None,
+        curve_visibility_name=None,
         icon="NONE",
         text=None,
         slider=False,
@@ -111,6 +112,7 @@ class UnifiedPaintPanel:
                 :param unified_paint_settings_override:
                 :param unified_name:
                 :param pressure_name:
+                :param curve_visibility_name:
                 :param icon:
                 :param text:
                 :param slider:

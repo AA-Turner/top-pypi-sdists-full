@@ -19,9 +19,8 @@ import itertools as it
 from typing import Any
 
 from jax._src import core
-from jax._src.effects import Effect
+from jax._src import effects
 from jax._src.interpreters import ad
-from jax._src.interpreters import partial_eval as pe
 from jax._src import ad_util
 from jax._src.util import safe_zip, safe_map
 from jax._src.tree_util import tree_flatten, tree_unflatten, tree_leaves
@@ -36,6 +35,7 @@ HiVal = Any
 
 # Hijax extension API
 
+Ty = core.AbstractValue
 LoType = core.AbstractValue
 QDD = core.QuasiDynamicData
 ShapedArray = core.ShapedArray
@@ -45,14 +45,8 @@ class HiPrimitive(core.Primitive):
     self.name = name
     ad.primitive_jvps[self] = self.jvp
     ad.primitive_transposes[self] = self.transpose
-    pe.custom_staging_rules[self] = self.staging
 
-  def staging(self, trace, source_info, *args, **kwargs):
-    trace.frame.is_high = True
-    return trace.default_process_primitive(
-        self, args, kwargs, source_info=source_info)
-
-  def is_high(self, **params) -> bool:
+  def is_high(self, *avals, **params) -> bool:
     return True
 
   def is_effectful(self, params) -> bool:  # type: ignore
@@ -64,7 +58,7 @@ class HiPrimitive(core.Primitive):
 
   # lowering implements the primitive in terms of lojax inputs/outputs/ops
   def to_lojax(self, *lotypes_wrapped_in_hitypes, **params):
-    assert False, "must override"
+    assert False, f"must override for {self}"
 
   # autodiff interface
   def jvp(self, primals, tangents, **params):
@@ -75,6 +69,7 @@ class HiPrimitive(core.Primitive):
 
 
 class HiType(core.AbstractValue):
+  is_high = True
   has_qdd = False  # immutable
 
   # type equality
@@ -86,7 +81,7 @@ class HiType(core.AbstractValue):
     assert False, "must override"
 
   # define lowering from hijax value to lojax values and back (like pytrees)
-  def lower_val(self, hi_val: HiVal) -> list[LoVal]:
+  def lower_val(self, hi_val: HiVal) -> list[LoVal]:  # TODO(mattjj); not lovals
     assert False, "must override"
   def raise_val(self, *lo_vals: LoVal) -> HiVal:
     assert False, "must override"
@@ -101,6 +96,7 @@ class HiType(core.AbstractValue):
     assert False, "must override"
 
 class MutableHiType(core.AbstractValue):
+  is_high = True
   has_qdd = True  # mutable and potentially type-changing
   type_state = core.aval_method(core.cur_qdd)
 
@@ -111,6 +107,8 @@ class MutableHiType(core.AbstractValue):
   # define lowering from (mutable) hijax type to (immutable) lojax types
   def lo_ty_qdd(self, state: QDD) -> list[core.AbstractValue]:
     assert False, "must override"
+  def lo_ty(self):
+    assert False, "mutable hitypes should use lo_ty_qdd instead"
 
   # define lowering from hijax value to lojax values and back, depending on qdd
   def new_from_loval(self, state: QDD, *vals: LoVal) -> HiVal:
@@ -188,7 +186,7 @@ class BoxTy(MutableHiType):
     hi_vals = [hi_ty.raise_val(*it.islice(lo_vals_, len(hi_ty.lo_ty())))  # type: ignore
                for hi_ty in box_state.leaf_avals]
     assert next(lo_vals_, None) is None
-    return Box(tree_unflatten(box_state.treedef, hi_vals))  # will be mutated
+    return Box._new(tree_unflatten(box_state.treedef, hi_vals))  # will be mutated
 
   def read_loval(self, box_state: BoxTypeState, box) -> list:  # type: ignore
     leaf_vals, treedef = tree_flatten(box_get(box))
@@ -206,9 +204,29 @@ class BoxTy(MutableHiType):
   def to_tangent_aval(self):
     return BoxTy()
 
-class Box:  # noqa: F811
-  def __init__(self, val):
-    self._val = val
+# Override isinstance checks under tracing
+class _BoxMeta(type):
+  def __instancecheck__(self, instance):
+    return (super().__instancecheck__(instance) or
+            isinstance(instance, core.Tracer) and
+            isinstance(core.typeof(instance), BoxTy))
+
+class Box(metaclass=_BoxMeta):  # noqa: F811
+  _val = None  # always clobbered by __new__, but pytype likes this
+
+  # We want `Box(x)` to bind a primitive, so we override __new__ and provide a
+  # raw `_new` method below.
+  def __new__(cls, init_val=None):
+    (), treedef = tree_flatten(None)
+    box = new_box_p.bind(treedef=treedef)
+    box.set(init_val)
+    return box
+
+  @classmethod
+  def _new(cls, init_val):
+    new = super().__new__(cls)
+    new._val = init_val
+    return new
 
   def get(self):
     return box_get(self)
@@ -230,7 +248,9 @@ class Box:  # noqa: F811
 
 register_hitype(Box, lambda b: b.ty)
 
-box_effect = Effect()
+class BoxEffect(effects.Effect): ...
+box_effect = BoxEffect()
+effects.control_flow_allowed_effects.add_type(BoxEffect)
 
 class NewBox(HiPrimitive):
   def is_high(self, *, treedef) -> bool: return True  # type: ignore
@@ -241,7 +261,7 @@ class NewBox(HiPrimitive):
     return core.AvalQDD(BoxTy(), qdd), {box_effect}
 
   def to_lojax(_, *, treedef):
-    return Box(None)
+    return Box._new(None)
 
   def jvp(_, primals, tangents, *, treedef):
     assert False  # TODO
@@ -253,7 +273,7 @@ new_box_p = NewBox('new_box')
 class BoxSet(HiPrimitive):
   multiple_results = True
 
-  def is_high(self, *, treedef) -> bool: return True  # type: ignore
+  def is_high(self, *leaf_avals, treedef) -> bool: return True  # type: ignore
 
   def abstract_eval(self, box_ty, *leaf_avals, treedef):
     box_ty.mutable_qdd.update(BoxTypeState(leaf_avals, treedef))

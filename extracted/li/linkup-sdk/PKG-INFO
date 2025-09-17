@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: linkup-sdk
-Version: 0.2.9
+Version: 0.2.10
 Summary: A Python Client SDK for the Linkup API
-Project-URL: Homepage, https://github.com/LinkupPlatform/linkup-python-sdk
 Project-URL: Documentation, https://github.com/LinkupPlatform/linkup-python-sdk#readme
+Project-URL: Homepage, https://github.com/LinkupPlatform/linkup-python-sdk
 Project-URL: Source, https://github.com/LinkupPlatform/linkup-python-sdk
 Project-URL: Tracker, https://github.com/LinkupPlatform/linkup-python-sdk/issues
 Author-email: LINKUP TECHNOLOGIES <contact@linkup.so>
@@ -27,7 +27,6 @@ Description-Content-Type: text/markdown
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/linkup-sdk)
 [![Discord](https://img.shields.io/discord/1303713168916348959?color=7289da&logo=discord&logoColor=white)](https://discord.gg/9q9mCYJa86)
-
 
 A [Python SDK](https://docs.linkup.so/pages/sdk/python/python) for the
 [Linkup API](https://www.linkup.so/), allowing easy integration with Linkup's services. 🐍

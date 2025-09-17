@@ -7,6 +7,7 @@ from .datetime import (
     DateRangeField,
     DateTimeField,
     DateTimeRangeField,
+    TimeRange,
     DurationField,
     TimeField,
     TimeZoneField,

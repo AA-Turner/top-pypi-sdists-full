@@ -33,13 +33,11 @@
             "-fno-wrapv",
             "-frtti",
             "-fvisibility=hidden",
-            "-flto",
-            "-fno-ipa-cp"
+            "-flto"
         ],
         "extra_link_args": [
             "-lpthread",
-            "-static-libgcc",
-            "-static-libstdc++"
+            "-static-libgcc"
         ],
         "include_dirs": [
             "grpc_observability",
@@ -14396,15 +14394,16 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   return -1;
 }
 /* #### Code section: init_codeobjects ### */
-typedef struct {
-    unsigned int argcount : 4;
-    unsigned int num_posonly_args : 1;
-    unsigned int num_kwonly_args : 1;
-    unsigned int nlocals : 5;
-    unsigned int flags : 10;
-    unsigned int first_line : 9;
-    unsigned int line_table_length : 12;
-} __Pyx_PyCode_New_function_description;
+\
+        typedef struct {
+            unsigned int argcount : 4;
+            unsigned int num_posonly_args : 1;
+            unsigned int num_kwonly_args : 1;
+            unsigned int nlocals : 5;
+            unsigned int flags : 10;
+            unsigned int first_line : 9;
+            unsigned int line_table_length : 12;
+        } __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
         const __Pyx_PyCode_New_function_description descr,

@@ -668,7 +668,7 @@ def new_function(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [new_function in Rust documentation.](https://docs.rs/opendp/0.14.0/opendp/core/fn.new_function.html)
+    [new_function in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/core/struct.Function.html)
 
     **Why honest-but-curious?:**
 

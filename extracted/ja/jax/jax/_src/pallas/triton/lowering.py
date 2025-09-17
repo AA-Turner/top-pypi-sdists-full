@@ -17,12 +17,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from collections.abc import Hashable
 import dataclasses
 import functools
 import math
-import operator
 from typing import Any, TypeVar
-from collections.abc import Hashable
 
 import jax
 from jax import lax
@@ -30,9 +29,10 @@ from jax import tree_util
 from jax._src import ad_checkpoint
 from jax._src import ad_util
 from jax._src import api_util
-from jax._src import config
 from jax._src import core as jax_core
 from jax._src import custom_derivatives
+from jax._src import debugging
+from jax._src import literals
 from jax._src import linear_util as lu
 from jax._src import pjit
 from jax._src import source_info_util
@@ -40,7 +40,6 @@ from jax._src import state
 from jax._src import util
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
-from jax._src.lax.control_flow import for_loop
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith as arith_dialect
 from jax._src.lib.mlir.dialects import math as math_dialect
@@ -50,12 +49,9 @@ from jax._src.pallas import core as pallas_core
 from jax._src.pallas import pallas_call
 from jax._src.pallas import primitives
 from jax._src.pallas import utils as pallas_utils
-from jax._src.state import discharge
 from jax._src.state import indexing
 from jax._src.state import primitives as sp
 from jax._src.util import foreach
-from jax._src.util import merge_lists
-from jax._src.util import partition_list
 from jax._src.util import split_list
 import jax.numpy as jnp
 import numpy as np
@@ -187,12 +183,16 @@ def _bcast(
     y_aval: jax_core.ShapedArray,
     out_aval: jax_core.ShapedArray,
 ) -> ir.Value:
-  if isinstance(x, (np.ndarray, np.number, int, float)):
+  if isinstance(
+      x, (np.ndarray, np.number, int, float, literals.LiteralArray)
+  ):
     x_dtype = x_aval.dtype
     if x_aval.weak_type:
       x_dtype = y_aval.dtype
     x = _ir_constant(x, _dtype_to_ir_type(x_dtype))
-  if isinstance(y, (np.ndarray, np.number, int, float)):
+  if isinstance(
+      y, (np.ndarray, np.number, int, float, literals.LiteralArray)
+  ):
     y_dtype = y_aval.dtype
     if y_aval.weak_type:
       y_dtype = x_aval.dtype
@@ -1326,16 +1326,29 @@ for prim, fn in _JAX_TO_TRITON_SIGNED_BINARY.items():
   triton_lowering_rules[prim] = signed_rule
 
 
-@register_lowering(primitives.debug_print_p)
+@register_lowering(debugging.debug_print_p)
 def debug_print_lowering_rule(
     ctx: LoweringRuleContext,
     *args: ir.Value,
     fmt: str,
-    has_placeholders: bool,
+    ordered,
+    partitioned,
+    in_tree,
+    static_args,
+    np_printoptions,
+    has_placeholders,
 ):
+  del partitioned, np_printoptions
+  if ordered:
+    raise NotImplementedError("Ordered debug_print is not supported on Pallas.")
   if has_placeholders:
     raise ValueError(
         "pl.debug_print() does not support placeholders when lowering to Triton"
+    )
+  args, kwargs = debugging.merge_callback_args(in_tree, args, static_args)
+  if kwargs:
+    raise ValueError(
+        "Only positional arguments are supported by debug_print on Pallas."
     )
 
   tt_dialect.print_(
@@ -2511,8 +2524,9 @@ def _pjit_lowering_rule(ctx: LoweringRuleContext, *args, jaxpr, **_):
       ctx.context, jaxpr.jaxpr, ctx.block_infos, *args
   )
 
-@register_lowering(pjit.mesh_cast_p)
-def _mesh_cast_lowering_rule(ctx, x, dst_sharding):
+
+@register_lowering(pjit.reshard_p)
+def _reshard_lowering_rule(ctx, x, dst_sharding):
   return x
 
 
@@ -2551,61 +2565,6 @@ def _is_read_only(ref_effects) -> bool:
     return False
   (eff,) = ref_effects
   return isinstance(eff, state.ReadEffect)
-
-
-@register_lowering(for_loop.for_p)
-def _for_lowering_rule(
-    ctx: LoweringRuleContext,
-    *args,
-    jaxpr,
-    which_linear,
-    nsteps,
-    reverse,
-    unroll,
-):
-  del which_linear
-  if reverse or unroll != 1:
-    raise NotImplementedError
-  _i_constant = _i64_constant if config.enable_x64.value else _i32_constant
-  lower_bound = _i_constant(0)
-  upper_bound = _i_constant(nsteps)
-  step = _i_constant(1)
-  init_args = map(_ensure_ir_value, args, ctx.avals_in)
-  # Partially discharge state from jaxpr for non-pointers
-  should_discharge = [
-      not isinstance(a, state.AbstractRef) for a in ctx.avals_in
-  ]
-  discharged_jaxpr, () = discharge.discharge_state(
-      jaxpr, (), should_discharge=[True, *should_discharge]
-  )
-  in_avals = [v.aval for v in jaxpr.invars]
-  state_effects = state.get_ref_state_effects(in_avals, jaxpr.effects)[1:]
-  # Read-only `Ref`s don't need to be passed in explicitly as loop arguments so
-  # we can filter them out.
-  read_only = map(_is_read_only, state_effects)
-  is_loop_arg = map(
-      operator.and_, map(operator.not_, read_only), should_discharge
-  )
-  ptrs, _ = partition_list(should_discharge, init_args)
-  non_loop_args, loop_args = partition_list(is_loop_arg, init_args)
-  for_op = scf_dialect.ForOp(lower_bound, upper_bound, step, loop_args)
-  with ir.InsertionPoint(for_op.body):
-    loop_index = for_op.induction_variable
-    for_body_args = [
-        for_op.body.arguments[i + 1] for i, _ in enumerate(loop_args)
-    ]
-    loop_body_args = merge_lists(is_loop_arg, non_loop_args, for_body_args)
-    out_discharged = lower_jaxpr_to_triton_ir(
-        ctx.context,
-        discharged_jaxpr,
-        [None, *ctx.block_infos],
-        loop_index,
-        *loop_body_args,
-    )
-    all_out = merge_lists(should_discharge, ptrs, out_discharged)
-    _, loop_out = partition_list(is_loop_arg, all_out)
-    scf_dialect.yield_(loop_out)
-  return merge_lists(is_loop_arg, non_loop_args, list(for_op.results_))
 
 
 def _lower_jaxpr_to_for_loop(
@@ -2749,7 +2708,8 @@ def _maybe_pattern_match_fori_loop(
   jaxpr = jaxpr.replace(
       eqns=jaxpr.eqns[:eqn_index] + jaxpr.eqns[eqn_index + 1:],
       invars=new_invars,
-      outvars=new_outvars)
+      outvars=new_outvars,
+      debug_info=jaxpr.debug_info.with_unknown_names())
   _, body_consts, carry = split_list(args, [cond_nconsts, body_nconsts])
   (lb, ub), args = carry[:2], carry[2:]
   const_block_infos, args_block_infos = split_list(ctx.block_infos,
@@ -2891,13 +2851,17 @@ def _cond_lowering_rule(
 def _ensure_ir_value(x: object, aval: jax_core.ShapedArray) -> ir.Value:
   if isinstance(x, ir.Value):
     return x
-  elif isinstance(x, (np.number, np.ndarray, int, float)):
+  elif isinstance(
+      x, (np.number, np.ndarray, int, float, literals.LiteralArray)
+  ):
     return _ir_constant(x, _dtype_to_ir_type(aval.dtype))
   raise NotImplementedError
 
 
 def _ir_constant(v: object, t: ir.Type) -> ir.Value:
-  if isinstance(v, (np.number, np.ndarray, int, float)):
+  if isinstance(
+      v, (np.number, np.ndarray, int, float, literals.LiteralArray)
+  ):
     if isinstance(t, ir.IntegerType):
       v = int(v)
     else:

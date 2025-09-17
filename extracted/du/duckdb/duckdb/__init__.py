@@ -1,17 +1,68 @@
-_exported_symbols = []
-
 # Modules
 import duckdb.functional as functional
 import duckdb.typing as typing
-import functools
+from _duckdb import __version__ as duckdb_version
+from importlib.metadata import version
+
+# duckdb.__version__ returns the version of the distribution package, i.e. the pypi version
+__version__ = version("duckdb")
+
+# version() is a more human friendly formatted version string of both the distribution package and the bundled duckdb
+def version():
+    return f"{__version__} (with duckdb {duckdb_version})"
+
+_exported_symbols = ['__version__', 'version']
 
 _exported_symbols.extend([
     "typing",
     "functional"
 ])
 
+class DBAPITypeObject:
+    def __init__(self, types: list[typing.DuckDBPyType]) -> None:
+        self.types = types
+
+    def __eq__(self, other):
+        if isinstance(other, typing.DuckDBPyType):
+            return other in self.types
+        return False
+
+    def __repr__(self):
+        return f"<DBAPITypeObject [{','.join(str(x) for x in self.types)}]>"
+
+# Define the standard DBAPI sentinels
+STRING   = DBAPITypeObject([typing.VARCHAR])
+NUMBER   = DBAPITypeObject([
+    typing.TINYINT,
+    typing.UTINYINT,
+    typing.SMALLINT,
+    typing.USMALLINT,
+    typing.INTEGER,
+    typing.UINTEGER,
+    typing.BIGINT,
+    typing.UBIGINT,
+    typing.HUGEINT,
+    typing.UHUGEINT,
+    typing.DuckDBPyType("BIGNUM"),
+    typing.DuckDBPyType("DECIMAL"),
+    typing.FLOAT,
+    typing.DOUBLE
+])
+DATETIME = DBAPITypeObject([
+    typing.DATE,
+    typing.TIME,
+    typing.TIME_TZ,
+    typing.TIMESTAMP,
+    typing.TIMESTAMP_TZ,
+    typing.TIMESTAMP_NS,
+    typing.TIMESTAMP_MS,
+    typing.TIMESTAMP_S
+])
+BINARY   = DBAPITypeObject([typing.BLOB])
+ROWID    = None
+
 # Classes
-from .duckdb import (
+from _duckdb import (
     DuckDBPyRelation,
     DuckDBPyConnection,
     Statement,
@@ -54,7 +105,7 @@ _exported_symbols.extend([
     'df',
     'arrow'
 ])
-from .duckdb import (
+from _duckdb import (
     df,
     arrow
 )
@@ -64,7 +115,7 @@ from .duckdb import (
 
 # START OF CONNECTION WRAPPER
 
-from .duckdb import (
+from _duckdb import (
 	cursor,
 	register_filesystem,
 	unregister_filesystem,
@@ -227,7 +278,7 @@ _exported_symbols.extend([
 # END OF CONNECTION WRAPPER
 
 # Enums
-from .duckdb import (
+from _duckdb import (
     ANALYZE,
     DEFAULT,
     RETURN_NULL,
@@ -244,12 +295,11 @@ _exported_symbols.extend([
 
 
 # read-only properties
-from .duckdb import (
+from _duckdb import (
     __standard_vector_size__,
     __interactive__,
     __jupyter__,
     __formatted_python_version__,
-    __version__,
     apilevel,
     comment,
     identifier,
@@ -267,7 +317,6 @@ _exported_symbols.extend([
     "__interactive__",
     "__jupyter__",
     "__formatted_python_version__",
-    "__version__",
     "apilevel",
     "comment",
     "identifier",
@@ -282,7 +331,7 @@ _exported_symbols.extend([
 ])
 
 
-from .duckdb import (
+from _duckdb import (
     connect,
     default_connection,
     set_default_connection,
@@ -295,7 +344,7 @@ _exported_symbols.extend([
 ])
 
 # Exceptions
-from .duckdb import (
+from _duckdb import (
     Error,
     DataError,
     ConversionException,
@@ -361,7 +410,7 @@ _exported_symbols.extend([
 ])
 
 # Value
-from .value.constant import (
+from duckdb.value.constant import (
     Value,
     NullValue,
     BooleanValue,

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal, Union, overload
 
@@ -36,7 +37,7 @@ from tabpfn.preprocessing import (
 )
 from tabpfn.settings import settings
 from tabpfn.utils import (
-    infer_device_and_type,
+    infer_devices,
     infer_fp16_inference_mode,
     infer_random_state,
     split_large_data,
@@ -49,6 +50,8 @@ if TYPE_CHECKING:
 
     from tabpfn.architectures.base.bar_distribution import FullSupportBarDistribution
     from tabpfn.architectures.interface import Architecture, ArchitectureConfig
+    from tabpfn.classifier import TabPFNClassifier
+    from tabpfn.regressor import TabPFNRegressor
 
 
 class BaseModelSpecs:
@@ -170,7 +173,7 @@ def initialize_tabpfn_model(
 
 def determine_precision(
     inference_precision: torch.dtype | Literal["autocast", "auto"],
-    device_: torch.device,
+    devices_: Sequence[torch.device],
 ) -> tuple[bool, torch.dtype | None, int]:
     """Decide whether to use autocast or a forced precision dtype.
 
@@ -181,7 +184,7 @@ def determine_precision(
             - If `"autocast"`, explicitly use PyTorch autocast (mixed precision).
             - If a `torch.dtype`, force that precision.
 
-        device_: The device on which inference is run.
+        devices_: The devices which will be used for inference.
 
     Returns:
         use_autocast_:
@@ -193,7 +196,7 @@ def determine_precision(
     """
     if inference_precision in ["autocast", "auto"]:
         use_autocast_ = infer_fp16_inference_mode(
-            device=device_,
+            devices=devices_,
             enable=True if (inference_precision == "autocast") else None,
         )
         forced_inference_dtype_ = None
@@ -218,7 +221,7 @@ def create_inference_engine(  # noqa: PLR0913
     ensemble_configs: Any,
     cat_ix: list[int],
     fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache", "batched"],
-    device_: torch.device,
+    devices_: Sequence[torch.device],
     rng: np.random.Generator,
     n_jobs: int,
     byte_size: int,
@@ -241,7 +244,7 @@ def create_inference_engine(  # noqa: PLR0913
         ensemble_configs: The ensemble configurations to create multiple "prompts".
         cat_ix: Indices of inferred categorical features.
         fit_mode: Determines how we prepare inference (pre-cache or not).
-        device_: The device for inference.
+        devices_: The devices for inference.
         rng: Numpy random generator.
         n_jobs: Number of parallel CPU workers.
         byte_size: Byte size for the chosen inference precision.
@@ -292,7 +295,7 @@ def create_inference_engine(  # noqa: PLR0913
             model=model,
             ensemble_configs=ensemble_configs,
             n_workers=n_jobs,
-            device=device_,
+            devices=devices_,
             dtype_byte_size=byte_size,
             rng=rng,
             force_inference_dtype=forced_inference_dtype_,
@@ -318,7 +321,7 @@ def create_inference_engine(  # noqa: PLR0913
 
 
 def check_cpu_warning(
-    device: str | torch.device,
+    devices: Sequence[torch.device],
     X: np.ndarray | torch.Tensor | pd.DataFrame,
     *,
     allow_cpu_override: bool = False,
@@ -326,7 +329,7 @@ def check_cpu_warning(
     """Check if using CPU with large datasets and warn or error appropriately.
 
     Args:
-        device: The torch device being used
+        devices: The torch devices being used
         X: The input data (NumPy array, Pandas DataFrame, or Torch Tensor)
         allow_cpu_override: If True, allow CPU usage with large datasets.
     """
@@ -335,15 +338,13 @@ def check_cpu_warning(
     if allow_cpu_override:
         return
 
-    device_mapped = infer_device_and_type(device)
-
     # Determine number of samples
     try:
         num_samples = X.shape[0]
     except AttributeError:
         return
 
-    if torch.device(device_mapped).type == "cpu":
+    if any(device.type == "cpu" for device in devices):
         if num_samples > 1000:
             raise RuntimeError(
                 "Running on CPU with more than 1000 samples is not allowed "
@@ -370,6 +371,8 @@ def get_preprocessed_datasets_helper(
     split_fn: Callable,
     max_data_size: int | None,
     model_type: Literal["regressor", "classifier"],
+    *,
+    equal_split_size: bool,
 ) -> DatasetCollectionWithPreprocessing:
     """Helper function to create a DatasetCollectionWithPreprocessing.
     Relies on methods from the calling_instance for specific initializations.
@@ -383,6 +386,11 @@ def get_preprocessed_datasets_helper(
         max_data_size: Maximum allowed number of samples within one dataset.
         If None, datasets are not splitted.
         model_type: The type of the model.
+        equal_split_size: If True, splits data into equally sized chunks under
+            max_data_size.
+            If False, splits into chunks of size `max_data_size`, with
+            the last chunk having the remainder samples but is dropped if its
+            size is less than 2.
     """
     if not isinstance(X_raw, list):
         X_raw = [X_raw]
@@ -398,7 +406,9 @@ def get_preprocessed_datasets_helper(
     X_split, y_split = [], []
     for X_item, y_item in zip(X_raw, y_raw):
         if max_data_size is not None:
-            Xparts, yparts = split_large_data(X_item, y_item, max_data_size)
+            Xparts, yparts = split_large_data(
+                X_item, y_item, max_data_size, equal_split_size=equal_split_size
+            )
         else:
             Xparts, yparts = [X_item], [y_item]
         X_split.extend(Xparts)
@@ -428,7 +438,7 @@ def get_preprocessed_datasets_helper(
                 X_raw=X_mod,
                 y_raw=y_mod,
                 cat_ix=current_cat_ix,
-                bardist_=bardist_,
+                znorm_space_bardist_=bardist_,
             )
         else:
             raise ValueError(f"Invalid model_type: {model_type}")
@@ -438,20 +448,24 @@ def get_preprocessed_datasets_helper(
     return DatasetCollectionWithPreprocessing(split_fn, rng, dataset_config_collection)
 
 
-def _initialize_model_variables_helper(
-    calling_instance: Any,
+def initialize_model_variables_helper(
+    calling_instance: TabPFNRegressor | TabPFNClassifier,
     model_type: Literal["regressor", "classifier"],
 ) -> tuple[int, np.random.Generator]:
-    """Helper function to perform initialization
-    of the model, return determined byte_size
-    and RNG object.
+    """Set attributes on the given model to prepare it for inference.
+
+    This includes selecting the device and the inference precision.
+
+    Returns:
+        a tuple (byte_size, rng), where byte_size is the number of bytes in the selected
+        dtype, and rng is a NumPy random Generator for use during inference.
     """
     static_seed, rng = infer_random_state(calling_instance.random_state)
     if model_type == "regressor":
         (
             calling_instance.model_,
             calling_instance.config_,
-            calling_instance.bardist_,
+            calling_instance.znorm_space_bardist_,
         ) = initialize_tabpfn_model(
             model_path=calling_instance.model_path,
             which="regressor",
@@ -468,15 +482,14 @@ def _initialize_model_variables_helper(
     else:
         raise ValueError(f"Invalid model_type: {model_type}")
 
-    calling_instance.device_ = infer_device_and_type(calling_instance.device)
+    calling_instance.devices_ = infer_devices(calling_instance.device)
     (
         calling_instance.use_autocast_,
         calling_instance.forced_inference_dtype_,
         byte_size,
     ) = determine_precision(
-        calling_instance.inference_precision, calling_instance.device_
+        calling_instance.inference_precision, calling_instance.devices_
     )
-    calling_instance.model_.to(calling_instance.device_)
 
     # Build the interface_config
     _config = ModelInterfaceConfig.from_user_input(

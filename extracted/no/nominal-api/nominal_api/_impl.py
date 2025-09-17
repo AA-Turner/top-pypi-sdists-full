@@ -9186,85 +9186,6 @@ ingest_api_DeprecatedNewDataSourceVisitor.__qualname__ = "DeprecatedNewDataSourc
 ingest_api_DeprecatedNewDataSourceVisitor.__module__ = "nominal_api.ingest_api"
 
 
-class ingest_api_DeprecatedTimestampMetadata(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'series_name': ConjureFieldDefinition('seriesName', str),
-            'is_absolute': ConjureFieldDefinition('isAbsolute', bool)
-        }
-
-    __slots__: List[str] = ['_series_name', '_is_absolute']
-
-    def __init__(self, is_absolute: bool, series_name: str) -> None:
-        self._series_name = series_name
-        self._is_absolute = is_absolute
-
-    @builtins.property
-    def series_name(self) -> str:
-        return self._series_name
-
-    @builtins.property
-    def is_absolute(self) -> bool:
-        return self._is_absolute
-
-
-ingest_api_DeprecatedTimestampMetadata.__name__ = "DeprecatedTimestampMetadata"
-ingest_api_DeprecatedTimestampMetadata.__qualname__ = "DeprecatedTimestampMetadata"
-ingest_api_DeprecatedTimestampMetadata.__module__ = "nominal_api.ingest_api"
-
-
-class ingest_api_DeprecatedTriggerIngest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
-            'properties': ConjureFieldDefinition('properties', Dict[str, str]),
-            'dataset_name': ConjureFieldDefinition('datasetName', OptionalTypeWrapper[str]),
-            'timestamp_metadata': ConjureFieldDefinition('timestampMetadata', OptionalTypeWrapper[ingest_api_DeprecatedTimestampMetadata]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
-        }
-
-    __slots__: List[str] = ['_source', '_properties', '_dataset_name', '_timestamp_metadata', '_workspace']
-
-    def __init__(self, properties: Dict[str, str], source: "ingest_api_IngestSource", dataset_name: Optional[str] = None, timestamp_metadata: Optional["ingest_api_DeprecatedTimestampMetadata"] = None, workspace: Optional[str] = None) -> None:
-        self._source = source
-        self._properties = properties
-        self._dataset_name = dataset_name
-        self._timestamp_metadata = timestamp_metadata
-        self._workspace = workspace
-
-    @builtins.property
-    def source(self) -> "ingest_api_IngestSource":
-        return self._source
-
-    @builtins.property
-    def properties(self) -> Dict[str, str]:
-        return self._properties
-
-    @builtins.property
-    def dataset_name(self) -> Optional[str]:
-        return self._dataset_name
-
-    @builtins.property
-    def timestamp_metadata(self) -> Optional["ingest_api_DeprecatedTimestampMetadata"]:
-        return self._timestamp_metadata
-
-    @builtins.property
-    def workspace(self) -> Optional[str]:
-        """The workspace in which to create the dataset. If not provided, the dataset will be created in the default workspace for
-the user's organization, if the default workspace for the organization is configured.
-        """
-        return self._workspace
-
-
-ingest_api_DeprecatedTriggerIngest.__name__ = "DeprecatedTriggerIngest"
-ingest_api_DeprecatedTriggerIngest.__qualname__ = "DeprecatedTriggerIngest"
-ingest_api_DeprecatedTriggerIngest.__module__ = "nominal_api.ingest_api"
-
-
 class ingest_api_DockerImageSource(ConjureBeanType):
     """Docker container image source definition.
     """
@@ -9960,93 +9881,42 @@ ingest_api_IngestJob.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_IngestJobRequest(ConjureUnionType):
-    _ingest_mcap: Optional["ingest_api_IngestMcapRequest"] = None
-    _trigger_file_ingest: Optional["ingest_api_TriggerFileIngest"] = None
     _ingest_request: Optional["ingest_api_IngestRequest"] = None
-    _trigger_ingest: Optional["ingest_api_TriggerIngest"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'ingest_mcap': ConjureFieldDefinition('ingestMcap', ingest_api_IngestMcapRequest),
-            'trigger_file_ingest': ConjureFieldDefinition('triggerFileIngest', ingest_api_TriggerFileIngest),
-            'ingest_request': ConjureFieldDefinition('ingestRequest', ingest_api_IngestRequest),
-            'trigger_ingest': ConjureFieldDefinition('triggerIngest', ingest_api_TriggerIngest)
+            'ingest_request': ConjureFieldDefinition('ingestRequest', ingest_api_IngestRequest)
         }
 
     def __init__(
             self,
-            ingest_mcap: Optional["ingest_api_IngestMcapRequest"] = None,
-            trigger_file_ingest: Optional["ingest_api_TriggerFileIngest"] = None,
             ingest_request: Optional["ingest_api_IngestRequest"] = None,
-            trigger_ingest: Optional["ingest_api_TriggerIngest"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (ingest_mcap is not None) + (trigger_file_ingest is not None) + (ingest_request is not None) + (trigger_ingest is not None) != 1:
+            if (ingest_request is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if ingest_mcap is not None:
-                self._ingest_mcap = ingest_mcap
-                self._type = 'ingestMcap'
-            if trigger_file_ingest is not None:
-                self._trigger_file_ingest = trigger_file_ingest
-                self._type = 'triggerFileIngest'
             if ingest_request is not None:
                 self._ingest_request = ingest_request
                 self._type = 'ingestRequest'
-            if trigger_ingest is not None:
-                self._trigger_ingest = trigger_ingest
-                self._type = 'triggerIngest'
 
-        elif type_of_union == 'ingestMcap':
-            if ingest_mcap is None:
-                raise ValueError('a union value must not be None')
-            self._ingest_mcap = ingest_mcap
-            self._type = 'ingestMcap'
-        elif type_of_union == 'triggerFileIngest':
-            if trigger_file_ingest is None:
-                raise ValueError('a union value must not be None')
-            self._trigger_file_ingest = trigger_file_ingest
-            self._type = 'triggerFileIngest'
         elif type_of_union == 'ingestRequest':
             if ingest_request is None:
                 raise ValueError('a union value must not be None')
             self._ingest_request = ingest_request
             self._type = 'ingestRequest'
-        elif type_of_union == 'triggerIngest':
-            if trigger_ingest is None:
-                raise ValueError('a union value must not be None')
-            self._trigger_ingest = trigger_ingest
-            self._type = 'triggerIngest'
-
-    @builtins.property
-    def ingest_mcap(self) -> Optional["ingest_api_IngestMcapRequest"]:
-        return self._ingest_mcap
-
-    @builtins.property
-    def trigger_file_ingest(self) -> Optional["ingest_api_TriggerFileIngest"]:
-        return self._trigger_file_ingest
 
     @builtins.property
     def ingest_request(self) -> Optional["ingest_api_IngestRequest"]:
         return self._ingest_request
 
-    @builtins.property
-    def trigger_ingest(self) -> Optional["ingest_api_TriggerIngest"]:
-        return self._trigger_ingest
-
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, ingest_api_IngestJobRequestVisitor):
             raise ValueError('{} is not an instance of ingest_api_IngestJobRequestVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'ingestMcap' and self.ingest_mcap is not None:
-            return visitor._ingest_mcap(self.ingest_mcap)
-        if self._type == 'triggerFileIngest' and self.trigger_file_ingest is not None:
-            return visitor._trigger_file_ingest(self.trigger_file_ingest)
         if self._type == 'ingestRequest' and self.ingest_request is not None:
             return visitor._ingest_request(self.ingest_request)
-        if self._type == 'triggerIngest' and self.trigger_ingest is not None:
-            return visitor._trigger_ingest(self.trigger_ingest)
 
 
 ingest_api_IngestJobRequest.__name__ = "IngestJobRequest"
@@ -10057,19 +9927,7 @@ ingest_api_IngestJobRequest.__module__ = "nominal_api.ingest_api"
 class ingest_api_IngestJobRequestVisitor:
 
     @abstractmethod
-    def _ingest_mcap(self, ingest_mcap: "ingest_api_IngestMcapRequest") -> Any:
-        pass
-
-    @abstractmethod
-    def _trigger_file_ingest(self, trigger_file_ingest: "ingest_api_TriggerFileIngest") -> Any:
-        pass
-
-    @abstractmethod
     def _ingest_request(self, ingest_request: "ingest_api_IngestRequest") -> Any:
-        pass
-
-    @abstractmethod
-    def _trigger_ingest(self, trigger_ingest: "ingest_api_TriggerIngest") -> Any:
         pass
 
 
@@ -10776,102 +10634,6 @@ Returns the same response format as the /ingest endpoint.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), ingest_api_IngestResponse, self._return_none_for_unknown_union_types)
 
-    def deprecated_trigger_ingest(self, auth_header: str, trigger_ingest: "ingest_api_DeprecatedTriggerIngest") -> "ingest_api_TriggeredIngest":
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(trigger_ingest)
-
-        _path = '/ingest/v1/trigger-ingest'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), ingest_api_TriggeredIngest, self._return_none_for_unknown_union_types)
-
-    def trigger_ingest(self, auth_header: str, trigger_ingest: "ingest_api_TriggerIngest") -> "ingest_api_TriggeredIngest":
-        """Triggers an ingest job for the given data source.
-The ingest job will be processed asynchronously.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(trigger_ingest)
-
-        _path = '/ingest/v1/trigger-ingest-v2'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), ingest_api_TriggeredIngest, self._return_none_for_unknown_union_types)
-
-    def trigger_file_ingest(self, auth_header: str, trigger_ingest: "ingest_api_TriggerFileIngest") -> "ingest_api_TriggeredIngest":
-        """Triggers an ingest job of a new file, allowing either creating a new dataset or uploading to an
-existing one.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(trigger_ingest)
-
-        _path = '/ingest/v1/trigger-file-ingest'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), ingest_api_TriggeredIngest, self._return_none_for_unknown_union_types)
-
     def ingest_run(self, auth_header: str, request: "ingest_api_IngestRunRequest") -> "ingest_api_IngestRunResponse":
         """Creates a run and ingests data sources to be added to the run.
         """
@@ -10935,38 +10697,6 @@ existing one.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), ingest_api_IngestVideoResponse, self._return_none_for_unknown_union_types)
-
-    def ingest_mcap(self, auth_header: str, ingest_video: "ingest_api_IngestMcapRequest") -> "ingest_api_IngestMcapResponse":
-        """Ingests data from mcap files in the S3 Nominal upload bucket.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(ingest_video)
-
-        _path = '/ingest/v1/ingest-mcap'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), ingest_api_IngestMcapResponse, self._return_none_for_unknown_union_types)
 
     def reingest_from_datasets(self, auth_header: str, request: "ingest_api_ReingestDatasetsRequest") -> "ingest_api_ReingestDatasetsResponse":
         """Re-ingests data from provided source datasets into either an existing target dataset, or a new one.
@@ -12971,35 +12701,6 @@ ingest_api_SignPartResponse.__qualname__ = "SignPartResponse"
 ingest_api_SignPartResponse.__module__ = "nominal_api.ingest_api"
 
 
-class ingest_api_SkipRowsConfig(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'header_row_index': ConjureFieldDefinition('headerRowIndex', int),
-            'data_start_row_index': ConjureFieldDefinition('dataStartRowIndex', int)
-        }
-
-    __slots__: List[str] = ['_header_row_index', '_data_start_row_index']
-
-    def __init__(self, data_start_row_index: int, header_row_index: int) -> None:
-        self._header_row_index = header_row_index
-        self._data_start_row_index = data_start_row_index
-
-    @builtins.property
-    def header_row_index(self) -> int:
-        return self._header_row_index
-
-    @builtins.property
-    def data_start_row_index(self) -> int:
-        return self._data_start_row_index
-
-
-ingest_api_SkipRowsConfig.__name__ = "SkipRowsConfig"
-ingest_api_SkipRowsConfig.__qualname__ = "SkipRowsConfig"
-ingest_api_SkipRowsConfig.__module__ = "nominal_api.ingest_api"
-
-
 class ingest_api_TagDetails(ConjureBeanType):
 
     @builtins.classmethod
@@ -13216,156 +12917,6 @@ class ingest_api_TimestampTypeVisitor:
 ingest_api_TimestampTypeVisitor.__name__ = "TimestampTypeVisitor"
 ingest_api_TimestampTypeVisitor.__qualname__ = "TimestampTypeVisitor"
 ingest_api_TimestampTypeVisitor.__module__ = "nominal_api.ingest_api"
-
-
-class ingest_api_TriggerFileIngest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
-            'source_metadata': ConjureFieldDefinition('sourceMetadata', ingest_api_IngestSourceMetadata),
-            'destination': ConjureFieldDefinition('destination', ingest_api_IngestDestination)
-        }
-
-    __slots__: List[str] = ['_source', '_source_metadata', '_destination']
-
-    def __init__(self, destination: "ingest_api_IngestDestination", source: "ingest_api_IngestSource", source_metadata: "ingest_api_IngestSourceMetadata") -> None:
-        self._source = source
-        self._source_metadata = source_metadata
-        self._destination = destination
-
-    @builtins.property
-    def source(self) -> "ingest_api_IngestSource":
-        """Source data for the ingest. Supported file types include:
-  * CSV (*.csv)
-  * Compressed CSV (*.csv.gz)
-  * Parquet (*.parquet)
-  * Parquet archives (*.parquet.tar, *.parquet.tar.gz, *.parquet.zip).
-      Note that timestamp column must have the same name and format across files.
-      Non parquet files will be ignored.
-      Each file can contribute to the overall schema, but conflicting types will fail the ingest.
-      Conflicting values (same timestamp, column) across files will be de-conflicted based on archive file ordering (first point taken)
-        """
-        return self._source
-
-    @builtins.property
-    def source_metadata(self) -> "ingest_api_IngestSourceMetadata":
-        return self._source_metadata
-
-    @builtins.property
-    def destination(self) -> "ingest_api_IngestDestination":
-        return self._destination
-
-
-ingest_api_TriggerFileIngest.__name__ = "TriggerFileIngest"
-ingest_api_TriggerFileIngest.__qualname__ = "TriggerFileIngest"
-ingest_api_TriggerFileIngest.__module__ = "nominal_api.ingest_api"
-
-
-class ingest_api_TriggerIngest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'source': ConjureFieldDefinition('source', ingest_api_IngestSource),
-            'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
-            'labels': ConjureFieldDefinition('labels', List[api_Label]),
-            'dataset_name': ConjureFieldDefinition('datasetName', OptionalTypeWrapper[str]),
-            'dataset_description': ConjureFieldDefinition('datasetDescription', OptionalTypeWrapper[str]),
-            'timestamp_metadata': ConjureFieldDefinition('timestampMetadata', OptionalTypeWrapper[ingest_api_TimestampMetadata]),
-            'channel_config': ConjureFieldDefinition('channelConfig', OptionalTypeWrapper[ingest_api_ChannelConfig]),
-            'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
-        }
-
-    __slots__: List[str] = ['_source', '_properties', '_labels', '_dataset_name', '_dataset_description', '_timestamp_metadata', '_channel_config', '_workspace']
-
-    def __init__(self, labels: List[str], properties: Dict[str, str], source: "ingest_api_IngestSource", channel_config: Optional["ingest_api_ChannelConfig"] = None, dataset_description: Optional[str] = None, dataset_name: Optional[str] = None, timestamp_metadata: Optional["ingest_api_TimestampMetadata"] = None, workspace: Optional[str] = None) -> None:
-        self._source = source
-        self._properties = properties
-        self._labels = labels
-        self._dataset_name = dataset_name
-        self._dataset_description = dataset_description
-        self._timestamp_metadata = timestamp_metadata
-        self._channel_config = channel_config
-        self._workspace = workspace
-
-    @builtins.property
-    def source(self) -> "ingest_api_IngestSource":
-        return self._source
-
-    @builtins.property
-    def properties(self) -> Dict[str, str]:
-        return self._properties
-
-    @builtins.property
-    def labels(self) -> List[str]:
-        return self._labels
-
-    @builtins.property
-    def dataset_name(self) -> Optional[str]:
-        return self._dataset_name
-
-    @builtins.property
-    def dataset_description(self) -> Optional[str]:
-        return self._dataset_description
-
-    @builtins.property
-    def timestamp_metadata(self) -> Optional["ingest_api_TimestampMetadata"]:
-        return self._timestamp_metadata
-
-    @builtins.property
-    def channel_config(self) -> Optional["ingest_api_ChannelConfig"]:
-        """If absent, will default to a channel config that constructs a prefix tree with `.` as the delimiter.
-        """
-        return self._channel_config
-
-    @builtins.property
-    def workspace(self) -> Optional[str]:
-        """The workspace in which to create the dataset. If not provided, the dataset will be created in the default workspace for
-the user's organization, if the default workspace for the organization is configured.
-        """
-        return self._workspace
-
-
-ingest_api_TriggerIngest.__name__ = "TriggerIngest"
-ingest_api_TriggerIngest.__qualname__ = "TriggerIngest"
-ingest_api_TriggerIngest.__module__ = "nominal_api.ingest_api"
-
-
-class ingest_api_TriggeredIngest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'dataset_rid': ConjureFieldDefinition('datasetRid', str),
-            'dataset_file_id': ConjureFieldDefinition('datasetFileId', OptionalTypeWrapper[str]),
-            'async_handle': ConjureFieldDefinition('asyncHandle', OptionalTypeWrapper[ingest_api_AsyncHandle])
-        }
-
-    __slots__: List[str] = ['_dataset_rid', '_dataset_file_id', '_async_handle']
-
-    def __init__(self, dataset_rid: str, async_handle: Optional["ingest_api_AsyncHandle"] = None, dataset_file_id: Optional[str] = None) -> None:
-        self._dataset_rid = dataset_rid
-        self._dataset_file_id = dataset_file_id
-        self._async_handle = async_handle
-
-    @builtins.property
-    def dataset_rid(self) -> str:
-        return self._dataset_rid
-
-    @builtins.property
-    def dataset_file_id(self) -> Optional[str]:
-        return self._dataset_file_id
-
-    @builtins.property
-    def async_handle(self) -> Optional["ingest_api_AsyncHandle"]:
-        return self._async_handle
-
-
-ingest_api_TriggeredIngest.__name__ = "TriggeredIngest"
-ingest_api_TriggeredIngest.__qualname__ = "TriggeredIngest"
-ingest_api_TriggeredIngest.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_UpdateContainerizedExtractorRequest(ConjureBeanType):

@@ -40,7 +40,6 @@ from gams.core.gdx import (
 )
 from gams.core.gdx import (
     GMS_EQUTYPE_B,
-    GMS_EQUTYPE_C,
     GMS_EQUTYPE_E,
     GMS_EQUTYPE_G,
     GMS_EQUTYPE_L,
@@ -126,7 +125,6 @@ GAMS_EQUATION_SUBTYPES = {
     GMS_EQUTYPE_L: "leq",
     GMS_EQUTYPE_N: "nonbinding",
     GMS_EQUTYPE_X: "external",
-    GMS_EQUTYPE_C: "cone",
     GMS_EQUTYPE_B: "boolean",
 }
 
@@ -205,7 +203,6 @@ EQU_TYPE = {
     "geq": "geq",
     "leq": "leq",
     "nonbinding": "nonbinding",
-    "cone": "cone",
     "external": "external",
     "boolean": "boolean",
 }
@@ -216,7 +213,6 @@ EQU_TYPE.update({"=g=": "geq", "g": "geq"})
 EQU_TYPE.update({"=l=": "leq", "l": "leq"})
 EQU_TYPE.update({"=n=": "nonbinding", "n": "nonbinding"})
 EQU_TYPE.update({"=x=": "external", "x": "external"})
-EQU_TYPE.update({"=c=": "cone", "c": "cone"})
 EQU_TYPE.update({"=b=": "boolean", "b": "boolean"})
 
 EQU_DEFAULT_VALUES = {
@@ -245,13 +241,6 @@ EQU_DEFAULT_VALUES = {
         "level": 0.0,
         "marginal": 0.0,
         "lower": SpecialValues.NEGINF,
-        "upper": SpecialValues.POSINF,
-        "scale": 1.0,
-    },
-    "cone": {
-        "level": 0.0,
-        "marginal": 0.0,
-        "lower": 0.0,
         "upper": SpecialValues.POSINF,
         "scale": 1.0,
     },

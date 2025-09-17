@@ -10,7 +10,7 @@ from typing import Optional, Type
 
 import pytest
 
-from cryptography import utils, x509
+from cryptography import x509
 from cryptography.hazmat._oid import ExtendedKeyUsageOID
 from cryptography.x509 import ExtensionType
 from cryptography.x509.general_name import DNSName, IPAddress
@@ -99,12 +99,6 @@ class TestPolicyBuilder:
         assert verifier.policy.subject == subject
         assert verifier.policy.validation_time == now
         assert verifier.policy.max_chain_depth == max_chain_depth
-        with pytest.warns(utils.DeprecatedIn45):
-            assert verifier.subject == subject
-        with pytest.warns(utils.DeprecatedIn45):
-            assert verifier.validation_time == now
-        with pytest.warns(utils.DeprecatedIn45):
-            assert verifier.max_chain_depth == max_chain_depth
 
         assert (
             verifier.policy.extended_key_usage
@@ -164,12 +158,6 @@ class TestClientVerifier:
             tzinfo=None
         )
         assert verifier.policy.max_chain_depth == max_chain_depth
-        with pytest.warns(utils.DeprecatedIn45):
-            assert verifier.validation_time == validation_time.replace(
-                tzinfo=None
-            )
-        with pytest.warns(utils.DeprecatedIn45):
-            assert verifier.max_chain_depth == max_chain_depth
 
         assert (
             verifier.policy.extended_key_usage
@@ -321,7 +309,7 @@ class TestCustomExtensionPolicies:
                 pass
 
             ext_policy.require_present(
-                _Extension,  # type: ignore
+                _Extension,  # type: ignore[type-var]
                 Criticality.AGNOSTIC,
                 None,
             )
@@ -546,7 +534,7 @@ class TestCustomExtensionPolicies:
         ):
             with pytest.raises(
                 VerificationError,
-                match="Python validator must return None.",
+                match=r"Python validator must return None\.",
             ):
                 verifier.verify(self.leaf, [])
 
@@ -590,8 +578,8 @@ class TestCustomExtensionPolicies:
         with pytest.raises(
             ValueError,
             match=(
-                "An EE extension policy used for server verification"
-                " must require the subjectAltName extension to be present."
+                r"An EE extension policy used for server verification"
+                r" must require the subjectAltName extension to be present\."
             ),
         ):
             builder.build_server_verifier(DNSName("example.com"))

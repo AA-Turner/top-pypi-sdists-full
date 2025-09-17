@@ -6,13 +6,14 @@ duration.
 
 import asyncio
 import time
-from typing import List
+
+from rich import print
 
 from linkup import LinkupClient
 
 client = LinkupClient()
 
-queries: List[str] = [
+queries: list[str] = [
     "What are the 3 major events in the life of Abraham Lincoln?",
     "What are the 3 major events in the life of George Washington?",
 ]
@@ -27,7 +28,7 @@ async def search(idx: int, query: str) -> None:
         depth="standard",  # or "deep"
         output_type="searchResults",  # or "sourcedAnswer" or "structured"
     )
-    print(f"{idx+1}: {time.time() - t0:.3f}s")
+    print(f"{idx + 1}: {time.time() - t0:.3f}s")
     print(response)
     print("-" * 100)
 

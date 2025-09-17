@@ -1950,7 +1950,7 @@ class StoreCollisionComponentsApi:
     ) -> Dict[str, Collider]:
         """List Colliders
 
-        Returns a list of colliders in a scene. This excludes colliders that are part of a motion group. 
+        Returns all stored colliders. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2017,7 +2017,7 @@ class StoreCollisionComponentsApi:
     ) -> ApiResponse[Dict[str, Collider]]:
         """List Colliders
 
-        Returns a list of colliders in a scene. This excludes colliders that are part of a motion group. 
+        Returns all stored colliders. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2084,7 +2084,7 @@ class StoreCollisionComponentsApi:
     ) -> RESTResponseType:
         """List Colliders
 
-        Returns a list of colliders in a scene. This excludes colliders that are part of a motion group. 
+        Returns all stored colliders. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str

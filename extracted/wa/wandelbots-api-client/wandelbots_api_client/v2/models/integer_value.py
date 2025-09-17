@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class IntegerValue(BaseModel):
     """
-    Value of an input/output with integer representation.  > The integral value is transmitted as a string to avoid precision loss during conversion to JSON. > We recommend to use int64 in your implementation. If you want to interact with int64 in numbers, > JS bigint libraries can help you to parse the string into an integral value. 
+    Value of an input/output with integer representation.  > The integral value is transmitted as a string to avoid precision loss during conversion to JSON. > Recommended: Use int64 in your implementation. If you want to interact with int64 in numbers, > JS bigint libraries can help you to parse the string into an integral value. 
     """ # noqa: E501
     value: StrictStr
     value_type: Optional[StrictStr] = 'integer'

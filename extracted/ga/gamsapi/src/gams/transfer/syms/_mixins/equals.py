@@ -609,14 +609,14 @@ class EqualsVariableMixin(EqualsBase):
 
                 #
                 # check attr values (subject to tolerances)
-                small_merged["isclose"] = np.isclose(
+                isclose = np.isclose(
                     small_merged[f"{attr}_x"],
                     small_merged[f"{attr}_y"],
                     rtol=rtol,
                     atol=atol,
                 )
 
-                if any(~small_merged["isclose"]):
+                if any(~isclose):
                     raise Exception(
                         f"Symbol records contain numeric difference in the `{attr}` attribute "
                         f"that are outside the specified tolerances (rtol={rtol}, atol={atol})"

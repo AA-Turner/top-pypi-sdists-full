@@ -1,45 +1,17 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pybammsolvers
-Version: 0.1.0
+Version: 0.2.0
 Summary: Python interface for the IDAKLU solver
-License: BSD 3-Clause License
-        
-        Copyright (c) 2024, PyBaMM Team
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-        1. Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-        
-        2. Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-        
-        3. Neither the name of the copyright holder nor the names of its
-           contributors may be used to endorse or promote products derived from
-           this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: casadi
+Requires-Dist: casadi==3.6.7
 Requires-Dist: numpy<2.0
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
+Dynamic: license-file
 
 # IDAKLU solver
 
@@ -75,6 +47,7 @@ Mac dependencies can be installed using brew
 ```bash
 brew install libomp
 brew reinstall gcc
+git submodule update --init --recursive
 python install_KLU_Sundials.py
 pip install .
 ```
@@ -84,8 +57,9 @@ pip install .
 Linux installs may vary based on the distribution, however, the basic build can
 be performed with the following commands:
 ```bash
-sudo apt-get libopenblas-dev gcc gfortran make g++ build-essential
-pip install cmake casadi setuptools wheel
+sudo apt-get install libopenblas-dev gcc gfortran make g++ build-essential
+git submodules update --init --recursive
+pip install cmake casadi setuptools wheel "pybind11[global]"
 python install_KLU_Sundials.py
 pip install .
 ```

@@ -31,7 +31,7 @@ class IODescription2(BaseModel):
     IODescription2
     """ # noqa: E501
     io: StrictStr = Field(description="Unique identifier of the input/output. ")
-    name: StrictStr = Field(description="Descriptive name of the input/output. Customize it using the respective BUS service, e.g. [addProfinetIO](addProfinetIO) for PROFINET service. ")
+    name: StrictStr = Field(description="Name of the input/output. Customize it using the respective BUS service, e.g. [addProfinetIO](addProfinetIO) for PROFINET service. ")
     direction: IODirection
     value_type: IOValueType
     unit: Optional[UnitType] = None

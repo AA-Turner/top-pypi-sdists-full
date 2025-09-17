@@ -6997,6 +6997,64 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_gmoUpdateJac(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  gmoHandle_t arg1 ;
+  int arg2 ;
+  int arg3 ;
+  double arg4 ;
+  char *arg5 = (char *) 0 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  int val2 ;
+  int ecode2 = 0 ;
+  int val3 ;
+  int ecode3 = 0 ;
+  double val4 ;
+  int ecode4 = 0 ;
+  char temp5[GMS_SSSIZE+1] ;
+  PyObject *swig_obj[4] ;
+  int result;
+  
+  arg5 = (char *) temp5;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "gmoUpdateJac", 4, 4, swig_obj)) SWIG_fail;
+  {
+    res1 = SWIG_ConvertPtr(swig_obj[0], &argp1, SWIGTYPE_p_gmoHandle_t,  0 );
+    if (!SWIG_IsOK(res1)) {
+      SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "gmoUpdateJac" "', argument " "1"" of type '" "gmoHandle_t""'"); 
+    }  
+    if (!argp1) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "gmoUpdateJac" "', argument " "1"" of type '" "gmoHandle_t""'");
+    } else {
+      arg1 = *((gmoHandle_t *)(argp1));
+    }
+  }
+  ecode2 = SWIG_AsVal_int(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "gmoUpdateJac" "', argument " "2"" of type '" "int""'");
+  } 
+  arg2 = (int)(val2);
+  ecode3 = SWIG_AsVal_int(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "gmoUpdateJac" "', argument " "3"" of type '" "int""'");
+  } 
+  arg3 = (int)(val3);
+  ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "gmoUpdateJac" "', argument " "4"" of type '" "double""'");
+  } 
+  arg4 = (double)(val4);
+  result = (int)gmoUpdateJac(arg1,arg2,arg3,arg4,arg5);
+  resultobj = SWIG_From_int((int)(result));
+  arg5[GMS_SSSIZE] = 0;  
+  resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_FromCharPtr(arg5));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_gmoGetObjName(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   gmoHandle_t arg1 ;
@@ -21670,6 +21728,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "gmoGetMatrixRow", _wrap_gmoGetMatrixRow, METH_VARARGS, "gmoGetMatrixRow(pgmo, rowstart, colidx, jacval, nlflag) -> int"},
 	 { "gmoGetMatrixCol", _wrap_gmoGetMatrixCol, METH_VARARGS, "gmoGetMatrixCol(pgmo, colstart, rowidx, jacval, nlflag) -> int"},
 	 { "gmoGetMatrixCplex", _wrap_gmoGetMatrixCplex, METH_VARARGS, "gmoGetMatrixCplex(pgmo, colstart, collength, rowidx, jacval) -> int"},
+	 { "gmoUpdateJac", _wrap_gmoUpdateJac, METH_VARARGS, "gmoUpdateJac(pgmo, mi, mj, v) -> int"},
 	 { "gmoGetObjName", _wrap_gmoGetObjName, METH_O, "gmoGetObjName(pgmo) -> char *"},
 	 { "gmoGetObjNameCustom", _wrap_gmoGetObjNameCustom, METH_VARARGS, "gmoGetObjNameCustom(pgmo, suffix) -> char *"},
 	 { "gmoGetObjVector", _wrap_gmoGetObjVector, METH_VARARGS, "gmoGetObjVector(pgmo, jacval, nlflag) -> int"},

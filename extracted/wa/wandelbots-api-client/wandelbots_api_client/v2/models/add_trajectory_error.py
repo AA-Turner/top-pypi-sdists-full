@@ -28,7 +28,7 @@ class AddTrajectoryError(BaseModel):
     AddTrajectoryError
     """ # noqa: E501
     message: Optional[StrictStr] = None
-    location: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The location of the error in the trajectory. ")
+    location: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Location on trajectory where the execution will start. The default value is the start (forward movement) or end (backward movement) of the trajectory. If you want to start your movement from an arbitrary location, e.g. in combination with [streamMoveToTrajectoryViaJointPTP](streamMoveToTrajectoryViaJointPTP), set the location by respecting the following format: - The location is a scalar value that defines a position along a path, typically ranging from 0 to `n`,   where `n` denotes the number of motion commands - Each integer value of the location corresponds to a specific motion command,   while non-integer values interpolate positions within the segments. - The location is calculated from the joint path ")
     data: Optional[AddTrajectoryErrorData] = None
     __properties: ClassVar[List[str]] = ["message", "location", "data"]
 

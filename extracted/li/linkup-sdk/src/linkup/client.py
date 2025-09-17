@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import date
-from typing import Any, Dict, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Union
 
 import httpx
 from pydantic import BaseModel
@@ -51,7 +51,7 @@ class LinkupClient:
         query: str,
         depth: Literal["standard", "deep"],
         output_type: Literal["searchResults", "sourcedAnswer", "structured"],
-        structured_output_schema: Union[Type[BaseModel], str, None] = None,
+        structured_output_schema: Union[type[BaseModel], str, None] = None,
         include_images: bool = False,
         exclude_domains: Union[list[str], None] = None,
         include_domains: Union[list[str], None] = None,
@@ -72,8 +72,7 @@ class LinkupClient:
             structured_output_schema: If output_type is "structured", specify the schema of the
                 output. Supported formats are a pydantic.BaseModel or a string representing a
                 valid object JSON schema.
-            include_images: If output_type is "searchResults", specifies if the response can include
-                images. Default to False.
+            include_images: Indicate whether images should be included during the search.
             exclude_domains: If you want to exclude specific domains from your search.
             include_domains: If you want the search to only return results from certain domains.
             from_date: The date from which the search results should be considered. If None, the
@@ -97,7 +96,7 @@ class LinkupClient:
             LinkupInsufficientCreditError: If you have run out of credit.
             LinkupNoResultError: If the search query did not yield any result.
         """
-        params: Dict[str, Union[str, bool, list[str]]] = self._get_search_params(
+        params: dict[str, Union[str, bool, list[str]]] = self._get_search_params(
             query=query,
             depth=depth,
             output_type=output_type,
@@ -129,7 +128,7 @@ class LinkupClient:
         query: str,
         depth: Literal["standard", "deep"],
         output_type: Literal["searchResults", "sourcedAnswer", "structured"],
-        structured_output_schema: Union[Type[BaseModel], str, None] = None,
+        structured_output_schema: Union[type[BaseModel], str, None] = None,
         include_images: bool = False,
         exclude_domains: Union[list[str], None] = None,
         include_domains: Union[list[str], None] = None,
@@ -150,8 +149,7 @@ class LinkupClient:
             structured_output_schema: If output_type is "structured", specify the schema of the
                 output. Supported formats are a pydantic.BaseModel or a string representing a
                 valid object JSON schema.
-            include_images: If output_type is "searchResults", specifies if the response can include
-                images. Default to False
+            include_images: Indicate whether images should be included during the search.
             exclude_domains: If you want to exclude specific domains from your search.
             include_domains: If you want the search to only return results from certain domains.
             from_date: The date from which the search results should be considered. If None, the
@@ -174,7 +172,7 @@ class LinkupClient:
             LinkupAuthenticationError: If the Linkup API key is invalid, or there is no more credit
                 available.
         """
-        params: Dict[str, Union[str, bool, list[str]]] = self._get_search_params(
+        params: dict[str, Union[str, bool, list[str]]] = self._get_search_params(
             query=query,
             depth=depth,
             output_type=output_type,
@@ -204,7 +202,7 @@ class LinkupClient:
     def _user_agent(self) -> str:  # pragma: no cover
         return f"Linkup-Python/{self.__version__}"
 
-    def _headers(self) -> Dict[str, str]:  # pragma: no cover
+    def _headers(self) -> dict[str, str]:  # pragma: no cover
         return {
             "Authorization": f"Bearer {self.__api_key}",
             "User-Agent": self._user_agent(),
@@ -312,14 +310,14 @@ class LinkupClient:
         query: str,
         depth: Literal["standard", "deep"],
         output_type: Literal["searchResults", "sourcedAnswer", "structured"],
-        structured_output_schema: Union[Type[BaseModel], str, None],
+        structured_output_schema: Union[type[BaseModel], str, None],
         include_images: bool,
         from_date: Union[date, None],
         include_domains: Union[list[str], None],
         exclude_domains: Union[list[str], None],
         to_date: Union[date, None],
-    ) -> Dict[str, Union[str, bool, list[str]]]:
-        params: Dict[str, Union[str, bool, list[str]]] = dict(
+    ) -> dict[str, Union[str, bool, list[str]]]:
+        params: dict[str, Union[str, bool, list[str]]] = dict(
             q=query,
             depth=depth,
             outputType=output_type,
@@ -330,7 +328,7 @@ class LinkupClient:
             if isinstance(structured_output_schema, str):
                 params["structuredOutputSchema"] = structured_output_schema
             elif issubclass(structured_output_schema, BaseModel):
-                json_schema: Dict[str, Any] = structured_output_schema.model_json_schema()
+                json_schema: dict[str, Any] = structured_output_schema.model_json_schema()
                 params["structuredOutputSchema"] = json.dumps(json_schema)
             else:
                 raise TypeError(
@@ -351,10 +349,10 @@ class LinkupClient:
         self,
         response: httpx.Response,
         output_type: Literal["searchResults", "sourcedAnswer", "structured"],
-        structured_output_schema: Union[Type[BaseModel], str, None],
+        structured_output_schema: Union[type[BaseModel], str, None],
     ) -> Any:
         response_data: Any = response.json()
-        output_base_model: Optional[Type[BaseModel]] = None
+        output_base_model: Optional[type[BaseModel]] = None
         if output_type == "searchResults":
             output_base_model = LinkupSearchResults
         elif output_type == "sourcedAnswer":

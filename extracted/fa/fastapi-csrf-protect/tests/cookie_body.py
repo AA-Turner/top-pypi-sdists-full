@@ -2,7 +2,7 @@
 # coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/tests/cookie_body.py
-# VERSION:     1.0.6
+# VERSION:     1.0.7
 # CREATED:     2023-06-18 15:07
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION:
@@ -42,7 +42,7 @@ from tests import test_client
   ),
   ids=("cookie-body", "cookie-body-samesite-lax", "cookie-body-samesite-strict"),
 )
-def test_submit_csrf_token_in_body_and_cookies(
+def test_submit_csrf_token_in_body_and_cookie(
   csrf_settings: tuple[tuple[str, str], ...], test_client: TestClient
 ) -> None:
   ### Load config ###
@@ -89,6 +89,7 @@ def test_submit_csrf_token_in_body_and_cookies(
       ("token_location", "body"),
     ),
   ),
+  ids=("cookie-body-secure-http",),
 )
 def test_submit_csrf_token_in_body_and_cookies_secure_but_using_http(
   csrf_settings: tuple[tuple[str, str], ...], test_client: TestClient
@@ -150,10 +151,10 @@ def test_submit_csrf_token_in_body_and_cookies_secure_but_using_http(
     ),
   ),
   ids=(
-    "cookie-body-secure",
-    "cookie-body-samesite-lax-secure",
-    "cookie-body-samesite-none-secure",
-    "cookie-body-samesite-strict",
+    "cookie-body-secure-https",
+    "cookie-body-samesite-lax-secure-https",
+    "cookie-body-samesite-none-secure-https",
+    "cookie-body-samesite-strict-secure-https",
   ),
 )
 def test_submit_csrf_token_in_body_and_cookies_secure(

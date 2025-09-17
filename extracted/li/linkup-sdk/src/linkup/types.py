@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Literal, Union
 
 from pydantic import BaseModel
 
@@ -8,13 +8,13 @@ class LinkupSearchTextResult(BaseModel):
     A text result from a Linkup search.
 
     Attributes:
-        type: The type of the search result, in this case 'text'
+        type: The type of the search result, in this case "text".
         name: The name of the search result.
         url: The URL of the search result.
         content: The text of the search result.
     """
 
-    type: str
+    type: Literal["text"]
     name: str
     url: str
     content: str
@@ -25,12 +25,12 @@ class LinkupSearchImageResult(BaseModel):
     An image result from a Linkup search.
 
     Attributes:
-        type: The type of the search result, in this case 'image'
+        type: The type of the search result, in this case "image".
         name: The name of the image result.
         url: The URL of the image result.
     """
 
-    type: str
+    type: Literal["image"]
     name: str
     url: str
 
@@ -43,7 +43,7 @@ class LinkupSearchResults(BaseModel):
         results: The results of the Linkup search.
     """
 
-    results: List[Union[LinkupSearchTextResult, LinkupSearchImageResult]]
+    results: list[Union[LinkupSearchTextResult, LinkupSearchImageResult]]
 
 
 class LinkupSource(BaseModel):
@@ -53,12 +53,12 @@ class LinkupSource(BaseModel):
     Attributes:
         name: The name of the source.
         url: The URL of the source.
-        snippet: The text excerpt supporting the Linkup answer.
+        snippet: The text excerpt supporting the Linkup answer. Can be empty for image sources.
     """
 
     name: str
     url: str
-    snippet: str
+    snippet: str = ""
 
 
 class LinkupSourcedAnswer(BaseModel):
@@ -71,4 +71,4 @@ class LinkupSourcedAnswer(BaseModel):
     """
 
     answer: str
-    sources: List[Union[LinkupSource, LinkupSearchTextResult, LinkupSearchImageResult]]
+    sources: list[LinkupSource]

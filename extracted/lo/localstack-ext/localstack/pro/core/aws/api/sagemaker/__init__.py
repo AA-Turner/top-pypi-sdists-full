@@ -781,6 +781,7 @@ class AppInstanceType(StrEnum):
     ml_trn1n_32xlarge = "ml.trn1n.32xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
     ml_p5en_48xlarge = "ml.p5en.48xlarge"
+    ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
     ml_m6i_large = "ml.m6i.large"
     ml_m6i_xlarge = "ml.m6i.xlarge"
     ml_m6i_2xlarge = "ml.m6i.2xlarge"
@@ -7454,6 +7455,7 @@ class DomainSettings(TypedDict, total=False):
     DockerSettings: Optional[DockerSettings]
     AmazonQSettings: Optional[AmazonQSettings]
     UnifiedStudioSettings: Optional[UnifiedStudioSettings]
+    IpAddressType: Optional[IPAddressType]
 
 
 VersionAliasesList = List[ImageVersionAliasPattern]
@@ -13377,6 +13379,7 @@ class DomainSettingsForUpdate(TypedDict, total=False):
     DockerSettings: Optional[DockerSettings]
     AmazonQSettings: Optional[AmazonQSettings]
     UnifiedStudioSettings: Optional[UnifiedStudioSettings]
+    IpAddressType: Optional[IPAddressType]
 
 
 class PredefinedMetricSpecification(TypedDict, total=False):

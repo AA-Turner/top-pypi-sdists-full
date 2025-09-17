@@ -35,7 +35,7 @@ py_version = ".".join(sys.version.split(".")[:2])
 
 EXTRAS = {
     "connect": [
-        "pandas>=2.0,<2.3",
+        "pandas>=2.2.2,<2.4",
         "pyyaml",
         "openpyxl>=3.1.0",
         "sqlalchemy",
@@ -48,9 +48,9 @@ EXTRAS = {
     "control": ["certifi", "urllib3"],
     "core": ["ply", "numpy"],
     "engine": ["python_dateutil", "urllib3"],
-    "magic": ["ipython", "pandas>=2.0,<2.3"],
-    "tools": ["pandas>=2.0,<2.3"],
-    "transfer": ["pandas>=2.0,<2.3", "scipy"],
+    "magic": ["ipython", "pandas>=2.2.2,<2.4"],
+    "tools": ["pandas>=2.2.2,<2.4"],
+    "transfer": ["pandas>=2.2.2,<2.4", "scipy"],
 }
 EXTRAS["all"] = list(set([x for k, v in EXTRAS.items() for x in v]))
 
@@ -70,6 +70,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
 ]
 

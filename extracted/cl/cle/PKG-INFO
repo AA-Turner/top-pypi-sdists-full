@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cle
-Version: 9.2.174
+Version: 9.2.175
 Summary: CLE Loads Everything (at least, many binary formats!) and provides a pythonic interface to analyze what they are and what they would look like in memory.
 License: BSD-2-Clause
 Project-URL: Homepage, https://api.angr.io/projects/cle/en/latest/
@@ -14,11 +14,11 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: archinfo==9.2.174
+Requires-Dist: archinfo==9.2.175
 Requires-Dist: cart
 Requires-Dist: pefile
 Requires-Dist: pyelftools>=0.29
-Requires-Dist: pyvex==9.2.174
+Requires-Dist: pyvex==9.2.175
 Requires-Dist: sortedcontainers>=2.0
 Provides-Extra: ar
 Requires-Dist: arpy==1.1.1; extra == "ar"

@@ -9,14 +9,14 @@ use crate::evaluation::evaluator_result::{
     result_to_dynamic_config_eval, result_to_experiment_eval, result_to_gate_eval,
     result_to_layer_eval, EvaluatorResult,
 };
-use crate::evaluation::user_agent_parsing::UserAgentParser;
+use crate::evaluation::user_agent_parsing::{ParsedUserAgentValue, UserAgentParser};
 use crate::event_logging::event_logger::{EventLogger, ExposureTrigger};
 use crate::event_logging::event_queue::queued_config_expo::EnqueueConfigExpoOp;
 use crate::event_logging::event_queue::queued_experiment_expo::EnqueueExperimentExpoOp;
 use crate::event_logging::event_queue::queued_gate_expo::EnqueueGateExpoOp;
 use crate::event_logging::event_queue::queued_layer_param_expo::EnqueueLayerParamExpoOp;
 use crate::event_logging::event_queue::queued_passthrough::EnqueuePassthroughOp;
-use crate::event_logging::statsig_event_internal::StatsigEventInternal;
+use crate::event_logging::statsig_event_internal::{StatsigEventInternal, StatsigLogLineLevel};
 use crate::event_logging_adapter::EventLoggingAdapter;
 use crate::event_logging_adapter::StatsigHttpEventLoggingAdapter;
 use crate::gcir::gcir_formatter::GCIRFormatter;
@@ -734,6 +734,24 @@ impl Statsig {
         });
     }
 
+    pub fn forward_log_line_event(
+        &self,
+        user: &StatsigUser,
+        log_level: StatsigLogLineLevel,
+        value: Option<String>,
+        metadata: Option<HashMap<String, String>>,
+    ) {
+        let user_internal = self.internalize_user(user);
+        self.event_logger.enqueue(EnqueuePassthroughOp {
+            event: StatsigEventInternal::new_statsig_log_line_event(
+                user_internal.to_loggable(),
+                log_level,
+                value,
+                metadata,
+            ),
+        });
+    }
+
     pub fn log_layer_param_exposure_with_layer_json(
         &self,
         layer_json: String,
@@ -1248,7 +1266,7 @@ impl Statsig {
         let gate = data.values.feature_gates.get(gate_name);
         match gate {
             Some(gate) => match &gate.spec.fields_used {
-                Some(fields) => fields.clone(),
+                Some(fields) => fields.iter().map(|f| f.unperformant_to_string()).collect(),
                 None => vec![],
             },
             None => vec![],
@@ -1445,6 +1463,13 @@ impl Statsig {
 
         data.values.layer_configs.unperformant_keys()
     }
+
+    pub fn __get_parsed_user_agent_value(
+        &self,
+        user: &StatsigUser,
+    ) -> Option<ParsedUserAgentValue> {
+        UserAgentParser::get_parsed_user_agent_value_for_user(user, &self.options)
+    }
 }
 
 // -------------------------
@@ -1526,7 +1551,7 @@ impl Statsig {
         let config = data.values.dynamic_configs.get(config_name);
         match config {
             Some(config) => match &config.spec.fields_used {
-                Some(fields) => fields.clone(),
+                Some(fields) => fields.iter().map(|f| f.unperformant_to_string()).collect(),
                 None => vec![],
             },
             None => vec![],
@@ -1610,7 +1635,7 @@ impl Statsig {
         let config = data.values.dynamic_configs.get(experiment_name);
         match config {
             Some(config) => match &config.spec.fields_used {
-                Some(fields) => fields.clone(),
+                Some(fields) => fields.iter().map(|f| f.unperformant_to_string()).collect(),
                 None => vec![],
             },
             None => vec![],
@@ -1653,8 +1678,8 @@ impl Statsig {
         {
             let value = rule.return_value.get_json().unwrap_or_default();
             let rule_id = String::from(rule.id.as_str());
-            let id_type = rule.id_type.value.clone();
-            let group_name = rule.group_name.clone();
+            let id_type = rule.id_type.value.unperformant_to_string();
+            let group_name = rule.group_name.as_ref().map(|g| g.unperformant_to_string());
 
             return Experiment {
                 name: experiment_name.to_string(),
@@ -1742,7 +1767,7 @@ impl Statsig {
         let layer = data.values.layer_configs.get(layer_name);
         match layer {
             Some(layer) => match &layer.spec.fields_used {
-                Some(fields) => fields.clone(),
+                Some(fields) => fields.iter().map(|f| f.unperformant_to_string()).collect(),
                 None => vec![],
             },
             None => vec![],

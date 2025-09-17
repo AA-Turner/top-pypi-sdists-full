@@ -29,8 +29,9 @@ from jax import lax
 from jax import tree_util
 from jax._src import ad_util
 from jax._src import api_util
-from jax._src import callback
 from jax._src import core as jax_core
+from jax._src import config
+from jax._src import debugging
 from jax._src import dtypes
 from jax._src import effects
 from jax._src import linear_util as lu
@@ -40,6 +41,8 @@ from jax._src import util
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import partial_eval as pe
+from jax._src.lib.mlir import ir
+from jax._src.lib.mlir.dialects import arith
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import utils as pallas_utils
 from jax._src.state import discharge as state_discharge
@@ -47,8 +50,6 @@ from jax._src.state import indexing
 from jax._src.state import primitives as sp
 from jax._src.state import types as state_types
 from jax.interpreters import mlir
-from jax._src.lib.mlir import ir
-from jax._src.lib.mlir.dialects import arith
 import jax.numpy as jnp
 
 Slice = indexing.Slice
@@ -748,23 +749,6 @@ def _reciprocal_lowering_rule(
 mlir.register_lowering(reciprocal_p, _reciprocal_lowering_rule)
 
 
-class PrintEffect(effects.Effect):
-  __str__ = lambda self: "Print"
-
-
-debug_print_effect = PrintEffect()
-
-# TODO(slebedev): Consider making the effect ordered.
-effects.lowerable_effects.add_type(PrintEffect)
-effects.control_flow_allowed_effects.add_type(PrintEffect)
-effects.remat_allowed_effects.add_type(PrintEffect)
-effects.custom_derivatives_allowed_effects.add_type(PrintEffect)
-
-
-debug_print_p = jax_core.Primitive("debug_print")
-debug_print_p.multiple_results = True
-
-
 def debug_print(fmt: str, *args: jax.typing.ArrayLike):
   """Prints values from inside a Pallas kernel.
 
@@ -785,12 +769,8 @@ def debug_print(fmt: str, *args: jax.typing.ArrayLike):
         the format string. The format string must end with a single placeholder
         ``{}``.
     *args: The values to print.
-  """  # fmt: skip
-  has_placeholders = False
-  if fmt:
-    _, field_name, *_ = next(iter(string.Formatter().parse(fmt)))
-    has_placeholders = field_name is not None
-  return debug_print_p.bind(*args, fmt=fmt, has_placeholders=has_placeholders)
+  """
+  return debugging.debug_print(fmt, *args, skip_format_check=True)
 
 
 def check_debug_print_format(
@@ -814,59 +794,6 @@ def check_debug_print_format(
         f"The format string expects {n_placeholders} "
         f"argument{'' if n_placeholders == 1 else 's'}, but got {len(args)}"
     )
-
-
-@debug_print_p.def_impl
-def debug_print_impl(*args: Any, fmt: str, has_placeholders: bool):
-  if has_placeholders:
-    print(fmt.format(*args))
-  else:
-    print(fmt, *args)
-  return ()
-
-
-@debug_print_p.def_effectful_abstract_eval
-def debug_print_abstract_eval(*avals: Any, fmt: str, has_placeholders: bool):
-  del avals, fmt, has_placeholders  # Unused.
-  return [], {debug_print_effect}
-
-
-def debug_print_batching_rule(args, dims, **params):
-  """Unrolls the print primitive across the mapped axis."""
-  axis_size = next(x.shape[i] for x, i in zip(args, dims) if i is not None)
-
-  # TODO(sharadmv): implement in terms of rolled loop unstead of unrolled.
-  def get_arg_at_dim(i, dim, arg):
-    if dim is batching.not_mapped:
-      # Broadcast unmapped argument
-      return arg
-    return lax.index_in_dim(arg, i, axis=dim, keepdims=False)
-
-  outs = []
-  for i in range(axis_size):
-    args_idx = map(functools.partial(get_arg_at_dim, i), dims, args)
-    outs.append(debug_print_p.bind(*args_idx, **params))
-  outs = [jnp.stack(xs) for xs in zip(*outs)]
-  return outs, (0,) * len(outs)
-
-
-batching.primitive_batchers[debug_print_p] = functools.partial(
-    debug_print_batching_rule, debug_print_p
-)
-
-
-@functools.partial(mlir.register_lowering, debug_print_p)
-def debug_print_lowering_rule(ctx, *args, **params):
-  result, _, _ = callback.emit_python_callback(
-      ctx,
-      functools.partial(debug_print_p.impl, **params),
-      None,
-      list(args),
-      ctx.avals_in,
-      ctx.avals_out,
-      has_side_effect=True,
-  )
-  return result
 
 
 # All of those shenanigans are because we can't make TransformedRef a PyTree,
@@ -927,7 +854,8 @@ def run_scoped(
   # parent scope). Jax can't reason about effects to references that
   # are not in the invars of an operation so we just put them all
   # there.
-  jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, avals)
+  with config.mutable_array_checks(False):
+    jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, avals)
   out = run_scoped_p.bind(*consts, jaxpr=jaxpr, collective_axes=collective_axes)
   return tree_util.tree_unflatten(out_tree_thunk(), out)
 
@@ -1136,16 +1064,6 @@ def semaphore_signal(
   )
 
 
-# TODO(sharadmv,ivyzheng): remove this once we use axis dicts primarily
-class CommsEffect(effects.Effect):
-  pass
-_comms_effect = CommsEffect()
-effects.lowerable_effects.add_type(CommsEffect)
-effects.control_flow_allowed_effects.add_type(CommsEffect)
-effects.remat_allowed_effects.add_type(CommsEffect)
-effects.custom_derivatives_allowed_effects.add_type(CommsEffect)
-
-
 @semaphore_signal_p.def_effectful_abstract_eval
 def _semaphore_signal_abstract_eval(
     *avals,
@@ -1169,9 +1087,8 @@ def _semaphore_signal_abstract_eval(
     for aval in device_id_flat_avals:
       if aval.dtype != jnp.dtype("int32"):
         raise ValueError("`device_id`s must be an int32 value.")
-    effs.add(_comms_effect)
+    effs.add(pallas_core.comms_effect)
   return [], effs
-
 
 def _semaphore_signal_pp_eqn(eqn: jax_core.JaxprEqn,
                              context: jax_core.JaxprPpContext,
@@ -1231,16 +1148,19 @@ state_discharge.register_discharge_rule(semaphore_signal_p)(
 semaphore_wait_p = jax_core.Primitive('semaphore_wait')
 semaphore_wait_p.multiple_results = True
 
-def semaphore_wait(sem_or_view, dec: int | jax.Array = 1):
+
+def semaphore_wait(
+    sem_or_view, value: int | jax.Array = 1, *, decrement: bool = True
+):
   ref, transforms = _get_ref_and_transforms(sem_or_view)
-  dec = jnp.asarray(dec, dtype=jnp.int32)
-  args = [ref, transforms, dec]
+  value = jnp.asarray(value, dtype=jnp.int32)
+  args = [ref, transforms, value, decrement]
   flat_args, args_tree = tree_util.tree_flatten(args)
   semaphore_wait_p.bind(*flat_args, args_tree=args_tree)
 
 @semaphore_wait_p.def_abstract_eval
 def _semaphore_wait_abstract_eval(*avals, args_tree):
-  sem_aval, sem_transforms_avals, value_aval = tree_util.tree_unflatten(
+  sem_aval, sem_transforms_avals, value_aval, _ = tree_util.tree_unflatten(
       args_tree, avals
   )
   check_sem_avals(sem_aval, sem_transforms_avals, "wait")
@@ -1258,14 +1178,20 @@ def _semaphore_wait_pp_eqn(eqn: jax_core.JaxprEqn,
       sem,
       sem_transforms,
       value,
+      decrement,
   ) = tree_util.tree_unflatten(tree, invars)
-  return pp.concat([
+  parts = [
       pp.text("semaphore_wait"),
+  ]
+  if decrement:
+    parts.append(pp.text("[dec]"))
+  parts += [
       pp.text(" "),
       sp.pp_ref_transforms(context, sem, sem_transforms),
       pp.text(" "),
       pp.text(jax_core.pp_var(value, context)),
-  ])
+  ]
+  return pp.concat(parts)
 jax_core.pp_eqn_rules[semaphore_wait_p] = _semaphore_wait_pp_eqn
 
 def _semaphore_wait_discharge_rule(in_avals,
@@ -1273,12 +1199,15 @@ def _semaphore_wait_discharge_rule(in_avals,
                                      *flat_args,
                                      args_tree):
   del out_avals
-  [ref, transforms, dec] = args_tree.unflatten(flat_args)
+  [ref, transforms, value, decrement] = args_tree.unflatten(flat_args)
   sem_value = _transform_semaphore(ref, transforms, in_avals[0])
-  dec = dec.astype(pallas_core.SEMAPHORE_INTERPRET_DTYPE)
-  _, new_sem_value = state_discharge.transform_swap_array(
-      ref, transforms, sem_value - dec
-  )
+  value = value.astype(pallas_core.SEMAPHORE_INTERPRET_DTYPE)
+  if decrement:
+    _, new_sem_value = state_discharge.transform_swap_array(
+        ref, transforms, sem_value - value
+    )
+  else:
+    new_sem_value = sem_value
   return (new_sem_value,) + (None,) * (len(in_avals) - 1), ()
 state_discharge.register_discharge_rule(semaphore_wait_p)(
     _semaphore_wait_discharge_rule

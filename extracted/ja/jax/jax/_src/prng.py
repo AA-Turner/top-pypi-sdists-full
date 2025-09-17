@@ -27,6 +27,7 @@ from jax._src import core
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import ffi
+from jax._src import literals
 from jax._src import numpy as jnp
 from jax._src import pretty_printer as pp
 from jax._src import source_info_util
@@ -167,11 +168,12 @@ class PRNGKeyArray(Array):
     _check_prng_key_data(impl, key_data)
     self._impl = impl
     self._consumed = False  # TODO(jakevdp): default to True here?
-    if isinstance(key_data, np.ndarray):
+    if isinstance(key_data, (np.ndarray, literals.LiteralArray)):
       aval = core.get_aval(key_data)
       device = pxla.get_default_device()
-      key_data = pxla.batched_device_put(aval, SingleDeviceSharding(device),
-                                         [key_data], [device], committed=False)
+      key_data = pxla.batched_device_put(
+          aval, SingleDeviceSharding(device), [np.asarray(key_data)], [device],
+          committed=False)
     self._base_array = key_data
 
   def _replace_with(self, value: PRNGKeyArray):
@@ -496,9 +498,9 @@ def key_array_shard_arg_handler(xs: Sequence[PRNGKeyArray], shardings, layouts,
 pxla.shard_arg_handlers[PRNGKeyArray] = key_array_shard_arg_handler
 
 
-def key_array_constant_handler(x):
+def key_array_constant_handler(x, aval):
   arr = x._base_array
-  return mlir.get_constant_handler(type(arr))(arr)
+  return mlir.get_constant_handler(type(arr))(arr, aval)
 mlir.register_constant_handler(PRNGKeyArray, key_array_constant_handler)
 
 

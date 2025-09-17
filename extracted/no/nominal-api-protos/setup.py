@@ -6,7 +6,7 @@ from setuptools import (
 
 setup(
     name='nominal-api-protos',
-    version='0.911.1',
+    version='0.913.0',
     python_requires='>=3.8',
     package_data={"": ["py.typed"]},
     packages=find_namespace_packages(),

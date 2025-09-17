@@ -169,7 +169,7 @@ class ProcedureStepNode(_message.Message):
 class NestedProcedureNode(_message.Message):
     __slots__ = ("id", "title", "description", "steps", "step")
     class NestedStepNode(_message.Message):
-        __slots__ = ("output_id", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs", "form")
+        __slots__ = ("output_id", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs", "form", "start_ingest")
         OUTPUT_ID_FIELD_NUMBER: _ClassVar[int]
         IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
         AUTO_START_FIELD_NUMBER: _ClassVar[int]
@@ -177,6 +177,7 @@ class NestedProcedureNode(_message.Message):
         SUCCESS_CONDITION_FIELD_NUMBER: _ClassVar[int]
         COMPLETION_ACTION_CONFIGS_FIELD_NUMBER: _ClassVar[int]
         FORM_FIELD_NUMBER: _ClassVar[int]
+        START_INGEST_FIELD_NUMBER: _ClassVar[int]
         output_id: str
         is_required: bool
         auto_start: AutoStartConfig
@@ -184,7 +185,8 @@ class NestedProcedureNode(_message.Message):
         success_condition: SuccessCondition
         completion_action_configs: _containers.RepeatedCompositeFieldContainer[CompletionActionConfig]
         form: FormStep
-        def __init__(self, output_id: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ...) -> None: ...
+        start_ingest: StartIngestStep
+        def __init__(self, output_id: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ...) -> None: ...
     ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -226,15 +228,23 @@ class AutoProceedConfig(_message.Message):
     def __init__(self, disabled: _Optional[_Union[AutoProceedConfig.Disabled, _Mapping]] = ..., enabled: _Optional[_Union[AutoProceedConfig.Enabled, _Mapping]] = ...) -> None: ...
 
 class SuccessCondition(_message.Message):
-    __slots__ = ()
+    __slots__ = ("timer",)
     AND_FIELD_NUMBER: _ClassVar[int]
-    def __init__(self, **kwargs) -> None: ...
+    TIMER_FIELD_NUMBER: _ClassVar[int]
+    timer: TimerSuccessCondition
+    def __init__(self, timer: _Optional[_Union[TimerSuccessCondition, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
     CONDITIONS_FIELD_NUMBER: _ClassVar[int]
     conditions: _containers.RepeatedCompositeFieldContainer[SuccessCondition]
     def __init__(self, conditions: _Optional[_Iterable[_Union[SuccessCondition, _Mapping]]] = ...) -> None: ...
+
+class TimerSuccessCondition(_message.Message):
+    __slots__ = ("duration_seconds",)
+    DURATION_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    duration_seconds: int
+    def __init__(self, duration_seconds: _Optional[int] = ...) -> None: ...
 
 class CompletionActionConfig(_message.Message):
     __slots__ = ("create_event",)
@@ -264,16 +274,45 @@ class CreateEventConfig(_message.Message):
     def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ProcedureStepContent(_message.Message):
-    __slots__ = ("form",)
+    __slots__ = ("form", "start_ingest")
     FORM_FIELD_NUMBER: _ClassVar[int]
+    START_INGEST_FIELD_NUMBER: _ClassVar[int]
     form: FormStep
-    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ...) -> None: ...
+    start_ingest: StartIngestStep
+    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ...) -> None: ...
 
 class FormStep(_message.Message):
     __slots__ = ("fields",)
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     fields: _containers.RepeatedCompositeFieldContainer[FormField]
     def __init__(self, fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ...) -> None: ...
+
+class StartIngestStep(_message.Message):
+    __slots__ = ("asset", "data_scope", "ingest_type_config", "output_field_id")
+    class DataScopeReference(_message.Message):
+        __slots__ = ("constant",)
+        CONSTANT_FIELD_NUMBER: _ClassVar[int]
+        constant: str
+        def __init__(self, constant: _Optional[str] = ...) -> None: ...
+    class IngestTypeConfig(_message.Message):
+        __slots__ = ("containerized_extractor",)
+        class ContainerizedExtractorIngestConfig(_message.Message):
+            __slots__ = ("rid",)
+            RID_FIELD_NUMBER: _ClassVar[int]
+            rid: str
+            def __init__(self, rid: _Optional[str] = ...) -> None: ...
+        CONTAINERIZED_EXTRACTOR_FIELD_NUMBER: _ClassVar[int]
+        containerized_extractor: StartIngestStep.IngestTypeConfig.ContainerizedExtractorIngestConfig
+        def __init__(self, containerized_extractor: _Optional[_Union[StartIngestStep.IngestTypeConfig.ContainerizedExtractorIngestConfig, _Mapping]] = ...) -> None: ...
+    ASSET_FIELD_NUMBER: _ClassVar[int]
+    DATA_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    INGEST_TYPE_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    asset: AssetReference
+    data_scope: StartIngestStep.DataScopeReference
+    ingest_type_config: StartIngestStep.IngestTypeConfig
+    output_field_id: str
+    def __init__(self, asset: _Optional[_Union[AssetReference, _Mapping]] = ..., data_scope: _Optional[_Union[StartIngestStep.DataScopeReference, _Mapping]] = ..., ingest_type_config: _Optional[_Union[StartIngestStep.IngestTypeConfig, _Mapping]] = ..., output_field_id: _Optional[str] = ...) -> None: ...
 
 class FormField(_message.Message):
     __slots__ = ("id", "asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")

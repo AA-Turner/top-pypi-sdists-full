@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-16T01:38:51.265585                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-16T23:23:08.712520                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -30,9 +30,6 @@ def download_model_from_huggingface(**kwargs):
 
 class HuggingfaceRegistry(object, metaclass=type):
     """
-    This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function.
-    
-    The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
     """
     def __init__(self, logger):
         ...
@@ -44,13 +41,40 @@ class HuggingfaceRegistry(object, metaclass=type):
         ...
     def snapshot_download(self, **kwargs) -> dict:
         """
-        Downloads a model from huggingface hub and cache's it to the Metaflow's datastore.
-        It passes down all the parameters to the `huggingface_hub.snapshot_download` function.
+        Downloads a model from the Hugging Face Hub and caches it in the Metaflow datastore.
+        It passes all parameters to the `huggingface_hub.snapshot_download` function.
         
         Returns
         -------
         dict
-            A reference to the artifact that was saved/retrieved from the Metaflow's datastore.
+            A reference to the artifact saved to or retrieved from the Metaflow datastore.
+        """
+        ...
+    def load(self, repo_id = None, path = None, repo_type = 'model', **kwargs):
+        """
+        Context manager to load a Hugging Face repo (model/dataset) to a local path.
+        
+        - If `path` is provided, the repo is loaded there and the same path is yielded.
+        - If `path` is not provided, a temporary directory is created, the repo is
+          loaded there, the path is yielded, and the directory is cleaned up when
+          the context exits.
+        
+        Parameters
+        ----------
+        repo_id : str, optional
+            The Hugging Face repo ID. If omitted, must be provided via kwargs["repo_id"].
+        path : str, optional
+            Target directory to place files. If None, a temp directory is created.
+        repo_type : str, optional
+            Repo type (e.g., "model", "dataset"). Defaults to "model".
+        **kwargs : Any
+            Additional args forwarded to snapshot_download (e.g. force_download, revision,
+            allow_patterns, ignore_patterns, etc.).
+        
+        Yields
+        ------
+        str
+            Local filesystem path where the repo is available.
         """
         ...
     ...
@@ -113,11 +137,11 @@ class HuggingfaceLoadedModels(object, metaclass=type):
 
 class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CheckpointDecorator, metaclass=type):
     """
-    Decorator that helps cache, version and store models/datasets from huggingface hub.
+    Decorator that helps cache, version, and store models/datasets from the Hugging Face Hub.
     
     > Examples
     
-    **Usage: creating references of models from huggingface that may be loaded in downstream steps**
+    **Usage: creating references to models from the Hugging Face Hub that may be loaded in downstream steps**
     ```python
         @huggingface_hub
         @step
@@ -136,7 +160,23 @@ class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machin
             self.next(self.train)
     ```
     
-    **Usage: loading models directly from huggingface hub or from cache (from metaflow's datastore)**
+    **Usage: explicitly loading models at runtime from the Hugging Face Hub or from cache (from Metaflow's datastore)**
+    ```python
+        @huggingface_hub
+        @step
+        def run_training(self):
+            # Temporary directory (auto-cleaned on exit)
+            with current.huggingface_hub.load(
+                repo_id="google-bert/bert-base-uncased",
+                allow_patterns=["*.bin"],
+            ) as local_path:
+                # Use files under local_path
+                train_model(local_path)
+                ...
+    
+    ```
+    
+    **Usage: loading models directly from the Hugging Face Hub or from cache (from Metaflow's datastore)**
     ```python
         @huggingface_hub(load=["mistralai/Mistral-7B-Instruct-v0.1"])
         @step
@@ -145,7 +185,7 @@ class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machin
     ```
     
     ```python
-        @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora, "/my-lora-directory")])
+        @huggingface_hub(load=[("mistralai/Mistral-7B-Instruct-v0.1", "/my-directory"), ("myorg/mistral-lora", "/my-lora-directory")])
         @step
         def finetune_model(self):
             path_to_model = current.huggingface_hub.loaded["mistralai/Mistral-7B-Instruct-v0.1"]
@@ -175,6 +215,37 @@ class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machin
     temp_dir_root : str, optional
         The root directory that will hold the temporary directory where objects will be downloaded.
     
+    cache_scope : str, optional
+        The scope of the cache. Can be `checkpoint` / `flow` / `global`.
+    
+        - `checkpoint` (default): All repos are stored like objects saved by `@checkpoint`.
+            i.e., the cached path is derived from the namespace, flow, step, and Metaflow foreach iteration.
+            Any repo downloaded under this scope will only be retrieved from the cache when the step runs under the same namespace in the same flow (at the same foreach index).
+    
+        - `flow`: All repos are cached under the flow, regardless of namespace.
+            i.e., the cached path is derived solely from the flow name.
+            When to use this mode:
+                - Multiple users are executing the same flow and want shared access to the repos cached by the decorator.
+                - Multiple versions of a flow are deployed, all needing access to the same repos cached by the decorator.
+    
+        - `global`: All repos are cached under a globally static path.
+            i.e., the base path of the cache is static and all repos are stored under it.
+            When to use this mode:
+                - All repos from the Hugging Face Hub need to be shared by users across all flow executions.
+    
+        Each caching scope comes with its own trade-offs:
+        - `checkpoint`:
+            - Has explicit control over when caches are populated (controlled by the same flow that has the `@huggingface_hub` decorator) but ends up hitting the Hugging Face Hub more often if there are many users/namespaces/steps.
+            - Since objects are written on a `namespace/flow/step` basis, the blast radius of a bad checkpoint is limited to a particular flow in a namespace.
+        - `flow`:
+            - Has less control over when caches are populated (can be written by any execution instance of a flow from any namespace) but results in more cache hits.
+            - The blast radius of a bad checkpoint is limited to all runs of a particular flow.
+            - It doesn't promote cache reuse across flows.
+        - `global`:
+            - Has no control over when caches are populated (can be written by any flow execution) but has the highest cache hit rate.
+            - It promotes cache reuse across flows.
+            - The blast radius of a bad checkpoint spans every flow that could be using a particular repo.
+    
     load: Union[List[str], List[Tuple[Dict, str]], List[Tuple[str, str]], List[Dict], None]
         The list of repos (models/datasets) to load.
     
@@ -193,7 +264,51 @@ class HuggingfaceHubDecorator(metaflow.mf_extensions.obcheckpoint.plugins.machin
     -----------------
     huggingface_hub -> metaflow_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry
     
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+        This object provides a thin, Metaflow-friendly layer over
+        [huggingface_hub]'s `snapshot_download`:
+    
+        - Snapshot references (persist-and-reuse):
+            Use `current.huggingface_hub.snapshot_download(repo_id=..., ...)` to
+            ensure a repo is available in the Metaflow datastore. If absent, it is
+            downloaded once and saved; the call returns a reference dict you can
+            store and load later (for example via `@model`).
+    
+        - On-demand local access (context manager):
+            Use `current.huggingface_hub.load(repo_id=..., [path=...], ...)` as a
+            context manager to obtain a local filesystem path for immediate use.
+            If the repo exists in the datastore, it is loaded from there;
+            otherwise it is fetched from the Hugging Face Hub and then cached in
+            the datastore. When `path` is omitted, a temporary directory is
+            created and cleaned up automatically when the context exits. When
+            `path` is provided, files are placed there and are not cleaned up by
+            the context manager.
+    
+        Repos are cached in the datastore using the huggingface_hub.snapshot_download's arguments. The cache
+        key may include: `repo_id`, `repo_type`, `revision`, `ignore_patterns`,
+        and `allow_patterns` (see `cache_scope` for how keys are scoped).
+    
+        Examples
+        --------
+        Snapshot reference:
+        ```python
+        ref = current.huggingface_hub.snapshot_download(
+            repo_id="google-bert/bert-base-uncased",
+            allow_patterns=["*.json"]
+        )
+        ```
+    
+        Explicit Model Loading with Context manager:
+        ```python
+        with current.huggingface_hub.load(
+            repo_id="google-bert/bert-base-uncased",
+            allow_patterns=["*.json"]
+        ) as local_path:
+            my_model = torch.load(os.path.join(local_path, "model.bin"))
+        ```
+    
+        @@ Returns
+        ----------
+        HuggingfaceRegistry
     """
     def step_init(self, flow, graph, step_name, decorators, environment, flow_datastore, logger):
         ...

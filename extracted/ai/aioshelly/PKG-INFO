@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioshelly
-Version: 13.9.0
+Version: 13.10.0
 Summary: Asynchronous library to control Shelly devices.
 Author-email: Paulus Schoutsen <paulus@home-assistant.io>
 License-Expression: Apache-2.0
@@ -22,15 +22,15 @@ Requires-Dist: habluetooth>=3.42.0
 Requires-Dist: orjson>=3.8.1
 Requires-Dist: yarl
 Provides-Extra: lint
-Requires-Dist: mypy==1.17.1; extra == "lint"
+Requires-Dist: mypy==1.18.1; extra == "lint"
 Requires-Dist: pydocstyle==6.3.0; extra == "lint"
-Requires-Dist: ruff==0.12.12; extra == "lint"
+Requires-Dist: ruff==0.13.0; extra == "lint"
 Requires-Dist: types-requests; extra == "lint"
 Provides-Extra: dev
 Requires-Dist: aioresponses==0.7.8; extra == "dev"
 Requires-Dist: pre-commit==4.3.0; extra == "dev"
-Requires-Dist: pytest-asyncio==1.1.0; extra == "dev"
-Requires-Dist: pytest-cov==6.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio==1.2.0; extra == "dev"
+Requires-Dist: pytest-cov==7.0.0; extra == "dev"
 Requires-Dist: pytest==8.4.2; extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: tox==4.30.2; extra == "dev"

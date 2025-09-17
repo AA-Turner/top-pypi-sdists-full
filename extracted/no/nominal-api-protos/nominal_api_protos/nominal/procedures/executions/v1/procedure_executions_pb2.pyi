@@ -238,17 +238,19 @@ class TargetStepStateRequest(_message.Message):
     def __init__(self, in_progress: _Optional[_Union[StepInProgressRequest, _Mapping]] = ..., submitted: _Optional[_Union[StepSubmittedRequest, _Mapping]] = ..., skipped: _Optional[_Union[StepSkippedRequest, _Mapping]] = ..., errored: _Optional[_Union[StepErroredRequest, _Mapping]] = ...) -> None: ...
 
 class SuccessConditionStatus(_message.Message):
-    __slots__ = ("in_progress", "satisfied", "failed", "canceled")
+    __slots__ = ("timer", "in_progress", "satisfied", "failed", "canceled")
     AND_FIELD_NUMBER: _ClassVar[int]
+    TIMER_FIELD_NUMBER: _ClassVar[int]
     IN_PROGRESS_FIELD_NUMBER: _ClassVar[int]
     SATISFIED_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
     CANCELED_FIELD_NUMBER: _ClassVar[int]
+    timer: _procedures_pb2.TimerSuccessCondition
     in_progress: SuccessConditionInProgress
     satisfied: SuccessConditionSatisfied
     failed: SuccessConditionFailed
     canceled: SuccessConditionCanceled
-    def __init__(self, in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., **kwargs) -> None: ...
+    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
@@ -319,16 +321,24 @@ class CompletionActionState(_message.Message):
     def __init__(self, not_run: _Optional[_Union[CompletionActionState.NotRun, _Mapping]] = ..., succeeded: _Optional[_Union[CompletionActionState.Succeeded, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class StepContentValue(_message.Message):
-    __slots__ = ("form",)
+    __slots__ = ("form", "start_ingest")
     FORM_FIELD_NUMBER: _ClassVar[int]
+    START_INGEST_FIELD_NUMBER: _ClassVar[int]
     form: FormStepValue
-    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ...) -> None: ...
+    start_ingest: StartIngestStepValue
+    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStepValue, _Mapping]] = ...) -> None: ...
 
 class FormStepValue(_message.Message):
     __slots__ = ("fields",)
     FIELDS_FIELD_NUMBER: _ClassVar[int]
     fields: _containers.RepeatedCompositeFieldContainer[FormFieldValue]
     def __init__(self, fields: _Optional[_Iterable[_Union[FormFieldValue, _Mapping]]] = ...) -> None: ...
+
+class StartIngestStepValue(_message.Message):
+    __slots__ = ("ingest_job_rid",)
+    INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
+    ingest_job_rid: str
+    def __init__(self, ingest_job_rid: _Optional[str] = ...) -> None: ...
 
 class FormFieldValue(_message.Message):
     __slots__ = ("asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")

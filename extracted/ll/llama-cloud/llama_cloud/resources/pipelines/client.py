@@ -1706,6 +1706,44 @@ class PipelinesClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def sync_pipeline_document(self, document_id: str, pipeline_id: str) -> typing.Any:
+        """
+        Sync a specific document for a pipeline.
+
+        Parameters:
+            - document_id: str.
+
+            - pipeline_id: str.
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.pipelines.sync_pipeline_document(
+            document_id="string",
+            pipeline_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/pipelines/{pipeline_id}/documents/{document_id}/sync",
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(typing.Any, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     def list_pipeline_document_chunks(self, document_id: str, pipeline_id: str) -> typing.List[TextNode]:
         """
         Return a list of chunks for a pipeline document.
@@ -1736,6 +1774,50 @@ class PipelinesClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(typing.List[TextNode], _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def force_sync_all_pipeline_documents(
+        self, pipeline_id: str, *, batch_size: typing.Optional[int] = None, only_failed: typing.Optional[bool] = None
+    ) -> None:
+        """
+        Force sync all documents in a pipeline by batching document ingestion jobs.
+
+        - Iterates all document refs for the pipeline
+        - Enqueues document ingestion jobs in batches of `batch_size`
+
+        Parameters:
+            - pipeline_id: str.
+
+            - batch_size: typing.Optional[int].
+
+            - only_failed: typing.Optional[bool]. Only sync retriable documents (failed/cancelled/not-started/stalled-in-progress)
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.pipelines.force_sync_all_pipeline_documents(
+            pipeline_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/pipelines/{pipeline_id}/documents/force-sync-all"
+            ),
+            params=remove_none_from_dict({"batch_size": batch_size, "only_failed": only_failed}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -3397,6 +3479,44 @@ class AsyncPipelinesClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    async def sync_pipeline_document(self, document_id: str, pipeline_id: str) -> typing.Any:
+        """
+        Sync a specific document for a pipeline.
+
+        Parameters:
+            - document_id: str.
+
+            - pipeline_id: str.
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.pipelines.sync_pipeline_document(
+            document_id="string",
+            pipeline_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/",
+                f"api/v1/pipelines/{pipeline_id}/documents/{document_id}/sync",
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(typing.Any, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     async def list_pipeline_document_chunks(self, document_id: str, pipeline_id: str) -> typing.List[TextNode]:
         """
         Return a list of chunks for a pipeline document.
@@ -3427,6 +3547,50 @@ class AsyncPipelinesClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(typing.List[TextNode], _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def force_sync_all_pipeline_documents(
+        self, pipeline_id: str, *, batch_size: typing.Optional[int] = None, only_failed: typing.Optional[bool] = None
+    ) -> None:
+        """
+        Force sync all documents in a pipeline by batching document ingestion jobs.
+
+        - Iterates all document refs for the pipeline
+        - Enqueues document ingestion jobs in batches of `batch_size`
+
+        Parameters:
+            - pipeline_id: str.
+
+            - batch_size: typing.Optional[int].
+
+            - only_failed: typing.Optional[bool]. Only sync retriable documents (failed/cancelled/not-started/stalled-in-progress)
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.pipelines.force_sync_all_pipeline_documents(
+            pipeline_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(
+                f"{self._client_wrapper.get_base_url()}/", f"api/v1/pipelines/{pipeline_id}/documents/force-sync-all"
+            ),
+            params=remove_none_from_dict({"batch_size": batch_size, "only_failed": only_failed}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

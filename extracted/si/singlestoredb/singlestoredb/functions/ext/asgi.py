@@ -42,6 +42,7 @@ import tempfile
 import textwrap
 import threading
 import time
+import traceback
 import typing
 import urllib
 import uuid
@@ -708,7 +709,21 @@ class Application(object):
     # Error response start
     error_response_dict: Dict[str, Any] = dict(
         type='http.response.start',
-        status=401,
+        status=500,
+        headers=[(b'content-type', b'text/plain')],
+    )
+
+    # Timeout response start
+    timeout_response_dict: Dict[str, Any] = dict(
+        type='http.response.start',
+        status=504,
+        headers=[(b'content-type', b'text/plain')],
+    )
+
+    # Cancel response start
+    cancel_response_dict: Dict[str, Any] = dict(
+        type='http.response.start',
+        status=503,
         headers=[(b'content-type', b'text/plain')],
     )
 
@@ -1234,11 +1249,11 @@ class Application(object):
                     },
                 )
                 body = (
-                    '[TimeoutError] Function call timed out after ' +
+                    'TimeoutError: Function call timed out after ' +
                     str(func_info['timeout']) +
                     ' seconds'
                 ).encode('utf-8')
-                await send(self.error_response_dict)
+                await send(self.timeout_response_dict)
 
             except asyncio.CancelledError:
                 self.logger.exception(
@@ -1249,8 +1264,8 @@ class Application(object):
                         'function_name': func_name.decode('utf-8'),
                     },
                 )
-                body = b'[CancelledError] Function call was cancelled'
-                await send(self.error_response_dict)
+                body = b'CancelledError: Function call was cancelled'
+                await send(self.cancel_response_dict)
 
             except Exception as e:
                 self.logger.exception(
@@ -1262,7 +1277,12 @@ class Application(object):
                         'exception_type': type(e).__name__,
                     },
                 )
-                body = f'[{type(e).__name__}] {str(e).strip()}'.encode('utf-8')
+                msg = traceback.format_exc().strip().split(' File ')[-1]
+                if msg.startswith('"/tmp/ipykernel_'):
+                    msg = 'Line ' + msg.split(', line ')[-1]
+                else:
+                    msg = 'File ' + msg
+                body = msg.encode('utf-8')
                 await send(self.error_response_dict)
 
             finally:

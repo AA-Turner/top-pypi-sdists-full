@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: cg
-Version: 75.2.5
+Version: 75.2.7
 Summary: Clinical Genomics command center
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.11,<3.13
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -39,7 +39,7 @@ Requires-Dist: email-validator (>=2.2.0)
 Requires-Dist: genologics
 Requires-Dist: google-auth
 Requires-Dist: gunicorn
-Requires-Dist: housekeeper (>=4.11.3)
+Requires-Dist: housekeeper (==4.13.15)
 Requires-Dist: lxml
 Requires-Dist: marshmallow
 Requires-Dist: mock ; extra == "mock"

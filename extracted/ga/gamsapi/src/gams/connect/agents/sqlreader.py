@@ -23,10 +23,20 @@
 # SOFTWARE.
 #
 
-from gams.connect.agents.connectagent import ConnectAgent
 import gams.transfer as gt
 import numpy as np
 import pandas as pd
+from gams.connect.agents.connectagent import ConnectAgent
+from gams.connect.agents._sqlconnectors import (
+    AccessConnector,
+    MySQLConnector,
+    PostgresConnector,
+    PyodbcConnector,
+    SQLAlchemyConnector,
+    SQLiteConnector,
+    SQLServerConnector,
+)
+from gams.connect.agents._sqlconnectors._databasehandler import ConnectionType
 
 
 class SQLReader(ConnectAgent):
@@ -46,29 +56,43 @@ class SQLReader(ConnectAgent):
         self._index_sub = inst["indexSubstitutions"]
         self._read_sql_args = inst["readSQLArguments"]
         self._trace = inst["trace"]
+        self._handler = self._get_handler(self._cnctn_type)
+
+    def _get_handler(
+        self, cnctn_type
+    ) -> (
+        SQLiteConnector
+        | SQLAlchemyConnector
+        | PyodbcConnector
+        | MySQLConnector
+        | PostgresConnector
+        | SQLServerConnector
+        | AccessConnector
+    ):
+        handlers = {
+            ConnectionType.SQLITE.value: SQLiteConnector,
+            ConnectionType.SQLALCHEMY.value: SQLAlchemyConnector,
+            ConnectionType.PYODBC.value: PyodbcConnector,
+            ConnectionType.MYSQL.value: MySQLConnector,
+            ConnectionType.POSTGRES.value: PostgresConnector,
+            ConnectionType.SQLSERVER.value: SQLServerConnector,
+            ConnectionType.ACCESS.value: AccessConnector,
+        }
+        handler_class = handlers[cnctn_type]
+
+        return handler_class(
+            error_callback=self._connect_error,
+            printLog_callback=self._cdb.print_log,
+            trace=self._trace,
+        )
 
     def _open(self):
-        if self._cnctn_type == "sqlalchemy":
-            import sqlalchemy
-
-            con_str = sqlalchemy.engine.URL.create(**self._connection)
-            self._engine = sqlalchemy.create_engine(con_str, **self._connection_args)
-            self._conn = self._engine.connect()
-
-        else:
-            if self._cnctn_type in ["pyodbc", "access"]:
-                import pyodbc as sql
-            elif self._cnctn_type == "postgres":
-                import psycopg2 as sql
-            elif self._cnctn_type == "mysql":
-                import pymysql as sql
-            elif self._cnctn_type == "sqlserver":
-                import pymssql as sql
-            else:  # sqlite3 by default
-                import sqlite3 as sql
-
-            self._engine = sql.connect(**self._connection, **self._connection_args)
-            self._conn = self._engine.cursor()
+        options = {"isWrite": False}
+        self._handler.connect(
+            connection_details=self._connection,
+            connection_args=self._connection_args,
+            **options,
+        )
 
     def execute(self):
         if self._trace > 0:
@@ -108,21 +132,9 @@ class SQLReader(ConnectAgent):
                 self._symbols_exist_cdb(sym_name)
 
                 try:
-                    if self._cnctn_type == "sqlalchemy":
-                        df = pd.read_sql(
-                            sql=sym["query"], con=self._conn, **read_sql_args
-                        )
-                    else:
-                        if (
-                            len(read_sql_args) > 0
-                        ):  # cannot pass an empty dictionary for pyODBC
-                            self._conn.execute(sym["query"], read_sql_args)
-                        else:
-                            self._conn.execute(sym["query"])
-                        df = pd.DataFrame.from_records(
-                            self._conn.fetchall(),
-                            columns=[col[0] for col in self._conn.description],
-                        )
+                    df = self._handler.read_table(
+                        sql_query=sym["query"], read_sql_args=read_sql_args
+                    )
                 except Exception as e:
                     self._connect_error(
                         f"{type(e).__module__}, {type(e).__name__}: {e}"
@@ -278,10 +290,7 @@ class SQLReader(ConnectAgent):
                     )
 
         finally:
-            if self._cnctn_type == "sqlalchemy":
-                self._engine.dispose()
-            else:
-                self._conn.close()
+            self._handler.close()
 
         if self._trace > 2:
             for name, sym in self._cdb.container.data.items():

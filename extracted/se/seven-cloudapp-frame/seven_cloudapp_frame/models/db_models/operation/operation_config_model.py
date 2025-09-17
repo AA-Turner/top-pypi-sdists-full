@@ -2,7 +2,7 @@
 """
 @Author: HuangJianYi
 @Date: 2021-08-02 10:11:35
-@LastEditTime: 2023-08-18 14:39:49
+@LastEditTime: 2025-09-16 16:09:34
 @LastEditors: HuangJianYi
 @Description: 
 """
@@ -13,10 +13,12 @@ from seven_cloudapp_frame.models.cache_model import *
 
 
 class OperationConfigModel(CacheModel):
-    def __init__(self, db_connect_key='db_cloudapp', sub_table=None, db_transaction=None, context=None, is_auto=False):
+    def __init__(self, db_connect_key='db_cloudapp', db_config_dict=None, sub_table=None, db_transaction=None, context=None, is_auto=False):
         super(OperationConfigModel, self).__init__(OperationConfig, sub_table)
         db_connect_key, self.redis_config_dict = SevenHelper.get_connect_config("db_cms","redis_cms", db_connect_key)
-        self.db = MySQLHelper(self.convert_db_config(db_connect_key, is_auto))
+        if not db_config_dict:
+            db_config_dict = config.get_value(db_connect_key)
+        self.db = MySQLHelper(self.convert_db_config(db_config_dict, is_auto))
         self.db_connect_key = db_connect_key
         self.db_transaction = db_transaction
         self.db.context = context

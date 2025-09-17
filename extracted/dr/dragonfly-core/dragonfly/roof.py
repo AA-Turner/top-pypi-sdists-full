@@ -321,11 +321,13 @@ class RoofSpecification(object):
     def resolved_geometry(self, tolerance=0.01, split_through_holes=False):
         """Get a version of this object's geometry with all overlaps in plan resolved.
 
-        In the case of overlaps, the roof geometry that has the lowest average
+        In the case of overlaps, the roof geometry that has the highest average
         z-value for the overlap will become the "correct" one that actually
-        bounds the room geometry. This method can also optionally split any roof
-        geometries with holes such that they can be accurately accounted for in
-        the room volume calculation.
+        bounds the room geometry except for the case where the Z domains of the
+        overlapping portions collide with one another.
+
+        This method can also optionally split any roof geometries with holes such
+        that they can be accurately accounted for in the room volume calculation.
 
         Args:
             tolerance: The minimum distance that two Roof geometries can overlap
@@ -411,7 +413,7 @@ class RoofSpecification(object):
                             o_face_2.append(pt2)
                         o_face_1 = Face3D(o_face_1, plane=pln_1)
                         o_face_2 = Face3D(o_face_2, plane=pln_2)
-                        if o_face_1.center.z > o_face_2.center.z:
+                        if o_face_1.center.z <= o_face_2.center.z:
                             poly_1 = self._process_polygon_overlap(
                                 poly_1, pln_1, i, o_poly,
                                 remove_i, geo_2d, planes, gei, tol)

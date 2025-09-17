@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imgw_pib"
-version = "1.5.4"
+version = "1.5.6"
 license = "Apache-2.0"
 description = "Python wrapper for IMGW-PIB API."
 readme = "README.md"
@@ -30,15 +30,15 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "aioresponses==0.7.8",
-  "coverage==7.10.4",
+  "coverage==7.10.6",
   "freezegun==1.5.5",
-  "mypy==1.17.1",
-  "pytest-asyncio==1.1.0",
-  "pytest-cov==6.2.1",
+  "mypy==1.18.1",
+  "pytest-asyncio==1.2.0",
+  "pytest-cov==7.0.0",
   "pytest-error-for-skips==2.0.2",
   "pytest-timeout==2.4.0",
-  "pytest==8.4.1",
-  "ruff==0.12.9",
+  "pytest==8.4.2",
+  "ruff==0.13.0",
   "syrupy==4.9.1",
   "types-aiofiles",
 ]

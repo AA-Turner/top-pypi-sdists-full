@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from wandelbots_api_client.v2.models.collider import Collider
 from wandelbots_api_client.v2.models.dh_parameter import DHParameter
-from wandelbots_api_client.v2.models.limit_config import LimitConfig
+from wandelbots_api_client.v2.models.operation_limits import OperationLimits
 from wandelbots_api_client.v2.models.payload import Payload
 from wandelbots_api_client.v2.models.pose import Pose
 from wandelbots_api_client.v2.models.tcp_offset import TcpOffset
@@ -33,16 +33,16 @@ class MotionGroupDescription(BaseModel):
     The configuration of a motion-group used for motion planning.
     """ # noqa: E501
     motion_group_model: StrictStr = Field(description="String identifiying the model of a motion group.")
-    mounting: Pose = Field(description="The offset from the world frame to the motion group base.")
-    tcps: Dict[str, TcpOffset] = Field(description="Maps a TCP name to its offset relative to the flange coordinate system. Key must be a TCP identifier. Values are TcpOffsets. ")
+    mounting: Optional[Pose] = Field(default=None, description="The offset from the world frame to the motion group base.")
+    tcps: Optional[Dict[str, TcpOffset]] = Field(default=None, description="Maps a TCP name to its offset relative to the flange coordinate system. Key must be a TCP identifier. Values are TcpOffsets. ")
     safety_zones: Optional[Dict[str, Collider]] = Field(default=None, description="A collection of identifiable colliders.")
     safety_link_colliders: Optional[List[Dict[str, Collider]]] = Field(default=None, description="The shape of the MotionGroups links to validate against safety zones. Indexed along the kinematic chain, starting with a static base shape before first joint. ")
     safety_tool_colliders: Optional[Dict[str, Dict[str, Collider]]] = Field(default=None, description="Maps a TCP name to its tool collider. Key must be a TCP identifier. Values are ColliderDictionaries that make up the shape of one tool to validate against safety zones. ")
-    global_limits: LimitConfig
+    operation_limits: OperationLimits
     payloads: Optional[Dict[str, Payload]] = Field(default=None, description="Maps a payload name to its configuration. Key must be a payload identifier. Values are payload objects. ")
     cycle_time: Optional[StrictInt] = Field(default=None, description="[ms] cycle time of the motion group controller. A trajectory for this motion group should be computed to this resolution.")
     dh_parameters: Optional[List[DHParameter]] = Field(default=None, description="The DH parameters describing the motion group geometry, starting from base.")
-    __properties: ClassVar[List[str]] = ["motion_group_model", "mounting", "tcps", "safety_zones", "safety_link_colliders", "safety_tool_colliders", "global_limits", "payloads", "cycle_time", "dh_parameters"]
+    __properties: ClassVar[List[str]] = ["motion_group_model", "mounting", "tcps", "safety_zones", "safety_link_colliders", "safety_tool_colliders", "operation_limits", "payloads", "cycle_time", "dh_parameters"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -120,9 +120,9 @@ class MotionGroupDescription(BaseModel):
                 if self.safety_tool_colliders[_key]:
                     _field_dict[_key] = self.safety_tool_colliders[_key].to_dict()
             _dict['safety_tool_colliders'] = _field_dict
-        # override the default output from pydantic by calling `to_dict()` of global_limits
-        if self.global_limits:
-            _dict['global_limits'] = self.global_limits.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of operation_limits
+        if self.operation_limits:
+            _dict['operation_limits'] = self.operation_limits.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each value in payloads (dict)
         _field_dict = {}
         if self.payloads:
@@ -185,7 +185,7 @@ class MotionGroupDescription(BaseModel):
             )
             if obj.get("safety_tool_colliders") is not None
             else None,
-            "global_limits": LimitConfig.from_dict(obj["global_limits"]) if obj.get("global_limits") is not None else None,
+            "operation_limits": OperationLimits.from_dict(obj["operation_limits"]) if obj.get("operation_limits") is not None else None,
             "payloads": dict(
                 (_k, Payload.from_dict(_v))
                 for _k, _v in obj["payloads"].items()

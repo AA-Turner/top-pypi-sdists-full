@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-16T01:38:51.395979                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-16T23:23:08.861049                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
     import metaflow.datastore.datastore_storage
 
@@ -106,6 +106,12 @@ class CheckpointDatastore(metaflow.mf_extensions.obcheckpoint.plugins.machine_le
         """
         ...
     def create_key_name(self, *args):
+        ...
+    @classmethod
+    def init_global_registry_write_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, pathspec, artifact_store_path_components):
+        """
+        The normal mode of operation ie (init_write_store) is a metaflow coupled mode of operation where we store the checkpoints based on metaflow based logic.
+        """
         ...
     @classmethod
     def init_write_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, pathspec, scope, task_identifier):

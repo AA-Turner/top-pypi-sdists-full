@@ -109,6 +109,7 @@ MODEL_PRO_EM3_400 = "SPEM-003CEBEU400"
 MODEL_PRO_RGBWW_PM = "SPDC-0D5PE16EU"
 MODEL_WALL_DISPLAY = "SAWD-0A1XX10EU1"
 MODEL_WALL_DISPLAY_X2 = "SAWD-2A1XX10EU1"
+MODEL_WALL_DISPLAY_XL = "SAWD-3A1XE10EU2"
 # Gen3 RPC based models
 MODEL_1_G3 = "S3SW-001X16EU"
 MODEL_1L_G3 = "S3SW-0A1X1EUL"
@@ -123,9 +124,11 @@ MODEL_BLU_GATEWAY_G3 = "S3GW-1DBT001"
 MODEL_DALI_DIMMER_G3 = "S3DM-0A1WW"
 MODEL_DIMMER_10V_G3 = "S3DM-0010WW"
 MODEL_DIMMER_G3 = "S3DM-0A101WWL"
+MODEL_DUO_BULB_G3 = "S3BL-D010009AEU"
 MODEL_EM_G3 = "S3EM-002CXCEU"
 MODEL_HT_G3 = "S3SN-0U12A"
 MODEL_I4_G3 = "S3SN-0024X"
+MODEL_MULTICOLOR_BULB_G3 = "S3BL-C010007AEU"
 MODEL_OUT_PLUG_S_G3 = "S3PL-20112EU"
 MODEL_PLUG_S_G3 = "S3PL-00112EU"
 MODEL_PM_MINI_G3 = "S3PM-001PCEU16"
@@ -140,6 +143,7 @@ MODEL_DIMMER_G4 = "S4DM-0A101WWL"
 MODEL_FLOOD_G4 = "S4SN-0071A"
 MODEL_I4_G4 = "S4SN-0A24X"
 MODEL_PLUG_US_G4 = "S4PL-00116US"
+MODEL_POWER_STRIP_G4 = "S4PL-00416EU"
 MODEL_PRESENCE_G4 = "S4SN-0U61X"
 
 GEN1 = 1
@@ -866,6 +870,13 @@ DEVICES = {
         gen=GEN2,
         supported=True,
     ),
+    MODEL_WALL_DISPLAY_XL: ShellyDevice(
+        model=MODEL_WALL_DISPLAY_XL,
+        name="Shelly Wall Display XL",
+        min_fw_date=GEN2_MIN_FIRMWARE_DATE,
+        gen=GEN2,
+        supported=True,
+    ),
     MODEL_1_G3: ShellyDevice(
         model=MODEL_1_G3,
         name="Shelly 1 Gen3",
@@ -950,6 +961,13 @@ DEVICES = {
         gen=GEN3,
         supported=True,
     ),
+    MODEL_DUO_BULB_G3: ShellyDevice(
+        model=MODEL_DUO_BULB_G3,
+        name="Shelly Duo Bulb Gen3",
+        min_fw_date=GEN3_MIN_FIRMWARE_DATE,
+        gen=GEN3,
+        supported=True,
+    ),
     MODEL_EM_G3: ShellyDevice(
         model=MODEL_EM_G3,
         name="Shelly EM Gen3",
@@ -967,6 +985,13 @@ DEVICES = {
     MODEL_I4_G3: ShellyDevice(
         model=MODEL_I4_G3,
         name="Shelly I4 Gen3",
+        min_fw_date=GEN3_MIN_FIRMWARE_DATE,
+        gen=GEN3,
+        supported=True,
+    ),
+    MODEL_MULTICOLOR_BULB_G3: ShellyDevice(
+        model=MODEL_MULTICOLOR_BULB_G3,
+        name="Shelly Multicolor Bulb Gen3",
         min_fw_date=GEN3_MIN_FIRMWARE_DATE,
         gen=GEN3,
         supported=True,
@@ -1062,6 +1087,13 @@ DEVICES = {
         gen=GEN4,
         supported=True,
     ),
+    MODEL_POWER_STRIP_G4: ShellyDevice(
+        model=MODEL_POWER_STRIP_G4,
+        name="Shelly Power Strip Gen4",
+        min_fw_date=GEN4_MIN_FIRMWARE_DATE,
+        gen=GEN4,
+        supported=True,
+    ),
     MODEL_PRESENCE_G4: ShellyDevice(
         model=MODEL_PRESENCE_G4,
         name="Shelly Presence Gen4",
@@ -1131,7 +1163,15 @@ END_OF_OPTIONS_MARKER = 0xFF
 
 FIRMWARE_PATTERN = re.compile(r"^(\d{8})")
 
-VIRTUAL_COMPONENTS = {"boolean", "button", "enum", "number", "text"}
+VIRTUAL_COMPONENTS = {
+    "boolean",
+    "button",
+    "enum",
+    "number",
+    "object",
+    "presencezone",
+    "text",
+}
 # Firmware 1.2.0 release date
 VIRTUAL_COMPONENTS_MIN_FIRMWARE = 20240213
 

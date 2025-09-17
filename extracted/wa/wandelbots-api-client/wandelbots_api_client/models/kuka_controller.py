@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from wandelbots_api_client.models.kuka_controller_rsi_server import KukaControllerRsiServer
 from typing import Optional, Set
@@ -31,7 +31,8 @@ class KukaController(BaseModel):
     controller_ip: StrictStr = Field(alias="controllerIp")
     controller_port: StrictInt = Field(alias="controllerPort")
     rsi_server: KukaControllerRsiServer = Field(alias="rsiServer")
-    __properties: ClassVar[List[str]] = ["kind", "controllerIp", "controllerPort", "rsiServer"]
+    slow_cycle_rate: Optional[StrictBool] = Field(default=False, description="If true, uses slower cycle time of 12ms instead of 4ms. ")
+    __properties: ClassVar[List[str]] = ["kind", "controllerIp", "controllerPort", "rsiServer", "slow_cycle_rate"]
 
     @field_validator('kind')
     def kind_validate_enum(cls, value):
@@ -104,7 +105,8 @@ class KukaController(BaseModel):
             "kind": obj.get("kind") if obj.get("kind") is not None else 'KukaController',
             "controllerIp": obj.get("controllerIp"),
             "controllerPort": obj.get("controllerPort") if obj.get("controllerPort") is not None else 54600,
-            "rsiServer": KukaControllerRsiServer.from_dict(obj["rsiServer"]) if obj.get("rsiServer") is not None else None
+            "rsiServer": KukaControllerRsiServer.from_dict(obj["rsiServer"]) if obj.get("rsiServer") is not None else None,
+            "slow_cycle_rate": obj.get("slow_cycle_rate") if obj.get("slow_cycle_rate") is not None else False
         })
         return _obj
 

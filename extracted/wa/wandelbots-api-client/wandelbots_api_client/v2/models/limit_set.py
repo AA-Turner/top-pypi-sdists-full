@@ -32,7 +32,8 @@ class LimitSet(BaseModel):
     tcp: Optional[CartesianLimits] = None
     elbow: Optional[CartesianLimits] = None
     flange: Optional[CartesianLimits] = None
-    __properties: ClassVar[List[str]] = ["joints", "tcp", "elbow", "flange"]
+    coupled_shoulder_elbow_joint: Optional[JointLimits] = None
+    __properties: ClassVar[List[str]] = ["joints", "tcp", "elbow", "flange", "coupled_shoulder_elbow_joint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,6 +97,9 @@ class LimitSet(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of flange
         if self.flange:
             _dict['flange'] = self.flange.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of coupled_shoulder_elbow_joint
+        if self.coupled_shoulder_elbow_joint:
+            _dict['coupled_shoulder_elbow_joint'] = self.coupled_shoulder_elbow_joint.to_dict()
         return _dict
 
     @classmethod
@@ -117,7 +121,8 @@ class LimitSet(BaseModel):
             ] if obj.get("joints") is not None else None,
             "tcp": CartesianLimits.from_dict(obj["tcp"]) if obj.get("tcp") is not None else None,
             "elbow": CartesianLimits.from_dict(obj["elbow"]) if obj.get("elbow") is not None else None,
-            "flange": CartesianLimits.from_dict(obj["flange"]) if obj.get("flange") is not None else None
+            "flange": CartesianLimits.from_dict(obj["flange"]) if obj.get("flange") is not None else None,
+            "coupled_shoulder_elbow_joint": JointLimits.from_dict(obj["coupled_shoulder_elbow_joint"]) if obj.get("coupled_shoulder_elbow_joint") is not None else None
         })
         return _obj
 

@@ -491,7 +491,7 @@ impl WorkerServer {
             search_payload.filter.clone(),
         );
 
-        let matching_records = match knn_filter_orchestrator.run(self.system.clone()).await {
+        let knn_filter_output = match knn_filter_orchestrator.run(self.system.clone()).await {
             Ok(output) => output,
             Err(e) => {
                 return Err(Status::new(e.code().into(), e.to_string()));
@@ -502,7 +502,7 @@ impl WorkerServer {
         let mut knn_futures = Vec::with_capacity(knn_queries.len());
 
         for knn_query in knn_queries {
-            let matching_records_clone = matching_records.clone();
+            let knn_filter_output_clone = knn_filter_output.clone();
             let collection_and_segments_clone = collection_and_segments.clone();
             let system_clone = self.system.clone();
             let dispatcher = self.clone_dispatcher()?;
@@ -510,8 +510,8 @@ impl WorkerServer {
             let spann_provider = self.spann_provider.clone();
 
             knn_futures.push(async move {
-                let result = match knn_query.embedding {
-                    QueryVector::Dense(embedding) => {
+                let result = match knn_query.query {
+                    QueryVector::Dense(query) => {
                         // Check segment type to decide between HNSW and SPANN
                         let vector_segment_type =
                             collection_and_segments_clone.vector_segment.r#type;
@@ -523,9 +523,9 @@ impl WorkerServer {
                                 dispatcher,
                                 1000,
                                 collection_and_segments_clone,
-                                matching_records_clone,
+                                knn_filter_output_clone,
                                 knn_query.limit as usize,
-                                embedding,
+                                query,
                             );
 
                             spann_orchestrator
@@ -535,7 +535,7 @@ impl WorkerServer {
                         } else {
                             // Use HNSW KNN orchestrator
                             let knn = Knn {
-                                embedding,
+                                embedding: query,
                                 fetch: knn_query.limit,
                             };
 
@@ -544,7 +544,7 @@ impl WorkerServer {
                                 dispatcher,
                                 1000,
                                 collection_and_segments_clone,
-                                matching_records_clone,
+                                knn_filter_output_clone,
                                 knn,
                             );
 
@@ -554,15 +554,15 @@ impl WorkerServer {
                                 .map_err(|e| Status::new(e.code().into(), e.to_string()))?
                         }
                     }
-                    QueryVector::Sparse(embedding) => {
+                    QueryVector::Sparse(query) => {
                         // Use Sparse KNN orchestrator
                         let sparse_orchestrator = SparseKnnOrchestrator::new(
                             blockfile_provider,
                             dispatcher,
                             1000,
                             collection_and_segments_clone,
-                            matching_records_clone,
-                            embedding,
+                            knn_filter_output_clone,
+                            query,
                             knn_query.key.clone(),
                             knn_query.limit,
                         );
@@ -588,12 +588,12 @@ impl WorkerServer {
             self.blockfile_provider.clone(),
             self.clone_dispatcher()?,
             1000, // TODO: Make this configurable
+            knn_filter_output,
             knn_results,
             search_payload.rank,
             search_payload.limit,
             search_payload.select,
             collection_and_segments,
-            matching_records.logs,
         );
 
         rank_orchestrator

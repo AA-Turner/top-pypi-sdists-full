@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: safety-schemas
-Version: 0.0.15
+Version: 0.0.16
 Summary: Schemas for Safety tools
 Project-URL: Homepage, https://github.com/pyupio/safety_schemas
 Author-email: Yeison Vargas <support@safetycli.com>

@@ -5,15 +5,20 @@ from multiprocessing import cpu_count
 from pathlib import Path
 from platform import system
 
-from setuptools import setup, Extension
+from setuptools import setup
 from setuptools.command.install import install
-from setuptools.command.build_ext import build_ext
 from setuptools.command.bdist_wheel import bdist_wheel
 
+import pybind11
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 default_lib_dir = (
     "" if system() == "Windows" else str(Path(__file__).parent.resolve() / ".idaklu")
 )
+
+INCLUDE_DIRS = [str(Path(default_lib_dir) / "include"), pybind11.get_include()]
+
+USE_PYTHON_CASADI = False if system() == "Windows" else True
 
 # ---------- set environment variables for vcpkg on Windows ----------------------------
 
@@ -31,6 +36,23 @@ def set_vcpkg_environment_variables():
         os.getenv("VCPKG_FEATURE_FLAGS"),
     )
 
+
+# ---------- find Python CasADi's include dirs (for Linux and macOS) -------------------
+
+
+def get_casadi_python_include_dir():
+    import casadi
+
+    casadi_path = Path(casadi.__file__).parent
+    include_dir = casadi_path / "include"
+    assert include_dir.exists(), f"CasADi include directory not found at {include_dir}"
+    return str(include_dir)
+
+
+if USE_PYTHON_CASADI:
+    casadi_include = get_casadi_python_include_dir()
+    INCLUDE_DIRS.append(casadi_include)
+    print(f"Adding CasADi include directory: {casadi_include}")
 
 # ---------- CMakeBuild class (custom build_ext for IDAKLU target) ---------------------
 
@@ -85,20 +107,17 @@ class CMakeBuild(build_ext):
         # Build in parallel wherever possible
         os.environ["CMAKE_BUILD_PARALLEL_LEVEL"] = str(cpu_count())
 
-        if system() == "Windows":
-            use_python_casadi = False
-        else:
-            use_python_casadi = True
-
-        build_type = os.getenv("PYBAMM_CPP_BUILD_TYPE", "RELEASE")
+        build_type = os.getenv("PYBAMM_CPP_BUILD_TYPE", "Release")
         idaklu_expr_casadi = os.getenv("PYBAMM_IDAKLU_EXPR_CASADI", "ON")
-        idaklu_expr_iree = os.getenv("PYBAMM_IDAKLU_EXPR_IREE", "OFF")
+
+        pybind11_cmake_dir = pybind11.get_cmake_dir()
+
         cmake_args = [
             f"-DCMAKE_BUILD_TYPE={build_type}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
-            "-DUSE_PYTHON_CASADI={}".format("TRUE" if use_python_casadi else "FALSE"),
+            "-DUSE_PYTHON_CASADI={}".format("TRUE" if USE_PYTHON_CASADI else "FALSE"),
             f"-DPYBAMM_IDAKLU_EXPR_CASADI={idaklu_expr_casadi}",
-            f"-DPYBAMM_IDAKLU_EXPR_IREE={idaklu_expr_iree}",
+            f"-Dpybind11_DIR={pybind11_cmake_dir}",
         ]
         if self.suitesparse_root:
             cmake_args.append(
@@ -106,6 +125,11 @@ class CMakeBuild(build_ext):
             )
         if self.sundials_root:
             cmake_args.append(f"-DSUNDIALS_ROOT={os.path.abspath(self.sundials_root)}")
+
+        if USE_PYTHON_CASADI:
+            casadi_include = get_casadi_python_include_dir()
+            cmake_args.append(f"-DCASADI_INCLUDE_DIR={casadi_include}")
+            print(f"Adding CasADi include directory to CMake: {casadi_include}")
 
         build_dir = self.get_build_directory()
         if not os.path.exists(build_dir):
@@ -233,7 +257,7 @@ class PyBaMMWheel(bdist_wheel):
 
 
 ext_modules = [
-    Extension(
+    Pybind11Extension(
         name="pybammsolvers.idaklu",
         # The sources list should mirror the list in CMakeLists.txt
         sources=[
@@ -244,14 +268,6 @@ ext_modules = [
             "src/pybammsolvers/idaklu_source/Expressions/Base/ExpressionSparsity.hpp",
             "src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.cpp",
             "src/pybammsolvers/idaklu_source/Expressions/Casadi/CasadiFunctions.hpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEBaseFunction.hpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunction.hpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.cpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/IREEFunctions.hpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.cpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/iree_jit.hpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.cpp",
-            "src/pybammsolvers/idaklu_source/Expressions/IREE/ModuleParser.hpp",
             "src/pybammsolvers/idaklu_source/idaklu_solver.hpp",
             "src/pybammsolvers/idaklu_source/IDAKLUSolver.cpp",
             "src/pybammsolvers/idaklu_source/IDAKLUSolver.hpp",
@@ -277,6 +293,7 @@ ext_modules = [
             "src/pybammsolvers/idaklu_source/Options.cpp",
             "src/pybammsolvers/idaklu.cpp",
         ],
+        include_dirs=INCLUDE_DIRS,
     )
 ]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: metaflow-checkpoint
-Version: 0.2.5
+Version: 0.2.6
 Summary: An EXPERIMENTAL checkpoint decorator for Metaflow
 Author: Valay Dave
 Author-email: help@outerbounds.com

@@ -15,6 +15,7 @@ class QuotaConfigurationConfigurationType(str, enum.Enum):
     RATE_LIMIT_PARSE_CONCURRENT_DEFAULT = "rate_limit_parse_concurrent_default"
     RATE_LIMIT_CONCURRENT_JOBS_IN_EXECUTION_DEFAULT = "rate_limit_concurrent_jobs_in_execution_default"
     RATE_LIMIT_CONCURRENT_JOBS_IN_EXECUTION_DOC_INGEST = "rate_limit_concurrent_jobs_in_execution_doc_ingest"
+    LIMIT_EMBEDDING_CHARACTER = "limit_embedding_character"
 
     def visit(
         self,
@@ -22,6 +23,7 @@ class QuotaConfigurationConfigurationType(str, enum.Enum):
         rate_limit_parse_concurrent_default: typing.Callable[[], T_Result],
         rate_limit_concurrent_jobs_in_execution_default: typing.Callable[[], T_Result],
         rate_limit_concurrent_jobs_in_execution_doc_ingest: typing.Callable[[], T_Result],
+        limit_embedding_character: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is QuotaConfigurationConfigurationType.RATE_LIMIT_PARSE_CONCURRENT_PREMIUM:
             return rate_limit_parse_concurrent_premium()
@@ -31,3 +33,5 @@ class QuotaConfigurationConfigurationType(str, enum.Enum):
             return rate_limit_concurrent_jobs_in_execution_default()
         if self is QuotaConfigurationConfigurationType.RATE_LIMIT_CONCURRENT_JOBS_IN_EXECUTION_DOC_INGEST:
             return rate_limit_concurrent_jobs_in_execution_doc_ingest()
+        if self is QuotaConfigurationConfigurationType.LIMIT_EMBEDDING_CHARACTER:
+            return limit_embedding_character()

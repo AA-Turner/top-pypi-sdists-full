@@ -34,6 +34,7 @@ from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import frozen_dict
 from jax._src import linear_util as lu
+from jax._src import effects
 from jax._src import state
 from jax._src import tree_util
 from jax._src import util
@@ -209,24 +210,34 @@ mlir.ir_type_handlers[ShapedArrayWithMemorySpace] = mlir._array_ir_types
 @dataclasses.dataclass(frozen=True)
 class MemoryRef:
   """Like jax.ShapeDtypeStruct but with memory spaces."""
-  shape: tuple[int, ...]
-  dtype: jnp.dtype | dtypes.ExtendedDType
+  inner_aval: jax_core.AbstractValue
   # TODO(b/368122763): Unify memory space types across backends
   memory_space: Any
 
   def get_array_aval(self) -> jax_core.ShapedArray:
-    dtype = self.dtype
+    if not isinstance(self.inner_aval, jax_core.ShapedArray):
+      raise ValueError(
+          f"MemoryRef type must be a ShapedArray, got {type(self.inner_aval)}"
+      )
+    dtype = self.inner_aval.dtype
     if not isinstance(dtype, (jnp.dtype, dtypes.ExtendedDType)):
       dtype = jnp.dtype(dtype)
     return ShapedArrayWithMemorySpace(
-        self.shape, dtype, memory_space=self.memory_space
+        self.inner_aval.shape, dtype, memory_space=self.memory_space
     )
 
   def get_ref_aval(self) -> TransformedRef | state.AbstractRef:
     # TODO(sharadmv): Clean this up. ShapedArrayWithMemorySpace fails when we
     # try to apply JAX ops to it.
-    return state.AbstractRef(
-        jax_core.ShapedArray(self.shape, self.dtype), self.memory_space)
+    return state.AbstractRef(self.inner_aval, self.memory_space)
+
+  @property
+  def dtype(self):
+    return self.inner_aval.dtype
+
+  @property
+  def shape(self):
+    return self.inner_aval.shape
 
 
 class MemorySpace(enum.Enum):
@@ -241,12 +252,16 @@ class MemorySpace(enum.Enum):
   KEY = "key"  # Memory space for PRNG keys.
   HOST = "host"  # Host memory space.
 
-  def __str__(self) -> str:
-    return self.value
+  def from_type(self, type: jax_core.AbstractValue) -> MemoryRef:
+    return MemoryRef(type, memory_space=self)
 
   def __call__(self, shape: tuple[int, ...], dtype: jnp.dtype):
-    # A convenience function for constructing MemoryRef types.
-    return MemoryRef(shape, dtype, self)
+    # A convenience function for constructing MemoryRef types of ShapedArrays.
+    return self.from_type(jax_core.ShapedArray(shape, dtype))
+
+
+  def __str__(self) -> str:
+    return self.value
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1268,19 +1283,27 @@ def core_map(
   """
   def wrapped(f):
     flat_args, in_tree = tree_util.tree_flatten(((), {}))
+    debug_info = api_util.debug_info("pallas_core_map", f, (), {})
     flat_fun, out_tree_thunk = api_util.flatten_fun(
-        lu.wrap_init(f,
-                     debug_info=api_util.debug_info("pallas_core_map", f,
-                                                    (), {})),
-        in_tree)
+        lu.wrap_init(f, debug_info=debug_info), in_tree
+    )
     with (
         tracing_grid_env(tuple(mesh.shape.values()), mapped_dims=()),
         jax_core.extend_axis_env_nd(mesh.shape.items()),
     ):
       jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, flat_args)
+
+    out_tree = out_tree_thunk()
+    if out_tree != tree_util.tree_structure(None):
+      raise ValueError(
+          f"The kernel function in core_map {debug_info.func_src_info} should"
+          f" return None. It returns a PyTree: {out_tree}."
+      )
+
     out = core_map_p.bind(
         *consts,
         jaxpr=jaxpr,
+        debug_info=debug_info,
         mesh=mesh,
         compiler_params=compiler_params,
         interpret=(
@@ -1293,11 +1316,19 @@ def core_map(
         if metadata is not None
         else None,
     )
-    if out:
-      raise ValueError("core_map-ped functions must not return any outputs.")
-    return tree_util.tree_unflatten(out_tree_thunk(), out)
+    return tree_util.tree_unflatten(out_tree, out)
 
   return wrapped
+
+# TODO(sharadmv,ivyzheng): remove this once we use axis dicts primarily
+class CommsEffect(effects.Effect):
+  pass
+
+comms_effect = CommsEffect()
+effects.lowerable_effects.add_type(CommsEffect)
+effects.control_flow_allowed_effects.add_type(CommsEffect)
+effects.remat_allowed_effects.add_type(CommsEffect)
+effects.custom_derivatives_allowed_effects.add_type(CommsEffect)
 
 
 @core_map_p.def_effectful_abstract_eval
@@ -1315,7 +1346,7 @@ def _core_map_abstract_eval(*args, jaxpr, mesh, **kwargs):
     except ImportError:
       pass
   for eff in jaxpr.effects:
-    if mesh.discharges_effect(eff):
+    if mesh.discharges_effect(eff) or isinstance(eff, CommsEffect):
       continue
     if not isinstance(eff, jax_core.NamedAxisEffect):
       effs.add(eff)
@@ -1450,9 +1481,28 @@ def default_mesh_discharge_rule(
 
 
 @state_discharge.register_discharge_rule(core_map_p)
-def _core_map_discharge_rule(in_avals, out_avals, *args_flat, jaxpr, mesh, **kwargs):
+def _core_map_discharge_rule(in_avals, out_avals, *args_flat, jaxpr, debug_info, mesh, **kwargs):
   if type(mesh) not in _core_map_mesh_rules:
     raise NotImplementedError(f"Mesh type {type(mesh)} not supported.")
+  if jaxpr.constvars:
+    # The mapped jaxpr can only close over refs. Closing over anything else,
+    # including arrays, is not allowed -- these must be passed into the jaxpr
+    # as inputs.
+    consts_avals = [
+        aval
+        for var in jaxpr.constvars
+        if not isinstance(aval := var.aval, state.AbstractRef)
+    ]
+    if consts_avals:
+      ctx = jax_core.JaxprPpContext()
+      pp_const_avals = ", ".join(
+          jax_core.pp_aval(aval, ctx) for aval in consts_avals
+      )
+      raise ValueError(
+          "The kernel function in core_map"
+          f" {debug_info.func_src_info} captures constants"
+          f" [{pp_const_avals}]. You should pass them as inputs."
+      )
   return _core_map_mesh_rules[type(mesh)](
       in_avals, out_avals, *args_flat, jaxpr=jaxpr, mesh=mesh, **kwargs
   )
@@ -1472,7 +1522,7 @@ def _core_map_typecheck_rule(_, *in_atoms, jaxpr, mesh, **kwargs):
     except ImportError:
       pass
   for eff in jaxpr.effects:
-    if mesh.discharges_effect(eff):
+    if mesh.discharges_effect(eff) or isinstance(eff, CommsEffect):
       continue
     if not isinstance(eff, jax_core.NamedAxisEffect):
       effs.add(eff)
@@ -1505,3 +1555,18 @@ def lower_as_mlir(
 _out_shape_to_aval_mapping: dict[
     type[Any], Callable[[Any], jax_core.AbstractValue]
 ] = {}
+
+
+def _core_map_partial_eval_custom(saveable, unks_in, inst_in, eqn):
+  assert all(inst_in)
+  if all(unks_in):
+    return None, eqn, [], [], []  # purely unknown
+  elif not any(unks_in):
+    return eqn, eqn, [], [], []  # full remat
+  else:
+    # Some values, e.g. empty refs or refs initialized to constant zero, can be
+    # 'known', but really they belong in the staged/tangent computation. We
+    # encounter them here as known inputs mixed in with unknown/tangent inputs,
+    # which tells us that this core_map is really a purely tangent computation.
+    return None, eqn, [], [], []
+pe.partial_eval_jaxpr_custom_rules[core_map_p] = _core_map_partial_eval_custom

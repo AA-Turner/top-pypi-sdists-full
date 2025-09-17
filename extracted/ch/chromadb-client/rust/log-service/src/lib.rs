@@ -67,7 +67,13 @@ static COMPACTION: CursorName = unsafe { CursorName::from_string_unchecked("comp
 ////////////////////////////////////////////// Metrics /////////////////////////////////////////////
 
 pub struct Metrics {
+    /// The total number of uncompacted records on the log, including those collections
+    /// not-yet-returned for compaction.
     log_total_uncompacted_records_count: opentelemetry::metrics::Gauge<f64>,
+    /// The number of records on the log that are ready for compaction.
+    log_ready_uncompacted_records_count: opentelemetry::metrics::Gauge<f64>,
+    /// The number of collections that likely need a purge-dirty call.
+    log_likely_needs_purge_dirty: opentelemetry::metrics::Gauge<f64>,
     /// The rate at which records are read from the dirty log.
     dirty_log_records_read: opentelemetry::metrics::Counter<u64>,
     /// A gauge for the number of dirty log collections as of the last rollup.
@@ -80,6 +86,10 @@ impl Metrics {
             log_total_uncompacted_records_count: meter
                 .f64_gauge("log_total_uncompacted_records_count")
                 .build(),
+            log_ready_uncompacted_records_count: meter
+                .f64_gauge("log_ready_uncompacted_records_count")
+                .build(),
+            log_likely_needs_purge_dirty: meter.f64_gauge("log_likely_needs_purge_dirty").build(),
             dirty_log_records_read: meter.u64_counter("dirty_log_records_read").build(),
             dirty_log_collections: meter.u64_gauge("dirty_log_collections").build(),
         }
@@ -592,6 +602,7 @@ impl LogServer {
     async fn _update_collection_log_offset(
         &self,
         request: Request<UpdateCollectionLogOffsetRequest>,
+        active: tokio::sync::MutexGuard<'_, ActiveLog>,
         allow_rollback: bool,
     ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
         let request = request.into_inner();
@@ -604,12 +615,35 @@ impl LogServer {
             adjusted_log_offset
         );
         let storage_prefix = collection_id.storage_prefix_for_log();
+        let key = LogKey { collection_id };
+        let handle = self.open_logs.get_or_create_state(key);
+        let mark_dirty = MarkDirty {
+            collection_id,
+            dirty_log: Arc::clone(&self.dirty_log),
+        };
+        // NOTE(rescrv):  We use the writer and fall back to constructing a local reader in order
+        // to force a read-repair of the collection when things partially fail.
+        //
+        // The writer will read the manifest, and try to read the next fragment.  This adds
+        // latency, but improves correctness.
+        let log = get_log_from_handle_with_mutex_held(
+            &handle,
+            active,
+            &self.config.writer,
+            &self.storage,
+            &storage_prefix,
+            mark_dirty,
+        )
+        .await
+        .map_err(|err| Status::unknown(err.to_string()))?;
 
-        let log_reader = LogReader::new(
-            self.config.reader.clone(),
-            Arc::clone(&self.storage),
-            storage_prefix.clone(),
-        );
+        let log_reader = log
+            .reader(self.config.reader.clone())
+            .unwrap_or(LogReader::new(
+                self.config.reader.clone(),
+                Arc::clone(&self.storage),
+                storage_prefix.clone(),
+            ));
 
         let res = log_reader.next_write_timestamp().await;
         if let Err(wal3::Error::UninitializedLog) = res {
@@ -704,25 +738,41 @@ impl LogServer {
         // TODO(rescrv):  Realistically we could make this configurable.
         const MAX_COLLECTION_INFO_NUMBER: usize = 10000;
         let mut selected_rollups = Vec::with_capacity(MAX_COLLECTION_INFO_NUMBER);
+        let mut needs_purge_dirty = 0;
         // Do a non-allocating pass here.
         {
             let need_to_compact = self.need_to_compact.lock();
             for (collection_id, rollup) in need_to_compact.iter() {
+                let time_on_log = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .expect("time never moves to before epoch")
+                    .as_micros()
+                    .saturating_sub(rollup.initial_insertion_epoch_us as u128);
                 if (rollup.limit_log_position >= rollup.start_log_position
                     && rollup.limit_log_position - rollup.start_log_position
                         >= request.min_compaction_size)
                     || rollup.reinsert_count >= self.config.reinsert_threshold
-                    || SystemTime::now()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .expect("time never moves to before epoch")
-                        .as_micros()
-                        .saturating_sub(rollup.initial_insertion_epoch_us as u128)
-                        >= self.config.timeout_us as u128
+                    || time_on_log >= self.config.timeout_us as u128
                 {
+                    if rollup.reinsert_count >= self.config.reinsert_threshold * 2
+                        && time_on_log >= self.config.timeout_us as u128 * 2
+                    {
+                        needs_purge_dirty += 1;
+                    }
                     selected_rollups.push((*collection_id, *rollup));
                 }
             }
         }
+        let ready_uncompacted: u64 = selected_rollups
+            .iter()
+            .map(|(_, x)| x.limit_log_position - x.start_log_position)
+            .sum();
+        self.metrics
+            .log_ready_uncompacted_records_count
+            .record(ready_uncompacted as f64, &[]);
+        self.metrics
+            .log_likely_needs_purge_dirty
+            .record(needs_purge_dirty as f64, &[]);
         // Then allocate the collection ID strings outside the lock.
         let mut all_collection_info = Vec::with_capacity(selected_rollups.len());
         for (collection_id, rollup) in selected_rollups.into_iter() {
@@ -1129,28 +1179,71 @@ impl LogServer {
         let collection_id = Uuid::parse_str(&scout_logs.collection_id)
             .map(CollectionUuid)
             .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
-
         let prefix = collection_id.storage_prefix_for_log();
         let log_reader = LogReader::new(
             self.config.reader.clone(),
             Arc::clone(&self.storage),
             prefix,
         );
-        let (start_position, limit_position) = match log_reader.manifest().await {
-            Ok(Some(manifest)) => (manifest.oldest_timestamp(), manifest.next_write_timestamp()),
-            Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
-            Err(wal3::Error::UninitializedLog) => {
-                return Err(Status::not_found(format!(
-                    "collection {collection_id} not found"
-                )));
+        let cache_key = cache_key_for_manifest_and_etag(collection_id);
+        let mut cached_manifest_and_e_tag = None;
+        if let Some(cache) = self.cache.as_ref() {
+            if let Some(cache_bytes) = cache.get(&cache_key).await.ok().flatten() {
+                let met = serde_json::from_slice::<ManifestAndETag>(&cache_bytes.bytes).ok();
+                cached_manifest_and_e_tag = met;
             }
-            Err(err) => {
-                return Err(Status::new(
-                    err.code().into(),
-                    format!("could not scout logs: {err:?}"),
-                ));
+        }
+        // NOTE(rescrv):  We verify and if verification fails, we take the cached manifest to fall
+        // back to the uncached path.
+        if let Some(cached) = cached_manifest_and_e_tag.as_ref() {
+            // Here's the linearization point.  We have a cached manifest and e_tag.
+            //
+            // If we verify (perform a head), then statistically speaking, the manifest and e_tag
+            // we have in hand is identical (barring md5 collision) to the manifest and e_tag on
+            // storage.  We can use the cached manifest and e_tag in this case because it is the
+            // identical flow whether we read the whole manifest from storage or whether we pretend
+            // to read it/verify it with a HEAD and then read out of cache.
+            if !log_reader.verify(cached).await.unwrap_or_default() {
+                cached_manifest_and_e_tag.take();
             }
-        };
+        }
+        let (start_position, limit_position) =
+            if let Some(manifest_and_e_tag) = cached_manifest_and_e_tag {
+                (
+                    manifest_and_e_tag.manifest.oldest_timestamp(),
+                    manifest_and_e_tag.manifest.next_write_timestamp(),
+                )
+            } else {
+                let (start_position, limit_position) = match log_reader.manifest_and_e_tag().await {
+                    Ok(Some(manifest_and_e_tag)) => {
+                        if let Some(cache) = self.cache.as_ref() {
+                            let json = serde_json::to_string(&manifest_and_e_tag)
+                                .map_err(|err| Status::unknown(err.to_string()))?;
+                            let cached_bytes = CachedBytes {
+                                bytes: Vec::from(json),
+                            };
+                            cache.insert(cache_key, cached_bytes).await;
+                        }
+                        (
+                            manifest_and_e_tag.manifest.oldest_timestamp(),
+                            manifest_and_e_tag.manifest.next_write_timestamp(),
+                        )
+                    }
+                    Ok(None) => (LogPosition::from_offset(1), LogPosition::from_offset(1)),
+                    Err(wal3::Error::UninitializedLog) => {
+                        return Err(Status::not_found(format!(
+                            "collection {collection_id} not found"
+                        )));
+                    }
+                    Err(err) => {
+                        return Err(Status::new(
+                            err.code().into(),
+                            format!("could not scout logs: {err:?}"),
+                        ));
+                    }
+                };
+                (start_position, limit_position)
+            };
         let start_offset = start_position.offset() as i64;
         let limit_offset = limit_position.offset() as i64;
         Ok(Response::new(ScoutLogsResponse {
@@ -1407,8 +1500,8 @@ impl LogServer {
         // Grab a lock on the state for this key, so that a racing initialize won't do anything.
         let key = LogKey { collection_id };
         let handle = self.open_logs.get_or_create_state(key);
-        let mut _active = handle.active.lock().await;
-        self._update_collection_log_offset(Request::new(request), false)
+        let active = handle.active.lock().await;
+        self._update_collection_log_offset(Request::new(request), active, false)
             .await
     }
 
@@ -1425,8 +1518,8 @@ impl LogServer {
         // Grab a lock on the state for this key, so that a racing initialize won't do anything.
         let key = LogKey { collection_id };
         let handle = self.open_logs.get_or_create_state(key);
-        let mut _active = handle.active.lock().await;
-        self._update_collection_log_offset(Request::new(request), true)
+        let active = handle.active.lock().await;
+        self._update_collection_log_offset(Request::new(request), active, true)
             .await
     }
 

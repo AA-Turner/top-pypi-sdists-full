@@ -211,7 +211,7 @@ class BOOLEAN_ANSWERS:
         self.help='\n'.join(self.help)
         self.timeout=5
         self.long_boot_time=90
-        self.timeout_msg=f"{Fore.light_yellow}SessionOnly({Fore.light_red}lb|longboot = timeout of 90s;{Fore.light_cyan}fb|fastboot = timeout of 0s;to|timeout=set custom timeout in sec.|fba|fastboot-auto=fast boot and return 'autoboot'){Style.reset}\n"
+        self.timeout_msg=f"{Fore.light_yellow}SessionOnly({Fore.light_red}lb|longboot = timeout of 90s;{Fore.light_cyan}fb|fastboot = timeout of 0s;to|timeout=set custom timeout in sec.a||fba|fastboot-auto=fast boot and return 'autoboot'){Style.reset}\n"
         self.math_operators={
         '+':None,
         '-':None,
@@ -346,7 +346,7 @@ str(uuid1()):{
                 user_input = timedout(f"Boot CMDS(timeout=autoboot from)",htext=htxt)
                 #user_input = inputimeout(prompt=f"{BooleanAnswers.timeout_msg}Boot CMDS({t} Seconds Passed=autoboot from {past.strftime("%I:%M:%S %p(12H)/%H:%M:%S(24H)")}):", timeout=t)
                 print(f"You entered: {user_input}")
-                if user_input in ['fb','fastboot','fba','fastboot-auto','timeout']:
+                if user_input in ['a','fb','fastboot','fba','fastboot-auto','timeout']:
                     BooleanAnswers.timeout=0
                     user_input="autoboot"
                 if user_input in ['longboot','lb']:

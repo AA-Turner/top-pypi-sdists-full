@@ -133,14 +133,23 @@ def ragged_dot(
 
       def acc_scope(acc_ref):
         plgpu.emit_pipeline(
-            lambda _, lhs_smem, rhs_smem: plgpu.wgmma(acc_ref, lhs_smem, rhs_smem),
+            lambda _, lhs_smem, rhs_smem: plgpu.wgmma(
+                acc_ref, lhs_smem, rhs_smem
+            ),
             grid=(k // block_k,),
             in_specs=[
-                plgpu.BlockSpec((block_m, block_k), lambda k: (group_info.block, k)),
-                plgpu.BlockSpec((block_k, block_n), lambda k: (k, ni)),
+                plgpu.BlockSpec(
+                    (block_m, block_k),
+                    lambda k: (group_info.block, k),
+                    delay_release=1,
+                ),
+                plgpu.BlockSpec(
+                    (block_k, block_n),
+                    lambda k: (k, ni),
+                    delay_release=1,
+                ),
             ],
             max_concurrent_steps=max_concurrent_steps,
-            delay_release=1,
         )(lhs_gmem, rhs_gmem.at[group_info.group_id])
         return acc_ref[...]
 
@@ -259,7 +268,7 @@ def main(unused_argv):
       continue
     try:
       f = functools.partial(ragged_dot, group_sizes=group_sizes, **kwargs)
-      _, runtime = profiler.measure(f, mode="cupti")(lhs, rhs)
+      _, runtime = profiler.measure(f)(lhs, rhs)
     except ValueError as e:
       if "Mosaic GPU kernel exceeds available shared memory" not in str(e):
         raise

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyOpenSSL
-Version: 25.2.0
+Version: 25.3.0
 Summary: Python wrapper module around the OpenSSL library
 Home-page: https://pyopenssl.org/
 Author: The pyOpenSSL developers
@@ -28,7 +28,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: cryptography<46,>=45.0.7
+Requires-Dist: cryptography<47,>=45.0.7
 Requires-Dist: typing-extensions>=4.9; python_version < "3.13" and python_version >= "3.8"
 Provides-Extra: test
 Requires-Dist: pytest-rerunfailures; extra == "test"
@@ -97,7 +97,7 @@ You can also join ``#pyca`` on ``irc.libera.chat`` to ask questions or get invol
 Release Information
 ===================
 
-25.3.0 (UNRELEASED)
+25.4.0 (UNRELEASED)
 -------------------
 
 Backward-incompatible changes:
@@ -108,6 +108,20 @@ Deprecations:
 
 Changes:
 ^^^^^^^^
+
+25.3.0 (2025-09-16)
+-------------------
+
+Backward-incompatible changes:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Changes:
+^^^^^^^^
+
+- Maximum supported ``cryptography`` version is now 46.x.
 
 
 25.2.0 (2025-09-14)

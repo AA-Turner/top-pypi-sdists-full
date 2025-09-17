@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.49
-Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
+Version: 2.6.52
+Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, MCP, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
 Author: Marcin Szczyglinski
@@ -78,6 +78,7 @@ Requires-Dist: llama-index-vector-stores-chroma (>=0.4.2,<0.5.0)
 Requires-Dist: llama-index-vector-stores-elasticsearch (==0.4.0)
 Requires-Dist: llama-index-vector-stores-pinecone (>=0.6.0,<0.7.0)
 Requires-Dist: llama-index-vector-stores-redis (>=0.4.0,<0.5.0)
+Requires-Dist: mcp (>=1.13.1,<2.0.0)
 Requires-Dist: mss (>=9.0.2,<10.0.0)
 Requires-Dist: nbconvert (>=7.16.6,<8.0.0)
 Requires-Dist: numpy (>=1.26.4,<2.0.0)
@@ -118,7 +119,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.49** | build: **2025-09-16** | Python: **>=3.10, <3.14**
+Release: **2.6.52** | build: **2025-09-17** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -167,6 +168,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 - Internet access via `DuckDuckGo`, `Google` and `Microsoft Bing`.
 - Speech synthesis via `Microsoft Azure`, `Google`, `Eleven Labs` and `OpenAI` Text-To-Speech services.
 - Speech recognition via `OpenAI Whisper`, `Google` and `Microsoft Speech Recognition`.
+- MCP support.
 - Real-time video camera capture in Vision mode.
 - Image analysis via `GPT-5` and `GPT-4o`.
 - Integrated calendar, day notes and search in contexts by selected date.
@@ -186,7 +188,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 - Fully configurable.
 - Themes support.
 - Real-time code syntax highlighting.
-- Plugins support with built-in plugins like `Files I/O`, `Code Interpreter`, `Web Search`, `Google`, `Facebook`, `X/Twitter`, `Slack`, `Telegram`, `GitHub`, and many more.
+- Plugins support with built-in plugins like `Files I/O`, `Code Interpreter`, `Web Search`, `Google`, `Facebook`, `X/Twitter`, `Slack`, `Telegram`, `GitHub`, `MCP`, and many more.
 - Built-in token usage calculation.
 - Possesses the potential to support future OpenAI models.
 - **Open source**; source code is available on `GitHub`.
@@ -1444,6 +1446,8 @@ The following plugins are currently available, and model can use them instantly:
 
 - `Mailer` - Provides the ability to send, receive and read emails.
 
+- `MCP` - Provides access to remote tools via the Model Context Protocol (MCP), including stdio, SSE, and Streamable HTTP transports, with per-server allow/deny filtering, Authorization header support, and a tools cache.
+
 - `Mouse and Keyboard` - provides the ability to control the mouse and keyboard by the model.
 
 - `Real Time` - automatically appends the current date and time to the system prompt, informing the model about current time.
@@ -1765,6 +1769,12 @@ Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#image-generat
 Enables the sending, receiving, and reading of emails from the inbox. Currently, only SMTP is supported. More options coming soon.
 
 Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#mailer
+
+## MCP (Model Context Protocol)
+
+With the `MCP` plugin, you can connect **PyGPT** to remote tools exposed by `Model Context Protocol` servers (stdio, Streamable HTTP, or SSE). The plugin discovers available tools on your configured servers and publishes them to the model as callable commands with proper parameter schemas. You can whitelist/blacklist tools per server and optionally cache discovery results for speed.
+
+Documentation: https://pygpt.readthedocs.io/en/latest/plugins.html#mcp
 
 ## Mouse And Keyboard
 
@@ -3611,6 +3621,22 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.52 (2025-09-17)**
+
+- Added MCP plugin: Provides access to remote tools via the Model Context Protocol (MCP), including stdio, SSE, and Streamable HTTP transports, with per-server allow/deny filtering, Authorization header support, and a tools cache.
+- Fixed: tab tooltips reload on profile switch.
+
+**2.6.51 (2025-09-16)**
+
+- Fix: Automatically reloading calendar notes.
+- Fix: Context menu CSS background color for calendar items.
+
+**2.6.50 (2025-09-16)**
+
+- Optimized: Improved memory cleanup when switching profiles and unloading tabs.
+- Fix: Resolved missing PID data in text output.
+- Fix: Enhanced real-time parsing of execute tags.
 
 **2.6.49 (2025-09-16)**
 

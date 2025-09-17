@@ -29,10 +29,10 @@ class CollisionFreeAlgorithm(BaseModel):
     """
     Configuration for collision-free path planning algorithms. Different algorithms may have different parameters and behavior. 
     """
-    # data type: MidpointInsertionAlgorithm
-    oneof_schema_1_validator: Optional[MidpointInsertionAlgorithm] = None
     # data type: RRTConnectAlgorithm
-    oneof_schema_2_validator: Optional[RRTConnectAlgorithm] = None
+    oneof_schema_1_validator: Optional[RRTConnectAlgorithm] = None
+    # data type: MidpointInsertionAlgorithm
+    oneof_schema_2_validator: Optional[MidpointInsertionAlgorithm] = None
     actual_instance: Optional[Union[MidpointInsertionAlgorithm, RRTConnectAlgorithm]] = None
     one_of_schemas: Set[str] = { "MidpointInsertionAlgorithm", "RRTConnectAlgorithm" }
 
@@ -60,14 +60,14 @@ class CollisionFreeAlgorithm(BaseModel):
         instance = CollisionFreeAlgorithm.model_construct()
         error_messages = []
         match = 0
-        # validate data type: MidpointInsertionAlgorithm
-        if not isinstance(v, MidpointInsertionAlgorithm):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `MidpointInsertionAlgorithm`")
-        else:
-            match += 1
         # validate data type: RRTConnectAlgorithm
         if not isinstance(v, RRTConnectAlgorithm):
             error_messages.append(f"Error! Input type `{type(v)}` is not `RRTConnectAlgorithm`")
+        else:
+            match += 1
+        # validate data type: MidpointInsertionAlgorithm
+        if not isinstance(v, MidpointInsertionAlgorithm):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `MidpointInsertionAlgorithm`")
         else:
             match += 1
         if match > 1:
@@ -105,15 +105,15 @@ class CollisionFreeAlgorithm(BaseModel):
             instance.actual_instance = RRTConnectAlgorithm.from_json(json_str)
             return instance
 
-        # deserialize data into MidpointInsertionAlgorithm
-        try:
-            instance.actual_instance = MidpointInsertionAlgorithm.from_json(json_str)
-            match += 1
-        except (ValidationError, ValueError) as e:
-            error_messages.append(str(e))
         # deserialize data into RRTConnectAlgorithm
         try:
             instance.actual_instance = RRTConnectAlgorithm.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into MidpointInsertionAlgorithm
+        try:
+            instance.actual_instance = MidpointInsertionAlgorithm.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))

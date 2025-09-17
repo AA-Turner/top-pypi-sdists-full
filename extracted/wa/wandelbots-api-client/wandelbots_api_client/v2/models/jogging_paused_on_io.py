@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class JoggingPausedOnIO(BaseModel):
     """
-    JoggingPausedOnIO
+    Jogging was paused because of an I/O event. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

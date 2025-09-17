@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyemoncms
-Version: 0.1.2
+Version: 0.1.3
 Summary: A python library to interrogate emoncms API
 Home-page: https://github.com/Open-Building-Management/pyemoncms
 Author: Alexandre CUER

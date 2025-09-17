@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
 from orionis.console.entities.scheduler_event_data import SchedulerEventData
 
 @dataclass(kw_only=True)
@@ -6,25 +7,21 @@ class SchedulerStarted(SchedulerEventData):
     """
     Represents the event data generated when the scheduler starts.
 
-    This data class extends `SchedulerEventData` and encapsulates information
-    about the scheduler's start event, such as the start time and the list of
-    tasks scheduled at that moment.
+    This data class extends `SchedulerEventData` and encapsulates information about the scheduler's
+    start event, such as the start time and the list of tasks scheduled at that moment.
 
-    Attributes
+    Parameters
     ----------
-    time : str
-        The time when the scheduler started.
-    tasks : list
+    time : str or datetime, optional
+        The time when the scheduler started. Can be a string or a `datetime` object.
+    tasks : list, optional
         The list of tasks that were scheduled at the time the scheduler started.
 
     Returns
     -------
     SchedulerStarted
-        An instance containing the scheduler start event data.
+        An instance of `SchedulerStarted` containing the scheduler start event data.
     """
 
-    # The time when the scheduler started
-    time: str = ""
-
-    # List of tasks scheduled at the time of start
-    tasks: list = field(default_factory=list)
+    # The time when the scheduler started; can be a string or datetime object
+    time: str | datetime = None

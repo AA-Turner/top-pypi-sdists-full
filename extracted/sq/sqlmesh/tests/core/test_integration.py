@@ -942,6 +942,26 @@ def test_forward_only_parent_created_in_dev_child_created_in_prod(
     context.apply(plan)
 
 
+@time_machine.travel("2023-01-08 15:00:00 UTC")
+def test_forward_only_view_migration(
+    init_and_plan_context: t.Callable,
+):
+    context, plan = init_and_plan_context("examples/sushi")
+    context.apply(plan)
+
+    model = context.get_model("sushi.top_waiters")
+    assert model.kind.is_view
+    model = add_projection_to_model(t.cast(SqlModel, model))
+    context.upsert_model(model)
+
+    # Apply a forward-only plan
+    context.plan("prod", skip_tests=True, no_prompts=True, auto_apply=True, forward_only=True)
+
+    # Make sure that the new column got reflected in the view schema
+    df = context.fetchdf("SELECT one FROM sushi.top_waiters LIMIT 1")
+    assert len(df) == 1
+
+
 @time_machine.travel("2023-01-08 00:00:00 UTC")
 def test_new_forward_only_model(init_and_plan_context: t.Callable):
     context, _ = init_and_plan_context("examples/sushi")
@@ -3116,7 +3136,32 @@ def test_virtual_environment_mode_dev_only_model_change_downstream_of_seed(
 
     # Make sure there's no error when applying the plan
     context.apply(plan)
-    context.plan("prod", auto_apply=True, no_prompts=True)
+
+
+@time_machine.travel("2023-01-08 15:00:00 UTC")
+def test_virtual_environment_mode_dev_only_model_change_standalone_audit(
+    init_and_plan_context: t.Callable,
+):
+    context, plan = init_and_plan_context(
+        "examples/sushi", config="test_config_virtual_environment_mode_dev_only"
+    )
+    context.apply(plan)
+
+    # Change a model upstream from a standalone audit
+    model = context.get_model("sushi.items")
+    model = model.copy(update={"stamp": "force new version"})
+    context.upsert_model(model)
+
+    plan = context.plan_builder("prod", skip_tests=True).build()
+
+    # Make sure the standalone audit is among modified
+    assert (
+        context.get_snapshot("assert_item_price_above_zero").snapshot_id
+        in plan.indirectly_modified[context.get_snapshot("sushi.items").snapshot_id]
+    )
+
+    # Make sure there's no error when applying the plan
+    context.apply(plan)
 
 
 @time_machine.travel("2023-01-08 15:00:00 UTC")

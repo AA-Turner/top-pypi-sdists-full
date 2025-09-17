@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.15.0
+Version: 3.16.0
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -31,7 +31,7 @@ Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10.0
 Requires-Dist: chardetng-py>=0.3.5
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
-Requires-Dist: html-to-markdown[lxml]>=1.11.0
+Requires-Dist: html-to-markdown[lxml]>=1.13.0
 Requires-Dist: mcp>=1.14.0
 Requires-Dist: msgspec>=0.18.0
 Requires-Dist: numpy>=2.0.0
@@ -109,7 +109,7 @@ Description-Content-Type: text/markdown
 - **Text Extraction**: High-fidelity text extraction preserving document structure and formatting
 - **Image Extraction**: Extract embedded images from PDFs, presentations, HTML, and Office documents with optional OCR
 - **Metadata Extraction**: Comprehensive metadata including author, creation date, language, and document properties
-- **Format Support**: 18 document types including PDF, Microsoft Office, images, HTML, and structured data formats
+- **Format Support**: 21 document types including PDF, Microsoft Office, images, HTML, and structured data formats
 - **OCR Integration**: Tesseract OCR with markdown output (default) and table extraction from scanned documents
 - **Document Classification**: Automatic document type detection (contracts, forms, invoices, receipts, reports)
 
@@ -227,14 +227,15 @@ claude mcp add kreuzberg uvx kreuzberg-mcp
 
 ## Supported Formats
 
-| Category          | Formats                        |
-| ----------------- | ------------------------------ |
-| **Documents**     | PDF, DOCX, DOC, RTF, TXT, EPUB |
-| **Images**        | JPG, PNG, TIFF, BMP, GIF, WEBP |
-| **Spreadsheets**  | XLSX, XLS, CSV, ODS            |
-| **Presentations** | PPTX, PPT, ODP                 |
-| **Web**           | HTML, XML, MHTML               |
-| **Archives**      | Support via extraction         |
+| Category            | Formats                        |
+| ------------------- | ------------------------------ |
+| **Documents**       | PDF, DOCX, DOC, RTF, TXT, EPUB |
+| **Images**          | JPG, PNG, TIFF, BMP, GIF, WEBP |
+| **Spreadsheets**    | XLSX, XLS, CSV, ODS            |
+| **Presentations**   | PPTX, PPT, ODP                 |
+| **Web**             | HTML, XML, MHTML               |
+| **Structured Data** | JSON, YAML, TOML               |
+| **Archives**        | Support via extraction         |
 
 ## 📊 Performance Characteristics
 

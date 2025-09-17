@@ -297,6 +297,8 @@ class SafeHelper:
         :return:
         :last_editors: HuangJianYi
         """
+        if not object_id:
+            return
         if not app_id:
             app_id = 'global'
         redis_config = self.get_redis_config()

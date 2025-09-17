@@ -15,12 +15,10 @@
 """Mosaic-specific Pallas APIs."""
 
 from jax._src.pallas.mosaic import core as core
-from jax._src.pallas.mosaic.core import ARBITRARY as ARBITRARY
 from jax._src.pallas.mosaic.core import create_tensorcore_mesh as create_tensorcore_mesh
 from jax._src.pallas.mosaic.core import dma_semaphore as dma_semaphore
 from jax._src.pallas.mosaic.core import GridDimensionSemantics as GridDimensionSemantics
 from jax._src.pallas.mosaic.core import KernelType as KernelType
-from jax._src.pallas.mosaic.core import PARALLEL as PARALLEL
 from jax._src.pallas.mosaic.core import PrefetchScalarGridSpec as PrefetchScalarGridSpec
 from jax._src.pallas.mosaic.core import SemaphoreType as SemaphoreType
 from jax._src.pallas.mosaic.core import MemorySpace as MemorySpace
@@ -51,6 +49,7 @@ from jax._src.pallas.mosaic.primitives import prng_seed as prng_seed
 from jax._src.pallas.mosaic.primitives import repeat as repeat
 from jax._src.pallas.mosaic.primitives import roll as roll
 from jax._src.pallas.mosaic.primitives import store as store
+from jax._src.pallas.mosaic.primitives import touch as touch
 from jax._src.pallas.mosaic.primitives import with_memory_space_constraint as with_memory_space_constraint
 from jax._src.pallas.mosaic.random import stateful_bernoulli as stateful_bernoulli
 from jax._src.pallas.mosaic.random import stateful_bits as stateful_bits
@@ -78,6 +77,11 @@ verification = types.SimpleNamespace(
 )
 del types, assume, pretend, skip, define_model  # Clean up.
 
+PARALLEL = GridDimensionSemantics.PARALLEL
+CORE_PARALLEL = GridDimensionSemantics.CORE_PARALLEL
+SUBCORE_PARALLEL = GridDimensionSemantics.SUBCORE_PARALLEL
+ARBITRARY = GridDimensionSemantics.ARBITRARY
+
 CMEM = MemorySpace.CMEM
 SMEM = MemorySpace.SMEM
 VMEM = MemorySpace.VMEM
@@ -88,35 +92,3 @@ SEMAPHORE = MemorySpace.SEMAPHORE
 # Expose ANY for backward compatibility.
 ANY = GeneralMemorySpace.ANY
 del GeneralMemorySpace
-
-import typing as _typing  # pylint: disable=g-import-not-at-top
-if _typing.TYPE_CHECKING:
-  TPUCompilerParams = CompilerParams
-  TPUMemorySpace = MemorySpace
-else:
-  from jax._src.deprecations import (
-      deprecation_getattr as _deprecation_getattr,
-      is_accelerated as is_accelerated,
-  )
-  if is_accelerated("jax-pallas-tpu-compiler-params"):
-    _deprecated_TPUCompilerParams = None
-  else:
-    _deprecated_TPUCompilerParams = CompilerParams
-  if is_accelerated("jax-pallas-tpu-memory-space"):
-    _deprecated_TPUMemorySpace = None
-  else:
-    _deprecated_TPUMemorySpace = MemorySpace
-  _deprecations = {
-      # Deprecated on May 30th 2025.
-      "TPUCompilerParams": (
-          "TPUCompilerParams is deprecated, use CompilerParams instead.",
-          _deprecated_TPUCompilerParams,
-      ),
-      "TPUMemorySpace": (
-          "TPUMemorySpace is deprecated, use MemorySpace instead.",
-          _deprecated_TPUMemorySpace,
-      ),
-  }
-  __getattr__ = _deprecation_getattr(__name__, _deprecations)
-  del _deprecation_getattr
-del _typing

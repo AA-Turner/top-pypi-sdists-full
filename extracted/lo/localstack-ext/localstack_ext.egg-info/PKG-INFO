@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack-ext
-Version: 4.8.0
+Version: 4.8.1
 Summary: Extensions for LocalStack
 Author-email: LocalStack Team <info@localstack.cloud>
 License-Expression: LicenseRef-All-Rights-Reserved
@@ -19,13 +19,14 @@ Requires-Dist: dnspython>=1.16.0
 Requires-Dist: packaging
 Requires-Dist: build
 Requires-Dist: plux>=1.10.0
-Requires-Dist: localstack-core==4.8.0
+Requires-Dist: localstack-core==4.8.1
 Requires-Dist: pyotp>=2.9.0
 Requires-Dist: PyJWT[crypto]>=1.7.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: python-dateutil>=2.8
 Requires-Dist: tabulate
-Requires-Dist: localstack-py-avro-schema>=3.9.0
+Requires-Dist: localstack-py-avro-schema>=3.9.1
+Requires-Dist: fastavro>=1.12.0
 Requires-Dist: windows-curses; platform_system == "Windows"
 Provides-Extra: runtime
 Requires-Dist: alembic>=1.16.0; extra == "runtime"
@@ -46,7 +47,7 @@ Requires-Dist: kafka-python; extra == "runtime"
 Requires-Dist: confluent-kafka; extra == "runtime"
 Requires-Dist: kubernetes>=21.7.0; extra == "runtime"
 Requires-Dist: libvirt-python; extra == "runtime"
-Requires-Dist: localstack-core[runtime]==4.8.0; extra == "runtime"
+Requires-Dist: localstack-core[runtime]==4.8.1; extra == "runtime"
 Requires-Dist: opentelemetry-api; extra == "runtime"
 Requires-Dist: opentelemetry-sdk; extra == "runtime"
 Requires-Dist: opentelemetry-propagator-aws-xray; extra == "runtime"
@@ -92,7 +93,7 @@ Requires-Dist: coverage[toml]>=5.0.0; extra == "test"
 Requires-Dist: deepdiff>=5.5.0; extra == "test"
 Requires-Dist: gremlinpython; extra == "test"
 Requires-Dist: jws>=0.1.3; extra == "test"
-Requires-Dist: localstack-core[test]==4.8.0; extra == "test"
+Requires-Dist: localstack-core[test]==4.8.1; extra == "test"
 Requires-Dist: msal; extra == "test"
 Requires-Dist: msal-extensions; extra == "test"
 Requires-Dist: msrest; extra == "test"

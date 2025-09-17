@@ -17,7 +17,6 @@
 from collections.abc import Callable, Sequence
 import enum
 from functools import partial
-import itertools
 from typing import cast, Union
 
 from jax._src.lib import mosaic_gpu_dialect as mgpu
@@ -93,11 +92,48 @@ def out_tmem_layouts(op: MlirOperation) -> Sequence[ir.Attribute]:
   return op.attributes["out_tmem_layouts"]  # type: ignore
 
 
+def should_have_in_tmem_layout(op: MlirOperation) -> bool:
+  """Returns 'true' if the operation operands should be assigned a TMEM layout."""
+  return any(
+      ir.MemRefType.isinstance(v.type) and utils.is_tmem_ref(v)
+      for v in op.operands
+  )
+
+
+def should_have_out_tmem_layout(op: MlirOperation) -> bool:
+  """Returns 'true' if the operation results should be assigned a TMEM layout."""
+  return any(
+      ir.MemRefType.isinstance(v.type) and utils.is_tmem_ref(v)
+      for v in op.results
+  )
+
+
+def should_have_tmem_layout(op: MlirOperation) -> bool:
+  """Returns 'true' if the operation should be assigned a TMEM layout."""
+  return should_have_in_tmem_layout(op) or should_have_out_tmem_layout(op)
+
+
+def has_in_tmem_layouts_set(op: MlirOperation) -> bool:
+  return "in_tmem_layouts" in op.attributes
+
+
+def has_out_tmem_layouts_set(op: MlirOperation) -> bool:
+  return "out_tmem_layouts" in op.attributes
+
+
+def should_have_in_layout(op: MlirOperation) -> bool:
+  """Returns 'true' if the operation operands should be assigned a layout."""
+  return any(ir.VectorType.isinstance(v.type) for v in op.operands)
+
+
+def should_have_out_layout(op: MlirOperation) -> bool:
+  """Returns 'true' if the operation results should be assigned a layout."""
+  return any(ir.VectorType.isinstance(v.type) for v in op.results)
+
+
 def should_have_layout(op: MlirOperation) -> bool:
   """Returns 'true' if the operation should be assigned a layout."""
-
-  is_array = lambda v: ir.VectorType.isinstance(v.type)
-  return any(map(is_array, itertools.chain(op.operands, op.results)))  # type: ignore
+  return should_have_in_layout(op) or should_have_out_layout(op)
 
 
 def has_in_layouts_set(op: MlirOperation) -> bool:
@@ -160,14 +196,21 @@ in_transforms_for_operand = partial(
     _in_attr_for_operand, attr_name="in_transforms"
 )
 
+
+def should_have_in_transforms(op: ir.OpView) -> bool:
+  """Returns 'True' if the operation should be assigned in transforms."""
+  return any(map(is_transformable_smem_memref, op.operands))
+
+
+def should_have_out_transforms(op: ir.OpView) -> bool:
+  """Returns 'True' if the operation should be assigned out transforms."""
+  return any(map(is_transformable_smem_memref, op.results))
+
+
 def should_have_transforms(op: ir.OpView) -> bool:
   """Returns 'True' if the operation should be assigned in/out transforms."""
-  return any(
-      map(
-          is_transformable_smem_memref,
-          itertools.chain(op.operands, op.results),
-      )
-  )
+  return should_have_in_transforms(op) or should_have_out_transforms(op)
+
 
 def is_transformable_smem_memref(v: ir.Value) -> bool:
   """Whether the value is a memref in SMEM on which transforms should be applied."""
@@ -251,12 +294,15 @@ def traverse_op(
     callback: Callable[[ir.OpView], None],
     traversal_order: TraversalOrder = TraversalOrder.FORWARD,
     do_not_recurse_into_ops: tuple[type, ...] = (mgpu.CustomPrimitiveOp,),
+    pre_order: bool = False,
 ):
   """Traverses the operation and applies the callback in the given order.
 
   If do_not_recurse_into_ops is provided, the callback will be executed on these
   ops, but any regions they might have will not be traversed.
   """
+  if pre_order:
+    callback(op)
   if not isinstance(op, do_not_recurse_into_ops):
     # The block of a mosaic_gpu.custom_primitive op is already lowered so it
     # should not be traversed.
@@ -270,4 +316,5 @@ def traverse_op(
           traverse_op(
               block_op, callback, traversal_order, do_not_recurse_into_ops
           )
-  callback(op)
+  if not pre_order:
+    callback(op)

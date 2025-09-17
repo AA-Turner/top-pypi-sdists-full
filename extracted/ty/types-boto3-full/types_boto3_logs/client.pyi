@@ -599,8 +599,8 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[DescribeFieldIndexesRequestTypeDef]
     ) -> DescribeFieldIndexesResponseTypeDef:
         """
-        Returns a list of field indexes listed in the field index policies of one or
-        more log groups.
+        Returns a list of custom and default field indexes which are discovered in log
+        data.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_field_indexes.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#describe_field_indexes)
@@ -610,7 +610,7 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[DescribeIndexPoliciesRequestTypeDef]
     ) -> DescribeIndexPoliciesResponseTypeDef:
         """
-        Returns the field index policies of one or more log groups.
+        Returns the field index policies of the specified log group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_index_policies.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#describe_index_policies)

@@ -1,9 +1,10 @@
 from typing import Any, Callable
 from orionis.console.args.argument import CLIArgument
+from orionis.console.contracts.command import ICommand
 from orionis.console.entities.command import Command as CommandEntity
 from orionis.services.introspection.concretes.reflection import ReflectionConcrete
 
-class Command:
+class Command(ICommand):
 
     def __init__(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypi-timemachine
-Version: 0.3
+Version: 0.3.1
 Summary: Run a PyPI server from the past
 Author-email: Thomas Robitaille <thomas.robitaille@gmail.com>
 Project-URL: Homepage, https://github.com/astrofrog/pypi-timemachine
@@ -10,8 +10,8 @@ License-File: LICENSE
 Requires-Dist: click
 Requires-Dist: fastapi
 Requires-Dist: httpx
-Requires-Dist: simple-repository>=0.8.2
-Requires-Dist: simple-repository-server>=0.8.1
+Requires-Dist: simple-repository>=0.10.0
+Requires-Dist: simple-repository-server>=0.8.2
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Dynamic: license-file

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: grpcio-admin
-Version: 1.74.0
+Version: 1.75.0
 Summary: a collection of admin services
 Home-page: https://grpc.io
 Author: The gRPC Authors
@@ -12,8 +12,8 @@ Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: grpcio-channelz>=1.74.0
-Requires-Dist: grpcio-csds>=1.74.0
+Requires-Dist: grpcio-channelz>=1.75.0
+Requires-Dist: grpcio-csds>=1.75.0
 
 gRPC Python Admin Interface Package
 ===================================

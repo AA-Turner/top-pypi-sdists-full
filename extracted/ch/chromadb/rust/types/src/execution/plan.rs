@@ -4,7 +4,7 @@ use super::{
         Filter, KnnBatch, KnnProjection, Limit, Projection, Rank, Scan, ScanToProtoError, Select,
     },
 };
-use crate::chroma_proto;
+use crate::{chroma_proto, validators::validate_rank};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use utoipa::{
@@ -149,6 +149,8 @@ impl TryFrom<Knn> for chroma_proto::KnnPlan {
 pub struct SearchPayload {
     #[serde(default)]
     pub filter: Filter,
+    #[serde(default)]
+    #[validate(custom(function = "validate_rank"))]
     pub rank: Rank,
     #[serde(default)]
     pub limit: Limit,
@@ -161,12 +163,10 @@ impl PartialSchema for SearchPayload {
         RefOr::T(Schema::Object(
             ObjectBuilder::new()
                 .schema_type(SchemaType::Type(Type::Object))
-                .description(Some("Payload for hybrid search"))
                 .property(
                     "filter",
                     ObjectBuilder::new()
                         .schema_type(SchemaType::Type(Type::Object))
-                        .description(Some("Filter criteria for search"))
                         .property(
                             "query_ids",
                             ArrayBuilder::new()
@@ -177,38 +177,24 @@ impl PartialSchema for SearchPayload {
                             Object::with_type(SchemaType::Type(Type::Object)),
                         ),
                 )
-                .property(
-                    "rank",
-                    ObjectBuilder::new()
-                        .schema_type(SchemaType::Type(Type::Object))
-                        .description(Some("Ranking expression for hybrid search"))
-                        .additional_properties(Some(Schema::Object(Object::with_type(
-                            SchemaType::Type(Type::Object),
-                        )))),
-                )
+                .property("rank", Object::with_type(SchemaType::Type(Type::Object)))
                 .property(
                     "limit",
                     ObjectBuilder::new()
                         .schema_type(SchemaType::Type(Type::Object))
-                        .property("skip", Object::with_type(SchemaType::Type(Type::Integer)))
-                        .property("fetch", Object::with_type(SchemaType::Type(Type::Integer)))
-                        .required("skip"),
+                        .property("offset", Object::with_type(SchemaType::Type(Type::Integer)))
+                        .property("limit", Object::with_type(SchemaType::Type(Type::Integer))),
                 )
                 .property(
                     "select",
                     ObjectBuilder::new()
                         .schema_type(SchemaType::Type(Type::Object))
                         .property(
-                            "fields",
+                            "keys",
                             ArrayBuilder::new()
                                 .items(Object::with_type(SchemaType::Type(Type::String))),
-                        )
-                        .required("fields"),
+                        ),
                 )
-                .required("filter")
-                .required("rank")
-                .required("limit")
-                .required("select")
                 .build(),
         ))
     }

@@ -46,6 +46,8 @@ class Arguments(argparse.Namespace):
     local: bool
     headers: dict[str, str]
     webui_links: bool
+    alignment: Literal["center", "left", "right"]
+    use_panel: bool
 
 
 class KwargsAppendAction(argparse.Action):
@@ -74,7 +76,7 @@ class PositionalOnlyHelpFormatter(argparse.HelpFormatter):
         self,
         usage: Optional[str],
         actions: Iterable[argparse.Action],
-        groups: Iterable[argparse._MutuallyExclusiveGroup],
+        groups: Iterable[argparse._MutuallyExclusiveGroup],  # pyright: ignore[reportPrivateUsage]
         prefix: Optional[str],
     ) -> str:
         # filter only positional arguments
@@ -242,6 +244,19 @@ def get_parser() -> argparse.ArgumentParser:
         default=False,
         help="Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)",
     )
+    parser.add_argument(
+        "--alignment",
+        dest="alignment",
+        choices=["center", "left", "right"],
+        default="center",
+        help="Alignment for block-level images and formulas (default: 'center').",
+    )
+    parser.add_argument(
+        "--use-panel",
+        action="store_true",
+        default=False,
+        help="Transform admonitions and alerts into a Confluence custom panel.",
+    )
     return parser
 
 
@@ -275,6 +290,8 @@ def main() -> None:
         render_latex=args.render_latex,
         diagram_output_format=args.diagram_output_format,
         webui_links=args.webui_links,
+        alignment=args.alignment,
+        use_panel=args.use_panel,
     )
     if args.local:
         from .local import LocalConverter

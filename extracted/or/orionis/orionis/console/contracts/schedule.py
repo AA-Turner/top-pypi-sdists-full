@@ -80,7 +80,7 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
-    def pauseEverythingAt(
+    def pause(
         self,
         at: datetime
     ) -> None:
@@ -111,7 +111,7 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
-    def resumeEverythingAt(
+    def resume(
         self,
         at: datetime
     ) -> None:
@@ -132,37 +132,6 @@ class ISchedule(ABC):
         -------
         None
             This method does not return any value. It schedules a job to resume the
-            scheduler at the specified datetime.
-
-        Raises
-        ------
-        ValueError
-            If the 'at' parameter is not a valid datetime object.
-        """
-        pass
-
-    @abstractmethod
-    def shutdownEverythingAt(
-        self,
-        at: datetime
-    ) -> None:
-        """
-        Schedule the scheduler to shut down all operations at a specific datetime.
-
-        This method allows you to schedule a job that will shut down the AsyncIOScheduler
-        at the specified datetime. The job is added to the scheduler with a 'date'
-        trigger, ensuring it executes exactly at the given time.
-
-        Parameters
-        ----------
-        at : datetime
-            The datetime at which the scheduler should be shut down. Must be a valid
-            datetime object.
-
-        Returns
-        -------
-        None
-            This method does not return any value. It schedules a job to shut down the
             scheduler at the specified datetime.
 
         Raises
@@ -323,57 +292,6 @@ class ISchedule(ABC):
                 - 'start_date': str or None, the formatted start date and time of the job, or None if not set.
                 - 'end_date': str or None, the formatted end date and time of the job, or None if not set.
                 - 'details': any, additional details about the job.
-        """
-        pass
-
-    @abstractmethod
-    def cancelScheduledPause(self) -> bool:
-        """
-        Cancel a previously scheduled pause operation.
-
-        This method attempts to remove a job from the scheduler that was set to pause
-        the scheduler at a specific time. If the job exists, it is removed, and a log entry
-        is created to indicate the cancellation. If no such job exists, the method returns False.
-
-        Returns
-        -------
-        bool
-            True if the scheduled pause job was successfully cancelled.
-            False if no pause job was found or an error occurred during the cancellation process.
-        """
-        pass
-
-    @abstractmethod
-    def cancelScheduledResume(self) -> bool:
-        """
-        Cancel a previously scheduled resume operation.
-
-        This method attempts to remove a job from the scheduler that was set to resume
-        the scheduler at a specific time. If the job exists, it is removed, and a log entry
-        is created to indicate the cancellation. If no such job exists, the method returns False.
-
-        Returns
-        -------
-        bool
-            True if the scheduled resume job was successfully cancelled.
-            False if no resume job was found or an error occurred during the cancellation process.
-        """
-        pass
-
-    @abstractmethod
-    def cancelScheduledShutdown(self) -> bool:
-        """
-        Cancel a previously scheduled shutdown operation.
-
-        This method attempts to remove a job from the scheduler that was set to shut down
-        the scheduler at a specific time. If the job exists, it is removed, and a log entry
-        is created to indicate the cancellation. If no such job exists, the method returns False.
-
-        Returns
-        -------
-        bool
-            True if the scheduled shutdown job was successfully cancelled.
-            False if no shutdown job was found or an error occurred during the cancellation process.
         """
         pass
 

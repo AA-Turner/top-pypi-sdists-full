@@ -30,7 +30,6 @@ from jax._src import callback
 from jax._src import config
 from jax._src import core as jax_core
 from jax._src import frozen_dict
-from jax._src.lax.control_flow import for_loop
 from jax._src import linear_util as lu
 from jax._src import source_info_util
 from jax._src.interpreters import mlir
@@ -990,11 +989,14 @@ def get(
     memory_space,
     buffer_id,
     transforms,
+    block_indices=None,
+    grid_loop_idx=None,
     *,
     src_device_id=None,
     src_local_core_id=None,
     clock=None,
     source_info=None,
+    input_name=None,
 ):
   device_id = int(device_id)
   local_core_id = int(local_core_id)
@@ -1006,6 +1008,9 @@ def get(
     raise ValueError('Advanced indexers are not supported on TPU')
   src_device_id = _to_int(src_device_id)
   src_local_core_id = _to_int(src_local_core_id)
+  if input_name is not None:
+    block_indices = tuple(int(x) for x in block_indices)
+    grid_loop_idx = tuple(int(x) for x in tuple(grid_loop_idx))
 
   local_core_id_for_buffer = 0 if memory_space == 'any' else local_core_id
   global_core_id = _get_global_core_id(device_id, local_core_id)
@@ -1051,11 +1056,20 @@ def get(
               traceback=source_info.traceback, name_stack=source_info.name_stack
           )
         with ctx:
-          raise IndexError(
-              'Out-of-bounds read of'
-              f' ({device_id} {local_core_id} {memory_space} {buffer_id}):'
-              f' reading [{read_range}] but buffer has shape {buffer.shape}.'
-          )
+          if input_name is None:
+            raise IndexError(
+                'Out-of-bounds read of'
+                f' ({device_id} {local_core_id} {memory_space} {buffer_id}):'
+                f' reading [{read_range}] but buffer has shape {buffer.shape}.'
+            )
+          else:
+            # Different error message when we are reading a block of an input,
+            # to copy it to a buffer before invoking the kernel body.
+            raise IndexError(
+              f'Out-of-bounds block index {block_indices} for'
+              f' input "{input_name}" in iteration {grid_loop_idx}'
+              f' on device {device_id} (core {local_core_id}):'
+              f' reading [{read_range}] but input has shape {buffer.shape}.')
       # out_of_bounds_reads == "uninitialized"
       uninit_array = np.full(
           full_read_shape,
@@ -1648,9 +1662,6 @@ def _interpret_jaxpr(
                 eqn.params['body_jaxpr'].jaxpr, *body_consts, *args),
             init_vals)
 
-      elif prim is for_loop.for_p:
-        raise NotImplementedError('for_p')
-
       elif prim is pjit.jit_p:
         def f(*args, jaxpr):
           return _interpret(jaxpr.jaxpr, *jaxpr.consts, *args)
@@ -1832,8 +1843,10 @@ def _interpret_jaxpr(
         out = []
 
       elif prim is primitives.semaphore_wait_p:
-        sem, sem_transforms, value = (
+        sem, sem_transforms, value, decrement = (
             jax.tree.unflatten(eqn.params['args_tree'], deferred_invals()))
+        if not decrement:
+          raise NotImplementedError('Non-decrementing wait is not supported.')
         callback.io_callback(
             semaphore_wait,
             (),
@@ -1905,7 +1918,7 @@ def _compute_start_indices(
       ),
       dtype=jnp.int32,
   )
-  return ret
+  return block_indices, ret
 
 def _get_next_indices(grid, indices):
   next_indices = []
@@ -2422,11 +2435,13 @@ def interpret_pallas_call(
             jnp.ndarray,
             list[jnp.ndarray],
             list[jnp.ndarray],
+            list[jnp.ndarray],
         ],
     ) -> tuple[
         jnp.int32,
         tuple[jnp.int32, ...],
         jnp.ndarray,
+        list[jnp.ndarray],
         list[jnp.ndarray],
         list[jnp.ndarray],
     ]:
@@ -2460,6 +2475,7 @@ def interpret_pallas_call(
           loop_idx,
           grid_point,
           prev_start_indices,
+          cur_block_indices,
           cur_start_indices,
       ) = carry
       if interpret_params.grid_point_recorder is not None:
@@ -2475,7 +2491,7 @@ def interpret_pallas_call(
         next_grid_point = _get_grid_point(
             next_loop_idx, randomized_grid_coordinates
         )
-        next_start_indices = [
+        next_block_indices, next_start_indices = zip(*[
             _compute_start_indices(
                 bm,
                 next_grid_point,
@@ -2489,7 +2505,12 @@ def interpret_pallas_call(
                 interpret_params=interpret_params,
             )
             for bm in grid_mapping.block_mappings
-        ]
+        ])
+        if jaxpr.debug_info.arg_names is not None:
+          input_names = jaxpr.debug_info.arg_names[grid_mapping.slice_block_ops]
+        else:
+          input_names = (
+            ("unknown",) * (grid_mapping.num_inputs + grid_mapping.num_outputs))
 
         # Copy slices of the input to the kernel buffers.
         def _store_slice_to_kernel_input(index, input_var):
@@ -2511,13 +2532,15 @@ def interpret_pallas_call(
           sliced_val = callback.io_callback(
               # TODO(jburnim): Pass source_info from the pallas_call, in case this
               # read is involved in a data race.
-              get,
+              functools.partial(get, input_name=input_names[index]),
               jax.ShapeDtypeStruct(input_var.aval.shape, input_var.aval.dtype),
               device_id,
               core_index,
               TPU_MEMORY_SPACE_IDXS[mosaic_core.MemorySpace.ANY],
               input_buffer_ids[index],
               (transform,),
+              cur_block_indices[index],
+              grid_point,
               ordered=True,
           )
           callback.io_callback(
@@ -2638,6 +2661,7 @@ def interpret_pallas_call(
             next_loop_idx,
             next_grid_point,
             cur_start_indices,
+            next_block_indices,
             next_start_indices,
         )
 
@@ -2645,7 +2669,7 @@ def interpret_pallas_call(
     initial_grid_point = _get_grid_point(
       initial_loop_idx, randomized_grid_coordinates)
     with pallas_core.grid_env(_get_local_grid_env(initial_grid_point)):
-      initial_start_indices = [
+      initial_block_indices, initial_start_indices = zip(*[
           _compute_start_indices(
               bm,
               initial_grid_point,
@@ -2659,7 +2683,7 @@ def interpret_pallas_call(
               interpret_params=interpret_params,
           )
           for bm in grid_mapping.block_mappings
-      ]
+      ])
 
     _ = lax.while_loop(
         lambda carry: carry[0] < loop_bound,
@@ -2669,6 +2693,7 @@ def interpret_pallas_call(
             initial_loop_idx,
             initial_grid_point,
             initial_start_indices,  # Previous start indices are ignored on the first iteration.
+            initial_block_indices,
             initial_start_indices,
         ),
     )

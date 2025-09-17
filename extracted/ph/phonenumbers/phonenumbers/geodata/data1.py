@@ -9387,6 +9387,7 @@ data = {
  '1682647':{'en': 'Fort Worth, TX'},
  '1682885':{'en': 'Fort Worth, TX'},
  '1683':{'en': 'Ontario'},
+ '1686':{'en': 'Virginia'},
  '1689':{'en': 'Florida'},
  '1701':{'en': 'North Dakota'},
  '1701221':{'en': 'Bismarck, ND'},
@@ -10018,5 +10019,4 @@ data = {
  '1705357':{'en': 'Sunderland, ON'},
  '1705360':{'en': 'Timmins, ON'},
  '1705362':{'en': 'Hearst, ON'},
- '1705368':{'en': 'Little Current, ON'},
 }

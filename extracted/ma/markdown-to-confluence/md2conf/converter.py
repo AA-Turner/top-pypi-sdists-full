@@ -39,6 +39,8 @@ from .toc import TableOfContentsBuilder
 from .uri import is_absolute_url, to_uuid_urn
 from .xml import element_to_text
 
+ElementType = ET._Element  # pyright: ignore [reportPrivateUsage]
+
 
 def get_volatile_attributes() -> list[str]:
     "Returns a list of volatile attributes that frequently change as a Confluence storage format XHTML document is updated."
@@ -180,7 +182,7 @@ _LANGUAGES = {
 
 
 class NodeVisitor(ABC):
-    def visit(self, node: ET._Element) -> None:
+    def visit(self, node: ElementType) -> None:
         "Recursively visits all descendants of this node."
 
         if len(node) < 1:
@@ -200,7 +202,7 @@ class NodeVisitor(ABC):
                 self.visit(source)
 
     @abstractmethod
-    def transform(self, child: ET._Element) -> Optional[ET._Element]: ...
+    def transform(self, child: ElementType) -> Optional[ElementType]: ...
 
 
 def title_to_identifier(title: str) -> str:
@@ -212,7 +214,7 @@ def title_to_identifier(title: str) -> str:
     return s
 
 
-def element_text_starts_with_any(node: ET._Element, prefixes: list[str]) -> bool:
+def element_text_starts_with_any(node: ElementType, prefixes: list[str]) -> bool:
     "True if the text contained in an element starts with any of the specified prefix strings."
 
     if node.text is None:
@@ -220,7 +222,7 @@ def element_text_starts_with_any(node: ET._Element, prefixes: list[str]) -> bool
     return starts_with_any(node.text, prefixes)
 
 
-def is_placeholder_for(node: ET._Element, name: str) -> bool:
+def is_placeholder_for(node: ElementType, name: str) -> bool:
     """
     Identifies a Confluence widget placeholder, e.g. `[[_TOC_]]` or `[[_LISTING_]]`.
 
@@ -247,6 +249,15 @@ class FormattingContext(enum.Enum):
     INLINE = "inline"
 
 
+@enum.unique
+class ImageAlignment(enum.Enum):
+    "Determines whether to align block-level images to center, left or right."
+
+    CENTER = "center"
+    LEFT = "left"
+    RIGHT = "right"
+
+
 @dataclass
 class ImageAttributes:
     """
@@ -258,6 +269,7 @@ class ImageAttributes:
     :param alt: Alternate text.
     :param title: Title text (a.k.a. image tooltip).
     :param caption: Caption text (shown below figure).
+    :param alignment: Alignment for block-level images.
     """
 
     context: FormattingContext
@@ -266,6 +278,7 @@ class ImageAttributes:
     alt: Optional[str]
     title: Optional[str]
     caption: Optional[str]
+    alignment: ImageAlignment = ImageAlignment.CENTER
 
     def __post_init__(self) -> None:
         if self.caption is None and self.context is FormattingContext.BLOCK:
@@ -274,8 +287,16 @@ class ImageAttributes:
     def as_dict(self) -> dict[str, str]:
         attributes: dict[str, str] = {}
         if self.context is FormattingContext.BLOCK:
-            attributes[AC_ATTR("align")] = "center"
-            attributes[AC_ATTR("layout")] = "center"
+            if self.alignment is ImageAlignment.LEFT:
+                attributes[AC_ATTR("align")] = "left"
+                attributes[AC_ATTR("layout")] = "align-start"
+            elif self.alignment is ImageAlignment.RIGHT:
+                attributes[AC_ATTR("align")] = "right"
+                attributes[AC_ATTR("layout")] = "align-end"
+            else:
+                attributes[AC_ATTR("align")] = "center"
+                attributes[AC_ATTR("layout")] = "center"
+
             if self.width is not None:
                 attributes[AC_ATTR("original-width")] = str(self.width)
             if self.height is not None:
@@ -311,8 +332,12 @@ class ImageAttributes:
             raise NotImplementedError("match not exhaustive for enumeration")
 
 
-ImageAttributes.EMPTY_BLOCK = ImageAttributes(FormattingContext.BLOCK, None, None, None, None, None)
-ImageAttributes.EMPTY_INLINE = ImageAttributes(FormattingContext.INLINE, None, None, None, None, None)
+ImageAttributes.EMPTY_BLOCK = ImageAttributes(
+    FormattingContext.BLOCK, width=None, height=None, alt=None, title=None, caption=None, alignment=ImageAlignment.CENTER
+)
+ImageAttributes.EMPTY_INLINE = ImageAttributes(
+    FormattingContext.INLINE, width=None, height=None, alt=None, title=None, caption=None, alignment=ImageAlignment.CENTER
+)
 
 
 @dataclass
@@ -330,6 +355,8 @@ class ConfluenceConverterOptions:
     :param render_latex: Whether to pre-render LaTeX formulas into PNG/SVG images.
     :param diagram_output_format: Target image format for diagrams.
     :param webui_links: When true, convert relative URLs to Confluence Web UI links.
+    :param alignment: Alignment for block-level images and formulas.
+    :param use_panel: Whether to transform admonitions and alerts into a Confluence custom panel.
     """
 
     ignore_invalid_url: bool = False
@@ -340,6 +367,8 @@ class ConfluenceConverterOptions:
     render_latex: bool = False
     diagram_output_format: Literal["png", "svg"] = "png"
     webui_links: bool = False
+    alignment: Literal["center", "left", "right"] = "center"
+    use_panel: bool = False
 
 
 @dataclass
@@ -352,6 +381,43 @@ class ImageData:
 class EmbeddedFileData:
     data: bytes
     description: Optional[str] = None
+
+
+@dataclass
+class ConfluencePanel:
+    emoji: str
+    emoji_shortname: str
+    background_color: str
+    from_class: ClassVar[dict[str, "ConfluencePanel"]]
+
+    def __init__(self, emoji: str, emoji_shortname: str, background_color: str) -> None:
+        self.emoji = emoji
+        self.emoji_shortname = emoji_shortname
+        self.background_color = background_color
+
+    @property
+    def emoji_unicode(self) -> str:
+        return "-".join(f"{ord(ch):x}" for ch in self.emoji)
+
+    @property
+    def emoji_html(self) -> str:
+        return "".join(f"&#{ord(ch)};" for ch in self.emoji)
+
+
+ConfluencePanel.from_class = {
+    "attention": ConfluencePanel("❗", "exclamation", "#F9F9F9"),  # rST admonition
+    "caution": ConfluencePanel("❌", "x", "#FFEBE9"),
+    "danger": ConfluencePanel("☠️", "skull_crossbones", "#FFE5E5"),  # rST admonition
+    "disclaimer": ConfluencePanel("❗", "exclamation", "#F9F9F9"),  # GitLab
+    "error": ConfluencePanel("❌", "x", "#FFEBE9"),  # rST admonition
+    "flag": ConfluencePanel("🚩", "triangular_flag_on_post", "#FDECEA"),  # GitLab
+    "hint": ConfluencePanel("💡", "bulb", "#DAFBE1"),  # rST admonition
+    "info": ConfluencePanel("ℹ️", "information_source", "#DDF4FF"),
+    "note": ConfluencePanel("📝", "pencil", "#DDF4FF"),
+    "tip": ConfluencePanel("💡", "bulb", "#DAFBE1"),
+    "important": ConfluencePanel("❗", "exclamation", "#FBEFFF"),
+    "warning": ConfluencePanel("⚠️", "warning", "#FFF8C5"),
+}
 
 
 class ConfluenceStorageFormatConverter(NodeVisitor):
@@ -392,7 +458,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         self.site_metadata = site_metadata
         self.page_metadata = page_metadata
 
-    def _transform_heading(self, heading: ET._Element) -> None:
+    def _transform_heading(self, heading: ElementType) -> None:
         """
         Adds anchors to headings in the same document (if *heading anchors* is enabled).
 
@@ -428,7 +494,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         anchor.tail = heading.text
         heading.text = None
 
-    def _anchor_warn_or_raise(self, anchor: ET._Element, msg: str) -> None:
+    def _anchor_warn_or_raise(self, anchor: ElementType, msg: str) -> None:
         "Emit a warning or raise an exception when a path points to a resource that doesn't exist or is outside of the permitted hierarchy."
 
         if self.options.ignore_invalid_url:
@@ -440,7 +506,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         else:
             raise DocumentError(msg)
 
-    def _transform_link(self, anchor: ET._Element) -> Optional[ET._Element]:
+    def _transform_link(self, anchor: ElementType) -> Optional[ElementType]:
         """
         Transforms links (HTML anchor `<a>`).
 
@@ -493,7 +559,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         else:
             return self._transform_attachment_link(anchor, absolute_path)
 
-    def _transform_page_link(self, anchor: ET._Element, relative_url: ParseResult, absolute_path: Path) -> Optional[ET._Element]:
+    def _transform_page_link(self, anchor: ElementType, relative_url: ParseResult, absolute_path: Path) -> Optional[ElementType]:
         """
         Transforms links to other Markdown documents (Confluence pages).
         """
@@ -530,7 +596,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         anchor.set("href", transformed_url.geturl())
         return None
 
-    def _transform_attachment_link(self, anchor: ET._Element, absolute_path: Path) -> Optional[ET._Element]:
+    def _transform_attachment_link(self, anchor: ElementType, absolute_path: Path) -> Optional[ElementType]:
         """
         Transforms links to document binaries such as PDF, DOCX or XLSX.
         """
@@ -552,7 +618,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         )
         return link_wrapper
 
-    def _transform_status(self, color: str, caption: str) -> ET._Element:
+    def _transform_status(self, color: str, caption: str) -> ElementType:
         macro_id = str(uuid.uuid4())
         attributes = {
             AC_ATTR("name"): "status",
@@ -585,7 +651,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 ),
             )
 
-    def _transform_image(self, context: FormattingContext, image: ET._Element) -> ET._Element:
+    def _transform_image(self, context: FormattingContext, image: ElementType) -> ElementType:
         "Inserts an attached or external image."
 
         src = image.get("src")
@@ -601,7 +667,9 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         height = image.get("height")
         pixel_width = int(width) if width is not None and width.isdecimal() else None
         pixel_height = int(height) if height is not None and height.isdecimal() else None
-        attrs = ImageAttributes(context, pixel_width, pixel_height, alt, title, None)
+        attrs = ImageAttributes(
+            context, width=pixel_width, height=pixel_height, alt=alt, title=title, caption=None, alignment=ImageAlignment(self.options.alignment)
+        )
 
         if is_absolute_url(src):
             return self._transform_external_image(src, attrs)
@@ -621,10 +689,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             else:
                 return self._transform_attached_image(absolute_path, attrs)
 
-    def _transform_external_image(self, url: str, attrs: ImageAttributes) -> ET._Element:
+    def _transform_external_image(self, url: str, attrs: ImageAttributes) -> ElementType:
         "Emits Confluence Storage Format XHTML for an external image."
 
-        elements: list[ET._Element] = []
+        elements: list[ElementType] = []
         elements.append(
             RI_ELEM(
                 "url",
@@ -661,7 +729,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         return absolute_path
 
-    def _transform_attached_image(self, absolute_path: Path, attrs: ImageAttributes) -> ET._Element:
+    def _transform_attached_image(self, absolute_path: Path, attrs: ImageAttributes) -> ElementType:
         "Emits Confluence Storage Format XHTML for an attached raster or vector image."
 
         if self.options.prefer_raster and absolute_path.suffix == ".svg":
@@ -674,7 +742,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         image_name = attachment_name(path_relative_to(absolute_path, self.base_dir))
         return self._create_attached_image(image_name, attrs)
 
-    def _transform_drawio(self, absolute_path: Path, attrs: ImageAttributes) -> ET._Element:
+    def _transform_drawio(self, absolute_path: Path, attrs: ImageAttributes) -> ElementType:
         "Emits Confluence Storage Format XHTML for a draw.io diagram."
 
         if not absolute_path.name.endswith(".drawio.xml") and not absolute_path.name.endswith(".drawio"):
@@ -691,7 +759,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             image_filename = attachment_name(relative_path)
             return self._create_drawio(image_filename, attrs)
 
-    def _transform_drawio_image(self, absolute_path: Path, attrs: ImageAttributes) -> ET._Element:
+    def _transform_drawio_image(self, absolute_path: Path, attrs: ImageAttributes) -> ElementType:
         "Emits Confluence Storage Format XHTML for a draw.io diagram embedded in a PNG or SVG image."
 
         if not absolute_path.name.endswith(".drawio.png") and not absolute_path.name.endswith(".drawio.svg"):
@@ -707,10 +775,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             return self._create_drawio(image_filename, attrs)
 
-    def _create_attached_image(self, image_name: str, attrs: ImageAttributes) -> ET._Element:
+    def _create_attached_image(self, image_name: str, attrs: ImageAttributes) -> ElementType:
         "An image embedded into the page, linking to an attachment."
 
-        elements: list[ET._Element] = []
+        elements: list[ElementType] = []
         elements.append(
             RI_ELEM(
                 "attachment",
@@ -723,10 +791,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         return AC_ELEM("image", attrs.as_dict(), *elements)
 
-    def _create_drawio(self, filename: str, attrs: ImageAttributes) -> ET._Element:
+    def _create_drawio(self, filename: str, attrs: ImageAttributes) -> ElementType:
         "A draw.io diagram embedded into the page, linking to an attachment."
 
-        parameters: list[ET._Element] = [
+        parameters: list[ElementType] = [
             AC_ELEM(
                 "parameter",
                 {AC_ATTR("name"): "diagramName"},
@@ -764,7 +832,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             *parameters,
         )
 
-    def _create_missing(self, path: Path, attrs: ImageAttributes) -> ET._Element:
+    def _create_missing(self, path: Path, attrs: ImageAttributes) -> ElementType:
         "A warning panel for a missing image."
 
         if attrs.context is FormattingContext.BLOCK:
@@ -792,7 +860,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         else:
             return HTML.span({"style": "color: rgb(255,86,48);"}, "❌ ", HTML.code(path.as_posix()))
 
-    def _transform_code_block(self, code: ET._Element) -> ET._Element:
+    def _transform_code_block(self, code: ElementType) -> ElementType:
         "Transforms a code block."
 
         if language_class := code.get("class"):
@@ -838,7 +906,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             LOGGER.warning("Failed to extract Mermaid properties: %s", ex)
             return None
 
-    def _transform_external_mermaid(self, absolute_path: Path, attrs: ImageAttributes) -> ET._Element:
+    def _transform_external_mermaid(self, absolute_path: Path, attrs: ImageAttributes) -> ElementType:
         "Emits Confluence Storage Format XHTML for a Mermaid diagram read from an external file."
 
         if not absolute_path.name.endswith(".mmd") and not absolute_path.name.endswith(".mermaid"):
@@ -858,7 +926,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             mermaid_filename = attachment_name(relative_path)
             return self._create_mermaid_embed(mermaid_filename)
 
-    def _transform_fenced_mermaid(self, content: str) -> ET._Element:
+    def _transform_fenced_mermaid(self, content: str) -> ElementType:
         "Emits Confluence Storage Format XHTML for a Mermaid diagram defined in a fenced code block."
 
         if self.options.render_mermaid:
@@ -875,7 +943,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             self.embedded_files[mermaid_filename] = EmbeddedFileData(mermaid_data)
             return self._create_mermaid_embed(mermaid_filename)
 
-    def _create_mermaid_embed(self, filename: str) -> ET._Element:
+    def _create_mermaid_embed(self, filename: str) -> ElementType:
         "A Mermaid diagram, linking to an attachment that captures the Mermaid source."
 
         local_id = str(uuid.uuid4())
@@ -907,7 +975,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("parameter", {AC_ATTR("name"): "revision"}, "1"),
         )
 
-    def _transform_toc(self, code: ET._Element) -> ET._Element:
+    def _transform_toc(self, code: ElementType) -> ElementType:
         "Creates a table of contents, constructed from headings in the document."
 
         return AC_ELEM(
@@ -921,7 +989,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("parameter", {AC_ATTR("name"): "style"}, "default"),
         )
 
-    def _transform_listing(self, code: ET._Element) -> ET._Element:
+    def _transform_listing(self, code: ElementType) -> ElementType:
         "Creates a list of child pages."
 
         return AC_ELEM(
@@ -934,7 +1002,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("parameter", {AC_ATTR("name"): "allChildren"}, "true"),
         )
 
-    def _transform_admonition(self, elem: ET._Element) -> ET._Element:
+    def _transform_admonition(self, elem: ElementType) -> ElementType:
         """
         Creates an info, tip, note or warning panel from a Markdown admonition.
 
@@ -947,45 +1015,51 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
         # <div class="admonition note">
         class_list = elem.get("class", "").split(" ")
-        class_name: Optional[str] = None
-        if "info" in class_list:
-            class_name = "info"
-        elif "tip" in class_list:
-            class_name = "tip"
-        elif "note" in class_list:
-            class_name = "note"
-        elif "warning" in class_list:
-            class_name = "warning"
-
-        if class_name is None:
-            raise DocumentError(f"unsupported admonition label: {class_list}")
+        class_list.remove("admonition")
+        if len(class_list) > 1:
+            raise DocumentError(f"too many admonition types: {class_list}")
+        elif len(class_list) < 1:
+            raise DocumentError("missing specific admonition type")
+        admonition = class_list[0]
 
         for e in elem:
             self.visit(e)
 
         # <p class="admonition-title">Note</p>
         if "admonition-title" in elem[0].get("class", "").split(" "):
-            content = [
-                AC_ELEM(
-                    "parameter",
-                    {AC_ATTR("name"): "title"},
-                    elem[0].text or "",
-                ),
-                AC_ELEM("rich-text-body", {}, *list(elem[1:])),
-            ]
+            content = [HTML.p(HTML.strong(elem[0].text or "")), *list(elem[1:])]
         else:
-            content = [AC_ELEM("rich-text-body", {}, *list(elem))]
+            content = list(elem)
 
-        return AC_ELEM(
-            "structured-macro",
-            {
-                AC_ATTR("name"): class_name,
-                AC_ATTR("schema-version"): "1",
-            },
-            *content,
-        )
+        if self.options.use_panel:
+            return self._transform_panel(content, admonition)
+        else:
+            admonition_to_csf = {
+                "attention": "note",
+                "caution": "warning",
+                "danger": "warning",
+                "error": "warning",
+                "hint": "tip",
+                "important": "note",
+                "info": "info",
+                "note": "info",
+                "tip": "tip",
+                "warning": "note",
+            }
+            class_name = admonition_to_csf.get(admonition)
+            if class_name is None:
+                raise DocumentError(f"unsupported admonition type: {admonition}")
 
-    def _transform_github_alert(self, blockquote: ET._Element) -> ET._Element:
+            return AC_ELEM(
+                "structured-macro",
+                {
+                    AC_ATTR("name"): class_name,
+                    AC_ATTR("schema-version"): "1",
+                },
+                AC_ELEM("rich-text-body", {}, *content),
+            )
+
+    def _transform_github_alert(self, blockquote: ElementType) -> ElementType:
         """
         Creates a GitHub-style panel, normally triggered with a block-quote starting with a capitalized string such as `[!TIP]`.
         """
@@ -997,30 +1071,29 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         if content.text is None:
             raise DocumentError("empty content")
 
-        class_name: Optional[str] = None
-        skip = 0
-
         pattern = re.compile(r"^\[!([A-Z]+)\]\s*")
         match = pattern.match(content.text)
-        if match:
-            skip = len(match.group(0))
-            alert = match.group(1)
-            if alert == "NOTE":
-                class_name = "note"
-            elif alert == "TIP":
-                class_name = "tip"
-            elif alert == "IMPORTANT":
-                class_name = "tip"
-            elif alert == "WARNING":
-                class_name = "warning"
-            elif alert == "CAUTION":
-                class_name = "warning"
-            else:
+        if not match:
+            raise DocumentError("not a GitHub alert")
+
+        # remove alert indicator prefix
+        content.text = content.text[len(match.group(0)) :]
+
+        for e in blockquote:
+            self.visit(e)
+
+        alert = match.group(1)
+        if self.options.use_panel:
+            return self._transform_panel(list(blockquote), alert.lower())
+        else:
+            alert_to_csf = {"NOTE": "info", "TIP": "tip", "IMPORTANT": "note", "WARNING": "note", "CAUTION": "warning"}
+            class_name = alert_to_csf.get(alert)
+            if class_name is None:
                 raise DocumentError(f"unsupported GitHub alert: {alert}")
 
-        return self._transform_alert(blockquote, class_name, skip)
+            return self._transform_alert(blockquote, class_name)
 
-    def _transform_gitlab_alert(self, blockquote: ET._Element) -> ET._Element:
+    def _transform_gitlab_alert(self, blockquote: ElementType) -> ElementType:
         """
         Creates a classic GitLab-style panel.
 
@@ -1035,48 +1108,59 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         if content.text is None:
             raise DocumentError("empty content")
 
-        class_name: Optional[str] = None
-        skip = 0
-
         pattern = re.compile(r"^(FLAG|NOTE|WARNING|DISCLAIMER):\s*")
         match = pattern.match(content.text)
-        if match:
-            skip = len(match.group(0))
-            alert = match.group(1)
-            if alert == "FLAG":
-                class_name = "note"
-            elif alert == "NOTE":
-                class_name = "note"
-            elif alert == "WARNING":
-                class_name = "warning"
-            elif alert == "DISCLAIMER":
-                class_name = "info"
-            else:
+        if not match:
+            raise DocumentError("not a GitLab alert")
+
+        # remove alert indicator prefix
+        content.text = content.text[len(match.group(0)) :]
+
+        for e in blockquote:
+            self.visit(e)
+
+        alert = match.group(1)
+        if self.options.use_panel:
+            return self._transform_panel(list(blockquote), alert.lower())
+        else:
+            alert_to_csf = {"FLAG": "note", "NOTE": "info", "WARNING": "note", "DISCLAIMER": "info"}
+            class_name = alert_to_csf.get(alert)
+            if class_name is None:
                 raise DocumentError(f"unsupported GitLab alert: {alert}")
 
-        return self._transform_alert(blockquote, class_name, skip)
+            return self._transform_alert(blockquote, class_name)
 
-    def _transform_alert(self, blockquote: ET._Element, class_name: Optional[str], skip: int) -> ET._Element:
+    def _transform_alert(self, blockquote: ElementType, class_name: str) -> ElementType:
         """
-        Creates an info, tip, note or warning panel from a GitHub or GitLab alert.
+        Creates an `info`, `tip`, `note` or `warning` panel from a GitHub or GitLab alert.
 
-        Transforms GitHub alert or GitLab alert syntax into one of the Confluence structured macros *info*, *tip*, *note*, or *warning*.
+        Transforms GitHub alert or GitLab alert syntax into one of the Confluence structured macros `info`, `tip`, `note`, or `warning`.
+
+        Confusingly, these structured macros have completely different alternate names on the UI, namely: *Info*, *Success*, *Warning* and *Error* (in this
+        order). In other words, to get what is shown as *Error* on the UI, you have to pass `warning` in CSF, and to get *Success*, you have to pass `tip`.
+
+        Confluence UI also has an additional panel type called *Note*. *Note* is not a structured macro but corresponds to a different element tree, wrapped in
+        an element `ac:adf-extension`:
+
+        ```
+        <ac:adf-node type="panel">
+            <ac:adf-attribute key="panel-type">note</ac:adf-attribute>
+            <ac:adf-content>
+                <p><strong>A note</strong></p>
+                <p>This is a panel showing a note.</p>
+            </ac:adf-content>
+        </ac:adf-node>
+        ```
+
+        As of today, *md2conf* does not generate `ac:adf-extension` output, including *Note* and *Custom panel* (which shows an emoji selected by the user).
+
+        :param blockquote: HTML element tree to transform to Confluence Storage Format (CSF).
+        :param class_name: Corresponds to `name` attribute for CSF `structured-macro`.
 
         :see: https://docs.github.com/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts
         :see: https://docs.gitlab.com/ee/development/documentation/styleguide/#alert-boxes
         """
 
-        content = blockquote[0]
-        if content.text is None:
-            raise DocumentError("empty content")
-
-        if class_name is None:
-            raise DocumentError("not an alert")
-
-        for e in blockquote:
-            self.visit(e)
-
-        content.text = content.text[skip:]
         return AC_ELEM(
             "structured-macro",
             {
@@ -1086,7 +1170,29 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("rich-text-body", {}, *list(blockquote)),
         )
 
-    def _transform_collapsed(self, details: ET._Element) -> ET._Element:
+    def _transform_panel(self, content: list[ElementType], class_name: str) -> ElementType:
+        "Transforms a blockquote into a themed panel."
+
+        panel = ConfluencePanel.from_class.get(class_name)
+        if panel is None:
+            raise DocumentError(f"unsupported panel class: {class_name}")
+
+        macro_id = str(uuid.uuid4())
+        return AC_ELEM(
+            "structured-macro",
+            {
+                AC_ATTR("name"): "panel",
+                AC_ATTR("schema-version"): "1",
+                AC_ATTR("macro-id"): macro_id,
+            },
+            AC_ELEM("parameter", {AC_ATTR("name"): "panelIcon"}, f":{panel.emoji_shortname}:"),
+            AC_ELEM("parameter", {AC_ATTR("name"): "panelIconId"}, panel.emoji_unicode),
+            AC_ELEM("parameter", {AC_ATTR("name"): "panelIconText"}, panel.emoji),
+            AC_ELEM("parameter", {AC_ATTR("name"): "bgColor"}, panel.background_color),
+            AC_ELEM("rich-text-body", {}, *content),
+        )
+
+    def _transform_collapsed(self, details: ElementType) -> ElementType:
         """
         Creates a collapsed section.
 
@@ -1135,7 +1241,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             AC_ELEM("rich-text-body", {}, *list(details)),
         )
 
-    def _transform_emoji(self, elem: ET._Element) -> ET._Element:
+    def _transform_emoji(self, elem: ElementType) -> ElementType:
         """
         Inserts an inline emoji character.
         """
@@ -1159,7 +1265,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             },
         )
 
-    def _transform_mark(self, mark: ET._Element) -> ET._Element:
+    def _transform_mark(self, mark: ElementType) -> ElementType:
         """
         Adds inline highlighting to text.
         """
@@ -1174,7 +1280,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         span.text = mark.text
         return span
 
-    def _transform_latex(self, elem: ET._Element, context: FormattingContext) -> ET._Element:
+    def _transform_latex(self, elem: ElementType, context: FormattingContext) -> ElementType:
         """
         Creates an image rendering of a LaTeX formula with Matplotlib.
         """
@@ -1187,7 +1293,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         if self.options.diagram_output_format == "png":
             width, height = get_png_dimensions(data=image_data)
             image_data = remove_png_chunks(["pHYs"], source_data=image_data)
-            attrs = ImageAttributes(context, width, height, content, None, "")
+            attrs = ImageAttributes(context, width=width, height=height, alt=content, title=None, caption="", alignment=ImageAlignment(self.options.alignment))
         else:
             attrs = ImageAttributes.empty(context)
 
@@ -1197,7 +1303,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         image = self._create_attached_image(image_filename, attrs)
         return image
 
-    def _transform_inline_math(self, elem: ET._Element) -> ET._Element:
+    def _transform_inline_math(self, elem: ElementType) -> ElementType:
         """
         Creates an inline LaTeX formula using the Confluence extension "LaTeX Math for Confluence - Math Formula & Equations".
 
@@ -1228,11 +1334,11 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 {AC_ATTR("name"): "body"},
                 content,
             ),
-            AC_ELEM("parameter", {AC_ATTR("name"): "align"}, "center"),
+            AC_ELEM("parameter", {AC_ATTR("name"): "align"}, self.options.alignment),
         )
         return macro
 
-    def _transform_block_math(self, elem: ET._Element) -> ET._Element:
+    def _transform_block_math(self, elem: ElementType) -> ElementType:
         """
         Creates a block-level LaTeX formula using the Confluence extension "LaTeX Math for Confluence - Math Formula & Equations".
 
@@ -1265,10 +1371,10 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
                 {AC_ATTR("name"): "body"},
                 content,
             ),
-            AC_ELEM("parameter", {AC_ATTR("name"): "align"}, "center"),
+            AC_ELEM("parameter", {AC_ATTR("name"): "align"}, self.options.alignment),
         )
 
-    def _transform_footnote_ref(self, elem: ET._Element) -> None:
+    def _transform_footnote_ref(self, elem: ElementType) -> None:
         """
         Transforms a footnote reference.
 
@@ -1325,7 +1431,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         elem.append(ref_anchor)
         elem.append(def_link)
 
-    def _transform_footnote_def(self, elem: ET._Element) -> None:
+    def _transform_footnote_def(self, elem: ElementType) -> None:
         """
         Transforms the footnote definition block.
 
@@ -1399,7 +1505,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             paragraph.text = None
             paragraph.append(ref_link)
 
-    def _transform_tasklist(self, elem: ET._Element) -> ET._Element:
+    def _transform_tasklist(self, elem: ElementType) -> ElementType:
         """
         Transforms a list of tasks into an action widget.
 
@@ -1415,7 +1521,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             if not element_text_starts_with_any(item, ["[ ]", "[x]", "[X]"]):
                 raise DocumentError("expected: each `<li>` in a task list starting with [ ] or [x]")
 
-        tasks: list[ET._Element] = []
+        tasks: list[ElementType] = []
         for index, item in enumerate(elem, start=1):
             if item.text is None:
                 raise NotImplementedError("pre-condition check not exhaustive")
@@ -1444,7 +1550,7 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         return AC_ELEM("task-list", {}, *tasks)
 
     @override
-    def transform(self, child: ET._Element) -> Optional[ET._Element]:
+    def transform(self, child: ElementType) -> Optional[ElementType]:
         """
         Transforms an HTML element tree obtained from a Markdown document into a Confluence Storage Format element tree.
         """
@@ -1637,7 +1743,7 @@ class ConfluenceDocument:
     embedded_files: dict[str, EmbeddedFileData]
 
     options: ConfluenceDocumentOptions
-    root: ET._Element
+    root: ElementType
 
     @classmethod
     def create(
@@ -1683,10 +1789,10 @@ class ConfluenceDocument:
             lines.append(f"[STATUS-{color.upper()}]: {data_uri}")
         lines.append(document.text)
 
-        # convert to HTML
+        # parse Markdown document and convert to HTML
         html = markdown_to_html("\n".join(lines))
 
-        # parse Markdown document
+        # modify HTML as necessary
         if self.options.generated_by is not None:
             generated_by = document.generated_by or self.options.generated_by
         else:
@@ -1704,26 +1810,32 @@ class ConfluenceDocument:
         else:
             content = [html]
 
+        # parse HTML into element tree
         try:
             self.root = elements_from_strings(content)
         except ParseError as ex:
             raise ConversionError(path) from ex
 
-        converter = ConfluenceStorageFormatConverter(
-            ConfluenceConverterOptions(**{field.name: getattr(self.options, field.name) for field in dataclasses.fields(ConfluenceConverterOptions)}),
-            path,
-            root_dir,
-            site_metadata,
-            page_metadata,
+        # configure HTML-to-Confluence converter
+        converter_options = ConfluenceConverterOptions(
+            **{field.name: getattr(self.options, field.name) for field in dataclasses.fields(ConfluenceConverterOptions)}
         )
+        if document.alignment is not None:
+            converter_options.alignment = document.alignment
+        converter = ConfluenceStorageFormatConverter(converter_options, path, root_dir, site_metadata, page_metadata)
+
+        # execute HTML-to-Confluence converter
         try:
             converter.visit(self.root)
         except DocumentError as ex:
             raise ConversionError(path) from ex
+
+        # extract information discovered by converter
         self.links = converter.links
         self.images = converter.images
         self.embedded_files = converter.embedded_files
 
+        # assign global properties for document
         self.title = document.title or converter.toc.get_title()
         self.labels = document.tags
         self.properties = document.properties

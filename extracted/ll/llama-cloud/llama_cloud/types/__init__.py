@@ -19,6 +19,9 @@ from .agent_data import AgentData
 from .agent_deployment_list import AgentDeploymentList
 from .agent_deployment_summary import AgentDeploymentSummary
 from .aggregate_group import AggregateGroup
+from .api_key import ApiKey
+from .api_key_query_response import ApiKeyQueryResponse
+from .api_key_type import ApiKeyType
 from .auto_transform_config import AutoTransformConfig
 from .azure_open_ai_embedding import AzureOpenAiEmbedding
 from .azure_open_ai_embedding_config import AzureOpenAiEmbeddingConfig
@@ -388,6 +391,9 @@ __all__ = [
     "AgentDeploymentList",
     "AgentDeploymentSummary",
     "AggregateGroup",
+    "ApiKey",
+    "ApiKeyQueryResponse",
+    "ApiKeyType",
     "AutoTransformConfig",
     "AzureOpenAiEmbedding",
     "AzureOpenAiEmbeddingConfig",

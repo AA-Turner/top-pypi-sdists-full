@@ -49,7 +49,7 @@ class DependenciesV2Api:
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
         package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        license_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license ids")] = None,
+        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
         package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
         programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
         source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
@@ -80,8 +80,8 @@ class DependenciesV2Api:
         :type name: str
         :param package_types: Filter dependencies by the specified package types
         :type package_types: List[PackageType]
-        :param license_ids: Filter dependencies by the specified license ids
-        :type license_ids: List[str]
+        :param licenses: Filter dependencies by the specified license names
+        :type licenses: List[str]
         :param package_categories: Filter dependencies by the specified categories
         :type package_categories: List[DependencyCategory]
         :param programming_languages: Filter dependencies by the specified programming languages
@@ -122,7 +122,7 @@ class DependenciesV2Api:
             ids=ids,
             name=name,
             package_types=package_types,
-            license_ids=license_ids,
+            licenses=licenses,
             package_categories=package_categories,
             programming_languages=programming_languages,
             source_scanners=source_scanners,
@@ -156,7 +156,7 @@ class DependenciesV2Api:
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
         package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        license_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license ids")] = None,
+        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
         package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
         programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
         source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
@@ -187,8 +187,8 @@ class DependenciesV2Api:
         :type name: str
         :param package_types: Filter dependencies by the specified package types
         :type package_types: List[PackageType]
-        :param license_ids: Filter dependencies by the specified license ids
-        :type license_ids: List[str]
+        :param licenses: Filter dependencies by the specified license names
+        :type licenses: List[str]
         :param package_categories: Filter dependencies by the specified categories
         :type package_categories: List[DependencyCategory]
         :param programming_languages: Filter dependencies by the specified programming languages
@@ -229,7 +229,7 @@ class DependenciesV2Api:
             ids=ids,
             name=name,
             package_types=package_types,
-            license_ids=license_ids,
+            licenses=licenses,
             package_categories=package_categories,
             programming_languages=programming_languages,
             source_scanners=source_scanners,
@@ -263,7 +263,7 @@ class DependenciesV2Api:
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
         package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        license_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license ids")] = None,
+        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
         package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
         programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
         source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
@@ -294,8 +294,8 @@ class DependenciesV2Api:
         :type name: str
         :param package_types: Filter dependencies by the specified package types
         :type package_types: List[PackageType]
-        :param license_ids: Filter dependencies by the specified license ids
-        :type license_ids: List[str]
+        :param licenses: Filter dependencies by the specified license names
+        :type licenses: List[str]
         :param package_categories: Filter dependencies by the specified categories
         :type package_categories: List[DependencyCategory]
         :param programming_languages: Filter dependencies by the specified programming languages
@@ -336,7 +336,7 @@ class DependenciesV2Api:
             ids=ids,
             name=name,
             package_types=package_types,
-            license_ids=license_ids,
+            licenses=licenses,
             package_categories=package_categories,
             programming_languages=programming_languages,
             source_scanners=source_scanners,
@@ -365,7 +365,7 @@ class DependenciesV2Api:
         ids,
         name,
         package_types,
-        license_ids,
+        licenses,
         package_categories,
         programming_languages,
         source_scanners,
@@ -384,7 +384,7 @@ class DependenciesV2Api:
         _collection_formats: Dict[str, str] = {
             'ids': 'multi',
             'packageTypes': 'multi',
-            'licenseIds': 'multi',
+            'licenses': 'multi',
             'packageCategories': 'multi',
             'programmingLanguages': 'multi',
             'sourceScanners': 'multi',
@@ -415,9 +415,9 @@ class DependenciesV2Api:
             
             _query_params.append(('packageTypes', package_types))
             
-        if license_ids is not None:
+        if licenses is not None:
             
-            _query_params.append(('licenseIds', license_ids))
+            _query_params.append(('licenses', licenses))
             
         if package_categories is not None:
             

@@ -1636,12 +1636,11 @@ impl ServiceBasedFrontend {
 
             // Count embeddings from the score expression
             // Each rank in the score expression contains one embedding
-            let knn_queries = payload.rank.knn_queries();
-            total_search_embedding_count += knn_queries.len() as u64;
+            total_search_embedding_count += payload.rank.knn_queries().len() as u64;
         }
 
         // Create a single Search plan with one scan and the payloads from the request
-        // Clone the searches to use them later for aggregating select fields
+        // Clone the searches to use them later for aggregating select keys
         let searches_for_select = request.searches.clone();
         let search_plan = Search {
             scan: Scan {

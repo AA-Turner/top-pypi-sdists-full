@@ -39,7 +39,6 @@ from jax._src import tree_util
 from jax._src import util
 from jax._src.lib.mlir.dialects import arith as arith_dialect
 from jax._src.pallas import core as pallas_core
-from jax._src.pallas import helpers as pallas_helpers
 from jax._src.pallas import primitives as pallas_primitives
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
@@ -112,7 +111,6 @@ class CompilerParams(pallas_core.CompilerParams):
   approx_math: bool = False
   dimension_semantics: Sequence[DimensionSemantics] | None = None
   max_concurrent_steps: int = 1
-  delay_release: int = 0
   unsafe_no_auto_barriers: bool = False
   profile_space: int = 0
   profile_dir: str = ""
@@ -152,6 +150,7 @@ class MemorySpace(enum.Enum):
       collective: bool | None = None,
       layout: TMEMLayout | None = None,
   ) -> pallas_core.MemoryRef:
+    # TODO(sharadmv): Add HiType constructor support.
     if self == MemorySpace.TMEM:
       if transforms:
         raise ValueError("transforms are not supported for TMEM")
@@ -176,8 +175,9 @@ class MemorySpace(enum.Enum):
       if packed is not None or collective is not None or layout is not None:
         raise ValueError("packed, collective and layout arguments are only supported for TMEM.")
       mgpu_layout = None
-    return GPUMemoryRef(shape, dtype, memory_space=self, transforms=transforms,
-                        layout=mgpu_layout, collective=collective)
+    return GPUMemoryRef(jax_core.ShapedArray(shape, dtype), memory_space=self,
+                        transforms=transforms, layout=mgpu_layout,
+                        collective=collective)
 
 
 class SemaphoreType(enum.Enum):
@@ -190,7 +190,8 @@ class SemaphoreType(enum.Enum):
       dtype = pallas_core.BarrierSemaphore()
     else:
       dtype = pallas_core.Semaphore()
-    return pallas_core.MemoryRef(shape, dtype, MemorySpace.GMEM)
+    return pallas_core.MemoryRef(jax_core.ShapedArray(shape, dtype),
+                                 MemorySpace.GMEM)
 
   def get_array_aval(self) -> jax_core.ShapedArray:
     return self(()).get_array_aval()
@@ -245,9 +246,10 @@ def kernel(
         # fallback if the kernel name is not set explicitly.
         cmap_body.__name__ = getattr(body, "__name__", "anonymous")
       pallas_core.core_map(mesh, compiler_params=compiler_params)(cmap_body)
-    _, outs = state_discharge.run_state(stateful)(
-        (operands, pallas_helpers.empty_like(out_shape, backend="mosaic_gpu"))
-    )
+    _, outs = state_discharge.run_state(stateful)((
+        operands,
+        jax.tree.map(lambda s: jax.lax.empty(s.shape, s.dtype), out_shape),
+    ))
     return outs[0] if unwrap_out else outs
 
   @wrapper.def_vmap
@@ -263,7 +265,7 @@ def kernel(
       out_refs = tree_util.tree_map(slice_ref, out_refs)
       return body(*operand_refs, *out_refs, *scratch_refs)
 
-    out_shape_ = out_shape[0] if unwrap_out else tuple(out_shape)
+    out_shape_ = out_shape[0] if unwrap_out else out_shape
     add_batch_dim = lambda x: x.update(shape=(axis_size, *x.shape))
     mesh_kwargs_ = dict(mesh_kwargs)
     out = kernel(
@@ -485,8 +487,9 @@ class RefUnion(GPUMemoryRef):
       object.__setattr__(self, "refs", refs)
       num_bytes = max(map(_ref_group_size, self.refs))
       super().__init__(
-          shape=(num_bytes,),
-          dtype=jnp.int8,
+          inner_aval=jax_core.ShapedArray(
+              (num_bytes,), jnp.int8
+          ),
           memory_space=SMEM,
           transforms=(),
       )
@@ -499,8 +502,10 @@ class RefUnion(GPUMemoryRef):
             "Some aliased TMEM references are collective and some are not."
         )
       super().__init__(
-          shape=(128, max_cols,),
-          dtype=jnp.int32,
+          inner_aval=jax_core.ShapedArray(
+              shape=(128, max_cols,),
+              dtype=jnp.int32,
+          ),
           memory_space=TMEM,
           transforms=(),
           layout=tcgen05.tmem_default_layout(packing=1),
@@ -692,17 +697,7 @@ class TransposeTransform(MemoryRefTransform):
 
 
 @tree_util.register_dataclass
-@dataclasses.dataclass(frozen=True)
-class TransposeRef(state_types.Transform):
-  permutation: tuple[int, ...] = dataclasses.field(metadata=dict(static=True))
-
-  def transform_shape(self, shape):
-    if shape is None:
-      return None
-    return tuple(shape[i] for i in self.permutation)
-
-  def transform_dtype(self, dtype):
-    return dtype
+class TransposeRef(state_types.RefTransposer):
 
   def untransform_transpose(
       self, perm
@@ -734,9 +729,6 @@ class TransposeRef(state_types.Transform):
 
   def undo_to_gpu_transform(self) -> mgpu.MemRefTransform:
     return mgpu.TransposeTransform(_perm_inverse(self.permutation))
-
-  def pretty_print(self, context: jax_core.JaxprPpContext) -> pp.Doc:
-    return pp.text(f"{{transpose({list(self.permutation)})}}")
 
 
 @tree_util.register_pytree_node_class
@@ -795,7 +787,7 @@ def transpose_ref(
     ref: pallas_core.TransformedRef | Any,
     permutation: tuple[int, ...],
 ) -> pallas_core.TransformedRef:
-  return transform_ref(ref, TransposeRef(permutation))
+  return ref.transpose(permutation)
 
 def untile_ref(ref, tiling: tuple[int, ...]) -> pallas_core.TransformedRef:
   return transform_ref(ref, UntileRef(tiling))
@@ -936,7 +928,16 @@ class UnswizzleRef(state_types.Transform):
 
 @dataclasses.dataclass
 class BlockSpec(pallas_core.BlockSpec):
+  """A GPU-specific `BlockSpec`.
+
+  Attributes:
+    transforms: A sequence of transforms that will be applied to the
+      reference.
+    delay_release: used during pipelining to delay the release of
+      resources of a slot after it is used in the computation.
+  """
   transforms: Sequence[MemoryRefTransform] = ()
+  delay_release: int = 0
 
   def to_block_mapping(
       self,
@@ -1018,6 +1019,9 @@ class Barrier:
   num_arrivals: int = 1
   num_barriers: int = 1
   orders_tensor_core: bool = False
+
+  def get_array_aval(self) -> jax_core.ShapedArray:
+    raise ValueError("Barriers are not arrays.")
 
   def get_ref_aval(self) -> state.AbstractRef:
     aval = jax_core.ShapedArray(
@@ -1316,6 +1320,8 @@ class Layout(SomeLayout, enum.Enum):
   WG_SPLAT = enum.auto()
   WG_STRIDED = enum.auto()
 
+  TILED = enum.auto()
+
   TCGEN05 = enum.auto()
   TCGEN05_TRANSPOSED = enum.auto()
   TCGEN05_M64_COLLECTIVE = enum.auto()
@@ -1349,6 +1355,8 @@ class Layout(SomeLayout, enum.Enum):
         return mgpu.WGSplatFragLayout(*args, **kwargs)  # pytype: disable=missing-parameter
       case Layout.WG_STRIDED:
         return mgpu.WGStridedFragLayout(*args, **kwargs)  # pytype: disable=missing-parameter
+      case Layout.TILED:
+        return mgpu.TiledLayout(*args, **kwargs)
       case Layout.TCGEN05:
         check_no_args()
         return mgpu.TCGEN05_LAYOUT

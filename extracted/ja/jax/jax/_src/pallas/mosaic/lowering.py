@@ -33,6 +33,7 @@ from jax._src import core as jax_core
 from jax._src import custom_derivatives
 from jax._src import debugging
 from jax._src import dtypes
+from jax._src import literals
 from jax._src import linear_util as lu
 from jax._src import mesh as mesh_lib
 from jax._src import pjit
@@ -48,7 +49,7 @@ from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
 from jax._src.lax import control_flow
 from jax._src.lax import lax as lax_internal
-from jax._src.lax.control_flow import BranchesPlatforms, for_loop
+from jax._src.lax.control_flow import BranchesPlatforms
 from jax._src.lib import version as jaxlib_version
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
@@ -67,7 +68,6 @@ from jax._src.pallas.mosaic import core as tpu_core
 from jax._src.pallas.mosaic import error_handling
 from jax._src.pallas.mosaic import primitives as tpu_primitives
 from jax._src.pallas.mosaic import random as pl_random
-from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import primitives as state_primitives
 from jax._src.state.types import RefBitcaster, RefReshaper
@@ -170,6 +170,7 @@ class LoweringContext:
   traceback_caches: mlir.TracebackCaches
   for_verification: bool
   forward_compatible: bool
+  backend: xla_bridge.XlaBackend | None
   dynamic_shape_replacement_fn: DynamicShapeReplacementFn
 
   def replace(self, **changes: Any) -> LoweringContext:
@@ -221,6 +222,13 @@ class LoweringRuleContext:
   @property
   def forward_compatible(self):
     return self.lowering_context.forward_compatible
+
+  def is_cloud_tpu_older_than(self, year: int, month: int, day: int):
+    # No way for us to query the version, so assume the oldest possible backend.
+    if self.lowering_context.backend is None:
+      return True
+    backend = self.lowering_context.backend
+    return is_cloud_tpu_older_than(year, month, day, backend)
 
 
 def _memory_space_to_tpu_memory_space(memory_space: AnyMemorySpace | None
@@ -364,8 +372,8 @@ def register_lowering_rule(
   def decorator(rule: T) -> T:
     for kernel_type in kernel_types:
       lowering_rules[kernel_type][prim] = rule
-    if not ensure_mlir_values:
-      skip_mlir_conversions.add(prim)
+      if not ensure_mlir_values:
+        skip_mlir_conversions.add((prim, kernel_type))
     return rule
 
   return decorator
@@ -559,7 +567,7 @@ class MosaicGridMapping:
       comms_effects = {
           "comms"
           for e in jaxpr.effects
-          if isinstance(e, primitives.CommsEffect)
+          if isinstance(e, pallas_core.CommsEffect)
       }
       return comms_effects | axis_name_effects
     nonlocal_axis_names.update(_get_nonlocal_axis_names(self.jaxpr))
@@ -689,8 +697,9 @@ def lower_jaxpr_to_module(
     for_verification: bool = False,
     dynamic_shape_replacement_enabled: bool = False,
 ) -> tuple[ir.Module, tuple[Any, ...]]:
+  backend = lowering_context.module_context.get_backend(optional=True)
   # NOTE: We should bump this periodically
-  if is_cloud_tpu_older_than(2025, 1, 10):
+  if backend is not None and is_cloud_tpu_older_than(2025, 8, 1, backend):
     platform_version = xla_bridge.get_backend().platform_version
     raise RuntimeError(
         "Pallas TPU requires a libtpu version that's at most a month old. Found"
@@ -740,6 +749,7 @@ def lower_jaxpr_to_module(
       forward_compatible=lowering_context.is_forward_compat(),
       dynamic_shape_replacement_fn=dynamic_shape_replacement_fn,
       dynamic_shape_replacement_enabled=dynamic_shape_replacement_enabled,
+      backend=backend,
   )
   m.body.append(func_op)
   sym_tab.insert(func_op)
@@ -776,6 +786,7 @@ def lower_jaxpr_to_module(
           for_verification=for_verification,
           forward_compatible=lowering_context.is_forward_compat(),
           dynamic_shape_replacement_fn=dynamic_shape_replacement_fn,
+          backend=backend,
       )
       assert mlir_func.verify(), mlir_func
       block_shape = list(pallas_core._get_block_shape(bm.block_shape))
@@ -929,6 +940,7 @@ def lower_jaxpr_to_transform_func(
     kernel_type: tpu_core.KernelType,
     for_verification: bool,
     forward_compatible: bool,
+    backend: Any | None,
     dynamic_shape_replacement_fn: DynamicShapeReplacementFn | None = None,
 ) -> func.FuncOp:
   num_grid = len(mosaic_grid_mapping.grid_types)
@@ -958,6 +970,7 @@ def lower_jaxpr_to_transform_func(
         traceback_caches=mlir.TracebackCaches(),
         for_verification=for_verification,
         forward_compatible=forward_compatible,
+        backend=backend,
         dynamic_shape_replacement_fn=dynamic_shape_replacement_fn,
     )
     out = jaxpr_subcomp(lowering_context, jaxpr, *jaxpr_indices,
@@ -979,13 +992,6 @@ def lower_jaxpr_to_transform_func(
   return body.func_op
 
 
-lower_jaxpr_to_func_fns = {}
-
-
-def register_jaxpr_to_func(kernel_type: tpu_core.KernelType):
-  lower_jaxpr_to_func_fns[kernel_type] = lower_jaxpr_to_func
-
-
 def lower_jaxpr_to_func(
     jaxpr: jax_core.Jaxpr,
     *,
@@ -994,6 +1000,7 @@ def lower_jaxpr_to_func(
     kernel_type: tpu_core.KernelType,
     for_verification: bool,
     forward_compatible: bool,
+    backend: Any | None,
     dynamic_shape_replacement_fn: DynamicShapeReplacementFn | None = None,
     dynamic_shape_replacement_enabled: bool = False,
 ) -> func.FuncOp:
@@ -1028,6 +1035,7 @@ def lower_jaxpr_to_func(
         traceback_caches=mlir.TracebackCaches(),
         for_verification=for_verification,
         forward_compatible=forward_compatible,
+        backend=backend,
         dynamic_shape_replacement_fn=dynamic_shape_replacement_fn,
     )
     return jaxpr_subcomp(
@@ -1054,7 +1062,7 @@ def lower_fun(fun: Callable, *, multiple_results: bool) -> Callable:
     wrapped_fun = lu.wrap_init(
         f, params,
         debug_info=api_util.debug_info("mosaic lower_fun", f,
-                                       args, params))
+                                       args, {}))
     jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(wrapped_fun, ctx.avals_in)
     if consts:
       raise NotImplementedError
@@ -1133,7 +1141,7 @@ def jaxpr_subcomp(
     with (source_info_util.user_context(eqn.source_info.traceback), loc,
           eqn.ctx.manager):
       if eqn.primitive in lowering_rules[ctx.kernel_type]:
-        if eqn.primitive not in skip_mlir_conversions:
+        if (eqn.primitive, ctx.kernel_type) not in skip_mlir_conversions:
           invals = [
               _ensure_mlir_value(x, cast(ShapedAbstractValue, v.aval))
               for x, v in zip(invals, eqn.invars)
@@ -1207,7 +1215,8 @@ def _ensure_mlir_value(val: object, aval: ShapedAbstractValue) -> Any:
   if isinstance(val, KeyScalarBundle):
     # TODO(slebedev): Drop this branch and change the return type to ir.Value.
     return val
-  elif isinstance(val, (np.generic, np.ndarray, int, float)):
+  elif isinstance(val, (np.generic, np.ndarray, int, float,
+                        literals.LiteralArray)):
     return ir_constant(val, _dtype_to_ir_type(aval.dtype))
   else:
     raise RuntimeError(
@@ -1256,7 +1265,7 @@ def _swap_lowering_rule(
 
 
 def _make_index(s):
-  if isinstance(s, (int, np.ndarray)):
+  if isinstance(s, (int, np.ndarray, literals.LiteralArray)):
     return ir_constant(s, ir.IndexType.get())
   if s.type == ir.IndexType.get():
     return s
@@ -1402,11 +1411,7 @@ def _slice_memref(
     target_offset = sum(
         map(operator.mul, static_starts, ref_strides), ref_offset
     )
-  out_layout = (
-      ir.StridedLayoutAttr.get(target_offset, ref_strides)
-      if not is_cloud_tpu_older_than(2025, 6, 20)
-      else None
-  )
+  out_layout = ir.StridedLayoutAttr.get(target_offset, ref_strides)
   out_ty = ir.MemRefType.get(
       static_sizes, ref_ty.element_type, out_layout, ref_ty.memory_space
   )
@@ -1423,11 +1428,7 @@ def _slice_memref(
     # from [1, 1, 128] to [1, 128].
     squeeze_dims = _compute_squeezed_dims(ref_ty.shape, target_sizes)
     target_strides = [s for i, s in enumerate(ref_strides) if not squeeze_dims[i]]
-    out_layout = (
-        ir.StridedLayoutAttr.get(ref_offset, target_strides)
-        if not is_cloud_tpu_older_than(2025, 6, 20)
-        else None
-    )
+    out_layout = ir.StridedLayoutAttr.get(ref_offset, target_strides)
     out_ty = ir.MemRefType.get(
         target_sizes,
         ref_ty.element_type,
@@ -1989,7 +1990,7 @@ def _broadcast_in_dim_lowering_rule(
     return val
 
   if jnp.issubdtype(aval_in.dtype, jnp.bool_) and (
-      ctx.forward_compatible or is_cloud_tpu_older_than(2025, 6, 3)
+      ctx.forward_compatible or ctx.is_cloud_tpu_older_than(2025, 6, 3)
   ):
     # Direct broadcasts for bools are not supported in Mosaic due to booleans
     # living in mask registers and broadcast operating on vregs. Broadcast as an
@@ -2130,7 +2131,7 @@ def _dot_general_lowering_rule(
           lhs_aval.dtype != jnp.float32
           or rhs_aval.dtype != jnp.float32
           or ctx.forward_compatible
-          or is_cloud_tpu_older_than(2025, 8, 10)
+          or ctx.is_cloud_tpu_older_than(2025, 8, 10)
       )
   ):
     if ctx.avals_in[0].shape != ctx.avals_in[1].shape:
@@ -2276,7 +2277,7 @@ def _convert_element_type_lowering_rule(
   new_bitwidth = dtypes.bit_width(new_dtype)
   both_32bit = old_bitwidth == 32 and new_bitwidth == 32
   if _from(floating) and _to(floating):
-    forward_compat = ctx.forward_compatible or is_cloud_tpu_older_than(
+    forward_compat = ctx.forward_compatible or ctx.is_cloud_tpu_older_than(
         2025, 6, 29
     )
     if old_bitwidth < new_bitwidth and (
@@ -2302,7 +2303,7 @@ def _convert_element_type_lowering_rule(
     return arith.fptosi(out_type, x)
   elif _from(signed) and _to(floating):
     if (
-        not (ctx.forward_compatible or is_cloud_tpu_older_than(2025, 5, 12))
+        not (ctx.forward_compatible or ctx.is_cloud_tpu_older_than(2025, 5, 12))
         or both_32bit
     ):
       return arith.sitofp(out_type, x)
@@ -2357,12 +2358,15 @@ def _squeeze_lowering_rule(ctx: LoweringRuleContext, x, dimensions):
   )
 
 
-@register_lowering_rule(lax.concatenate_p)
+@register_lowering_rule(lax.concatenate_p, kernel_types=[*tpu_core.KernelType])
 def _concatenate_lowering_rule(ctx: LoweringRuleContext, *xs, dimension):
+  if jaxlib_version >= (0, 7, 1):
+    return tpu.concatenate(xs, dimension=dimension)
+  # TODO(slebedev): Remove once the minimum supported jaxlib version is 0.7.1.
   out_type = aval_to_ir_type(
       ctx.lowering_context.dynamic_shape_replacement_fn, ctx.avals_out[0]
   )
-  return tpu.concatenate(out_type, xs, dimension=dimension)
+  return tpu.concatenate(out_type, xs, dimension=dimension)  # type: ignore
 
 
 @register_lowering_rule(lax.split_p)
@@ -2476,19 +2480,10 @@ def _gather_lowering_rule(
 
 @register_lowering_rule(lax.transpose_p)
 def _transpose_lowering_rule(ctx: LoweringRuleContext, x, *, permutation):
-  dim_size = len(ctx.avals_in[0].shape)
-  if (
-      permutation[-2:] != (dim_size - 1, dim_size - 2)
-      and permutation[-2:] != (dim_size - 2, dim_size - 1)
-      and len(permutation) != 3
-  ):
-    raise NotImplementedError(
-        f"Unsupported transpose permutation: {permutation}"
-    )
   out_type = aval_to_ir_type(
       ctx.lowering_context.dynamic_shape_replacement_fn, ctx.avals_out[0]
   )
-  if ctx.forward_compatible or is_cloud_tpu_older_than(2025, 5, 8):
+  if ctx.forward_compatible or ctx.is_cloud_tpu_older_than(2025, 5, 8):
     return vector.transpose(out_type, x, permutation)
   else:
     return tpu.transpose(out_type, x, permutation)
@@ -2615,8 +2610,8 @@ def _reduce_index_helper(
   )
   if x_aval.dtype != jnp.float32:
     raise NotImplementedError("Only float32 is supported")
-  if len(axes) != 1 or axes[0] != 1:
-    raise NotImplementedError("Only axes=(1,) is supported")
+  if len(axes) != 1:
+    raise NotImplementedError("Only single axis reduction supported")
   if index_dtype != jnp.int32:
     raise NotImplementedError("Only index_dtype=int32 is supported")
   return tpu.reduce_index(out_type, x, axes[0], reduction_kind)
@@ -2778,7 +2773,7 @@ def _integer_pow_lowering_rule(ctx: LoweringRuleContext, x, *, y):
 def _exp2_lowering_rule(ctx: LoweringRuleContext, x, accuracy):
   if accuracy is not None:
     raise NotImplementedError("Not implemented: accuracy")
-  if ctx.forward_compatible or is_cloud_tpu_older_than(2025, 7, 26):
+  if ctx.forward_compatible or ctx.is_cloud_tpu_older_than(2025, 7, 26):
     # exp2 in JAX lowers to exp(ln2 * x), not to pow2. We match that behavior
     # here.
     return lower_fun(
@@ -3072,38 +3067,6 @@ def _clamp_lowering_rule(ctx: LoweringRuleContext, min, operand, max):
   return lower_fun(_clamp, multiple_results=False)(ctx, min, operand, max)
 
 
-@register_lowering_rule(for_loop.for_p)
-def _for_lowering_rule(
-    ctx: LoweringRuleContext,
-    *args,
-    jaxpr,
-    nsteps,
-    reverse,
-    unroll,
-    which_linear,
-):
-  should_discharge = [
-      not isinstance(aval, state.AbstractRef) for aval in ctx.avals_in
-  ]
-  jaxpr, () = state_discharge.discharge_state(
-      jaxpr, (), should_discharge=[False, *should_discharge]
-  )
-  for i in range(nsteps):
-    if reverse:
-      i = nsteps - i - 1
-    i = ir_constant(i)
-    lowering_context = ctx.lowering_context.replace(
-        block_shapes=[(), *ctx.block_shapes],
-    )
-    non_ref_args = jaxpr_subcomp(lowering_context, jaxpr, i, *args)
-    non_ref_args_iter = iter(non_ref_args)
-    args = [
-        next(non_ref_args_iter) if s else a
-        for a, s in zip(args, should_discharge)
-    ]
-  return args
-
-
 def _lower_jaxpr_to_for_loop(ctx: LoweringRuleContext,
                              jaxpr: jax_core.Jaxpr, start: int | ir.Value,
                              num_steps: int | ir.Value, consts, *args,
@@ -3184,6 +3147,7 @@ def _scan_lowering_rule(
   consts_avals, args_avals = split_list(ctx.avals_in, [num_consts])
   if has_loop_index:
     loop_index_start, *args = args
+    loop_index_start = loop_index_start
     args_avals = args_avals[1:]
   else:
     loop_index_start = 0
@@ -3333,8 +3297,8 @@ def _pjit_lowering_rule(ctx: LoweringRuleContext, *args, jaxpr, **_):
   return jaxpr_subcomp(lowering_context, jaxpr.jaxpr, *args)
 
 
-@register_lowering_rule(pjit.mesh_cast_p)
-def _mesh_cast_lowering_rule(ctx: LoweringRuleContext, x, dst_sharding):
+@register_lowering_rule(pjit.reshard_p)
+def _reshard_lowering_rule(ctx: LoweringRuleContext, x, dst_sharding):
   return x
 
 
@@ -3520,21 +3484,29 @@ def _bitcast_lowering_rule(ctx: LoweringRuleContext, x, *, ty):
   )
 
 
-@register_lowering_rule(lax.bitcast_convert_type_p)
 def _bitcast_convert_type_lowering_rule(
-    ctx: LoweringRuleContext, x, *, new_dtype):
+    ctx: LoweringRuleContext, x, *, new_dtype, bitcast_fn):
   (in_aval, ) = ctx.avals_in
   (out_aval,) = ctx.avals_out
   old_bitwidth = dtypes.bit_width(in_aval.dtype)
   new_bitwidth = dtypes.bit_width(new_dtype)
   if old_bitwidth != new_bitwidth:
     raise NotImplementedError("Changing bitwidths not supported.")
-  return tpu.bitcast(
+  return bitcast_fn(
       aval_to_ir_type(
           ctx.lowering_context.dynamic_shape_replacement_fn, out_aval
       ),
       x,
   )
+register_lowering_rule(lax.bitcast_convert_type_p)(
+    partial(_bitcast_convert_type_lowering_rule, bitcast_fn=tpu.bitcast))
+register_lowering_rule(
+    lax.bitcast_convert_type_p,
+    kernel_types=[
+        tpu_core.KernelType.SC_SCALAR_SUBCORE,
+        tpu_core.KernelType.SC_VECTOR_SUBCORE,
+    ],
+)(partial(_bitcast_convert_type_lowering_rule, bitcast_fn=vector.bitcast))
 
 
 def _alloc_value(
@@ -3672,8 +3644,10 @@ def _semaphore_signal_lowering_rule(
     primitives.semaphore_wait_p, kernel_types=[*tpu_core.KernelType]
 )
 def _semaphore_wait_lowering_rule(ctx: LoweringRuleContext, *args, args_tree):
-  sem_aval, _, _ = tree_util.tree_unflatten(args_tree, ctx.avals_in)
-  sem, transforms, value = tree_util.tree_unflatten(args_tree, args)
+  sem_aval, _, _, _ = tree_util.tree_unflatten(args_tree, ctx.avals_in)
+  sem, transforms, value, decrement = tree_util.tree_unflatten(args_tree, args)
+  if not decrement:
+    raise NotImplementedError("Non-decrementing wait is not supported.")
   sem, _ = _transform_ref(sem, sem_aval.dtype, sem_aval.shape, transforms)
   tpu.sem_wait(sem, value)
   return []
@@ -3761,7 +3735,7 @@ def _dma_wait_lowering_rule(ctx: LoweringRuleContext, *args, tree,
   if device_id is not None:
     device_id, core_id = _device_id_to_logical(ctx, device_id, device_id_type)
 
-  if ctx.forward_compatible or is_cloud_tpu_older_than(2025, 7, 27):
+  if ctx.forward_compatible or ctx.is_cloud_tpu_older_than(2025, 7, 27):
     tpu.wait_dma2(sem, src, dst, core_id=core_id)
   else:
     tpu.wait_dma2(sem, src, dst, device_id=device_id, core_id=core_id)
@@ -3805,10 +3779,27 @@ def _delay_rule(ctx: LoweringRuleContext, nanos: int):
   return []
 
 
-@register_lowering_rule(primitives.debug_print_p)
+@register_lowering_rule(debugging.debug_print_p)
 def _debug_print_rule(
-    ctx: LoweringRuleContext, *args, fmt: str, has_placeholders: bool
+    ctx: LoweringRuleContext,
+    *dyn_args,
+    fmt: str,
+    ordered,
+    partitioned,
+    in_tree,
+    static_args,
+    np_printoptions,
+    has_placeholders,
 ):
+  del partitioned, np_printoptions
+  if ordered:
+    raise NotImplementedError("Ordered debug_print is not supported on Pallas.")
+  args, kwargs = debugging.merge_callback_args(in_tree, dyn_args, static_args)
+  if kwargs:
+    raise ValueError(
+        "Only positional arguments are supported by debug_print on Pallas."
+    )
+
   is_scalar_inputs = [not aval.shape for aval in ctx.avals_in]
   is_all_scalars = all(is_scalar_inputs)
   is_single_vector = len(is_scalar_inputs) == 1 and not is_scalar_inputs[0]
@@ -4079,24 +4070,10 @@ def _pad_lowering_rule(ctx: LoweringRuleContext, *args, **kwargs):
       return pad
 
     if low != 0:
-      pad_low = _pad(low)
-      new_shape = out_type.shape
-      new_shape[axis] += low
-      out_type = ir.VectorType.get(
-          new_shape,
-          out_type.element_type,
-      )
-      operand = tpu.concatenate(out_type, [pad_low, operand], dimension=axis)
+      operand = tpu.concatenate([_pad(low), operand], dimension=axis)
 
     if high != 0:
-      pad_high = _pad(high)
-      new_shape = out_type.shape
-      new_shape[axis] += high
-      out_type = ir.VectorType.get(
-          new_shape,
-          out_type.element_type,
-      )
-      operand = tpu.concatenate(out_type, [operand, pad_high], dimension=axis)
+      operand = tpu.concatenate([operand, _pad(high)], dimension=axis)
 
     if interior > 0:
       raise NotImplementedError("Not implemented: interior padding")
@@ -4124,3 +4101,9 @@ def _platform_index_lowering(
 def _dim_as_value_lowering(ctx: LoweringRuleContext, *, dim):
   placeholder = ctx.lowering_context.dynamic_shape_replacement_fn((dim,))[0]
   return ir_constant(placeholder, mlir_type=_dtype_to_ir_type(jnp.int32))
+
+
+@register_lowering_rule(tpu_primitives.touch_p)
+def _touch_lowering_rule(ctx: LoweringRuleContext, x: jax.Array):
+  del ctx, x
+  return []

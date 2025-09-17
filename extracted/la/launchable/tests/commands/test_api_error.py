@@ -3,6 +3,7 @@ import os
 import platform
 import tempfile
 import threading
+import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from unittest import mock
@@ -464,4 +465,11 @@ class APIErrorTest(CliTestCase):
     def assert_tracking_count(self, tracking, count: int):
         # Prior to 3.6, `Response` object can't be obtained.
         if compare_version([int(x) for x in platform.python_version().split('.')], [3, 7]) >= 0:
-            assert tracking.call_count == count
+            # Sometimes, `tracking.call_count` is not updated immediately. So, wait a moment until it is updated.
+            attempt = 0
+            while tracking.call_count < count:
+                time.sleep(0.1)
+                attempt += 1
+                if attempt > 10:
+                    break
+            self.assertEqual(tracking.call_count, count)

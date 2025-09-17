@@ -30,13 +30,15 @@ import torch
 from sklearn import config_context
 from sklearn.base import BaseEstimator, ClassifierMixin, check_is_fitted
 from sklearn.preprocessing import LabelEncoder
+from tabpfn_common_utils.telemetry import track_model_call
+from tabpfn_common_utils.telemetry.interactive import ping
 
 from tabpfn.base import (
-    _initialize_model_variables_helper,
     check_cpu_warning,
     create_inference_engine,
     determine_precision,
     get_preprocessed_datasets_helper,
+    initialize_model_variables_helper,
 )
 from tabpfn.constants import (
     PROBABILITY_EPSILON_ROUND_ZERO,
@@ -54,12 +56,13 @@ from tabpfn.preprocessing import (
     default_classifier_preprocessor_configs,
 )
 from tabpfn.utils import (
-    _fix_dtypes,
-    _get_embeddings,
-    _get_ordinal_encoder,
-    _process_text_na_dataframe,
+    DevicesSpecification,
+    fix_dtypes,
+    get_embeddings,
+    get_ordinal_encoder,
     infer_categorical_features,
     infer_random_state,
+    process_text_na_dataframe,
     validate_X_predict,
     validate_Xy_fit,
 )
@@ -91,8 +94,13 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
     interface_config_: ModelInterfaceConfig
     """Additional configuration of the interface for expert users."""
 
-    device_: torch.device
-    """The device determined to be used."""
+    devices_: tuple[torch.device, ...]
+    """The devices determined to be used.
+
+    The devices are determined based on the `device` argument to the constructor, and
+    the devices available on the system. If multiple devices are listed, currently only
+    the first is used for inference.
+    """
 
     feature_names_in_: npt.NDArray[Any]
     """The feature names of the input data.
@@ -146,7 +154,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         balance_probabilities: bool = False,
         average_before_softmax: bool = False,
         model_path: str | Path | Literal["auto"] = "auto",
-        device: str | torch.device | Literal["auto"] = "auto",
+        device: DevicesSpecification = "auto",
         ignore_pretraining_limits: bool = False,
         inference_precision: _dtype | Literal["autocast", "auto"] = "auto",
         fit_mode: Literal[
@@ -187,7 +195,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 The temperature for the softmax function. This is used to control the
                 confidence of the model's predictions. Lower values make the model's
                 predictions more confident. This is only applied when predicting during
-                a post-processing step. Set `softmax_temperature=1.0` for no effect.
+                a post-processing step. Set `softmax_temperature=1.0` for no effect. Be
+                advised that `.predict()` does not currently sample, so this setting is
+                only relevant for `.predict_proba()` and `.predict_logits()`.
 
             balance_probabilities:
                 Whether to balance the probabilities based on the class distribution
@@ -377,9 +387,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         self.inference_precision: torch.dtype | Literal["autocast", "auto"] = (
             inference_precision
         )
-        self.fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"] = (
-            fit_mode
-        )
+        self.fit_mode = fit_mode
         self.memory_saving_mode: bool | Literal["auto"] | float | int = (
             memory_saving_mode
         )
@@ -387,6 +395,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         self.n_jobs = n_jobs
         self.inference_config = inference_config
         self.differentiable_input = differentiable_input
+
+        # Ping the usage service if telemetry enabled
+        ping()
 
     # TODO: We can remove this from scikit-learn lower bound of 1.6
     def _more_tags(self) -> dict[str, Any]:
@@ -407,6 +418,8 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         y_raw: YType | list[YType],
         split_fn: Callable,
         max_data_size: None | int = 10000,
+        *,
+        equal_split_size: bool = True,
     ) -> DatasetCollectionWithPreprocessing:
         """Transforms raw input data into a collection of datasets,
         with varying preprocessings.
@@ -425,6 +438,11 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             split_fn: A function to dissect a dataset into train and test partition.
             max_data_size: Maximum allowed number of samples in one dataset.
             If None, datasets are not splitted.
+            equal_split_size: If True, splits data into equally sized chunks under
+            max_data_size.
+            If False, splits into chunks of size `max_data_size`, with
+            the last chunk having the remainder samples but is dropped if its
+            size is less than 2.
         """
         return get_preprocessed_datasets_helper(
             self,
@@ -433,13 +451,14 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             split_fn,
             max_data_size,
             model_type="classifier",
+            equal_split_size=equal_split_size,
         )
 
     def _initialize_model_variables(self) -> tuple[int, np.random.Generator]:
         """Perform initialization of the model, return determined byte_size
         and RNG object.
         """
-        return _initialize_model_variables_helper(self, "classifier")
+        return initialize_model_variables_helper(self, "classifier")
 
     def _initialize_dataset_preprocessing(
         self,
@@ -463,7 +482,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         )
 
         check_cpu_warning(
-            self.device, X, allow_cpu_override=self.ignore_pretraining_limits
+            self.devices_, X, allow_cpu_override=self.ignore_pretraining_limits
         )
 
         if feature_names_in is not None:
@@ -514,10 +533,10 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             # Will convert inferred categorical indices to category dtype,
             # to be picked up by the ord_encoder, as well
             # as handle `np.object` arrays or otherwise `object` dtype pandas columns.
-            X = _fix_dtypes(X, cat_indices=self.inferred_categorical_indices_)
+            X = fix_dtypes(X, cat_indices=self.inferred_categorical_indices_)
             # Ensure categories are ordinally encoded
-            ord_encoder = _get_ordinal_encoder()
-            X = _process_text_na_dataframe(X, ord_encoder=ord_encoder, fit_encoder=True)
+            ord_encoder = get_ordinal_encoder()
+            X = process_text_na_dataframe(X, ord_encoder=ord_encoder, fit_encoder=True)
 
             assert isinstance(X, np.ndarray)
             self.preprocessor_ = ord_encoder
@@ -549,6 +568,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         assert len(ensemble_configs) == self.n_estimators
         return ensemble_configs, X, y
 
+    @track_model_call("fit", param_names=["X_preprocessed", "y_preprocessed"])
     def fit_from_preprocessed(
         self,
         X_preprocessed: list[torch.Tensor],
@@ -586,7 +606,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             byte_size, rng = self._initialize_model_variables()
         else:
             _, _, byte_size = determine_precision(
-                self.inference_precision, self.device_
+                self.inference_precision, self.devices_
             )
             rng = None
 
@@ -598,7 +618,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             ensemble_configs=configs,
             cat_ix=cat_ix,
             fit_mode="batched",
-            device_=self.device_,
+            devices_=self.devices_,
             rng=rng,
             n_jobs=self.n_jobs,
             byte_size=byte_size,
@@ -611,6 +631,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         return self
 
     @config_context(transform_output="default")  # type: ignore
+    @track_model_call(model_method="fit", param_names=["X", "y"])
     def fit(self, X: XType, y: YType) -> Self:
         """Fit the model.
 
@@ -632,7 +653,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         else:  # already fitted and prompt_tuning mode: no cat. features
             _, rng = infer_random_state(self.random_state)
             _, _, byte_size = determine_precision(
-                self.inference_precision, self.device_
+                self.inference_precision, self.devices_
             )
 
         # Create the inference engine
@@ -643,7 +664,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             ensemble_configs=ensemble_configs,
             cat_ix=self.inferred_categorical_indices_,
             fit_mode=self.fit_mode,
-            device_=self.device_,
+            devices_=self.devices_,
             rng=rng,
             n_jobs=self.n_jobs,
             byte_size=byte_size,
@@ -676,11 +697,12 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
 
         if not self.differentiable_input:
             X = validate_X_predict(X, self)
-            X = _fix_dtypes(X, cat_indices=self.inferred_categorical_indices_)
-            X = _process_text_na_dataframe(X, ord_encoder=self.preprocessor_)
+            X = fix_dtypes(X, cat_indices=self.inferred_categorical_indices_)
+            X = process_text_na_dataframe(X, ord_encoder=self.preprocessor_)
 
         return self.forward(X, use_inference_mode=True, return_logits=return_logits)
 
+    @track_model_call(model_method="predict", param_names=["X"])
     def predict(self, X: XType) -> np.ndarray:
         """Predict the class labels for the provided input samples.
 
@@ -690,7 +712,8 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         Returns:
             The predicted class labels as a NumPy array.
         """
-        proba = self.predict_proba(X)
+        proba = self._predict_proba(X)
+
         y_pred = np.argmax(proba, axis=1)
         if hasattr(self, "label_encoder_") and self.label_encoder_ is not None:
             return self.label_encoder_.inverse_transform(y_pred)
@@ -698,6 +721,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         return y_pred
 
     @config_context(transform_output="default")
+    @track_model_call(model_method="predict", param_names=["X"])
     def predict_logits(self, X: XType) -> np.ndarray:
         """Predict the raw logits for the provided input samples.
 
@@ -713,8 +737,23 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         logits_tensor = self._raw_predict(X, return_logits=True)
         return logits_tensor.float().detach().cpu().numpy()
 
-    @config_context(transform_output="default")  # type: ignore
+    @track_model_call(model_method="predict", param_names=["X"])
     def predict_proba(self, X: XType) -> np.ndarray:
+        """Predict the probabilities of the classes for the provided input samples.
+
+        This is a wrapper around the `_predict_proba` method.
+
+        Args:
+            X: The input data for prediction.
+
+        Returns:
+            The predicted probabilities of the classes as a NumPy array.
+            Shape (n_samples, n_classes).
+        """
+        return self._predict_proba(X)
+
+    @config_context(transform_output="default")  # type: ignore
+    def _predict_proba(self, X: XType) -> np.ndarray:
         """Predict the probabilities of the classes for the provided input samples.
 
         Args:
@@ -752,10 +791,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
     def _apply_balancing(self, probas: torch.Tensor) -> torch.Tensor:
         """Applies class balancing to a probability tensor."""
         class_prob_in_train = self.class_counts_ / self.class_counts_.sum()
-        balanced_probas = probas / torch.Tensor(class_prob_in_train).to(self.device_)
+        balanced_probas = probas / torch.Tensor(class_prob_in_train).to(probas.device)
         return balanced_probas / balanced_probas.sum(dim=-1, keepdim=True)
 
-    # TODO: reduce complexity to remove noqa C901, PLR0912
     def forward(  # noqa: C901, PLR0912
         self,
         X: list[torch.Tensor] | torch.Tensor,
@@ -820,7 +858,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
         outputs = []
         for output, config in self.executor_.iter_outputs(
             X,
-            device=self.device_,
+            devices=self.devices_,
             autocast=self.use_autocast_,
         ):
             original_ndim = output.ndim
@@ -923,7 +961,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             np.ndarray
                 The computed embeddings for each fitted estimator.
         """
-        return _get_embeddings(self, X, data_source)
+        return get_embeddings(self, X, data_source)
 
     def save_fit_state(self, path: Path | str) -> None:
         """Save a fitted classifier, light wrapper around save_fitted_tabpfn_model."""

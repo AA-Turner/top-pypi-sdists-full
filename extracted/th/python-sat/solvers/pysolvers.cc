@@ -1611,11 +1611,13 @@ static PyObject *py_cadical153_process(PyObject *self, PyObject *args)
 	int probehbr;
 	int subsume;
 	int vivify;
+	PyObject *f_obj;  // variables to freeze
 	int main_thread;
 
-        if (!PyArg_ParseTuple(args, "Oiiiiiiiiiii", &s_obj, &rounds, &block,
+        if (!PyArg_ParseTuple(args, "OiiiiiiiiiiOi", &s_obj, &rounds, &block,
                               &cover, &condition, &decompose, &elim, &probe,
-                              &probehbr, &subsume, &vivify, &main_thread))
+                              &probehbr, &subsume, &vivify, &f_obj,
+                              &main_thread))
           return NULL;
 
         // get pointer to solver
@@ -1634,6 +1636,37 @@ static PyObject *py_cadical153_process(PyObject *self, PyObject *args)
 	s->set("subsume",   subsume  );
 	s->set("vivify",    vivify   );
 	s->set_state(temp);
+
+	// iterator over the litarals to freeze
+	PyObject *i_obj = PyObject_GetIter(f_obj);
+	if (i_obj == NULL) {
+		PyErr_SetString(PyExc_RuntimeError,
+				"Object does not seem to be an iterable.");
+		return NULL;
+	}
+
+	PyObject *l_obj;
+	while ((l_obj = PyIter_Next(i_obj)) != NULL) {
+		if (!pyint_check(l_obj)) {
+			Py_DECREF(l_obj);
+			Py_DECREF(i_obj);
+			PyErr_SetString(PyExc_TypeError, "integer expected");
+			return NULL;
+		}
+
+		int l = pyint_to_cint(l_obj);
+		Py_DECREF(l_obj);
+
+		if (l == 0) {
+			Py_DECREF(i_obj);
+			PyErr_SetString(PyExc_ValueError, "non-zero integer expected");
+			return NULL;
+		}
+
+		s->freeze(l);
+	}
+
+	Py_DECREF(i_obj);
 
 	PyOS_sighandler_t sig_save;
 	if (main_thread) {
@@ -1684,7 +1717,7 @@ static PyObject *py_cadical153_restore(PyObject *self, PyObject *args)
 	CaDiCaL153::Solver *s = (CaDiCaL153::Solver *)pyobj_to_void(s_obj);
 
 	// model for the processed formula
-	vector<int> pmod; int dummy_max;
+	vector<int> pmod; int dummy_max = 0;
 	if (pyiter_to_vector(m_obj, pmod, dummy_max) == false)
 		return NULL;
 
@@ -2270,11 +2303,13 @@ static PyObject *py_cadical195_process(PyObject *self, PyObject *args)
 	int probehbr;
 	int subsume;
 	int vivify;
+	PyObject *f_obj;  // variables to freeze
 	int main_thread;
 
-        if (!PyArg_ParseTuple(args, "Oiiiiiiiiiii", &s_obj, &rounds, &block,
+        if (!PyArg_ParseTuple(args, "OiiiiiiiiiiOi", &s_obj, &rounds, &block,
                               &cover, &condition, &decompose, &elim, &probe,
-                              &probehbr, &subsume, &vivify, &main_thread))
+                              &probehbr, &subsume, &vivify, &f_obj,
+                              &main_thread))
           return NULL;
 
         // get pointer to solver
@@ -2293,6 +2328,37 @@ static PyObject *py_cadical195_process(PyObject *self, PyObject *args)
 	s->set("subsume",   subsume  );
 	s->set("vivify",    vivify   );
 	s->set_state(temp);
+
+	// iterator over the litarals to freeze
+	PyObject *i_obj = PyObject_GetIter(f_obj);
+	if (i_obj == NULL) {
+		PyErr_SetString(PyExc_RuntimeError,
+				"Object does not seem to be an iterable.");
+		return NULL;
+	}
+
+	PyObject *l_obj;
+	while ((l_obj = PyIter_Next(i_obj)) != NULL) {
+		if (!pyint_check(l_obj)) {
+			Py_DECREF(l_obj);
+			Py_DECREF(i_obj);
+			PyErr_SetString(PyExc_TypeError, "integer expected");
+			return NULL;
+		}
+
+		int l = pyint_to_cint(l_obj);
+		Py_DECREF(l_obj);
+
+		if (l == 0) {
+			Py_DECREF(i_obj);
+			PyErr_SetString(PyExc_ValueError, "non-zero integer expected");
+			return NULL;
+		}
+
+		s->freeze(l);
+	}
+
+	Py_DECREF(i_obj);
 
 	PyOS_sighandler_t sig_save;
 	if (main_thread) {
@@ -2343,7 +2409,7 @@ static PyObject *py_cadical195_restore(PyObject *self, PyObject *args)
 	CaDiCaL195::Solver *s = (CaDiCaL195::Solver *)pyobj_to_void(s_obj);
 
 	// model for the processed formula
-	vector<int> pmod; int dummy_max;
+	vector<int> pmod; int dummy_max = 0;
 	if (pyiter_to_vector(m_obj, pmod, dummy_max) == false)
 		return NULL;
 
@@ -2916,7 +2982,7 @@ public:
 
 		if (pylist == NULL) {
 			PyErr_SetString(PyExc_RuntimeError, "Could not convert from vector to python list.");
-			return NULL;
+			return false;
 		}
 		if (PyErr_Occurred() == NULL) {
 		}
@@ -2926,14 +2992,14 @@ public:
 		}
 		if (status == NULL) {
 			PyErr_SetString(PyExc_RuntimeError, "Could not access method 'check_model' in attached propagator.");
-			return NULL;
+			return false;
 		}
 		int res = PyObject_IsTrue(status);
 		if (res == -1) {
 			Py_DECREF(pylist);
 			Py_DECREF(status);
 			PyErr_SetString(PyExc_RuntimeError, "Error converting check_model return to C boolean");
-			return NULL;
+			return false;
 		}
 		Py_DECREF(pylist);
 		Py_DECREF(status);
@@ -2953,14 +3019,14 @@ public:
 		}
 		if (status == NULL) {
 			PyErr_SetString(PyExc_RuntimeError, "Could not access method 'decide' in attached propagator.");
-			return NULL;
+			return 0;
 		}
 		int result = pyint_to_cint(status);
 
 		if (PyErr_Occurred() != NULL) {
 			Py_DECREF(status);
 			PyErr_SetString(PyExc_RuntimeError, "Could not construct integer from PyObject.");
-			return NULL;
+			return 0;
 		}
 		Py_DECREF(status);
 		return result;
@@ -2987,7 +3053,7 @@ public:
 				}
 				if (status == NULL) {
 					PyErr_SetString(PyExc_RuntimeError, "Could not access method 'propagate' in attached propagator.");
-					return NULL;
+					return 0;
 				}
 
 				// put into queue
@@ -2998,14 +3064,14 @@ public:
 						if (!succ) {
 							PyErr_SetString(PyExc_RuntimeError, "Could not convert return value of 'propagate' to vector.");
 							Py_DECREF(status);
-							return NULL;
+							return 0;
 						}
 						reverse(reason_clauses.begin(), reason_clauses.end());
 					}
 				} else {
 					Py_DECREF(status);
 					PyErr_SetString(PyExc_TypeError, "Python method 'provide reason' did not give a list return value.");
-					return NULL;
+					return 0;
 				}
 				Py_DECREF(status);
 			}
@@ -3019,20 +3085,20 @@ public:
 				if (!PyList_Check(sel)) {
 					PyErr_SetString(PyExc_TypeError, "'propagate' gave something that isn't a pylist.");
 					Py_DECREF(sel);
-					return NULL;
+					return 0;
 				}
 				int plist_size = PyList_GET_SIZE(sel);
 				if (plist_size < 1) {
 					PyErr_SetString(PyExc_ValueError, "Propagate gave an empty reason clause.");
 					Py_DECREF(sel);
-					return NULL;
+					return 0;
 				}
 				PyObject *plit = PyList_GET_ITEM(sel, 0); // get first item
 				if (!pyint_check(plit)) {
 					PyErr_SetString(PyExc_ValueError, "Propagate has a non-integer in its clauses.");
 					Py_DECREF(plit);
 					Py_DECREF(sel);
-					return NULL;
+					return 0;
 				}
 				res = pyint_to_cint(plit);
 				provide_reason_queue.reserve(plist_size);
@@ -3042,7 +3108,7 @@ public:
 						PyErr_SetString(PyExc_ValueError, "Propagate has a non-integer in its clauses.");
 						Py_DECREF(plit);
 						Py_DECREF(sel);
-						return NULL;
+						return 0;
 					}
 					provide_reason_queue.push_back(pyint_to_cint(plit)); // push
 					Py_DECREF(plit);
@@ -3061,7 +3127,7 @@ public:
 			}
 			if (status == NULL) {
 				PyErr_SetString(PyExc_RuntimeError, "Could not access method 'propagate' in attached propagator.");
-				return NULL;
+				return 0;
 			}
 			if (propagate_gives_reason) { // get propagate to give: [[reason_clauses]] where first literal in clause is propagated
 
@@ -3077,7 +3143,7 @@ public:
 			} else {
 				Py_DECREF(status);
 				PyErr_SetString(PyExc_TypeError, "Python method 'propagate' did not give a list return value.");
-				return NULL;
+				return 0;
 			}
 			Py_DECREF(status);
 		}
@@ -3110,7 +3176,7 @@ public:
 			if (propagate_gives_reason) {
 				// error?
 				PyErr_SetString(PyExc_RuntimeError, "provide reason queue is empty, but it shouldn't be?");
-				return NULL;
+				return 0;
 			}
 			// call python method
 			PyObject *status = PyObject_CallMethod(py_prop, "provide_reason", "(i)", propagated_lit, NULL);
@@ -3119,7 +3185,7 @@ public:
 			}
 			if (status == NULL) {
 				PyErr_SetString(PyExc_RuntimeError, "Could not access method 'provide_reason' in attached propagator.");
-				return NULL;
+				return 0;
 			}
 			// put into queue
 			int dummy_max = 0;
@@ -3131,7 +3197,7 @@ public:
 			} else {
 				Py_DECREF(status);
 				PyErr_SetString(PyExc_TypeError, "Python method 'provide reason' did not give a list return value.");
-				return NULL;
+				return 0;
 			}
 			Py_DECREF(status);
 		}
@@ -3223,7 +3289,7 @@ public:
 				if (!pyiter_to_vector(sel, add_clause_queue, dummy_max)) {
 					Py_DECREF(sel);
 					PyErr_SetString(PyExc_RuntimeError, "Could not convert python iterable to vector.");
-					return NULL;
+					return false;
 				}
 				Py_DECREF(sel);
 				// return
@@ -3232,7 +3298,7 @@ public:
 			// query has_clause
 			if (!py_callmethod_to_vec("add_clause",add_clause_queue,ext_clauses)) {
 				PyErr_Print();
-				return NULL;
+				return false;
 			}
 			// if no clause, return false
 			// if has clause, return true
@@ -3244,13 +3310,13 @@ public:
 		}
 		if (status == NULL) {
 			PyErr_SetString(PyExc_RuntimeError, "Could not access method 'has_clause' in attached propagator.");
-			return NULL;
+			return false;
 		}
 		int res = PyObject_IsTrue(status);
 		if (res == -1) {
 			Py_DECREF(status);
 			PyErr_SetString(PyExc_RuntimeError, "Error converting has_clause return to C boolean");
-			return NULL;
+			return false;
 		}
 		Py_DECREF(status);
 		return res;
@@ -3281,13 +3347,13 @@ public:
 			if (!pyiter_to_vector(sel, add_clause_queue, dummy_max)) {
 				Py_DECREF(sel);
 				PyErr_SetString(PyExc_RuntimeError, "Could not convert python iterable to vector.");
-				return NULL;
+				return 0;
 			}
 			Py_DECREF(sel);
 		} else if (add_clause_queue.empty()) { // otherwise, call add_clause
 			if (!py_callmethod_to_vec("add_clause",add_clause_queue,ext_clauses)) { // this should already load a clause into add_clause_queue
 				PyErr_Print();
-				return NULL;
+				return 0;
 			}
 		}
 
@@ -6239,7 +6305,7 @@ static PyObject *py_glucose421_set_rnd_seed(PyObject *self, PyObject *args)
 
 	// get pointer to solver
 	Glucose421::Solver *s = (Glucose421::Solver *)pyobj_to_void(s_obj);
-	
+
 	s->random_seed = dbl;
 
 	Py_RETURN_NONE;
@@ -6257,7 +6323,7 @@ static PyObject *py_glucose421_set_rnd_freq(PyObject *self, PyObject *args)
 
 	// get pointer to solver
 	Glucose421::Solver *s = (Glucose421::Solver *)pyobj_to_void(s_obj);
-	
+
 	s->random_var_freq = dbl;
 
 	Py_RETURN_NONE;
@@ -6275,7 +6341,7 @@ static PyObject *py_glucose421_set_rnd_pol(PyObject *self, PyObject *args)
 
 	// get pointer to solver
 	Glucose421::Solver *s = (Glucose421::Solver *)pyobj_to_void(s_obj);
-	
+
 	s->rnd_pol = (bool) b;
 
 	Py_RETURN_NONE;
@@ -6293,7 +6359,7 @@ static PyObject *py_glucose421_set_rnd_init_act(PyObject *self, PyObject *args)
 
 	// get pointer to solver
 	Glucose421::Solver *s = (Glucose421::Solver *)pyobj_to_void(s_obj);
-	
+
 	s->rnd_init_act = (bool) b;
 
 	Py_RETURN_NONE;
@@ -6311,7 +6377,7 @@ static PyObject *py_glucose421_set_rnd_first_descent(PyObject *self, PyObject *a
 
 	// get pointer to solver
 	Glucose421::Solver *s = (Glucose421::Solver *)pyobj_to_void(s_obj);
-	
+
 	s->randomizeFirstDescent = (bool) b;
 
 	Py_RETURN_NONE;

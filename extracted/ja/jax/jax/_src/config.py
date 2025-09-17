@@ -215,6 +215,7 @@ class Config:
       self.complete_absl_config(absl.flags)
       already_configured_with_absl = True
 
+register_trace_context_callback = []  # type: ignore
 
 def trace_context():
   """Returns a tuple of configuration values that affect tracing.
@@ -224,34 +225,43 @@ def trace_context():
   Values included in this set should also most likely be included in
   the C++ JIT state, which is handled separately.
   """
-  return (axis_env_state.value, mesh_context_manager.value,
-          xla_metadata_context_manager.value,
-          abstract_mesh_context_manager.value,
-          compute_on_context_manager.value, enable_x64.value,
-          numpy_rank_promotion.value, default_matmul_precision.value,
-          dynamic_shapes.value,
-          eager_constant_folding.value,
-          numpy_dtype_promotion.value,
-          default_device.value, random_seed_offset.value,
-          threefry_partitionable.value,
-          threefry_gpu_kernel_lowering.value,
-          use_direct_linearize.value,
-          softmax_custom_jvp.value,
-          disable_jit.value,
-          debug_key_reuse.value,
-          jax_xla_profile_version.value,
-          _check_vma.value,
+  out = (axis_env_state.value, mesh_context_manager.value,
+         xla_metadata_context_manager.value,
+         abstract_mesh_context_manager.value,
+         compute_on_context_manager.value,
+         enable_x64.value,
+         numpy_rank_promotion.value,
+         default_matmul_precision.value,
+         dynamic_shapes.value,
+         eager_constant_folding.value,
+         numpy_dtype_promotion.value,
+         default_device.value,
+         random_seed_offset.value,
+         remove_size_one_mesh_axis_from_type.value,
+         threefry_partitionable.value,
+         threefry_gpu_kernel_lowering.value,
+         use_direct_linearize.value,
+         softmax_custom_jvp.value,
+         disable_jit.value,
+         debug_key_reuse.value,
+         jax_xla_profile_version.value,
+         _check_vma.value,
+         mutable_array_checks.value,  # pallas may need to disable locally
+         no_execution.value,
           # Technically this affects jaxpr->stablehlo lowering, not tracing.
-          hlo_source_file_canonicalization_regex.value,
-          pgle_profiling_runs.value,
-          enable_pgle.value,
-          use_shardy_partitioner.value,
-          use_high_dynamic_range_gumbel.value,
-          error_checking_behavior_nan.value,
-          error_checking_behavior_divide.value,
-          error_checking_behavior_oob.value,
-          use_simplified_jaxpr_constants.value,
-          pallas_tpu_interpret_mode_context_manager.value)
+         hlo_source_file_canonicalization_regex.value,
+         pgle_profiling_runs.value,
+         enable_pgle.value,
+         use_shardy_partitioner.value,
+         use_high_dynamic_range_gumbel.value,
+         error_checking_behavior_nan.value,
+         error_checking_behavior_divide.value,
+         error_checking_behavior_oob.value,
+         use_simplified_jaxpr_constants.value,
+         pallas_tpu_interpret_mode_context_manager.value)
+  if register_trace_context_callback:
+    out = out + tuple(r() for r in register_trace_context_callback)
+  return out
 
 config = Config()
 
@@ -377,6 +387,7 @@ def bool_state(
     upgrade: bool = False,
     extra_description: str = '',
     include_in_jit_key: bool = False,
+    validator: Callable[[str], None] | None = None,
 ) -> State[bool]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -404,6 +415,9 @@ def bool_state(
       for the outgoing functionality to be deprecated.
     extra_description: string, optional: extra information to add to the
       summary description.
+    include_in_jit_key: bool, optional: whether to include the state in the
+      JIT cache key.
+    validator: optional function to validate the value of the config option.
 
   Returns:
     A contextmanager to control the thread-local state value.
@@ -442,7 +456,7 @@ def bool_state(
       name, default, help, update_global_hook=update_global_hook,
       update_thread_local_hook=update_thread_local_hook,
       extra_description=extra_description, default_context_manager_value=True,
-      include_in_jit_key=include_in_jit_key)
+      validator=validator, include_in_jit_key=include_in_jit_key)
   config.add_option(name, s, bool, meta_args=[], meta_kwargs={"help": help})
   setattr(Config, name, property(lambda _: s.value))
   return s
@@ -472,6 +486,10 @@ def enum_state(
     default: string, default value.
     help: string, used to populate the flag help information as well as the
       docstring of the returned context manager.
+    include_in_jit_key: bool, optional: whether to include the state in the
+      JIT cache key.
+    extra_validator: optional function to validate the value of the config
+      option.
 
   Returns:
     A contextmanager to control the thread-local state value.
@@ -760,6 +778,7 @@ def string_or_object_state(
     update_global_hook: Callable[[Any], None] | None = None,
     update_thread_local_hook: Callable[[Any], None] | None = None,
     validator: Callable[[Any], None] | None = None,
+    include_in_jit_key: bool = False,
 ) -> State[Any]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -792,7 +811,7 @@ def string_or_object_state(
 
   s = State[Any](
       name, default, help, update_global_hook, update_thread_local_hook,
-      validator)
+      validator, include_in_jit_key=include_in_jit_key)
   setattr(Config, name, property(lambda _: s.value))
   config.add_option(name, s, str, meta_args=[], meta_kwargs={"help": help})
   return s
@@ -871,6 +890,56 @@ compute_on_context_manager = config_ext.Config(None, include_in_jit_key=True)
 xla_metadata_context_manager = config_ext.Config(None, include_in_jit_key=True)
 pallas_tpu_interpret_mode_context_manager = config_ext.Config(
     None, include_in_jit_key=True)
+
+
+class UserConfig:
+  def __init__(self, default_value):
+    self._obj = config_ext.Config(default_value, include_in_jit_key=True)
+
+  @property
+  def value(self):
+    return self._obj.value
+
+  def __call__(self, new_value):
+    return UserContext(self._obj, new_value)
+
+class UserContext:
+  __slots__ = ["_config", "_new_value", "_prev_value"]
+
+  def __init__(self, config, new_value):
+    self._config = config
+    self._new_value = new_value
+
+  def __enter__(self):
+    self._prev_value = self._config.swap_local(self._new_value)
+
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    self._config.set_local(self._prev_value)
+
+def make_user_context(default_value=None):
+  """Creates a `jax.jit` cache sensitive context.
+
+  If the value of the context changes, JAX's tracing, lowering and compilation
+  cache won't get a hit and the jitted function will be re-traced, re-lowered
+  and re-compiled.
+
+  Example:
+
+  ```
+  @jax.jit
+  def f(x):
+    return x * 2
+
+  my_context = jax.make_user_context(default_value=None)
+  with my_context(1):
+    f(1.)
+  with my_context(2):
+    f(1.)  # tracing cache miss
+  ```
+  """
+  obj = UserConfig(default_value)
+  register_trace_context_callback.append(lambda: obj.value)
+  return obj
 
 
 # TODO(b/214340779): remove flag when XLA:CPU is improved.
@@ -1066,13 +1135,25 @@ random_seed_offset = int_state(
     include_in_jit_key=True,
 )
 
+def _safer_randint_deprecation(new_val):
+  if not new_val:
+    deprecations.warn(
+      'safer-randint-config',
+      (
+        'The jax_safer_randint configuration is deprecated in JAX v0.7.2'
+        ' and will be removed in JAX v0.9.0.'
+      ),
+      stacklevel=4
+    )
+
 # TODO(jakevdp): remove this flag.
 safer_randint = bool_state(
     name='jax_safer_randint',
-    default=False,  # TODO(jakevdp): flip default to True.
+    default=True,
     help='Use a safer randint algorithm for 8-bit and 16-bit dtypes.',
     include_in_jit_key=True,
-    upgrade=True
+    upgrade=True,
+    validator=_safer_randint_deprecation
 )
 
 legacy_prng_key = enum_state(
@@ -1131,6 +1212,13 @@ use_simplified_jaxpr_constants = bool_state(
           'This flag will exist only briefly, while we transition '
           'users. See https://github.com/jax-ml/jax/pull/29679.'
           'DO NOT RELY ON THIS FLAG.'),
+    include_in_jit_key=True)
+
+remove_size_one_mesh_axis_from_type = bool_state(
+    name='jax_remove_size_one_mesh_axis_from_type',
+    default=False,
+    upgrade=True,
+    help="Removes mesh axes of size 1 from ShapedArray.sharding",
     include_in_jit_key=True)
 
 # TODO make it so people don't use this, this is internal...
@@ -1334,9 +1422,9 @@ def _default_dtype_bits_deprecation(new_val):
       'default-dtype-bits-config',
       (
         'The jax_default_dtype_bits configuration is deprecated in JAX v0.7.1'
-        ' and will be remove in JAX v0.9.0.'
+        ' and will be removed in JAX v0.9.0.'
       ),
-      stacklevel=3
+      stacklevel=4
     )
 
 
@@ -1422,14 +1510,6 @@ config._contextmanager_flags.remove('jax_enable_x64')
 
 setattr(Config, "x64_enabled", property(lambda _: enable_x64.value))
 
-def _update_default_device_global(val):
-  jax_jit.global_state().default_device = val
-
-
-def _update_default_device_thread_local(val):
-  jax_jit.thread_local_state().default_device = val
-
-
 def _validate_default_device(val):
   if (val is not None and
       not isinstance(val, xla_client.Device) and
@@ -1456,9 +1536,8 @@ default_device = string_or_object_state(
         'no effect on multi-device computations, e.g. pmapped function calls). '
         'Set to None to use the system default device. See '
         ':ref:`faq-data-placement` for more information on device placement.'),
-    update_global_hook=_update_default_device_global,
-    update_thread_local_hook=_update_default_device_thread_local,
-    validator=_validate_default_device)
+    validator=_validate_default_device,
+    include_in_jit_key=True)
 
 def _update_disable_jit_global(val):
   jax_jit.global_state().disable_jit = val
@@ -1573,6 +1652,12 @@ no_tracing = bool_state(
     default=False,
     help='Disallow tracing for JIT compilation.')
 
+no_execution = bool_state(
+    name='jax_no_execution',
+    default=False,
+    help='Disallow JAX executions.',
+    include_in_jit_key=True)
+
 disable_vmap_shmap_error = bool_state(
     name='jax_disable_vmap_shmap_error',
     default=False,
@@ -1588,9 +1673,15 @@ custom_vjp_disable_shape_check = bool_state(
 
 mutable_array_checks = bool_state(
     name='jax_mutable_array_checks',
-    default=False,
+    default=True,
     upgrade=True,
     help='Enable error checks for mutable arrays that rule out aliasing.')
+
+vjp3 = bool_state(
+    name='jax_vjp3',
+    default=False,
+    upgrade=True,
+    help='Use new backward-pass code in jax.vjp')
 
 xla_runtime_errors = bool_state(
     name='jax_experimental_unsafe_xla_runtime_errors',
@@ -1799,10 +1890,26 @@ optional_enum_state(
       logging_config.update_logging_level_global(logging_level=logging_level)
 )
 
+def _default_pmap_no_rank_reduction(new_val):
+  if not new_val:
+    deprecations.warn(
+        'jax-pmap-no-rank-reduction',
+        (
+            'Setting `jax_pmap_no_rank_reduction` to `False` is deprecated in '
+            'JAX v0.7.2 and will be removed in JAX v0.9.0.'
+        ),
+        stacklevel=3,
+    )
+
 pmap_no_rank_reduction = bool_state(
     name='jax_pmap_no_rank_reduction',
     default=True,
-    help='If True, pmap shards have a the same rank as their enclosing array.',
+    help=(
+        '[deprecated] If True, pmap shards have the same rank as their '
+        'enclosing array. Setting to `False` is deprecated and in the future '
+        'all `pmap` calls will proceed without rank reduction.'
+    ),
+    validator=_default_pmap_no_rank_reduction,
 )
 
 use_shardy_partitioner = bool_state(

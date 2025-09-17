@@ -2163,6 +2163,12 @@ class PlacementConstraint(TypedDict, total=False):
 
 
 PlacementConstraints = List[PlacementConstraint]
+
+
+class HookDetails(TypedDict, total=False):
+    pass
+
+
 DeploymentLifecycleHookStageList = List[DeploymentLifecycleHookStage]
 
 
@@ -2179,6 +2185,7 @@ class DeploymentLifecycleHook(TypedDict, total=False):
     hookTargetArn: Optional[String]
     roleArn: Optional[IAMRoleArn]
     lifecycleStages: Optional[DeploymentLifecycleHookStageList]
+    hookDetails: Optional[HookDetails]
 
 
 DeploymentLifecycleHookList = List[DeploymentLifecycleHook]

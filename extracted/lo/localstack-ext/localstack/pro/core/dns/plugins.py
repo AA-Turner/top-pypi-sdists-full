@@ -4,7 +4,7 @@ from localstack.pro.core.constants import S3_ASSETS_BUCKET
 from localstack.pro.core.plugins import LOG
 from localstack.pro.core.runtime.plugin import ProPlatformPlugin
 TRANSPARENT_ENDPOINT_INJECTION_NAMES=['.*.amazonaws.com','.*aws.amazon.com','.*cloudfront.net']
-DEFAULT_SKIP_PATTERNS={'.*(checkip|forums|console|docs|clientvpn|sso|boto3|(signin(\\-reg)?))\\.([^\\.]+\\.)?(aws\\.amazon|amazonaws)\\.com','.*captcha-prod\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^aws\\.amazon\\.com','^github-production-release-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^aws-glue-etl-artifacts\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^redshift-maven-repository\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com',f"^{S3_ASSETS_BUCKET}\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com",'^localstack-pods-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^prod-registry-k8s-io-.*\\.s3\\.(dualstack\\.)?.*\\.amazonaws\\.com','^(?:prod|staging)sharedcertsstack-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com'}
+DEFAULT_SKIP_PATTERNS={'.*(checkip|forums|console|docs|clientvpn|sso|boto3|(signin(\\-reg)?))\\.([^\\.]+\\.)?(aws\\.amazon|amazonaws)\\.com','.*captcha-prod\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^aws\\.amazon\\.com','^github-production-release-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^aws-glue-etl-artifacts\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^redshift-maven-repository\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com',f"^{S3_ASSETS_BUCKET}\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com",'^localstack-pods-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^prod-registry-k8s-io-.*\\.s3\\.(dualstack\\.)?.*\\.amazonaws\\.com','^(?:prod|staging)sharedcertsstack-.*\\.s3(\\.[^\\.]+)?\\.amazonaws\\.com','^d2glxqk2uabbnd\\.cloudfront\\.net'}
 class TransparentEndpointInjectionPlugin(ProPlatformPlugin):
 	name='transparent-endpoint-injection'
 	def on_platform_start(G):

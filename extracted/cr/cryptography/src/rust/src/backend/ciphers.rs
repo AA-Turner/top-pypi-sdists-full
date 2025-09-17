@@ -12,8 +12,8 @@ use crate::{exceptions, types};
 
 pub(crate) struct CipherContext {
     ctx: openssl::cipher_ctx::CipherCtx,
-    py_mode: pyo3::PyObject,
-    py_algorithm: pyo3::PyObject,
+    py_mode: pyo3::Py<pyo3::PyAny>,
+    py_algorithm: pyo3::Py<pyo3::PyAny>,
     side: openssl::symm::Mode,
 }
 
@@ -608,7 +608,7 @@ fn _advance_aad(ctx: pyo3::Bound<'_, pyo3::PyAny>, n: u64) {
     }
 }
 
-#[pyo3::pymodule]
+#[pyo3::pymodule(gil_used = false)]
 pub(crate) mod ciphers {
     #[pymodule_export]
     use super::{

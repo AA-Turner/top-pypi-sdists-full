@@ -153,6 +153,10 @@ export type Include = 'distances' | 'documents' | 'embeddings' | 'metadatas' | '
 
 export type IncludeList = Array<Include>;
 
+export type Key = 'Document' | 'Embedding' | 'Metadata' | 'Score' | {
+    MetadataField: string;
+};
+
 export type QueryRequestPayload = RawWhereFields & {
     ids?: Array<string> | null;
     include?: IncludeList;
@@ -175,33 +179,22 @@ export type RawWhereFields = {
     where_document?: unknown;
 };
 
-/**
- * Payload for hybrid search
- */
 export type SearchPayload = {
-    /**
-     * Filter criteria for search
-     */
-    filter: {
+    filter?: {
         query_ids?: Array<string>;
         where_clause?: {
             [key: string]: unknown;
         };
     };
-    limit: {
-        fetch?: number;
-        skip: number;
+    limit?: {
+        limit?: number;
+        offset?: number;
     };
-    /**
-     * Ranking expression for hybrid search
-     */
-    rank: {
-        [key: string]: {
-            [key: string]: unknown;
-        };
+    rank?: {
+        [key: string]: unknown;
     };
-    select: {
-        fields: Array<string>;
+    select?: {
+        keys?: Array<string>;
     };
 };
 
@@ -215,11 +208,7 @@ export type SearchResponse = {
     ids: Array<Array<string>>;
     metadatas: Array<Array<null | HashMap> | null>;
     scores: Array<Array<number | null> | null>;
-    select: Array<Array<SelectField>>;
-};
-
-export type SelectField = 'Document' | 'Embedding' | 'Metadata' | 'Score' | {
-    MetadataField: string;
+    select: Array<Array<Key>>;
 };
 
 export type SpannConfiguration = {

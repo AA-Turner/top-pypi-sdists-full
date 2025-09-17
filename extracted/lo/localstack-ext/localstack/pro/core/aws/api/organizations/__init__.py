@@ -63,6 +63,14 @@ class AccountJoinedMethod(StrEnum):
     CREATED = "CREATED"
 
 
+class AccountState(StrEnum):
+    PENDING_ACTIVATION = "PENDING_ACTIVATION"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    PENDING_CLOSURE = "PENDING_CLOSURE"
+    CLOSED = "CLOSED"
+
+
 class AccountStatus(StrEnum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
@@ -1157,6 +1165,7 @@ class Account(TypedDict, total=False):
     Email: Optional[Email]
     Name: Optional[AccountName]
     Status: Optional[AccountStatus]
+    State: Optional[AccountState]
     JoinedMethod: Optional[AccountJoinedMethod]
     JoinedTimestamp: Optional[Timestamp]
 
@@ -2969,7 +2978,7 @@ class OrganizationsApi:
         account or by a member account that is a delegated administrator.
 
         To view the status of available policy types in the organization, use
-        DescribeOrganization.
+        ListRoots.
 
         :param root_id: The unique identifier (ID) of the root in which you want to disable a
         policy type.
@@ -3099,7 +3108,7 @@ class OrganizationsApi:
 
         You can enable a policy type in a root only if that policy type is
         available in the organization. To view the status of available policy
-        types in the organization, use DescribeOrganization.
+        types in the organization, use ListRoots.
 
         :param root_id: The unique identifier (ID) of the root in which you want to enable a
         policy type.

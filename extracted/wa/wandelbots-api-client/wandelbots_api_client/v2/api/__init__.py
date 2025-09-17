@@ -11,6 +11,7 @@ from .kinematics_api import KinematicsApi
 from .license_api import LicenseApi
 from .motion_group_api import MotionGroupApi
 from .motion_group_models_api import MotionGroupModelsApi
+from .program_api import ProgramApi
 from .store_collision_components_api import StoreCollisionComponentsApi
 from .store_collision_setups_api import StoreCollisionSetupsApi
 from .store_object_api import StoreObjectApi
@@ -34,6 +35,7 @@ __all__ = [
     "LicenseApi", 
     "MotionGroupApi", 
     "MotionGroupModelsApi", 
+    "ProgramApi", 
     "StoreCollisionComponentsApi", 
     "StoreCollisionSetupsApi", 
     "StoreObjectApi", 

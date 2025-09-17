@@ -33,6 +33,7 @@ from jax._src.util import safe_zip, cache, tuple_delete
 from jax._src.lib import xla_client as xc
 
 zip, unsafe_zip = safe_zip, zip
+config_ext = xc._xla.config
 
 MeshAxisName = Any
 ResourceAxisName = Hashable
@@ -396,6 +397,8 @@ class Mesh(BaseMesh, contextlib.ContextDecorator):
     return set(self.devices.flat)
 
   def __str__(self):
+    if self.empty:
+      return "Mesh()"
     mesh_str = ", ".join(f"'{k}': {v}" for k, v in self.shape.items())
     atr = f", axis_types={self.axis_types}"
     return f"Mesh({mesh_str}{atr})"
@@ -422,9 +425,14 @@ class Mesh(BaseMesh, contextlib.ContextDecorator):
     if d is None:
       abstract_device = None
     else:
-      num_tpu_cores = getattr(d, 'num_cores', 0) if d.platform == 'tpu' else 0
+      if d.platform == 'tpu':
+        num_cores = getattr(d, 'num_cores', None)
+      elif d.platform == 'gpu':
+        num_cores = getattr(d, 'core_count', None)
+      else:
+        num_cores = None
       abstract_device = AbstractDevice(
-          device_kind=d.device_kind, num_tpu_cores=num_tpu_cores)
+          device_kind=d.device_kind, num_cores=num_cores)
     return AbstractMesh(
         self.axis_sizes, self.axis_names, axis_types=self.axis_types,
         abstract_device=abstract_device)
@@ -444,13 +452,13 @@ thread_resources = _ThreadResourcesLocalState()
 @dataclasses.dataclass(frozen=True)
 class AbstractDevice:
   device_kind: str
-  num_tpu_cores: int
+  num_cores: int | None
 
   def __repr__(self):
     return (f"AbstractDevice({self._repr()})")
 
   def _repr(self):
-    return f"device_kind={self.device_kind}, num_tpu_cores={self.num_tpu_cores}"
+    return f"device_kind={self.device_kind}, num_cores={self.num_cores}"
 
 
 class AbstractMesh(BaseMesh):
@@ -571,11 +579,6 @@ class AbstractMesh(BaseMesh):
   def __exit__(self, exc_type, exc_value, traceback):
     _raise_value_error("__exit__")
 
-  @staticmethod
-  def _extremely_unsafe_enter_tracing_context(mesh: AbstractMesh):
-    prev = jax_config.abstract_mesh_context_manager.swap_local(mesh)
-    return prev
-
 
 # Create this indirection because pytype fails to recognize a property if a
 # property raises an exception unconditionally. Remove this once that is fixed.
@@ -597,6 +600,14 @@ class use_abstract_mesh:
 
   def __enter__(self):
     self.prev = jax_config.abstract_mesh_context_manager.swap_local(self.mesh)
+    if (self.prev is not config_ext.unset and
+        not self.prev.empty and not self.mesh.empty and
+        self.prev.size != self.mesh.size):
+      jax_config.abstract_mesh_context_manager.set_local(self.prev)
+      raise ValueError(
+          "use_abstract_mesh cannot change the size of the mesh. Got new mesh:"
+          f" {self.mesh} with size={self.mesh.size} and prev mesh:"
+          f" {self.prev} with size={self.prev.size}")
 
   def __exit__(self, exc_type, exc_value, traceback):
     jax_config.abstract_mesh_context_manager.set_local(self.prev)

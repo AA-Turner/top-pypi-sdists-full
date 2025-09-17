@@ -15,51 +15,6 @@ class IBaseCommand(ABC):
     ensuring all commands follow a uniform pattern for registration, execution,
     and user interaction while maintaining flexibility for specific command logic
     implementation.
-
-    Attributes
-    ----------
-    timestamps : bool, default=True
-        Controls whether timestamps are displayed in console output. When enabled,
-        all console messages will include timestamp prefixes for better debugging
-        and logging capabilities.
-    signature : str
-        The command signature string that defines the command name and expected
-        arguments format. Used for command registration in the console system
-        and automatic help text generation. Must follow the framework's signature
-        format conventions.
-    description : str
-        Human-readable description explaining the command's purpose and functionality.
-        This text is displayed in help documentation, command listings, and usage
-        instructions to assist users in understanding the command's capabilities.
-    _args : Dict[str, Any]
-        Dictionary containing parsed command-line arguments and options passed to
-        the command during execution. Populated automatically by the command parser
-        before the handle() method is called, providing structured access to all
-        user-provided input parameters.
-    arguments : List[CLIArgument]
-        List of CLIArgument instances defining the command's accepted arguments
-        and options. Used for argument parsing, validation, and help text generation.
-
-    Methods
-    -------
-    handle() -> None
-        Abstract method that must be implemented by all concrete command subclasses.
-        Contains the main execution logic specific to each command type and handles
-        argument processing, business logic execution, and output generation.
-
-    Notes
-    -----
-    - All concrete implementations must override the handle() method
-    - Command signatures should follow framework naming conventions
-    - Use self._args dictionary to access parsed command-line arguments
-    - Implement proper error handling and validation within command logic
-    - Follow single responsibility principle for maintainable command structure
-    - Utilize framework's console output methods for consistent user experience
-
-    See Also
-    --------
-    abc.ABC : Abstract base class functionality
-    typing.Dict : Type hints for argument dictionary structure
     """
 
     # Enable timestamps in console output by default
@@ -72,52 +27,162 @@ class IBaseCommand(ABC):
     description: str
 
     # Dictionary to store parsed command-line arguments and options
-    _args: Dict[str, Any] = {}
-
-    # List of CLIArgument instances defining command arguments
-    arguments: List[CLIArgument] = []
+    __args: Dict[str, Any] = {}
 
     @abstractmethod
-    def handle(self) -> None:
+    async def options(self) -> List[CLIArgument]:
         """
-        Execute the main logic of the console command.
+        Defines the command-line arguments and options accepted by the command.
 
-        This abstract method serves as the primary entry point for command execution
-        and must be implemented by all concrete command subclasses. The method contains
-        the core business logic specific to each command type and is responsible for
-        processing the parsed arguments stored in self.args and producing the desired
-        output or side effects.
+        This asynchronous method should be overridden by subclasses to specify the list of
+        command-line arguments and options that the command supports. Each argument or option
+        should be represented as a CLIArgument object, which encapsulates details such as the
+        argument's name, type, default value, and help description.
 
-        The implementation should access parsed command-line arguments through the
-        self.args dictionary and utilize appropriate console output methods for
-        user feedback and result presentation. Error handling and resource cleanup
-        should also be managed within this method to ensure robust command execution.
+        This method enables the framework to automatically parse, validate, and document
+        the available arguments for each command, ensuring consistent user experience
+        across all commands.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        List
+            A list of CLIArgument objects, where each object describes a single
+            command-line argument or option accepted by the command. If the command
+            does not accept any arguments or options, an empty list is returned.
+
+        Notes
+        -----
+        Subclasses should override this method to declare their specific arguments.
+        The returned list is used by the framework for argument parsing and help
+        text generation.
+        """
+        pass
+
+    @abstractmethod
+    async def handle(self):
+        """
+        Execute the main command logic.
+
+        This abstract method defines the entry point for command execution and must be
+        implemented by all concrete command subclasses. It serves as the primary interface
+        for running the command's core functionality after argument parsing and validation.
 
         Returns
         -------
         None
-            This method does not return any value. All command output, results,
-            error messages, and user feedback should be handled through console
-            output methods, file operations, database transactions, or other
-            side effects rather than return values.
+            This method does not return any value. All command output should be handled
+            through the inherited console methods or other side effects.
 
         Raises
         ------
         NotImplementedError
-            Automatically raised when this method is called on the abstract base
-            class without a concrete implementation. All subclasses must override
-            this method with their specific command logic to avoid this exception.
+            Always raised when called on the base class, indicating that subclasses
+            must provide their own implementation of this method.
 
         Notes
         -----
-        - Access command arguments and options via the self.args dictionary
-        - Use framework's console output methods for consistent user interaction
-        - Implement comprehensive error handling and input validation
-        - Ensure proper cleanup of resources (files, connections, etc.) if needed
-        - Follow the single responsibility principle for maintainable command logic
-        - Handle both success and failure scenarios appropriately
+        Subclasses should override this method to implement their specific command
+        behavior. The method will be called after all command-line arguments have
+        been parsed and stored in the _args dictionary.
         """
+        pass
 
-        # Abstract method placeholder - concrete implementations must override this method
-        # Each subclass should replace this pass statement with specific command logic
+    @abstractmethod
+    def setArguments(self, args: Dict[str, Any]) -> None:
+        """
+        Populate the internal arguments dictionary with parsed command-line arguments and options.
+
+        This method is intended for internal use by the command parsing mechanism to initialize
+        the internal arguments state before command execution. It assigns the provided dictionary
+        of arguments and options to the internal storage, making them accessible via the
+        `argument()` and `arguments()` methods.
+
+        Parameters
+        ----------
+        args : Dict[str, Any]
+            Dictionary containing parsed command-line arguments and options, where each key
+            represents an argument name and each value is the corresponding argument value.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It updates the internal state of the command
+            instance to reflect the provided arguments.
+
+        Raises
+        ------
+        ValueError
+            If the provided `args` parameter is not a dictionary.
+
+        Notes
+        -----
+        This method is automatically invoked by the command framework prior to the execution
+        of the `handle()` method. It should not be called directly by command implementations.
+        """
+        pass
+
+    @abstractmethod
+    def arguments(self) -> Dict[str, Any]:
+        """
+        Retrieve the entire dictionary of parsed command-line arguments and options.
+
+        This method provides access to all arguments and options that have been parsed
+        and stored internally for the current command execution. It is useful for
+        scenarios where bulk access to all argument values is required, such as
+        dynamic processing or debugging.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary containing all parsed command-line arguments and options,
+            where each key is the argument name and each value is the corresponding
+            argument value.
+
+        Notes
+        -----
+        The returned dictionary reflects the current state of the command's arguments.
+        Modifying the returned dictionary will affect the internal state of the command.
+        """
+        pass
+
+    @abstractmethod
+    def argument(self, key: str, default: Any = None) -> Any:
+        """
+        Retrieve the value of a specific command-line argument by key with optional default fallback.
+
+        This method provides safe and validated access to command-line arguments stored in the
+        internal arguments dictionary. It performs type checking on both the key parameter and
+        the internal _args attribute to ensure data integrity before attempting retrieval.
+
+        The method follows a fail-safe approach by returning a default value when the requested
+        argument key is not found, preventing KeyError exceptions during command execution.
+
+        Parameters
+        ----------
+        key : str
+            The string identifier used to locate the desired argument in the arguments
+            dictionary. Must be a non-empty string that corresponds to a valid argument name.
+        default : Any, optional
+            The fallback value to return if the specified key is not found in the arguments
+            dictionary. Defaults to None if not provided.
+
+        Returns
+        -------
+        Any
+            The value associated with the specified key if it exists in the arguments
+            dictionary. If the key is not found, returns the provided default value
+            or None if no default was specified.
+
+        Raises
+        ------
+        ValueError
+            If the provided key parameter is not of string type.
+        ValueError
+            If the internal __args attribute is not of dictionary type, indicating
+            a corrupted or improperly initialized command state.
+        """
         pass

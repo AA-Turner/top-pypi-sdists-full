@@ -17,11 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from wandelbots_api_client.v2.models.direction import Direction
-from wandelbots_api_client.v2.models.io_value import IOValue
 from wandelbots_api_client.v2.models.pause_on_io import PauseOnIO
+from wandelbots_api_client.v2.models.set_io import SetIO
 from wandelbots_api_client.v2.models.start_on_io import StartOnIO
 from typing import Optional, Set
 from typing_extensions import Self
@@ -32,10 +32,11 @@ class StartMovementRequest(BaseModel):
     """ # noqa: E501
     message_type: Optional[StrictStr] = Field(default='StartMovementRequest', description="Type specifier for server, set automatically. ")
     direction: Optional[Direction] = Direction.DIRECTION_FORWARD
-    set_outputs: Optional[List[IOValue]] = Field(default=None, description="Attaches a list of output commands to the trajectory. The outputs are set to the specified values right after the specified location was reached. If the specified location is located before the start location (forward direction: value is smaller, backward direction: value is bigger), the output is not set. ")
+    target_location: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Location on trajectory where the execution will start. The default value is the start (forward movement) or end (backward movement) of the trajectory. If you want to start your movement from an arbitrary location, e.g. in combination with [streamMoveToTrajectoryViaJointPTP](streamMoveToTrajectoryViaJointPTP), set the location by respecting the following format: - The location is a scalar value that defines a position along a path, typically ranging from 0 to `n`,   where `n` denotes the number of motion commands - Each integer value of the location corresponds to a specific motion command,   while non-integer values interpolate positions within the segments. - The location is calculated from the joint path ")
+    set_outputs: Optional[List[SetIO]] = Field(default=None, description="Attaches a list of output commands to the trajectory. The outputs are set to the specified values right after the specified location was reached. If the specified location is located before the start location (forward direction: value is smaller, backward direction: value is bigger), the output is not set. ")
     start_on_io: Optional[StartOnIO] = Field(default=None, description="Defines an input/output that is listened to before the movement. Execution starts if the defined comparator evaluates to `true`. ")
     pause_on_io: Optional[PauseOnIO] = Field(default=None, description="Defines an input/output that is listened to during the movement. Execution pauses if the defined comparator evaluates to `true`. ")
-    __properties: ClassVar[List[str]] = ["message_type", "direction", "set_outputs", "start_on_io", "pause_on_io"]
+    __properties: ClassVar[List[str]] = ["message_type", "direction", "target_location", "set_outputs", "start_on_io", "pause_on_io"]
 
     @field_validator('message_type')
     def message_type_validate_enum(cls, value):
@@ -120,10 +121,11 @@ class StartMovementRequest(BaseModel):
         _obj = cls.model_validate({
             "message_type": obj.get("message_type") if obj.get("message_type") is not None else 'StartMovementRequest',
             "direction": obj.get("direction"),
+            "target_location": obj.get("target_location"),
             "set_outputs": [
                 # >>> Modified from https://github.com/OpenAPITools/openapi-generator/blob/v7.6.0/modules/openapi-generator/src/main/resources/python/model_generic.mustache
                 #     to allow dicts in lists
-                IOValue.from_dict(_item) if hasattr(IOValue, 'from_dict') else _item
+                SetIO.from_dict(_item) if hasattr(SetIO, 'from_dict') else _item
                 # <<< End modification
                 for _item in obj["set_outputs"]
             ] if obj.get("set_outputs") is not None else None,

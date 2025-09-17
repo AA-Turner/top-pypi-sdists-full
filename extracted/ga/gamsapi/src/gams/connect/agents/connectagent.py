@@ -23,6 +23,13 @@
 # SOFTWARE.
 #
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gams.connect.connectdatabase import ConnectDatabase
+
 from abc import ABC, abstractmethod
 import importlib.resources
 import sys
@@ -73,7 +80,7 @@ class ConnectAgent(ABC):
     """
 
     @abstractmethod
-    def __init__(self, cdb, inst, agent_index):
+    def __init__(self, cdb: ConnectDatabase, inst, agent_index):
         self._agent_index = agent_index
         self._agent_name = self.__class__.__name__
         self._col_widths = [30, 30, 30]

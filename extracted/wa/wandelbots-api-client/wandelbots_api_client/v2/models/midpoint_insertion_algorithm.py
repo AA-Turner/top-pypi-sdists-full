@@ -25,9 +25,9 @@ from typing_extensions import Self
 
 class MidpointInsertionAlgorithm(BaseModel):
     """
-    Midpoint insertion algorithm configuration for collision-free path planning. This algorithm iteratively inserts midpoints between the start and target joint position to find collision-free paths. 
+    MidpointInsertionAlgorithm
     """ # noqa: E501
-    algorithm_name: StrictStr = Field(description="Algorithm discriminator. ")
+    algorithm_name: StrictStr = Field(description="Algorithm discriminator.  Midpoint insertion algorithm configuration for collision-free path planning. This algorithm adds a single midpoint between the start and target joint position to find collision-free paths. ")
     max_iterations: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=1000, description="Maximum number of iterations for the midpoint insertion algorithm. Higher values increase likelyhood of success, but also computation time (linear). ")
     __properties: ClassVar[List[str]] = ["algorithm_name", "max_iterations"]
 

@@ -28,6 +28,7 @@ class Organization(pydantic.BaseModel):
     parse_plan_level: typing.Optional[ParsePlanLevel] = pydantic.Field(
         description="Whether the organization is a Parse Premium customer."
     )
+    feature_flags: typing.Optional[typing.Dict[str, typing.Any]]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -16,13 +16,15 @@
 
 from __future__ import annotations
 
+import abc
 from collections.abc import Sequence
 import dataclasses
 import math
-from typing import assert_never, Any, Callable
+from typing import Any, Callable, assert_never, final
 
 from . import fragmented_array as fa
 from . import layouts as layouts_lib
+from . import tcgen05
 
 
 VariableKey = Any
@@ -36,11 +38,32 @@ class Variable:
   """
   key: VariableKey
 
+  def __str__(self):
+    return f"V({self.key})"
+
+
+class Constant(abc.ABC):
+  """A constant is a known layout."""
+
 
 @dataclasses.dataclass(frozen=True)
-class Constant:
-  """Wraps a known layout."""
+class RegisterLayout(Constant):
+  """Wraps a known register layout."""
+
   value: fa.FragmentedLayout
+
+  def __str__(self):
+    return f"C({self.value})"
+
+
+@dataclasses.dataclass(frozen=True)
+class TMEMLayout(Constant):
+  """Wraps a known TMEM layout."""
+
+  value: tcgen05.TMEMLayout
+
+  def __str__(self):
+    return f"C({self.value})"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,6 +86,9 @@ class MostReplicated:
 class Reduce:
   expression: Expression
   axes: tuple[int, ...]
+
+  def __str__(self):
+    return f"Reduce([{self.axes}], {self.expression})"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -112,8 +138,17 @@ def reduce_replicated_expression(
   if len(new_expressions) == 1:
     return new_expressions[0]
 
-  consts = [e for e in new_expressions if isinstance(e, Constant)]
-  unknowns = [e for e in new_expressions if not isinstance(e, Constant)]
+  consts = []
+  unknowns = []
+  for e in new_expressions:
+    if not isinstance(e, Constant):
+      unknowns.append(e)
+      continue
+    if not isinstance(e, RegisterLayout):
+      raise ValueError(
+          f"Reduction of non-register layout constant is not supported: {e}"
+      )
+    consts.append(e)
 
   if consts:
     const_red, *consts = consts
@@ -124,7 +159,7 @@ def reduce_replicated_expression(
         # The layouts are not compatible up to replication, this expression
         # cannot be simplified.
         return Unsatisfiable()
-      red = Constant(red_value)
+      red = RegisterLayout(red_value)
   else:
     red = None
 
@@ -150,12 +185,12 @@ def reduce_broadcast_expression(
   match reduced_expr:
     case Unsatisfiable():
       return Unsatisfiable()
-    case Constant(value=layout):
+    case RegisterLayout(value=layout):
       match layout:
         case fa.WGSplatFragLayout(shape=shape):
           if not _check_shape_broadcast(shape):
             return Unsatisfiable()
-          return Constant(fa.WGSplatFragLayout(shape=broadcast.shape))
+          return RegisterLayout(fa.WGSplatFragLayout(shape=broadcast.shape))
         case _:
           return BroadcastInDim(
               expression=reduced_expr,
@@ -175,14 +210,20 @@ def reduce_reshape_expression(
   match reduced_expr:
     case Unsatisfiable():
       return Unsatisfiable()
-    case Constant(value=layout):
+    case RegisterLayout(value=layout):
       match layout:
         case fa.WGSplatFragLayout(shape=shape):
           assert math.prod(shape) == math.prod(reshape.target_shape)
-          return Constant(fa.WGSplatFragLayout(shape=reshape.target_shape))
+          return RegisterLayout(
+              fa.WGSplatFragLayout(shape=reshape.target_shape)
+          )
         case fa.WGStridedFragLayout(shape=shape, vec_size=vec_size):
           assert math.prod(shape) == math.prod(reshape.target_shape)
-          return Constant(fa.WGStridedFragLayout(shape=reshape.target_shape, vec_size=vec_size))
+          return RegisterLayout(
+              fa.WGStridedFragLayout(
+                  shape=reshape.target_shape, vec_size=vec_size
+              )
+          )
         case fa.TiledLayout() as tiled_layout:
           tile_shape = tiled_layout.base_tile_shape
           if len(reshape.target_shape) < len(tile_shape):
@@ -210,8 +251,9 @@ def reduce_reshape_expression(
           # majormost tiled dimensions may have changed. We also know that the
           # majormost tiled dimension is still tilable in the new shape.
           # Therefore, we can return the tiled layout as is.
-          return Constant(tiled_layout)
-  return dataclasses.replace(reshape, expression=reduced_expr)
+          return RegisterLayout(tiled_layout)
+    case _:
+      return dataclasses.replace(reshape, expression=reduced_expr)
 
 
 def reduce_expression(
@@ -236,15 +278,8 @@ def reduce_expression(
       match reduced_expr:
         case Unsatisfiable():
           return Unsatisfiable()
-        case Constant(value=layout) if isinstance(layout, fa.TiledLayout):
-          return Constant(layout.reduce(axes))
-        case Constant():
-          # Explicitly raise an error here as opposed to simply failing to
-          # simplify, so that we get a clear signal if we ever need to implement
-          # this.
-          raise NotImplementedError(
-              "Reduction of non-tiled layouts is not implemented yet."
-          )
+        case RegisterLayout(value=layout) if isinstance(layout, fa.TiledLayout):
+          return RegisterLayout(layout.reduce(axes))
         case _:
           return Reduce(expression=reduced_expr, axes=axes)
     case BroadcastInDim():
@@ -294,7 +329,9 @@ class Relayout:
     if source == target:
       return True
 
-    if not isinstance(source, Constant) or not isinstance(target, Constant):
+    if not isinstance(source, RegisterLayout) or not isinstance(
+        target, RegisterLayout
+    ):
       return None
 
     source_layout, target_layout = source.value, target.value
@@ -309,6 +346,65 @@ class Relayout:
         return (source_layout, target_layout) in _SUPPORTED_TILED_RELAYOUTS
       case _:
         return False
+
+  def __str__(self):
+    return f"Relayout({self.source}  ⟶ {self.target})"
+
+
+@dataclasses.dataclass(frozen=True)
+class IsTransferable:
+  """States that `source` layout must be transferable across memory spaces to `target` layout."""
+
+  source: Expression
+  target: Expression
+  # TODO(allanrenucci): Can this be derived from the layouts?
+  shape: tuple[int, int]
+
+  def supported_tmem_transfers(
+      self, packing: int
+  ) -> set[tuple[tcgen05.TMEMLayout, fa.FragmentedLayout]]:
+    """Returns the set of supported TMEM <-> Register transfers."""
+    columns = self.shape[1]
+    tmem_default_layout = tcgen05.tmem_default_layout(packing)
+    return {
+        (tmem_default_layout, fa.TCGEN05_LAYOUT),
+        (tmem_default_layout, fa.TMEM_NATIVE_LAYOUT),
+        (tcgen05.tmem_half_lane_layout(columns, packing), fa.WGMMA_LAYOUT),
+        (
+            tcgen05.tmem_m64_collective_layout(columns, packing),
+            tcgen05.fa_m64_collective_layout(columns),
+        ),
+    }
+
+  def _is_valid_tmem_transfer(
+      self, tmem_layout: tcgen05.TMEMLayout, reg_layout: fa.FragmentedLayout
+  ) -> bool:
+    packing = tmem_layout.vector_length
+    return (tmem_layout, reg_layout) in self.supported_tmem_transfers(packing)
+
+  def holds(self) -> bool | None:
+    """Returns whether the constraint holds.
+
+    Returns `None` if the constraint can't be checked.
+    """
+    source = self.source
+    target = self.target
+
+    if isinstance(source, TMEMLayout) and isinstance(target, RegisterLayout):
+      return self._is_valid_tmem_transfer(source.value, target.value)
+    if isinstance(target, TMEMLayout) and isinstance(source, RegisterLayout):
+      return self._is_valid_tmem_transfer(target.value, source.value)
+    if isinstance(source, TMEMLayout) and isinstance(target, TMEMLayout):
+      return source == target
+    if isinstance(target, Constant) and isinstance(source, Constant):
+      source_type = type(source).__name__
+      target_type = type(target).__name__
+      raise NotImplementedError(f"Unsupported transfer: {source_type} -> {target_type}")
+
+    return None
+
+  def __str__(self):
+    return f"IsTransferable({self.source}  ⟶ {self.target})"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -328,8 +424,11 @@ class Distinct:
       return True
     return None
 
+  def __str__(self):
+    return f"{self.lhs} ≠ {self.rhs}"
 
-Constraint = Relayout | Distinct
+
+Constraint = Relayout | Distinct | IsTransferable
 
 
 def reduce_constraint(
@@ -341,6 +440,8 @@ def reduce_constraint(
       ...
     case Distinct(lhs=lhs, rhs=rhs):
       ...
+    case IsTransferable(source=lhs, target=rhs, shape=_):
+      ...
     case _ as never:
       assert_never(never)
 
@@ -350,7 +451,12 @@ def reduce_constraint(
   if isinstance(lhs_red, Unsatisfiable) or isinstance(rhs_red, Unsatisfiable):
     return Unsatisfiable()
 
-  new_constraint = type(constraint)(lhs_red, rhs_red)
+  new_constraint: Constraint
+  if isinstance(constraint, IsTransferable):
+    new_constraint = IsTransferable(lhs_red, rhs_red, constraint.shape)
+  else:
+    new_constraint = type(constraint)(lhs_red, rhs_red)
+
   constraint_holds = new_constraint.holds()
   if constraint_holds is None:
     return new_constraint
@@ -456,6 +562,9 @@ class EquationSystem:
         case Distinct(lhs=lhs, rhs=rhs):
           extract_variables(lhs)
           extract_variables(rhs)
+        case IsTransferable(source=source, target=target, shape=_):
+          extract_variables(source)
+          extract_variables(target)
         case _ as never:
           assert_never(never)
     return free_variables
@@ -470,9 +579,23 @@ class EquationSystem:
         constraints=[*self.constraints, *other.constraints],
     )
 
+  def __str__(self):
+    r = "EquationSystem\n"
+    r += "  assignments:\n"
+    for assignment, constant in self.assignments.items():
+      r += f"    {assignment} ⟵ {constant}\n"
+    r += "  equations:\n"
+    for equation in self.equations:
+      r += f"    {equation}\n"
+    r += "  constraints:\n"
+    for constraint in self.constraints:
+      r += f"    {constraint}\n"
+    return r
 
+@final
 class Unsatisfiable:
-  ...
+  def __and__(self, other: EquationSystem | Unsatisfiable) -> Unsatisfiable:
+    return self
 
 
 @dataclasses.dataclass(frozen=True)
@@ -489,12 +612,95 @@ class Tautological:
   ...
 
 
+def non_splat_variables(
+    constraints: Sequence[Constraint],
+) -> dict[Variable, Constant]:
+  """Returns a map var->splat_layout for all vars distinct from a splat."""
+  result: dict[Variable, Constant] = {}
+  for constraint in constraints:
+    match constraint:
+      case Distinct(lhs=lhs, rhs=rhs):
+        if (
+            isinstance(lhs, Variable)
+            and isinstance(rhs, RegisterLayout)
+            and isinstance(rhs.value, fa.WGSplatFragLayout)
+        ):
+          result[lhs] = rhs
+        if (
+            isinstance(rhs, Variable)
+            and isinstance(lhs, RegisterLayout)
+            and isinstance(lhs.value, fa.WGSplatFragLayout)
+        ):
+          result[rhs] = lhs
+  return result
+
+
 # The result of reducing an equation---and by extension, a system of
 # equations. An equation can either be unsatisfiable (i.e. there exists no
 # assignment for which it holds), satisfied by an assignment, unknown (i.e.
 # still undetermined), or tautological (i.e. the equation is guaranteed to
 # hold for any assignment).
 Solution = Unsatisfiable | SatisfiedBy | Unknown | Tautological
+
+
+def _has_relayout_of_non_splat_to_splat(constraints: Sequence[Constraint]) -> bool:
+  """Returns whether the constraints imply a non-splat to splat relayout.
+
+  Such relayouts are impossible and this helps shortcut the search.
+
+  If this function returns False, this doesn't necessarily mean that there are
+  no non-splat to splat relayouts, just that this is not known yet.
+  """
+  non_splat = non_splat_variables(constraints)
+  if not non_splat:
+    return False
+
+  def is_constant_splat(e) -> bool:
+    return isinstance(e, RegisterLayout) and isinstance(
+        e.value, fa.WGSplatFragLayout
+    )
+
+  for constraint in constraints:
+    match constraint:
+      case Relayout(source=source, target=target):
+        if source in non_splat and is_constant_splat(target):
+          return True
+      case _:
+        pass
+  return False
+
+
+def saturate_distinct_from_splat(
+    equation_system: EquationSystem,
+) -> EquationSystem | Unsatisfiable:
+  """Adds transitive Distinct constraints for all non-splat variables.
+
+  Given `n` variables `l0`, ... `l{n-1}`, and a set of relayouts
+  `{ Relayout(l{i}, l{i+1}) : 0 <= i < n }`, if we also know that
+  `l{0}` is not splat, then we can automatically deduce that none of
+  `l0`, ..., `l{n-1}` are splat either.
+
+  This helps us quickly conclude that a system is unsatisfiable in cases where
+  a non-splat variable is transitively relaid out into a splat layout.
+  """
+  non_splat = non_splat_variables(equation_system.constraints)
+  new_constraints: list[Constraint] = []
+  new_non_splat_found = len(non_splat) > 0
+
+  while new_non_splat_found:
+    new_non_splat_found = False
+    for constraint in equation_system.constraints:
+      match constraint:
+        case Relayout(source=source, target=target):
+          if isinstance(target, Variable) and source in non_splat and target not in non_splat:
+            new_non_splat_found = True
+            assert isinstance(source, Variable)
+            splat_layout = non_splat[source]
+            non_splat[target] = splat_layout
+            new_constraints.append(Distinct(lhs=target, rhs=splat_layout))
+        case _:
+          pass
+  return equation_system & EquationSystem(constraints=new_constraints)
 
 
 def _reduce_system_once(
@@ -540,6 +746,11 @@ def _reduce_system_once(
       case _ as new_constraint:
         changed |= new_constraint != constraint
         constraints.append(new_constraint)
+
+  # Shortcut for a specific case of unsatisfiability. This shortcut
+  # drastically reduces the size of the search space.
+  if _has_relayout_of_non_splat_to_splat(equation_system.constraints):
+    return Unsatisfiable()
 
   if changed:
     return EquationSystem(

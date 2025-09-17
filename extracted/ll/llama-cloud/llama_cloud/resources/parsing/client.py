@@ -228,6 +228,11 @@ class ParsingClient:
         high_res_ocr: bool,
         html_make_all_elements_visible: bool,
         layout_aware: bool,
+        specialized_chart_parsing_agentic: bool,
+        specialized_chart_parsing_plus: bool,
+        specialized_chart_parsing_efficient: bool,
+        specialized_image_parsing: bool,
+        precise_bounding_box: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
         http_proxy: str,
@@ -250,6 +255,8 @@ class ParsingClient:
         preserve_very_small_text: bool,
         skip_diagonal_text: bool,
         spreadsheet_extract_sub_tables: bool,
+        spreadsheet_force_formula_computation: bool,
+        inline_images_in_markdown: bool,
         structured_output: bool,
         structured_output_json_schema: str,
         structured_output_json_schema_name: str,
@@ -360,6 +367,16 @@ class ParsingClient:
 
             - layout_aware: bool.
 
+            - specialized_chart_parsing_agentic: bool.
+
+            - specialized_chart_parsing_plus: bool.
+
+            - specialized_chart_parsing_efficient: bool.
+
+            - specialized_image_parsing: bool.
+
+            - precise_bounding_box: bool.
+
             - html_remove_fixed_elements: bool.
 
             - html_remove_navigation_elements: bool.
@@ -403,6 +420,10 @@ class ParsingClient:
             - skip_diagonal_text: bool.
 
             - spreadsheet_extract_sub_tables: bool.
+
+            - spreadsheet_force_formula_computation: bool.
+
+            - inline_images_in_markdown: bool.
 
             - structured_output: bool.
 
@@ -526,6 +547,11 @@ class ParsingClient:
             "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
             "layout_aware": layout_aware,
+            "specialized_chart_parsing_agentic": specialized_chart_parsing_agentic,
+            "specialized_chart_parsing_plus": specialized_chart_parsing_plus,
+            "specialized_chart_parsing_efficient": specialized_chart_parsing_efficient,
+            "specialized_image_parsing": specialized_image_parsing,
+            "precise_bounding_box": precise_bounding_box,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,
             "http_proxy": http_proxy,
@@ -547,6 +573,8 @@ class ParsingClient:
             "preserve_very_small_text": preserve_very_small_text,
             "skip_diagonal_text": skip_diagonal_text,
             "spreadsheet_extract_sub_tables": spreadsheet_extract_sub_tables,
+            "spreadsheet_force_formula_computation": spreadsheet_force_formula_computation,
+            "inline_images_in_markdown": inline_images_in_markdown,
             "structured_output": structured_output,
             "structured_output_json_schema": structured_output_json_schema,
             "structured_output_json_schema_name": structured_output_json_schema_name,
@@ -1404,6 +1432,11 @@ class AsyncParsingClient:
         high_res_ocr: bool,
         html_make_all_elements_visible: bool,
         layout_aware: bool,
+        specialized_chart_parsing_agentic: bool,
+        specialized_chart_parsing_plus: bool,
+        specialized_chart_parsing_efficient: bool,
+        specialized_image_parsing: bool,
+        precise_bounding_box: bool,
         html_remove_fixed_elements: bool,
         html_remove_navigation_elements: bool,
         http_proxy: str,
@@ -1426,6 +1459,8 @@ class AsyncParsingClient:
         preserve_very_small_text: bool,
         skip_diagonal_text: bool,
         spreadsheet_extract_sub_tables: bool,
+        spreadsheet_force_formula_computation: bool,
+        inline_images_in_markdown: bool,
         structured_output: bool,
         structured_output_json_schema: str,
         structured_output_json_schema_name: str,
@@ -1536,6 +1571,16 @@ class AsyncParsingClient:
 
             - layout_aware: bool.
 
+            - specialized_chart_parsing_agentic: bool.
+
+            - specialized_chart_parsing_plus: bool.
+
+            - specialized_chart_parsing_efficient: bool.
+
+            - specialized_image_parsing: bool.
+
+            - precise_bounding_box: bool.
+
             - html_remove_fixed_elements: bool.
 
             - html_remove_navigation_elements: bool.
@@ -1579,6 +1624,10 @@ class AsyncParsingClient:
             - skip_diagonal_text: bool.
 
             - spreadsheet_extract_sub_tables: bool.
+
+            - spreadsheet_force_formula_computation: bool.
+
+            - inline_images_in_markdown: bool.
 
             - structured_output: bool.
 
@@ -1702,6 +1751,11 @@ class AsyncParsingClient:
             "high_res_ocr": high_res_ocr,
             "html_make_all_elements_visible": html_make_all_elements_visible,
             "layout_aware": layout_aware,
+            "specialized_chart_parsing_agentic": specialized_chart_parsing_agentic,
+            "specialized_chart_parsing_plus": specialized_chart_parsing_plus,
+            "specialized_chart_parsing_efficient": specialized_chart_parsing_efficient,
+            "specialized_image_parsing": specialized_image_parsing,
+            "precise_bounding_box": precise_bounding_box,
             "html_remove_fixed_elements": html_remove_fixed_elements,
             "html_remove_navigation_elements": html_remove_navigation_elements,
             "http_proxy": http_proxy,
@@ -1723,6 +1777,8 @@ class AsyncParsingClient:
             "preserve_very_small_text": preserve_very_small_text,
             "skip_diagonal_text": skip_diagonal_text,
             "spreadsheet_extract_sub_tables": spreadsheet_extract_sub_tables,
+            "spreadsheet_force_formula_computation": spreadsheet_force_formula_computation,
+            "inline_images_in_markdown": inline_images_in_markdown,
             "structured_output": structured_output,
             "structured_output_json_schema": structured_output_json_schema,
             "structured_output_json_schema_name": structured_output_json_schema_name,

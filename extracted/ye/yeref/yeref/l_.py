@@ -5648,7 +5648,7 @@ l_chn_post_already_in_col = {
     'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
 }
 l_chn_no_nft_logo = {
-    'ru': "👩🏽‍💻 Отсутствует nft-logo, повторите попытку позже",
+    'ru': "👩🏽‍💻 Генерация NFT-поста, повторите попытку позже",
     'en': "🌏 <b>Select</b> one of the available languages",
     'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
     'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",

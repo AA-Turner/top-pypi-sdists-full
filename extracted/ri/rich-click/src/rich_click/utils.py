@@ -1,6 +1,21 @@
-from typing import Any, Dict, List, Optional, Type
+from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+import sys
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypedDict
+
+
+if sys.version_info < (3, 11):
+    from typing_extensions import NotRequired
+else:
+    from typing import NotRequired
+
+if TYPE_CHECKING:
+    from rich.style import StyleType
+
+    from rich_click.rich_help_configuration import CommandColumnType, OptionColumnType
+
+
+notset: Any = object()
 
 
 def truthy(o: Any) -> Optional[bool]:
@@ -25,18 +40,25 @@ def method_is_from_subclass_of(cls: Type[object], base_cls: Type[object], method
     This is used under the hood to see whether we would expect a patched RichCommand's help text
     methods to be compatible or incompatible with rich-click or not.
     """
-    return any(
-        getattr(c, method_name, None) == getattr(cls, method_name) for c in cls.__mro__ if issubclass(c, base_cls)
-    )
+    method = getattr(cls, method_name, None)
+    if method is None:
+        return False
+    return any(getattr(c, method_name, None) == method for c in cls.__mro__ if base_cls in c.__mro__)
 
 
 class CommandGroupDict(TypedDict):
     """Specification for command groups."""
 
     name: NotRequired[str]
-    commands: List[str]
-    table_styles: NotRequired[Dict[str, Any]]
-    panel_styles: NotRequired[Dict[str, Any]]
+    commands: NotRequired[List[str]]
+    help: NotRequired[Optional[str]]
+    help_style: NotRequired[Optional["StyleType"]]
+    table_styles: NotRequired[Optional[Dict[str, Any]]]
+    panel_styles: NotRequired[Optional[Dict[str, Any]]]
+    column_types: NotRequired[Optional[List["CommandColumnType"]]]
+    inline_help_in_title: NotRequired[Optional[bool]]
+    title_style: NotRequired[Optional["StyleType"]]
+
     deduplicate: NotRequired[bool]
 
 
@@ -45,6 +67,12 @@ class OptionGroupDict(TypedDict):
 
     name: NotRequired[str]
     options: NotRequired[List[str]]
-    table_styles: NotRequired[Dict[str, Any]]
-    panel_styles: NotRequired[Dict[str, Any]]
+    help: NotRequired[Optional[str]]
+    help_style: NotRequired[Optional["StyleType"]]
+    table_styles: NotRequired[Optional[Dict[str, Any]]]
+    panel_styles: NotRequired[Optional[Dict[str, Any]]]
+    column_types: NotRequired[Optional[List["OptionColumnType"]]]
+    inline_help_in_title: NotRequired[Optional[bool]]
+    title_style: NotRequired[Optional["StyleType"]]
+
     deduplicate: NotRequired[bool]

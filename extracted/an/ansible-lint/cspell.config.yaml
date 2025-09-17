@@ -13,24 +13,18 @@ dictionaries:
   - python-common
   - words
 enabled: true
+useGitignore: true
 ignorePaths:
   - cspell.config.yaml
-  # The requirements file
-  - .config/constraints.txt
-  - docs/requirements.txt
-  - docs/requirements.in
+  - uv.lock
   # Test fixtures generated from outside
   - test/**/*.result
   - src/ansiblelint/schemas/*.json
   # Other
+  - "*.egg-info"
   - "*.svg"
   - ".vscode/**"
-  - build
-  - _readthedocs
-  - examples/playbooks/collections
-  - site
-  - test/schemas/node_modules
   - .config/dictionary.txt
-  - "*.egg-info"
-  - junit.xml
   - examples/broken/encoding.yml
+  - examples/playbooks/collections
+  - test/schemas/node_modules

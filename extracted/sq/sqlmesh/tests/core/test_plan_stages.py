@@ -771,9 +771,11 @@ def test_build_plan_stages_restatement_prod_identifies_dev_intervals(
     # note: we only clear the intervals from state for "a" in dev, we leave prod alone
     assert restatement_stage.snapshot_intervals_to_clear
     assert len(restatement_stage.snapshot_intervals_to_clear) == 1
-    snapshot_name, clear_request = list(restatement_stage.snapshot_intervals_to_clear.items())[0]
-    assert isinstance(clear_request, SnapshotIntervalClearRequest)
+    snapshot_name, clear_requests = list(restatement_stage.snapshot_intervals_to_clear.items())[0]
     assert snapshot_name == '"a"'
+    assert len(clear_requests) == 1
+    clear_request = clear_requests[0]
+    assert isinstance(clear_request, SnapshotIntervalClearRequest)
     assert clear_request.snapshot_id == snapshot_a_dev.snapshot_id
     assert clear_request.snapshot == snapshot_a_dev.id_and_version
     assert clear_request.interval == (to_timestamp("2023-01-01"), to_timestamp("2023-01-02"))
@@ -1659,16 +1661,17 @@ def test_build_plan_stages_indirect_non_breaking_view_migration(
     stages = build_plan_stages(plan, state_reader, None)
 
     # Verify stages
-    assert len(stages) == 8
+    assert len(stages) == 9
 
     assert isinstance(stages[0], CreateSnapshotRecordsStage)
     assert isinstance(stages[1], PhysicalLayerSchemaCreationStage)
     assert isinstance(stages[2], BackfillStage)
     assert isinstance(stages[3], EnvironmentRecordUpdateStage)
-    assert isinstance(stages[4], UnpauseStage)
-    assert isinstance(stages[5], BackfillStage)
-    assert isinstance(stages[6], VirtualLayerUpdateStage)
-    assert isinstance(stages[7], FinalizeEnvironmentStage)
+    assert isinstance(stages[4], MigrateSchemasStage)
+    assert isinstance(stages[5], UnpauseStage)
+    assert isinstance(stages[6], BackfillStage)
+    assert isinstance(stages[7], VirtualLayerUpdateStage)
+    assert isinstance(stages[8], FinalizeEnvironmentStage)
 
 
 def test_build_plan_stages_virtual_environment_mode_filtering(

@@ -19,6 +19,7 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '3358676':{'en': 'Rochefort', 'fr': 'Rochefort'},
  '3358677':{'en': 'La Rochelle', 'fr': 'La Rochelle'},
  '3358678':{'en': 'Niort', 'fr': 'Niort'},
  '3358679':{'en': 'Niort', 'fr': 'Niort'},
@@ -5084,7 +5085,7 @@ data = {
  '390825':{'en': 'Avellino', 'it': 'Avellino'},
  '390827':{'it': 'Sant\'Angelo dei Lombardi'},
  '390828':{'it': 'Battipaglia'},
- '390831':{'it': 'Brindisi'},
+ '390831':{'en': 'Brindisi', 'it': 'Brindisi'},
  '390832':{'en': 'Lecce', 'it': 'Lecce'},
  '390833':{'it': 'Gallipoli'},
  '390835':{'it': 'Matera'},
@@ -10018,5 +10019,4 @@ data = {
  '494767':{'de': u('Bremerv\u00f6rde-Bevern'), 'en': u('Bremerv\u00f6rde-Bevern')},
  '494768':{'de': 'Hipstedt', 'en': 'Hipstedt'},
  '494769':{'de': u('Bremerv\u00f6rde-Iselersheim'), 'en': u('Bremerv\u00f6rde-Iselersheim')},
- '494770':{'de': 'Wischhafen', 'en': 'Wischhafen'},
 }

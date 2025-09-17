@@ -21,7 +21,7 @@ else:
     import tomli as tomllib
 
 nox.options.reuse_existing_virtualenvs = True
-nox.options.default_venv_backend = "uv|virtualenv"
+nox.options.default_venv_backend = "uv"
 
 
 def install(
@@ -73,22 +73,18 @@ def tests(session: nox.Session) -> None:
     if session.name == "tests-rust-debug":
         install(
             session,
-            "--config-settings=build-args=--profile=dev",
+            "--config-settings-package=cryptography:build-args=--profile=dev",
             f".[{extras}]",
         )
     else:
         install(session, f".[{extras}]")
 
-    if session.venv_backend == "uv":
-        session.run("uv", "pip", "list")
-    else:
-        session.run("pip", "list")
+    session.run("uv", "pip", "list")
 
     if session.name != "tests-nocoverage":
         cov_args = [
             "--cov=cryptography",
             "--cov=tests",
-            "--cov-context=test",
         ]
     else:
         cov_args = []
@@ -202,8 +198,8 @@ def flake(session: nox.Session) -> None:
         *pyproject_data["project"]["optional-dependencies"]["nox"],
     )
 
-    session.run("ruff", "check", ".")
-    session.run("ruff", "format", "--check", ".")
+    session.run("ruff", "check")
+    session.run("ruff", "format", "--check")
     session.run(
         "mypy",
         "src/cryptography/",
@@ -248,7 +244,6 @@ def rust(session: nox.Session) -> None:
     build_output = session.run(
         "cargo",
         "test",
-        "--no-default-features",
         "--all",
         "--no-run",
         "-q",
@@ -256,9 +251,7 @@ def rust(session: nox.Session) -> None:
         external=True,
         silent=True,
     )
-    session.run(
-        "cargo", "test", "--no-default-features", "--all", external=True
-    )
+    session.run("cargo", "test", "--all", external=True)
 
     # It's None on install-only invocations
     if build_output is not None:
@@ -286,8 +279,8 @@ def local(session: nox.Session):
         verbose=False,
     )
 
-    session.run("ruff", "format", ".")
-    session.run("ruff", "check", ".")
+    session.run("ruff", "format")
+    session.run("ruff", "check")
 
     session.run("cargo", "fmt", "--all", external=True)
     session.run("cargo", "check", "--all", "--tests", external=True)
@@ -314,7 +307,7 @@ def local(session: nox.Session):
         "maturin",
         "develop",
         "--release",
-        *(["--uv"] if session.venv_backend == "uv" else []),
+        "--uv",
     )
 
     if session.posargs:
@@ -331,9 +324,7 @@ def local(session: nox.Session):
         *tests,
     )
 
-    session.run(
-        "cargo", "test", "--no-default-features", "--all", external=True
-    )
+    session.run("cargo", "test", "--all", external=True)
 
 
 LCOV_SOURCEFILE_RE = re.compile(

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: openfga-sdk
-Version: 0.9.5
+Version: 0.9.6
 Summary: A high performance and flexible authorization/permission engine built for developers and inspired by Google Zanzibar.
-Home-page: https://github.com/openfga/python-sdk
-Author: OpenFGA (https://openfga.dev)
-Author-email: community@openfga.dev
-License: Apache-2.0
-Keywords: openfga,authorization,fga,fine-grained-authorization,rebac,zanzibar
+Project-URL: Repository, https://github.com/openfga/python-sdk.git
+Author-email: "OpenFGA (https://openfga.dev)" <community@openfga.dev>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: authorization,fga,fine-grained-authorization,openfga,rebac,zanzibar
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,27 +14,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: NOTICE.txt
-Requires-Dist: aiohttp<4,>=3.9.3
-Requires-Dist: python-dateutil<3,>=2.9.0
-Requires-Dist: setuptools>=69.1.1
-Requires-Dist: build<2,>=1.2.1
+Requires-Dist: aiohttp>=3.9.3
+Requires-Dist: opentelemetry-api>=1.25.0
+Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: urllib3<3,>=1.26.19
-Requires-Dist: opentelemetry-api<2,>=1.25.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Description-Content-Type: text/markdown
 
 # Python SDK for OpenFGA
 
@@ -866,7 +850,7 @@ response = await fga_client.batch_check(ClientBatchCheckRequest(checks=checks), 
 # ]
 ```
 
-If you are using an OpenFGA version less than 1.8.0, you can use `client_batch_check`, 
+If you are using an OpenFGA version less than 1.8.0, you can use `client_batch_check`,
 which calls `check` in parallel. It will return `allowed: false` if it encounters an error, and will return the error in the body.
 If 429s or 5xxs are encountered, the underlying check will retry up to 3 times before giving up.
 
@@ -1098,7 +1082,8 @@ List the users who have a certain relation to a particular type.
 ```python
 from openfga_sdk import OpenFgaClient
 from openfga_sdk.models.fga_object import FgaObject
-from openfga_sdk.client.models import ClientListUsersRequest, ClientTuple
+from openfga_sdk.client.models import ClientTuple
+from openfga_sdk.client.models.list_users_request import ClientListUsersRequest
 
 configuration = ClientConfiguration(
     api_url=FGA_API_URL,

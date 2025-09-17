@@ -19,6 +19,8 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '573104':{'en': 'Claro'},
+ '573105':{'en': 'Claro'},
  '573106':{'en': 'Claro'},
  '573107':{'en': 'Claro'},
  '573108':{'en': 'Claro'},
@@ -1461,7 +1463,14 @@ data = {
  '658972':{'en': 'SingTel'},
  '658976':{'en': 'SingTel'},
  '658977':{'en': 'SingTel'},
- '65898':{'en': 'Simba'},
+ '658980':{'en': 'Simba'},
+ '658982':{'en': 'SingTel'},
+ '658983':{'en': 'SingTel'},
+ '658984':{'en': 'SingTel'},
+ '658985':{'en': 'SingTel'},
+ '658986':{'en': 'Simba'},
+ '658987':{'en': 'Simba'},
+ '658988':{'en': 'Simba'},
  '659001':{'en': 'StarHub'},
  '659002':{'en': 'StarHub'},
  '659003':{'en': 'StarHub'},
@@ -8922,7 +8931,7 @@ data = {
  '9988':{'en': 'MobiUZ'},
  '99890':{'en': 'Beeline'},
  '99891':{'en': 'Beeline'},
- '99892':{'en': 'MobiUZ'},
+ '99892':{'en': 'Beeline'},
  '99893':{'en': 'Ucell'},
  '99894':{'en': 'Ucell'},
  '99895':{'en': 'Uzbektelecom'},

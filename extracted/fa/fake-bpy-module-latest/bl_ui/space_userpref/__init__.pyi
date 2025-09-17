@@ -383,10 +383,10 @@ class USERPREF_MT_view(_bpy_types.Menu):
         :rtype: typing.Any
         """
 
-    def draw(self, _context) -> None:
+    def draw(self, context) -> None:
         """
 
-        :param _context:
+        :param context:
         """
 
 class USERPREF_PT_addons(AddOnPanel, _bpy_types.Panel):

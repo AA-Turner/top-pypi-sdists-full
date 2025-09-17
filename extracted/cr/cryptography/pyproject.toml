@@ -2,10 +2,11 @@
 # These requirements must be kept sync with the requirements in
 # ./.github/requirements/build-requirements.{in,txt}
 requires = [
-    "maturin>=1.8.6,<2",
+    "maturin>=1.9.4,<2",
 
     # Must be kept in sync with `project.dependencies`
-    "cffi>=1.14; platform_python_implementation != 'PyPy'",
+    "cffi>=1.14; platform_python_implementation != 'PyPy' and python_version == '3.8'",
+    "cffi>=2.0.0; platform_python_implementation != 'PyPy' and python_version >= '3.9'",
     # Used by cffi (which import distutils, and in Python 3.12, distutils has
     # been removed from the stdlib, but installing setuptools puts it back) as
     # well as our build.rs for the rust/cffi bridge.
@@ -15,7 +16,7 @@ build-backend = "maturin"
 
 [project]
 name = "cryptography"
-version = "45.0.7"
+version = "46.0.1"
 authors = [
     { name = "The Python Cryptographic Authority and individual contributors", email = "cryptography-dev@python.org" },
 ]
@@ -35,21 +36,25 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Topic :: Security :: Cryptography",
 ]
-requires-python = ">=3.7,!=3.9.0,!=3.9.1"
+requires-python = ">=3.8,!=3.9.0,!=3.9.1"
 dependencies = [
     # Must be kept in sync with `build-system.requires`
-    "cffi>=1.14; platform_python_implementation != 'PyPy'",
+    "cffi>=1.14; platform_python_implementation != 'PyPy' and python_version == '3.8'",
+    "cffi>=2.0.0; platform_python_implementation != 'PyPy' and python_version >= '3.9'",
+    # Must be kept in sync with ./.github/requirements/build-requirements.{in,txt}
+    "typing-extensions>=4.13.2; python_version < '3.11'",
 ]
 
 [project.urls]
@@ -63,9 +68,9 @@ changelog = "https://cryptography.io/en/latest/changelog/"
 ssh = ["bcrypt >=3.1.5"]
 
 # All the following are used for our own testing.
-nox = ["nox >=2024.04.15", "nox[uv] >=2024.03.02; python_version >= '3.8'"]
+nox = ["nox[uv] >=2024.04.15"]
 test = [
-    "cryptography_vectors==45.0.7",
+    "cryptography_vectors==46.0.1",
     "pytest >=7.4.0",
     "pytest-benchmark >=4.0",
     "pytest-cov >=2.10.1",
@@ -76,8 +81,8 @@ test = [
 test-randomorder = ["pytest-randomly"]
 docs = [
     "sphinx >=5.3.0",
-    "sphinx-rtd-theme >=3.0.0; python_version >= '3.8'",
-    "sphinx-inline-tabs; python_version >= '3.8'",
+    "sphinx-rtd-theme >=3.0.0",
+    "sphinx-inline-tabs",
 ]
 docstest = [
     "pyenchant >=3",
@@ -87,9 +92,9 @@ docstest = [
 sdist = ["build >=1.0.0"]
 # `click` included because its needed to type check `release.py`
 pep8test = [
-    "ruff >=0.3.6",
-    "mypy >=1.4",
-    "check-sdist; python_version >= '3.8'",
+    "ruff >=0.11.11",
+    "mypy >=1.14",
+    "check-sdist",
     "click >=8.0.1",
 ]
 
@@ -179,6 +184,9 @@ line-length = 79
 
 lint.ignore = ['N818']
 lint.select = ['E', 'F', 'I', 'N', 'W', 'UP', 'RUF']
+
+[tool.ruff.per-file-target-version]
+".github/bin/merge_rust_coverage.py" = "py313"
 
 [tool.ruff.lint.isort]
 known-first-party = ["cryptography", "cryptography_vectors", "tests"]

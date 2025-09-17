@@ -133,6 +133,7 @@ export declare namespace DataTabulator {
         sorters: p.Property<any[]>;
         cell_styles: p.Property<any>;
         theme_classes: p.Property<string[]>;
+        container_popup: p.Property<boolean>;
     };
 }
 export interface DataTabulator extends DataTabulator.Attrs {

@@ -37,6 +37,7 @@ from jax._src import core
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import effects
+from jax._src import literals
 from jax._src import jaxpr_util
 from jax._src import linear_util as lu
 from jax._src import op_shardings
@@ -107,42 +108,30 @@ ShardingSpec = sharding_specs.ShardingSpec
 
 ### util
 
-
-def to_xc_copy_semantics(copy_semantics):
-  out = []
-  for cs in copy_semantics:
-    if cs is None or cs == dispatch.CopySemantics.ALIAS:
-      out.append(xc.ArrayCopySemantics.REUSE_INPUT)
-    elif cs == dispatch.CopySemantics.COPY:
-      out.append(xc.ArrayCopySemantics.ALWAYS_COPY)
-    elif cs == dispatch.CopySemantics.DONATE:
-      out.append(xc.ArrayCopySemantics.DONATE_INPUT)
-    else:
-      assert isinstance(cs, xc.ArrayCopySemantics)
-      out.append(cs)
-  return out
-
-
 def identity(x): return x
 
+
 @profiler.annotate_function
-def shard_args(shardings: Sequence[JSharding], layouts, copy_semantics,
-               args, canonicalize=True) -> Sequence[xc.ArrayImpl]:
-  xc_copy_semantics = to_xc_copy_semantics(copy_semantics)
-  del copy_semantics
+def shard_args(
+    shardings: Sequence[JSharding],
+    layouts: Sequence[Any | None],
+    copy_semantics: Sequence[xc.ArrayCopySemantics],
+    args: Sequence[Any],
+    canonicalize: bool = True,
+) -> Sequence[xc.ArrayImpl]:
   # Fast path for one argument.
   if len(args) == 1:
     arg = args[0]
     if canonicalize:
       arg = dtypes.canonicalize_value(arg)
     return shard_arg_handlers[type(arg)]([arg], shardings, layouts,
-                                         xc_copy_semantics)
+                                         copy_semantics)
 
   # type(arg) -> (list[indices], list[args], list[shardings], list[layouts],
   #               list[copy_semantics])
   batches = collections.defaultdict(lambda: ([], [], [], [], []))  # type: ignore
   for i, (arg, sharding, layout, cs) in enumerate(
-      safe_zip(args, shardings, layouts, xc_copy_semantics)):
+      safe_zip(args, shardings, layouts, copy_semantics)):
     if canonicalize:
       arg = dtypes.canonicalize_value(arg)
     batch = batches[type(arg)]
@@ -157,8 +146,8 @@ def shard_args(shardings: Sequence[JSharding], layouts, copy_semantics,
   # types, we cannot simply flatten the results and we have to use the original
   # indices to put each array back to its original position.
   results: list[typing.Array | None] = [None] * len(args)
-  for t, (indices, a, s, l, cs) in batches.items():
-    outs = shard_arg_handlers[t](a, s, l, cs)
+  for t, (indices, a, s, l, xcs) in batches.items():
+    outs = shard_arg_handlers[t](a, s, l, xcs)
     for i, out in safe_zip(indices, outs):
       results[i] = out
   assert all(result is not None for result in results)
@@ -166,8 +155,12 @@ def shard_args(shardings: Sequence[JSharding], layouts, copy_semantics,
 
 
 shard_arg_handlers: dict[
-    Any, Callable[[Sequence[Any], Sequence[Any], Sequence[Any], Sequence[Any]],
-                  Sequence[Any]]
+    Any,
+    Callable[
+      [Sequence[Any], Sequence[Any], Sequence[Any],
+       Sequence[xc.ArrayCopySemantics]],
+      Sequence[Any],
+    ],
 ] = {}
 
 
@@ -209,6 +202,8 @@ def _shard_np_array(xs, shardings, layouts, copy_semantics):
     if x.dtype == dtypes.float0:
       x = np.zeros(x.shape, dtype=np.dtype(bool))
     aval = core.shaped_abstractify(x)
+    if jaxlib_extension_version < 373:
+      x = np.asarray(x)
     if layout is not None:
       results.append(api.device_put(x, Format(layout, sharding)))
     else:
@@ -222,17 +217,30 @@ def _shard_np_array(xs, shardings, layouts, copy_semantics):
 for _t in array_types:
   shard_arg_handlers[_t] = _shard_np_array
 
+shard_arg_handlers[literals.LiteralArray] = _shard_np_array
+
+def _shard_python_scalar(xs, shardings, layouts, copy_semantics):
+  return shard_args(shardings, layouts, copy_semantics,
+                    [np.array(x) for x in xs])
+for _t in dtypes.python_scalar_types:
+  shard_arg_handlers[_t] = _shard_python_scalar
+for _t in literals.literal_scalar_types:
+  shard_arg_handlers[_t] = _shard_python_scalar
+
 def _shard_darray(xs, shardings, layouts, copy_semantics):
-  return shard_args(shardings, layouts, copy_semantics, [x._data for x in xs])
+  bufs = [x._data for x in xs]
+  return shard_args(shardings, layouts, copy_semantics, bufs)
 shard_arg_handlers[core.DArray] = _shard_darray
 
 def _shard_mutable_array(xs, shardings, layouts, copy_semantics):
-  return shard_args(shardings, layouts, copy_semantics, [x._buf for x in xs])
+  bufs = [x._refs._buf for x in xs]
+  return shard_args(shardings, layouts, copy_semantics, bufs)
 shard_arg_handlers[core.MutableArray] = _shard_mutable_array
 
 def batched_device_put(aval: core.ShapedArray,
                        sharding: JSharding, xs: Sequence[Any],
-                       devices: Sequence[xc.Device], committed: bool = True):
+                       devices: Sequence[xc.Device], committed: bool = True,
+                       enable_x64: bool | None = None):
   util.test_event("batched_device_put_start")
   try:
     bufs = [x for x, d in safe_zip(xs, devices)
@@ -242,7 +250,12 @@ def batched_device_put(aval: core.ShapedArray,
     if len(bufs) == len(xs) > 0:
       return array.ArrayImpl(
           aval, sharding, bufs, committed=committed, _skip_checks=True)
-    return xc.batched_device_put(aval, sharding, xs, list(devices), committed)
+    if jaxlib_extension_version >= 370:
+      return xc.batched_device_put(aval, sharding, xs, list(devices), committed,
+                                  enable_x64=enable_x64)
+    else:
+      assert enable_x64 is None, enable_x64
+      return xc.batched_device_put(aval, sharding, xs, list(devices), committed)
   finally:
     util.test_event("batched_device_put_end")
 
@@ -686,7 +699,6 @@ class ReplicaInfo(NamedTuple):
   num_global_replicas: int
 
 
-
 _initial_style_primitives: set[core.Primitive] = set()
 
 
@@ -757,7 +769,8 @@ def stage_parallel_callable(
     with dispatch.log_elapsed_time(
         "Finished tracing + transforming {fun_name} for pmap in {elapsed_time} sec",
         fun_name=fun.__name__, event=dispatch.JAXPR_TRACE_EVENT):
-      jaxpr, out_sharded_avals, consts = pe.trace_to_jaxpr_dynamic(fun, sharded_avals)
+      jaxpr, out_sharded_avals, consts = pe.trace_to_jaxpr_dynamic(
+          fun.with_unknown_names(), sharded_avals)
 
   assert len(out_sharded_avals) == len(pci.out_axes), (
       len(out_sharded_avals), len(pci.out_axes))
@@ -831,12 +844,13 @@ def lower_parallel_callable(
 
   jaxpr = closed_jaxpr.jaxpr
   arg_names = jaxpr._debug_info.safe_arg_names(len(closed_jaxpr.in_avals))
+  const_args: Sequence[ArrayLike]
   if lowering_parameters.hoist_constants_as_args:
-    const_args = core.jaxpr_const_args(jaxpr)
-    num_const_args = len(const_args)
+    const_args_and_avals = core.jaxpr_const_args(jaxpr)
+    const_args, const_arg_avals = unzip2(const_args_and_avals)
+    num_const_args = len(const_arg_avals)
     in_axes = (None,) * num_const_args + in_axes  # type: ignore
     donated_invars = (False,) * num_const_args + donated_invars  # type: ignore
-    const_arg_avals = [core.shaped_abstractify(c) for c in const_args]
     jaxpr_avals = const_arg_avals + closed_jaxpr.in_avals  # type: ignore
     shards = ShardInfo(
         tuple(const_arg_avals) + shards.sharded_avals,  # type: ignore
@@ -939,7 +953,7 @@ def lower_parallel_callable(
           num_replicas=replicas.num_global_replicas,
           lowering_parameters=lowering_parameters)
   return PmapComputation(lowering_result.module,
-                         const_args,
+                         list(const_args),
                          platforms=platforms,
                          pci=pci, replicas=replicas,
                          shards=shards, tuple_args=tuple_args,
@@ -1224,8 +1238,9 @@ class InputsHandler:
 
   def __init__(self, in_shardings, in_layouts, local_devices=None,
                input_indices=None):
-    self.handler = partial(shard_args, in_shardings, in_layouts,
-                           [None] * len(in_shardings))
+    self.handler = partial(
+        shard_args, in_shardings, in_layouts,
+        [xc.ArrayCopySemantics.REUSE_INPUT] * len(in_shardings))
     self.in_shardings = in_shardings
     self.in_layouts = in_layouts
     self.local_devices = local_devices
@@ -1342,6 +1357,10 @@ class ExecuteReplicated:
 
   @profiler.annotate_function
   def __call__(self, *args):
+    if config.no_execution.value:
+      raise RuntimeError(
+      f"JAX tried to execute function {self.name}, but the no_execution config "
+      "option is set")
     args = [x for i, x in enumerate(args) if i in self.kept_var_idx]
     if self.mut:
       args = [*args, *self.mut.in_mut]
@@ -1350,9 +1369,7 @@ class ExecuteReplicated:
       if (self.ordered_effects or self.has_unordered_effects
           or self.has_host_callbacks):
         input_bufs = self._add_tokens_to_inputs(input_bufs)
-        results = self.xla_executable.execute_sharded(
-            input_bufs, with_tokens=True
-        )
+        results = self.xla_executable.execute_sharded(input_bufs, with_tokens=True)
 
         result_token_bufs = results.disassemble_prefix_into_single_device_arrays(
             len(self.ordered_effects))
@@ -1379,7 +1396,7 @@ class ExecuteReplicated:
       out_ = []
       for i, o in zip(self.mut.out_mut, out):
         if i is not None:
-          args[i]._buf._replace_with(o)  # type: ignore
+          args[i]._refs._buf._replace_with(o)  # type: ignore
         else:
           out_.append(o)
       return out_
@@ -1833,7 +1850,7 @@ def _move_mutable_consts(
   effects = pe.make_jaxpr_effects(constvars, invars, jaxpr.outvars, jaxpr.eqns)
   # TODO(mattjj): debug_info must be updated...
   jaxpr = core.Jaxpr(constvars, invars, jaxpr.outvars, jaxpr.eqns,
-                     effects, closed_jaxpr.jaxpr.debug_info)
+                     effects, closed_jaxpr.jaxpr.debug_info.with_unknown_names())
   return core.ClosedJaxpr(jaxpr, consts), in_mut
 
 @weakref_lru_cache
@@ -1866,7 +1883,7 @@ class SemanticallyEqualShardings:
     if not isinstance(other, SemanticallyEqualShardings):
       return False
     return all(
-        (op_shardings.are_op_shardings_equal(s._hlo_sharding, o._hlo_sharding)
+        (op_shardings.are_hlo_shardings_equal(s._hlo_sharding, o._hlo_sharding)
          and s.memory_kind == o.memory_kind)
         if (isinstance(s, GSPMDSharding) and isinstance(o, GSPMDSharding))
         else s == o
@@ -2027,7 +2044,6 @@ def are_all_shardings_default_mem_kind(
 ):
   if device_list is None:
     return True
-
   try:
     default_mem_kind = device_list.default_memory_kind
   except:
@@ -2148,10 +2164,11 @@ def hoist_constants_as_args(
     closed_jaxpr: core.ClosedJaxpr, global_in_avals, in_shardings, in_layouts,
     donated_invars, kept_var_idx: set[int], inout_aliases, mut,
     all_args_info: AllArgsInfo):
-  const_args = core.jaxpr_const_args(closed_jaxpr.jaxpr)
+  const_args, const_arg_avals = unzip2(
+      core.jaxpr_const_args(closed_jaxpr.jaxpr)
+  )
   num_const_args = len(const_args)
   if num_const_args:
-    const_arg_avals = [core.shaped_abstractify(c) for c in const_args]
     global_in_avals = const_arg_avals + global_in_avals  # type: ignore
     ca_shardings = pjit.const_args_shardings(const_args)
     in_shardings = ca_shardings + in_shardings  # type: ignore
@@ -2169,10 +2186,14 @@ def hoist_constants_as_args(
           in_mut=mut.in_mut,
           out_mut=[None if i_idx is None else i_idx + num_const_args
                    for i_idx in mut.out_mut])
+    if all_args_info.debug_info.arg_names is None:
+      arg_names = None
+    else:
+      arg_names = (("",) * num_const_args + all_args_info.debug_info.arg_names)
     all_args_info = AllArgsInfo(
         const_arg_avals + all_args_info.in_avals,  # type: ignore
-        all_args_info.debug_info._replace(
-            arg_names=(("",) * num_const_args + all_args_info.debug_info.arg_names)))
+        all_args_info.debug_info._replace(arg_names=arg_names))
+
   return (const_args, global_in_avals, in_shardings, in_layouts, donated_invars,
           kept_var_idx, inout_aliases, mut, all_args_info)
 
@@ -2217,8 +2238,9 @@ def _get_context_mesh(context_mesh: Mesh) -> Mesh:
     return context_mesh
   if cur_mesh == context_mesh.abstract_mesh:
     return context_mesh
-  return Mesh(context_mesh.devices, context_mesh.axis_names,
-              axis_types=cur_mesh.axis_types)
+  assert context_mesh.size == cur_mesh.size
+  return Mesh(context_mesh.devices.reshape(cur_mesh.axis_sizes),
+              cur_mesh.axis_names, cur_mesh.axis_types)
 
 
 @profiler.annotate_function
@@ -2344,16 +2366,18 @@ def lower_sharding_computation(
           "AbstractMesh cannot be used when jaxpr contains primitives that"
           " require devices to be present during lowering.")
 
+  device_list = _create_device_list(device_assignment)
+  transfer_mem_kind_in_jaxpr = jaxpr_transfer_mem_kinds(jaxpr)
+
   committed = bool(
       devices_from_context
       or num_devices > 1
       or any(not isinstance(s, UnspecifiedValue) for s in it.chain(
           unique_in_shardings, unique_out_shardings,
-          unique_intermediate_shardings)))
+          unique_intermediate_shardings))
+      or transfer_mem_kind_in_jaxpr
+  )
 
-  device_list = _create_device_list(device_assignment)
-
-  transfer_mem_kind_in_jaxpr = jaxpr_transfer_mem_kinds(jaxpr)
   all_default_mem_kind = are_all_shardings_default_mem_kind(
       device_list,
       it.chain(unique_in_shardings, unique_out_shardings,
@@ -2874,7 +2898,7 @@ def _maybe_get_and_check_in_shardings(
       # MANUAL HloSharding comes from other partitioning frameworks.
       if (not dtypes.issubdtype(aval.dtype, dtypes.extended) and
           not xla_hlo_s.is_manual() and
-          (not op_shardings.are_op_shardings_equal(xla_hlo_s, orig_hlo_s))):
+          (not op_shardings.are_hlo_shardings_equal(xla_hlo_s, orig_hlo_s))):
         raise AssertionError(
             f"Unexpected XLA sharding override: (XLA) {xla_s} != {orig} "
             "(User sharding)")
@@ -2918,7 +2942,7 @@ def _maybe_get_and_check_out_shardings(
       # MANUAL HloSharding comes from other partitioning frameworks.
       if (not dtypes.issubdtype(aval.dtype, dtypes.extended) and
           not xla_hlo_s.is_manual() and
-          (not op_shardings.are_op_shardings_equal(xla_hlo_s, orig_hlo_s) or
+          (not op_shardings.are_hlo_shardings_equal(xla_hlo_s, orig_hlo_s) or
            xla_s.memory_kind != orig.memory_kind)):  # pytype: disable=attribute-error
         raise AssertionError(
             f"Unexpected XLA sharding override: (XLA) {xla_s} != {orig} "
@@ -3220,32 +3244,35 @@ class MeshExecutable(stages.Executable):
 
   def call(self, *args):
     args_after_dce = [a for i, a in enumerate(args) if i in self._kept_var_idx]
-    if self._all_args_info is None:
-      kept_args = args_after_dce
-      ref_avals = self.in_avals
-      # TODO(necula): ensure we have actual debug info; need it before DCE.
-      # See https://github.com/jax-ml/jax/issues/26480.
-      debug_info = core.DebugInfo(
-          "MeshExecutable", "<unknown>",
-          tuple(f"args[{i}]" for i in range(len(args))), ())
+    if (self._all_args_info is not None and
+        self._all_args_info.debug_info.arg_names is not None):
+      arg_names_after_dce = [
+          n for i, n in enumerate(self._all_args_info.debug_info.arg_names)
+          if i in self._kept_var_idx]
     else:
-      kept_args = args
-      ref_avals = self._all_args_info.in_avals
-      debug_info = self._all_args_info.debug_info
+      arg_names_after_dce = ("",) * len(args_after_dce)
 
-    check_arg_avals_for_call(ref_avals, map(core.shaped_abstractify, kept_args),
-                             debug_info)
-
+    if self._all_args_info is not None:
+      # We check all args before DCE
+      check_arg_avals_for_call(self._all_args_info.in_avals,
+                               map(core.shaped_abstractify, args),
+                               self._all_args_info.debug_info)
+    else:
+      # We can only check the args after DCE
+      check_arg_avals_for_call(self.in_avals,
+                               map(core.shaped_abstractify, args_after_dce),
+                               core.DebugInfo("MeshExecutable", "<unknown>",
+                                              arg_names_after_dce, None))
     if not self._mut:
-      arg_names = [n for i, n in enumerate(debug_info.arg_names)
-                   if i in self._kept_var_idx]
       check_array_xla_sharding_layout_match(
-          args_after_dce, self._in_shardings, self._xla_in_layouts, arg_names)
+          args_after_dce, self._in_shardings, self._xla_in_layouts,
+          arg_names_after_dce)
     else:
       args_after_dce = [*args_after_dce, *self._mut.in_mut]
-      arg_names = debug_info.arg_names + ('',) * len(self._mut.in_mut)
+      arg_names_after_dce += (("",) * len(self._mut.in_mut))
       check_array_xla_sharding_layout_match(
-          args_after_dce, self._in_shardings, self._xla_in_layouts, arg_names)
+          args_after_dce, self._in_shardings, self._xla_in_layouts,
+          arg_names_after_dce)
     return self.unsafe_call(*args)  # pylint: disable=not-callable
 
   def create_cpp_call(self, params: stages.CompiledCallParams):
@@ -3255,7 +3282,7 @@ class MeshExecutable(stages.Executable):
       return None
 
     def aot_cache_miss(*args, **kwargs):
-      # args do not include the const args
+      # args do not include the const args.
       # See https://docs.jax.dev/en/latest/internals/constants.html.
       outs, out_flat, args_flat = stages.Compiled.call(params, *args, **kwargs)
       out_flat, out_tree_dispatch = reflatten_outputs_for_dispatch(
@@ -3289,7 +3316,8 @@ class MeshExecutable(stages.Executable):
         JitGlobalCppCacheKeys(), tree_util.dispatch_registry, cc_shard_arg)
 
 def cc_shard_arg(x, sharding, layout):
-  return shard_args([sharding], [layout], [None], [x])[0]
+  return shard_args([sharding], [layout], [xc.ArrayCopySemantics.REUSE_INPUT],
+                    [x])[0]
 
 
 def check_arg_avals_for_call(ref_avals, arg_avals,
@@ -3319,7 +3347,9 @@ def check_arg_avals_for_call(ref_avals, arg_avals,
       num_mismatch_str = "The"
     raise TypeError(
         "Argument types differ from the types for which this computation was "
-        f"compiled. {num_mismatch_str} mismatches are:\n{str_errors}")
+        "compiled. Perhaps you are calling the compiled executable with a "
+        "different enable_x64 mode than when it was AOT compiled? "
+        f"{num_mismatch_str} mismatches are:\n{str_errors}")
 
 
 def _get_metadata_jit_pmap(local_devices, num_in_shardings, num_out_shardings):

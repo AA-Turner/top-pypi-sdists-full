@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class TrajectoryEnded(BaseModel):
     """
-    TrajectoryEnded
+    First or last sample (depending on direction) of trajectory has been sent. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

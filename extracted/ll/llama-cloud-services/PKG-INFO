@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-cloud-services
-Version: 0.6.65
+Version: 0.6.66
 Summary: Tailored SDK clients for LlamaCloud services.
 Author-email: Logan Markewich <logan@runllama.ai>
 License-Expression: MIT

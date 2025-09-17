@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class JoggingRunning(BaseModel):
     """
-    JoggingRunning
+    Jogging is active. 
     """ # noqa: E501
     kind: StrictStr
     __properties: ClassVar[List[str]] = ["kind"]

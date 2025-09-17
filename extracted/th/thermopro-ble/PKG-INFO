@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: thermopro-ble
-Version: 1.0.0
+Version: 1.1.0
 Summary: Thermopro BLE Sensors
 License: MIT
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
 Requires-Python: >=3.11,<4
@@ -15,6 +16,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<9) ; extra == "docs"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-html5lib
-Version: 1.1.11.20250809
+Version: 1.1.11.20250917
 Summary: Typing stubs for html5lib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,8 +17,8 @@ Dynamic: license-file
 
 ## Typing stubs for html5lib
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`html5lib`](https://github.com/html5lib/html5lib-python) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`html5lib`](https://github.com/html5lib/html5lib-python) package. It can be used by type checkers
 to check code that uses `html5lib`. This version of
 `types-html5lib` aims to provide accurate annotations for
 `html5lib==1.1.*`.
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`29c69fe755c6363b847e9b239a742e2a0db089a9`](https://github.com/python/typeshed/commit/29c69fe755c6363b847e9b239a742e2a0db089a9).

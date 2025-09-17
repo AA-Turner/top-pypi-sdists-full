@@ -1,4 +1,5 @@
 """Module provides :class:`TelnetWriter` and :class:`TelnetWriterUnicode`."""
+
 # std imports
 import asyncio
 import collections
@@ -158,9 +159,10 @@ class TelnetWriter:
                 reader,
             )
         self._reader = reader
-        self._loop = asyncio.get_event_loop_policy().get_event_loop()
+        self._loop = asyncio.get_event_loop()
         self._complete_fut = self._loop.create_future()
         self._complete_fut.set_result(None)
+        self._closed_fut = self._loop.create_future()
 
         if not any((client, server)) or all((client, server)):
             raise TypeError(
@@ -290,6 +292,14 @@ class TelnetWriter:
     def close(self):
         if self.connection_closed:
             return
+        # Proactively notify the protocol so it can release references immediately.
+        # Transport will also call connection_lost(), but doing it here ensures
+        # cleanup happens deterministically and is idempotent due to _closing guard.
+        if self._protocol is not None:
+            try:
+                self._protocol.connection_lost(None)
+            except Exception:
+                pass
         if self._transport is not None:
             self._transport.close()
         # break circular refs
@@ -300,6 +310,9 @@ class TelnetWriter:
         self._protocol = None
         self._transport = None
         self._connection_closed = True
+        # Signal that the connection is closed
+        if not self._closed_fut.done():
+            self._closed_fut.set_result(None)
 
     def is_closing(self):
         if self._transport is not None:
@@ -308,6 +321,18 @@ class TelnetWriter:
         if self.connection_closed:
             return True
         return False
+
+    async def wait_closed(self):
+        """
+        Wait until the underlying connection has completed closing.
+
+        This method returns when the underlying connection has been closed.
+        It can be used to wait for the connection to be fully closed after
+        calling close().
+
+        :rtype: None
+        """
+        await self._closed_fut
 
     def __repr__(self):
         """Description of stream encoding state."""
@@ -673,7 +698,8 @@ class TelnetWriter:
         """
         assert isinstance(buf, (bytes, bytearray)), buf
         assert buf and buf.startswith(IAC), buf
-        self._transport.write(buf)
+        if self._transport is not None:
+            self._transport.write(buf)
 
     def iac(self, cmd, opt=b""):
         """
@@ -908,6 +934,7 @@ class TelnetWriter:
             self.log.debug(
                 "cannot send SB XDISPLOC SEND" "without receipt of WILL XDISPLOC"
             )
+            return False
         if not self.pending_option.enabled(SB + XDISPLOC):
             response = [IAC, SB, XDISPLOC, SEND, IAC, SE]
             self.log.debug("send IAC SB XDISPLOC SEND IAC SE")
@@ -927,6 +954,7 @@ class TelnetWriter:
         assert self.server, "SB TTYPE SEND may only be sent by server end"
         if not self.remote_option.enabled(TTYPE):
             self.log.debug("cannot send SB TTYPE SEND" "without receipt of WILL TTYPE")
+            return False
         if not self.pending_option.enabled(SB + TTYPE):
             response = [IAC, SB, TTYPE, SEND, IAC, SE]
             self.log.debug("send IAC SB TTYPE SEND IAC SE")
@@ -941,7 +969,7 @@ class TelnetWriter:
         """
         Request the client forward their terminal control characters.
 
-        Characters are indicated in the :class:`~.Forwardmask` instance
+        Characters are indicated in the Forwardmask instance
         ``fmask``.  When fmask is None, a forwardmask is generated for the SLC
         characters registered by :attr:`~.slctab`.
         """
@@ -1492,7 +1520,6 @@ class TelnetWriter:
             STATUS,
             GMCP,
         ):
-
             # first time we've agreed, respond accordingly.
             if not self.local_option.enabled(opt):
                 self.iac(WILL, opt)
@@ -1724,15 +1751,15 @@ class TelnetWriter:
         """
         if not isinstance(buf, (bytes, bytearray)):
             raise TypeError("buf expected bytes, got {0}".format(type(buf)))
+        if not self.is_closing():
+            if escape_iac:
+                # when escape_iac is True, we may safely assume downstream
+                # application has provided an encoded string. Prior to 2.0.1, `buf`
+                # was inspected to raise TypeError for any bytes of ordinal value
+                # greater than 127, but it was removed for performance.
+                buf = self._escape_iac(buf)
 
-        if escape_iac:
-            # when escape_iac is True, we may safely assume downstream
-            # application has provided an encoded string. Prior to 2.0.1, `buf`
-            # was inspected to raise TypeError for any bytes of ordinal value
-            # greater than 127, but it was removed for performance.
-            buf = self._escape_iac(buf)
-
-        self._transport.write(buf)
+            self._transport.write(buf)
 
     # Private sub-negotiation (SB) routines
 
@@ -1810,7 +1837,7 @@ class TelnetWriter:
                 rx, tx = int(rx), int(tx)
             except ValueError as err:
                 self.log.error(
-                    "illegal TSPEED values received " "(rx={!r}, tx={!r}: {}",
+                    "illegal TSPEED values received (rx=%r, tx=%r): %s",
                     rx,
                     tx,
                     err,
@@ -1823,7 +1850,10 @@ class TelnetWriter:
                 opt_kind,
             )
             (rx, tx) = self._ext_send_callback[TSPEED]()
-            assert (type(rx), type(tx),) == (
+            assert (
+                type(rx),
+                type(tx),
+            ) == (
                 int,
                 int,
             ), (rx, tx)
@@ -2470,11 +2500,12 @@ class TelnetWriter:
         # set and report about pending options by 2-byte opt,
         # not well tested, no known implementations exist !
         if self.server:
-            assert self.remote_option.enabled(
-                LINEMODE
-            ), "cannot recv LMODE_FORWARDMASK {} ({!r}) " "without first sending DO LINEMODE.".format(
-                cmd,
-                buf,
+            assert self.remote_option.enabled(LINEMODE), (
+                "cannot recv LMODE_FORWARDMASK {} ({!r}) "
+                "without first sending DO LINEMODE.".format(
+                    cmd,
+                    buf,
+                )
             )
             assert cmd not in (
                 DO,

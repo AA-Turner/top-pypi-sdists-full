@@ -356,9 +356,8 @@ def var_to_xml(val, name, do_trim=True, additional_in_xml='', evaluate_full_valu
     # we use it for view as image
     xml_data_type = ''
     try:
-        if (is_container_with_shape_dtype(type_qualifier, typeName, v)
-                and hasattr(v.dtype, 'name')):
-            xml_data_type = ' arrayElementType="%s"' % make_valid_xml_value(v.dtype.name)
+        if is_container_with_shape_dtype(type_qualifier, typeName, v):
+            xml_data_type = ' arrayElementType="%s"' % make_valid_xml_value(str(v.dtype))
     except:
         pass
 

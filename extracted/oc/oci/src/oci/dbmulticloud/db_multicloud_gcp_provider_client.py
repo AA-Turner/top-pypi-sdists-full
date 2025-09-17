@@ -190,14 +190,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/change_oracle_db_gcp_identity_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_gcp_identity_connector_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/change_oracle_db_gcp_identity_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_gcp_identity_connector_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpIdentityConnectorId']
         resource_path = "/oracleDbGcpIdentityConnector/{oracleDbGcpIdentityConnectorId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_oracle_db_gcp_identity_connector_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/ChangeOracleDbGcpIdentityConnectorCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -312,14 +312,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/change_oracle_db_gcp_key_ring_compartment.py.html>`__ to see an example of how to use change_oracle_db_gcp_key_ring_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/change_oracle_db_gcp_key_ring_compartment.py.html>`__ to see an example of how to use change_oracle_db_gcp_key_ring_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyRingId']
         resource_path = "/oracleDbGcpKeyRing/{oracleDbGcpKeyRingId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_oracle_db_gcp_key_ring_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/ChangeOracleDbGcpKeyRingCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -422,14 +422,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/create_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use create_oracle_db_gcp_identity_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/create_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use create_oracle_db_gcp_identity_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/oracleDbGcpIdentityConnector"
         method = "POST"
         operation_name = "create_oracle_db_gcp_identity_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/CreateOracleDbGcpIdentityConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -527,14 +527,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/create_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use create_oracle_db_gcp_key_ring API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/create_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use create_oracle_db_gcp_key_ring API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/oracleDbGcpKeyRing"
         method = "POST"
         operation_name = "create_oracle_db_gcp_key_ring"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/CreateOracleDbGcpKeyRing"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -629,14 +629,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/delete_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use delete_oracle_db_gcp_identity_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/delete_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use delete_oracle_db_gcp_identity_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpIdentityConnectorId']
         resource_path = "/oracleDbGcpIdentityConnector/{oracleDbGcpIdentityConnectorId}"
         method = "DELETE"
         operation_name = "delete_oracle_db_gcp_identity_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/DeleteOracleDbGcpIdentityConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -736,14 +736,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/delete_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use delete_oracle_db_gcp_key_ring API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/delete_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use delete_oracle_db_gcp_key_ring API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyRingId']
         resource_path = "/oracleDbGcpKeyRing/{oracleDbGcpKeyRingId}"
         method = "DELETE"
         operation_name = "delete_oracle_db_gcp_key_ring"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/DeleteOracleDbGcpKeyRing"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -838,14 +838,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/get_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use get_oracle_db_gcp_identity_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/get_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use get_oracle_db_gcp_identity_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpIdentityConnectorId']
         resource_path = "/oracleDbGcpIdentityConnector/{oracleDbGcpIdentityConnectorId}"
         method = "GET"
         operation_name = "get_oracle_db_gcp_identity_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/GetOracleDbGcpIdentityConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -940,14 +940,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/get_oracle_db_gcp_key.py.html>`__ to see an example of how to use get_oracle_db_gcp_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/get_oracle_db_gcp_key.py.html>`__ to see an example of how to use get_oracle_db_gcp_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyId']
         resource_path = "/oracleDbGcpKey/{oracleDbGcpKeyId}"
         method = "GET"
         operation_name = "get_oracle_db_gcp_key"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKey/GetOracleDbGcpKey"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1053,14 +1053,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/get_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use get_oracle_db_gcp_key_ring API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/get_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use get_oracle_db_gcp_key_ring API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyRingId']
         resource_path = "/oracleDbGcpKeyRing/{oracleDbGcpKeyRingId}"
         method = "GET"
         operation_name = "get_oracle_db_gcp_key_ring"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/GetOracleDbGcpKeyRing"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1201,14 +1201,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/list_oracle_db_gcp_identity_connectors.py.html>`__ to see an example of how to use list_oracle_db_gcp_identity_connectors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/list_oracle_db_gcp_identity_connectors.py.html>`__ to see an example of how to use list_oracle_db_gcp_identity_connectors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbGcpIdentityConnector"
         method = "GET"
         operation_name = "list_oracle_db_gcp_identity_connectors"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/ListOracleDbGcpIdentityConnectors"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1364,14 +1364,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/list_oracle_db_gcp_key_rings.py.html>`__ to see an example of how to use list_oracle_db_gcp_key_rings API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/list_oracle_db_gcp_key_rings.py.html>`__ to see an example of how to use list_oracle_db_gcp_key_rings API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbGcpKeyRing"
         method = "GET"
         operation_name = "list_oracle_db_gcp_key_rings"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/ListOracleDbGcpKeyRings"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1526,14 +1526,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/list_oracle_db_gcp_keys.py.html>`__ to see an example of how to use list_oracle_db_gcp_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/list_oracle_db_gcp_keys.py.html>`__ to see an example of how to use list_oracle_db_gcp_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbGcpKey"
         method = "GET"
         operation_name = "list_oracle_db_gcp_keys"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKey/ListOracleDbGcpKeys"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1672,14 +1672,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/refresh_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use refresh_oracle_db_gcp_identity_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/refresh_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use refresh_oracle_db_gcp_identity_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpIdentityConnectorId']
         resource_path = "/oracleDbGcpIdentityConnector/{oracleDbGcpIdentityConnectorId}/actions/refresh"
         method = "POST"
         operation_name = "refresh_oracle_db_gcp_identity_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/RefreshOracleDbGcpIdentityConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1792,14 +1792,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/refresh_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use refresh_oracle_db_gcp_key_ring API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/refresh_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use refresh_oracle_db_gcp_key_ring API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyRingId']
         resource_path = "/oracleDbGcpKeyRing/{oracleDbGcpKeyRingId}/actions/refresh"
         method = "POST"
         operation_name = "refresh_oracle_db_gcp_key_ring"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/RefreshOracleDbGcpKeyRing"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1909,14 +1909,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/update_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use update_oracle_db_gcp_identity_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/update_oracle_db_gcp_identity_connector.py.html>`__ to see an example of how to use update_oracle_db_gcp_identity_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpIdentityConnectorId']
         resource_path = "/oracleDbGcpIdentityConnector/{oracleDbGcpIdentityConnectorId}"
         method = "PUT"
         operation_name = "update_oracle_db_gcp_identity_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpIdentityConnector/UpdateOracleDbGcpIdentityConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2023,14 +2023,14 @@ class DbMulticloudGCPProviderClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.0/dbmulticloud/update_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use update_oracle_db_gcp_key_ring API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/dbmulticloud/update_oracle_db_gcp_key_ring.py.html>`__ to see an example of how to use update_oracle_db_gcp_key_ring API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbGcpKeyRingId']
         resource_path = "/oracleDbGcpKeyRing/{oracleDbGcpKeyRingId}"
         method = "PUT"
         operation_name = "update_oracle_db_gcp_key_ring"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbGcpKeyRing/UpdateOracleDbGcpKeyRing"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

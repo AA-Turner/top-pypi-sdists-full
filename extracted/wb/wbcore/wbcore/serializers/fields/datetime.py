@@ -1,8 +1,9 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 import pytz
-from psycopg.types.range import DateRange, TimestamptzRange
+from psycopg.types.range import DateRange, TimestampRange, TimestamptzRange
 from rest_framework import serializers
+from rest_framework.settings import api_settings
 from timezone_field.choices import standard, with_gmt_offset
 from timezone_field.rest_framework import TimeZoneSerializerField
 
@@ -111,6 +112,37 @@ class DateTimeRangeField(RangeMixin, ShortcutMixin, serializers.DateTimeField):
         if timezone := getattr(self, "timezone", None):
             representation["timezone"] = str(timezone)
         return key, representation
+
+
+class TimeRange(RangeMixin, ShortcutMixin, serializers.TimeField):
+    field_type = WBCoreType.TIMERANGE.value
+    internal_field = TimestampRange
+
+    def __init__(self, *args, timerange_fields: tuple[str, str] | None = None, **kwargs):
+        self.timerange_fields = timerange_fields
+        super().__init__(*args, **kwargs)
+        self.timezone = None
+        self.default_date_repr = date.min.strftime(getattr(self, "format", api_settings.DATE_FORMAT))
+        if self.timerange_fields:
+            self.source = "*"
+
+    def _transform_range(self, lower, upper, **kwargs):
+        if isinstance(lower, datetime):
+            lower = lower.time()
+        if isinstance(upper, datetime):
+            upper = upper.time()
+        return lower, upper
+
+    def get_attribute(self, instance):
+        if self.timerange_fields:
+            return [getattr(instance, self.timerange_fields[0]), getattr(instance, self.timerange_fields[1])]
+        return super().get_attribute(instance)
+
+    def to_internal_value(self, data):
+        ts_range = super().to_internal_value(data)
+        if self.timerange_fields:
+            return dict(zip(self.timerange_fields, (ts_range.lower, ts_range.upper)))
+        return ts_range
 
 
 class DurationField(NumberFieldMixin, WBCoreSerializerFieldMixin, serializers.DurationField):

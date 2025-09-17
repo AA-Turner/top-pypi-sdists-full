@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-shapely"
-version = "2.1.0.20250915"
+version = "2.1.0.20250917"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for shapely"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
+[`29c69fe755c6363b847e9b239a742e2a0db089a9`](https://github.com/python/typeshed/commit/29c69fe755c6363b847e9b239a742e2a0db089a9).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

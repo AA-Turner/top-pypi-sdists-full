@@ -5,7 +5,7 @@ import warnings
 
 from nominal.procedures.executions.v1 import procedure_executions_pb2 as nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

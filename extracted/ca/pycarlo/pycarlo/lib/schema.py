@@ -4854,6 +4854,24 @@ class TableFlagType(sgqlc.types.Enum):
     __choices__ = ("DEPRECATION", "WARNING")
 
 
+class TableMonitorMetricType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `TABLES_WITHOUT_MONITORS_COUNT`None
+    * `TABLES_WITH_MONITORS_COUNT`None
+    * `TOTAL_MONITORS_COUNT`None
+    * `TOTAL_TABLES_COUNT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "TABLES_WITHOUT_MONITORS_COUNT",
+        "TABLES_WITH_MONITORS_COUNT",
+        "TOTAL_MONITORS_COUNT",
+        "TOTAL_TABLES_COUNT",
+    )
+
+
 class TableMonitorModelPriority(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9809,6 +9827,7 @@ class TransformInput(sgqlc.types.Input):
         "prompt",
         "categories",
         "model_connection_id",
+        "output_type",
         "function",
         "field",
         "id",
@@ -9823,6 +9842,8 @@ class TransformInput(sgqlc.types.Input):
     )
 
     model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
+
+    output_type = sgqlc.types.Field(String, graphql_name="outputType")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -24120,6 +24141,12 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -24185,6 +24212,7 @@ class MonitorLabelObject(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -43148,6 +43176,8 @@ class QueriedTable(sgqlc.types.Type):
 class Query(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "get_table_monitor_metric",
+        "get_tables_for_coverage_dashboard",
         "get_logs_integrations",
         "generate_webhook_url",
         "get_user_id",
@@ -43611,6 +43641,98 @@ class Query(sgqlc.types.Type):
         "get_account_secret",
         "get_account_secrets",
     )
+    get_table_monitor_metric = sgqlc.types.Field(
+        "TableMonitorMetric",
+        graphql_name="getTableMonitorMetric",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "metric",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TableMonitorMetricType),
+                        graphql_name="metric",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="domainIds", default=None
+                    ),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get a table monitor metric
+
+    Arguments:
+
+    * `metric` (`TableMonitorMetricType!`)None
+    * `domain_ids` (`[UUID]`)None
+    * `tags` (`[TagKeyValuePairInput]`)None
+    * `data_product_ids` (`[UUID]`)None
+    """
+
+    get_tables_for_coverage_dashboard = sgqlc.types.Field(
+        "SearchResponse",
+        graphql_name="getTablesForCoverageDashboard",
+        args=sgqlc.types.ArgDict(
+            (
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "metric",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TableMonitorMetricType),
+                        graphql_name="metric",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="domainIds", default=None
+                    ),
+                ),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get a list of tables
+
+    Arguments:
+
+    * `limit` (`Int`)None (default: `100`)
+    * `offset` (`Int`)None
+    * `metric` (`TableMonitorMetricType!`)None
+    * `domain_ids` (`[UUID]`)None
+    * `tags` (`[TagKeyValuePairInput]`)None
+    * `data_product_ids` (`[UUID]`)None
+    """
+
     get_logs_integrations = sgqlc.types.Field(
         sgqlc.types.list_of(LogsIntegrationOutput),
         graphql_name="getLogsIntegrations",
@@ -49829,6 +49951,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -49894,6 +50022,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50062,6 +50191,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50127,6 +50262,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50295,6 +50431,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50360,6 +50502,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50528,6 +50671,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50593,6 +50742,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50761,6 +50911,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -50826,6 +50982,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -50994,6 +51151,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -51059,6 +51222,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -51227,6 +51391,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -51292,6 +51462,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -51460,6 +51631,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -51525,6 +51702,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -51693,6 +51871,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "data_product_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(UUID), graphql_name="dataProductIds", default=None
+                    ),
+                ),
+                (
                     "data_quality_dimensions",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String),
@@ -51758,6 +51942,7 @@ class Query(sgqlc.types.Type):
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
       included
+    * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
     * `order_by` (`String`): Field and direction to order monitors by
@@ -63471,6 +63656,14 @@ class TableMonitorEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class TableMonitorMetric(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("metric", "value")
+    metric = sgqlc.types.Field(sgqlc.types.non_null(TableMonitorMetricType), graphql_name="metric")
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="value")
+
+
 class TableMonitorSpec(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -65156,6 +65349,7 @@ class Transform(sgqlc.types.Type):
         "prompt",
         "categories",
         "model_connection_id",
+        "output_type",
         "function",
         "field",
         "id",
@@ -65170,6 +65364,8 @@ class Transform(sgqlc.types.Type):
     )
 
     model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
+
+    output_type = sgqlc.types.Field(String, graphql_name="outputType")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -65191,6 +65387,7 @@ class TransformFunction(sgqlc.types.Type):
         "category",
         "prompt",
         "score_field",
+        "output_type",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -65219,6 +65416,8 @@ class TransformFunction(sgqlc.types.Type):
     prompt = sgqlc.types.Field(String, graphql_name="prompt")
 
     score_field = sgqlc.types.Field(String, graphql_name="scoreField")
+
+    output_type = sgqlc.types.Field(String, graphql_name="outputType")
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):

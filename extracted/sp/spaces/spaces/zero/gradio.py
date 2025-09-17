@@ -155,12 +155,13 @@ def supports_auth():
 
 Param = ParamSpec('Param')
 
+_orig_launch = gr.Blocks.launch
+
 def one_launch(task: Callable[Param, None], *task_args: Param.args, **task_kwargs: Param.kwargs):
-    _launch = gr.Blocks.launch
     @wraps(gr.Blocks.launch)
     def launch(*args, **kwargs):
         task(*task_args, **task_kwargs)
-        gr.Blocks.launch = _launch
+        gr.Blocks.launch = _orig_launch
         return gr.Blocks.launch(*args, **kwargs)
     gr.Blocks.launch = launch
 

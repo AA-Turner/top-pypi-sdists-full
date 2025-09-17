@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
 from wandelbots_api_client.v2.models.comparator import Comparator
+from wandelbots_api_client.v2.models.io_origin import IOOrigin
 from wandelbots_api_client.v2.models.io_value import IOValue
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,7 +31,8 @@ class PauseOnIO(BaseModel):
     """ # noqa: E501
     io: IOValue
     comparator: Comparator = Field(description="Comparator for the comparison of two values. Use the measured I/O as the base value (a) and the expected input/output value as the comparator (b): e.g., a > b. ")
-    __properties: ClassVar[List[str]] = ["io", "comparator"]
+    io_origin: IOOrigin
+    __properties: ClassVar[List[str]] = ["io", "comparator", "io_origin"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,7 +93,8 @@ class PauseOnIO(BaseModel):
 
         _obj = cls.model_validate({
             "io": IOValue.from_dict(obj["io"]) if obj.get("io") is not None else None,
-            "comparator": obj.get("comparator")
+            "comparator": obj.get("comparator"),
+            "io_origin": obj.get("io_origin")
         })
         return _obj
 

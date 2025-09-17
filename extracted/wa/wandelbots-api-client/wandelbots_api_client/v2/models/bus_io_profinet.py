@@ -29,11 +29,11 @@ class BusIOProfinet(BaseModel):
     PROFINET BUS inputs/outputs service configuration. 
     """ # noqa: E501
     bus_type: Optional[StrictStr] = 'profinet'
-    config_file_content: Optional[StrictStr] = Field(default=None, description="Content of Configuration XML file for PROFINET device, typically known as PND_IOD.xml. Leave empty for the default configuration.  Refer to the official PROFINET driver documentation for further information. ")
-    network_config: Optional[BusIOProfinetNetwork] = Field(default=None, description="Used to enable IP communication through the same physical interface while PN Driver is running.")
-    mac: StrictStr = Field(description="MAC address of the physical ethernet interface that you want to use for PROFINET communication.")
+    network_config: Optional[BusIOProfinetNetwork] = Field(default=None, description="Used to enable IP communication through the same physical ethernet interface while PROFINET driver is active. ")
+    plc_ip: StrictStr = Field(description="IP address of the PLC to establish PROFINET communication with.  The IP address is used to configure the host machine's firewall. The firewall configuration is applied while the BUS input/output service is active. Without proper firewall configuration, PROFINET device discovery, configuration exchanges, and real-time cyclic data communication will fail. ")
+    mac: StrictStr = Field(description="MAC address of the physical ethernet interface that you want to use for PROFINET communication. ")
     default_route: BusIOProfinetDefaultRoute
-    __properties: ClassVar[List[str]] = ["bus_type", "config_file_content", "network_config", "mac", "default_route"]
+    __properties: ClassVar[List[str]] = ["bus_type", "network_config", "plc_ip", "mac", "default_route"]
 
     @field_validator('bus_type')
     def bus_type_validate_enum(cls, value):
@@ -107,8 +107,8 @@ class BusIOProfinet(BaseModel):
 
         _obj = cls.model_validate({
             "bus_type": obj.get("bus_type") if obj.get("bus_type") is not None else 'profinet',
-            "config_file_content": obj.get("config_file_content"),
             "network_config": BusIOProfinetNetwork.from_dict(obj["network_config"]) if obj.get("network_config") is not None else None,
+            "plc_ip": obj.get("plc_ip"),
             "mac": obj.get("mac"),
             "default_route": BusIOProfinetDefaultRoute.from_dict(obj["default_route"]) if obj.get("default_route") is not None else None
         })

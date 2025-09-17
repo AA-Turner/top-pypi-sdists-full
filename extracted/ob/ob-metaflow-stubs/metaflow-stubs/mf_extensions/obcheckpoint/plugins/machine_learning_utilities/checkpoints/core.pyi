@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-16T01:38:51.298675                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-16T23:23:08.747000                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -39,6 +39,8 @@ DEFAULT_STORAGE_FORMAT: str
 class Checkpointer(object, metaclass=type):
     @property
     def current_version(self):
+        ...
+    def override_path_components(self, path_components: typing.List[str]):
         ...
     def set_root_prefix(self, root_prefix):
         ...

@@ -24,8 +24,8 @@ class ChattyAIMode(StrEnum):
     def get_context_for_mode(cls, mode: 'ChattyAIMode') -> str:
         intro = "Your mode is set to " + mode.value + ". Here are the rules you need to follow:"
         mode_description = {
-            cls.AUTONOMOUS: "Only answer based on the context and rules provided. Do not improvise or make up information. If you can't handle the question, call human_handover tool to ask for help.",
-            cls.SUGGESTIONS: "You're only going to be making suggestions, you won't have the chat assigned to yourself nor be interacting directly with the user. Always include the 'suggest' mode in your output for the messages you want to send.",
+            cls.AUTONOMOUS: "Only answer based on the context and rules provided. Do not improvise or make up information. If you can't handle the question, escalate to a human",
+            cls.SUGGESTIONS: "You're only going to be making suggestions, you won't have the chat assigned to yourself nor be interacting directly with the user.",
             cls.COPILOT: "You're in a COPILOT mode, so you'll be making suggestions on general inquires, and answer only questions specified in the FAQ section. So, for answers which you're creating based on the context, you'll be making a suggestions, and need to add the 'suggestion' subtype in each message. When asked about a question included in the FAQ, you're allowed to adapt the answer to the user's question, but you're not allowed to improvise or make up information, and you'll set the 'text' subtype in the messages.",
             cls.OFF: ""
         }[mode]

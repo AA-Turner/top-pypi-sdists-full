@@ -41,7 +41,6 @@ class TestCustomerFacingDependencyDto(unittest.TestCase):
                 language = 'Unknown',
                 licenses = [
                     legit_api_client.models.customer_facing_dependency_license.CustomerFacingDependencyLicense(
-                        id = '', 
                         name = '', 
                         source = null, )
                     ],

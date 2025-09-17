@@ -27,7 +27,7 @@ class IOIntegerValue(BaseModel):
     IOIntegerValue
     """ # noqa: E501
     io: StrictStr = Field(description="Unique identifier of the input/output.")
-    value: StrictStr = Field(description="Value of an input/output with integer representation.  > The integral value is transmitted as a string to avoid precision loss during conversion to JSON. > We recommend to use int64 in your implementation. If you want to interact with int64 in numbers, > JS bigint libraries can help you to parse the string into an integral value. ")
+    value: StrictStr = Field(description="Value of an input/output with integer representation.  > The integral value is transmitted as a string to avoid precision loss during conversion to JSON. > Recommended: Use int64 in your implementation. If you want to interact with int64 in numbers, > JS bigint libraries can help you to parse the string into an integral value. ")
     value_type: Optional[StrictStr] = 'integer'
     __properties: ClassVar[List[str]] = ["io", "value", "value_type"]
 

@@ -22,17 +22,30 @@ from typing import Union
 import numpy as np
 
 from jax._src.lib import xla_client as xc
+from jax._src.lib import jaxlib_extension_version
 
 
 def get_num_ways_dim_sharded(
     hlo_sharding: xc.HloSharding) -> tuple[list[int], int]:
   if hlo_sharding.is_replicated():
     return [], 1
+  if jaxlib_extension_version >= 371 and hlo_sharding.is_unreduced():
+    return [], 1
   partitions = hlo_sharding.tile_assignment_dimensions()
   subgroup_types = hlo_sharding.subgroup_types()
 
+  replicate_on_last_tile_dim = False
+  unreduced_on_last_tile_dim = False
+  unreduced_and_replicated = False
   if subgroup_types == [xc.OpSharding.Type.REPLICATED]:
     replicate_on_last_tile_dim = True
+  elif (jaxlib_extension_version >= 371 and
+        subgroup_types == [xc.OpSharding.Type.UNREDUCED]):
+    unreduced_on_last_tile_dim = True
+  elif (jaxlib_extension_version >= 371 and len(subgroup_types) == 2 and
+        xc.OpSharding.Type.REPLICATED in subgroup_types and
+        xc.OpSharding.Type.UNREDUCED in subgroup_types):
+    unreduced_and_replicated = True
   else:
     replicate_on_last_tile_dim = hlo_sharding.replicate_on_last_tile_dim()
     if subgroup_types:
@@ -42,25 +55,25 @@ def get_num_ways_dim_sharded(
   if replicate_on_last_tile_dim:
     num_replicas = partitions[-1]
     partitions = partitions[:-1]
+  if unreduced_on_last_tile_dim:
+    num_replicas = 1
+    partitions = partitions[:-1]
+  if unreduced_and_replicated:
+    replicated_loc = subgroup_types.index(xc.OpSharding.Type.REPLICATED)
+    num_replicas = partitions[-2:][replicated_loc]
+    partitions = partitions[:-2]
   return list(partitions), num_replicas
 
 
-def is_op_sharding_replicated(op: xc.OpSharding | xc.HloSharding) -> bool:
-  if isinstance(op, xc.OpSharding):
-    op = xc.HloSharding.from_proto(op)
-  if op.num_devices() == 1:
-    return True
-  return op.is_replicated()
+def is_hlo_sharding_replicated(hc: xc.HloSharding) -> bool:
+  return True if hc.num_devices() == 1 else hc.is_replicated()
 
 
-def are_op_shardings_equal(op1: xc.OpSharding | xc.HloSharding,
-                           op2: xc.OpSharding | xc.HloSharding) -> bool:
-  if op1 is op2:
+def are_hlo_shardings_equal(hc1: xc.HloSharding, hc2: xc.HloSharding) -> bool:
+  if hc1 is hc2:
     return True
-  if is_op_sharding_replicated(op1) and is_op_sharding_replicated(op2):
+  if is_hlo_sharding_replicated(hc1) and is_hlo_sharding_replicated(hc2):
     return True
-  hc1 = xc.HloSharding.from_proto(op1) if isinstance(op1, xc.OpSharding) else op1
-  hc2 = xc.HloSharding.from_proto(op2) if isinstance(op2, xc.OpSharding) else op2
   return hc1 == hc2
 
 
@@ -75,7 +88,7 @@ def op_sharding_to_numpy_indices(
   # num_devices is required as an argument when hlo_sharding is
   # REPLICATED. `jax.device_count()` cannot be used because you can create
   # an opsharding with less number of devices than `jax.device_count()`.
-  if is_op_sharding_replicated(hlo_sharding):
+  if is_hlo_sharding_replicated(hlo_sharding):
     indices.fill((slice(None),) * len(shape))
     return indices
 
@@ -98,7 +111,7 @@ def op_sharding_to_numpy_indices(
 
   device_it = iter(hlo_sharding.tile_assignment_devices())
 
-  for i, idxs in enumerate(itertools.product(*axis_indices)):
+  for idxs in itertools.product(*axis_indices):
     for _ in range(num_replicas):
       indices[next(device_it)] = idxs
   return indices

@@ -15,6 +15,8 @@ from orionis.console.contracts.executor import IExecutor
 from orionis.console.exceptions import CLIOrionisTypeError
 from orionis.console.request.cli_request import CLIRequest
 from orionis.foundation.contracts.application import IApplication
+from orionis.services.introspection.concretes.reflection import ReflectionConcrete
+from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.services.introspection.modules.reflection import ReflectionModule
 from orionis.services.log.contracts.log_service import ILogger
 from orionis.support.performance.contracts.counter import IPerformanceCounter
@@ -75,18 +77,6 @@ class Reactor(IReactor):
         # List to hold fluent command definitions
         self.__fluent_commands: List[ICommand] = []
 
-        # Load core commands immediately upon initialization
-        self.__loadCoreCommands()
-        self.__load__core_commands: bool = True
-
-        # Load custom user-defined commands from the project's commands directory
-        self.__loadCustomCommands()
-        self.__load__custom_commands: bool = True
-
-        # Flag to track if fluent commands have been loaded
-        self.__loadFluentCommands()
-        self.__load_fluent_commands: bool = True
-
     def __loadCommands(self) -> None:
         """
         Loads all available commands into the reactor's internal registry.
@@ -123,17 +113,17 @@ class Reactor(IReactor):
         """
 
         # Load core commands if they have not been loaded yet
-        if not self.__load__core_commands:
+        if not hasattr(self, '_Reactor__load__core_commands') or not self.__load__core_commands:
             self.__loadCoreCommands()
             self.__load__core_commands = True
 
         # Load custom user-defined commands if they have not been loaded yet
-        if not self.__load__custom_commands:
+        if not hasattr(self, '_Reactor__load__custom_commands') or not self.__load__custom_commands:
             self.__loadCustomCommands()
             self.__load__custom_commands = True
 
         # Load fluent interface commands if they have not been loaded yet
-        if not self.__load_fluent_commands:
+        if not hasattr(self, '_Reactor__load_fluent_commands') or not self.__load_fluent_commands:
             self.__loadFluentCommands()
             self.__load_fluent_commands = True
 
@@ -317,7 +307,7 @@ class Reactor(IReactor):
         for obj in core_commands:
 
             # Get the signature attribute from the command class
-            signature = getattr(obj, 'signature', None)
+            signature = ReflectionConcrete(obj).getAttribute('signature')
 
             # Skip if signature is not defined
             if signature is None:
@@ -501,7 +491,9 @@ class Reactor(IReactor):
 
         # Validate the signature against the required pattern
         if not re.match(pattern, obj.signature):
-            raise CLIOrionisValueError(f"Command class {obj.__name__} 'signature' must contain only alphanumeric characters, underscores (_) and colons (:), cannot start or end with underscore or colon, and cannot start with a number.")
+            raise CLIOrionisValueError(
+                f"Command class {obj.__name__} 'signature' must contain only alphanumeric characters, underscores (_) and colons (:), cannot start or end with underscore or colon, and cannot start with a number."
+            )
 
         # Return signature
         return obj.signature.strip()
@@ -553,8 +545,8 @@ class Reactor(IReactor):
         """
         Validates and processes command arguments for a command class.
 
-        This method ensures that the command class has properly formatted arguments
-        and creates an ArgumentParser instance configured with those arguments.
+        Ensures the command class provides a valid list of CLIArgument instances via its 'options' method,
+        and constructs an ArgumentParser accordingly.
 
         Parameters
         ----------
@@ -570,43 +562,53 @@ class Reactor(IReactor):
         Raises
         ------
         CLIOrionisTypeError
-            If the 'arguments' attribute is not a list or contains non-CLIArgument instances.
+            If the 'options' method does not return a list or contains non-CLIArgument instances.
         """
 
-        # Check if the command class has an arguments attribute
-        if not hasattr(obj, 'arguments'):
+        # Instantiate the command and retrieve its options
+        instance = self.__app.make(obj)
+        options: List[CLIArgument]  = self.__app.call(instance, 'options')
+
+        # Validate that options is a list
+        if not isinstance(options, list):
+            raise CLIOrionisTypeError(
+                f"Command class {obj.__name__} 'options' must return a list."
+            )
+
+        # Return None if there are no arguments
+        if not options:
             return None
 
-        # Ensure the arguments attribute is a list type
-        if not isinstance(obj.arguments, list):
-            raise CLIOrionisTypeError(f"Command class {obj.__name__} 'arguments' must be a list.")
+        # Validate all items are CLIArgument instances
+        for idx, arg in enumerate(options):
+            if not isinstance(arg, CLIArgument):
+                raise CLIOrionisTypeError(
+                    f"Command class {obj.__name__} 'options' must contain only CLIArgument instances, "
+                    f"found '{type(arg).__name__}' at index {idx}."
+                )
 
-        # If arguments is empty, return None
-        if len(obj.arguments) == 0:
-            return None
 
-        # Validate that all items in the arguments list are CLIArgument instances
-        for index, value in enumerate(obj.arguments):
-            if not isinstance(value, CLIArgument):
-                raise CLIOrionisTypeError(f"Command class {obj.__name__} 'arguments' must contain only CLIArgument instances, found '{type(value).__name__}' at index {index}.")
+        # Get the Signature attribute from the command class
+        rf_concrete = ReflectionConcrete(obj)
+        signature = rf_concrete.getAttribute('signature', '<unknown>')
+        description = rf_concrete.getAttribute('description', '')
 
-        # Build the arguments dictionary from the CLIArgument instances
-        required_args: List[CLIArgument] = obj.arguments
-
-        # Create an ArgumentParser instance to handle the command arguments
+        # Build the ArgumentParser
         arg_parser = argparse.ArgumentParser(
-            usage=f"python -B reactor {obj.signature} [options]",
-            description=f"Command [{obj.signature}] : {obj.description}",
+            usage=f"python -B reactor {signature} [options]",
+            description=f"Command [{signature}] : {description}",
             formatter_class=argparse.RawTextHelpFormatter,
             add_help=True,
             allow_abbrev=False,
             exit_on_error=True,
-            prog=obj.signature
+            prog=signature
         )
-        for arg in required_args:
+
+        # Add each CLIArgument to the ArgumentParser
+        for arg in options:
             arg.addToParser(arg_parser)
 
-        # Return the configured ArgumentParser
+        # Return the constructed ArgumentParser
         return arg_parser
 
     def __parseArgs(
@@ -646,13 +648,17 @@ class Reactor(IReactor):
 
         # If the command expects arguments, parse them using its ArgumentParser
         if command.args is not None and isinstance(command.args, argparse.ArgumentParser):
+
+            # If no args provided, use an empty list
             if args is None:
                 args = []
+
+            # Parse the provided arguments using the command's ArgumentParser
             try:
-                # Parse the provided arguments using the command's ArgumentParser
                 parsed_args = command.args.parse_args(args)
+
+            # Raise a CLIOrionisRuntimeError with the help message included in the exception
             except SystemExit:
-                # Raise a CLIOrionisRuntimeError with the help message included in the exception
                 raise CLIOrionisRuntimeError(
                     f"Failed to parse arguments for command '{command.signature}'.\n"
                     f"{command.args.format_help()}\n"
@@ -662,10 +668,13 @@ class Reactor(IReactor):
         # Convert the parsed arguments to a dictionary and return
         if isinstance(parsed_args, argparse.Namespace):
             return vars(parsed_args)
+
+        # If parsed_args is already a dictionary, return it directly
         elif isinstance(parsed_args, dict):
             return parsed_args
+
+        # Return an empty dictionary if no arguments were parsed
         else:
-            # Return an empty dictionary if no arguments were parsed
             return {}
 
     def command(
@@ -837,13 +846,16 @@ class Reactor(IReactor):
                 command_instance: IBaseCommand = self.__app.make(command.obj)
 
                 # Inject parsed arguments into the command instance
-                _args = self.__parseArgs(command, args)
-                command_instance._args = _args.copy()
+                dict_args = self.__parseArgs(command, args)
+
+                # Only set arguments if the command instance has a setArguments method
+                if ReflectionInstance(command_instance).hasMethod('setArguments'):
+                    command_instance.setArguments(dict_args.copy())
 
                 # Inject a scoped CLIRequest instance into the application container for the command's context
                 self.__app.scopedInstance(ICLIRequest, CLIRequest(
                     command=signature,
-                    args=_args.copy()
+                    args=dict_args.copy()
                 ))
 
                 # Execute the command's handle method and capture its output
@@ -940,13 +952,16 @@ class Reactor(IReactor):
                 command_instance: IBaseCommand = self.__app.make(command.obj)
 
                 # Inject parsed arguments into the command instance
-                _args = self.__parseArgs(command, args)
-                command_instance._args = _args.copy()
+                dict_args = self.__parseArgs(command, args)
+
+                # Only set arguments if the command instance has a setArguments method
+                if ReflectionInstance(command_instance).hasMethod('setArguments'):
+                    command_instance.setArguments(dict_args.copy())
 
                 # Inject a scoped CLIRequest instance into the application container for the command's context
                 self.__app.scopedInstance(ICLIRequest, CLIRequest(
                     command=signature,
-                    args=_args.copy()
+                    args=dict_args.copy()
                 ))
 
                 # Execute the command's handle method asynchronously and capture its output

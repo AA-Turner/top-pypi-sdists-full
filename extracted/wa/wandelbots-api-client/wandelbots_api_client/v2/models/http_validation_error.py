@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
-from wandelbots_api_client.v2.models.validation_error import ValidationError
+from wandelbots_api_client.v2.models.validation_error2 import ValidationError2
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,7 @@ class HTTPValidationError(BaseModel):
     """
     HTTPValidationError
     """ # noqa: E501
-    detail: Optional[List[ValidationError]] = None
+    detail: Optional[List[ValidationError2]] = None
     __properties: ClassVar[List[str]] = ["detail"]
 
     model_config = ConfigDict(
@@ -98,7 +98,7 @@ class HTTPValidationError(BaseModel):
             "detail": [
                 # >>> Modified from https://github.com/OpenAPITools/openapi-generator/blob/v7.6.0/modules/openapi-generator/src/main/resources/python/model_generic.mustache
                 #     to allow dicts in lists
-                ValidationError.from_dict(_item) if hasattr(ValidationError, 'from_dict') else _item
+                ValidationError2.from_dict(_item) if hasattr(ValidationError2, 'from_dict') else _item
                 # <<< End modification
                 for _item in obj["detail"]
             ] if obj.get("detail") is not None else None

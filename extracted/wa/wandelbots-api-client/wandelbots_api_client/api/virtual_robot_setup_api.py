@@ -68,7 +68,7 @@ class VirtualRobotSetupApi:
     ) -> object:
         """Add Coordinate Systems
 
-        Adds a coordinate system to the robot controller. 
+        Adds a coordinate system to the robot controller.  > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -143,7 +143,7 @@ class VirtualRobotSetupApi:
     ) -> ApiResponse[object]:
         """Add Coordinate Systems
 
-        Adds a coordinate system to the robot controller. 
+        Adds a coordinate system to the robot controller.  > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -218,7 +218,7 @@ class VirtualRobotSetupApi:
     ) -> RESTResponseType:
         """Add Coordinate Systems
 
-        Adds a coordinate system to the robot controller. 
+        Adds a coordinate system to the robot controller.  > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -370,7 +370,7 @@ class VirtualRobotSetupApi:
     ) -> object:
         """Add TCP
 
-        Adds a new TCP or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange’s coordinate system.  > **NOTE** > > Ensure the TCP's position is within the robot's reach. Refer to the robot’s documentation or data sheet for details like joint limits or reach. 
+        Adds a new [TCP](https://docs.wandelbots.io/latest/vocabulary#tcp) or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange's coordinate system.  > **NOTE** > Ensure the TCP's position is within the robot's reach. Refer to the robot's documentation or data sheet for details like joint limits or reach.  > **NOTE** > Upon adding or updating a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is available for use. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the TCP may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -449,7 +449,7 @@ class VirtualRobotSetupApi:
     ) -> ApiResponse[object]:
         """Add TCP
 
-        Adds a new TCP or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange’s coordinate system.  > **NOTE** > > Ensure the TCP's position is within the robot's reach. Refer to the robot’s documentation or data sheet for details like joint limits or reach. 
+        Adds a new [TCP](https://docs.wandelbots.io/latest/vocabulary#tcp) or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange's coordinate system.  > **NOTE** > Ensure the TCP's position is within the robot's reach. Refer to the robot's documentation or data sheet for details like joint limits or reach.  > **NOTE** > Upon adding or updating a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is available for use. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the TCP may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -528,7 +528,7 @@ class VirtualRobotSetupApi:
     ) -> RESTResponseType:
         """Add TCP
 
-        Adds a new TCP or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange’s coordinate system.  > **NOTE** > > Ensure the TCP's position is within the robot's reach. Refer to the robot’s documentation or data sheet for details like joint limits or reach. 
+        Adds a new [TCP](https://docs.wandelbots.io/latest/vocabulary#tcp) or updates an existing TCP in the motion group.  The position and rotation values in the request body are defined within the flange's coordinate system.  > **NOTE** > Ensure the TCP's position is within the robot's reach. Refer to the robot's documentation or data sheet for details like joint limits or reach.  > **NOTE** > Upon adding or updating a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is available for use. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the TCP may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -686,7 +686,7 @@ class VirtualRobotSetupApi:
     ) -> object:
         """Remove Coordinate System
 
-        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and remove all dependent coordinate systems which use the deleted coordinate system as reference. 
+        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and also remove all dependent coordinate systems which use the deleted coordinate system as a reference.  **Important notes:** - When a new coordinate system is added/removed, the **virtual robot is restarted** in the background in order to apply the new configuration. - During this restart:   - Robot visualization may temporarily disappear or appear outdated in the UI.   - coordinate system changes are not immediately visible in visualizations.   - All existing connections to the virtual robot are closed and re-established, which introduces a short delay before the system is fully operational again. - The API call itself does **not wait until the restart and re-synchronization are complete**.   This means that immediately after a successful response, the new coordinate system may not yet be > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -765,7 +765,7 @@ class VirtualRobotSetupApi:
     ) -> ApiResponse[object]:
         """Remove Coordinate System
 
-        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and remove all dependent coordinate systems which use the deleted coordinate system as reference. 
+        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and also remove all dependent coordinate systems which use the deleted coordinate system as a reference.  **Important notes:** - When a new coordinate system is added/removed, the **virtual robot is restarted** in the background in order to apply the new configuration. - During this restart:   - Robot visualization may temporarily disappear or appear outdated in the UI.   - coordinate system changes are not immediately visible in visualizations.   - All existing connections to the virtual robot are closed and re-established, which introduces a short delay before the system is fully operational again. - The API call itself does **not wait until the restart and re-synchronization are complete**.   This means that immediately after a successful response, the new coordinate system may not yet be > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -844,7 +844,7 @@ class VirtualRobotSetupApi:
     ) -> RESTResponseType:
         """Remove Coordinate System
 
-        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and remove all dependent coordinate systems which use the deleted coordinate system as reference. 
+        Deletes a coordinate system from the virtual controller. This will remove the coordinate system from the list of coordinate systems and also remove all dependent coordinate systems which use the deleted coordinate system as a reference.  **Important notes:** - When a new coordinate system is added/removed, the **virtual robot is restarted** in the background in order to apply the new configuration. - During this restart:   - Robot visualization may temporarily disappear or appear outdated in the UI.   - coordinate system changes are not immediately visible in visualizations.   - All existing connections to the virtual robot are closed and re-established, which introduces a short delay before the system is fully operational again. - The API call itself does **not wait until the restart and re-synchronization are complete**.   This means that immediately after a successful response, the new coordinate system may not yet be > **NOTE** > > Upon adding or removing a coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or appear outdated in the UI. > - Coordinate system changes are not immediately visible in visualizations. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new coordinate system may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -991,7 +991,7 @@ class VirtualRobotSetupApi:
     ) -> object:
         """Remove TCP
 
-        Removes the TCP from the motion group. An unknown TCP is a valid input. 
+        Removes the TCP (Tool Center Point) from the motion group. An unknown TCP is a valid input and will simply be ignored.  > **NOTE** > Upon removing a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is removed. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that immediately after a successful response, the TCP may not be removed. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -1070,7 +1070,7 @@ class VirtualRobotSetupApi:
     ) -> ApiResponse[object]:
         """Remove TCP
 
-        Removes the TCP from the motion group. An unknown TCP is a valid input. 
+        Removes the TCP (Tool Center Point) from the motion group. An unknown TCP is a valid input and will simply be ignored.  > **NOTE** > Upon removing a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is removed. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that immediately after a successful response, the TCP may not be removed. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -1149,7 +1149,7 @@ class VirtualRobotSetupApi:
     ) -> RESTResponseType:
         """Remove TCP
 
-        Removes the TCP from the motion group. An unknown TCP is a valid input. 
+        Removes the TCP (Tool Center Point) from the motion group. An unknown TCP is a valid input and will simply be ignored.  > **NOTE** > Upon removing a TCP, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear. > - TCP visualization may be delayed or outdated during the first run. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before the TCP is removed. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that immediately after a successful response, the TCP may not be removed. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2143,7 +2143,7 @@ class VirtualRobotSetupApi:
     ) -> CoordinateSystem:
         """Set Mounting
 
-        Sets motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset. The transformation offset is defined by a unique identifier, a name for front end usage and an offset in another coordinate system referenced by the unique identifier of the reference coordinate system. 
+        Sets the motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset, which consists of: - A unique identifier - A name - An offset in another coordinate system, referenced by the unique identifier of the reference coordinate system.  > **NOTE** > Changing the mounting configuration is considered a configuration change. > > Upon updating the mounting to another coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or not reflect the updated mounting. > - Motion group state and coordinate system alignment may not be instantly updated. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new mounting may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2222,7 +2222,7 @@ class VirtualRobotSetupApi:
     ) -> ApiResponse[CoordinateSystem]:
         """Set Mounting
 
-        Sets motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset. The transformation offset is defined by a unique identifier, a name for front end usage and an offset in another coordinate system referenced by the unique identifier of the reference coordinate system. 
+        Sets the motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset, which consists of: - A unique identifier - A name - An offset in another coordinate system, referenced by the unique identifier of the reference coordinate system.  > **NOTE** > Changing the mounting configuration is considered a configuration change. > > Upon updating the mounting to another coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or not reflect the updated mounting. > - Motion group state and coordinate system alignment may not be instantly updated. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new mounting may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2301,7 +2301,7 @@ class VirtualRobotSetupApi:
     ) -> RESTResponseType:
         """Set Mounting
 
-        Sets motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset. The transformation offset is defined by a unique identifier, a name for front end usage and an offset in another coordinate system referenced by the unique identifier of the reference coordinate system. 
+        Sets the motion group mounting by specifying a coordinate system. The motion group will be based on the coordinate system's origin. The coordinate system defines a transformation offset, which consists of: - A unique identifier - A name - An offset in another coordinate system, referenced by the unique identifier of the reference coordinate system.  > **NOTE** > Changing the mounting configuration is considered a configuration change. > > Upon updating the mounting to another coordinate system, virtual robots are restarted to apply the new configuration. > What happens during restart: > - Robot visualization may temporarily disappear or not reflect the updated mounting. > - Motion group state and coordinate system alignment may not be instantly updated. > - Existing connections to the virtual robot are closed and re-established, which introduces a short delay before NOVA is fully operational again. > > The API call itself **does not wait until the restart and synchronization are complete**. This means that > immediately after a successful response, the new mounting may not be available for visualization or program execution. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str

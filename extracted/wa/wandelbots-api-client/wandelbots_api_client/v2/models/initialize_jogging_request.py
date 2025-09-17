@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,10 +29,8 @@ class InitializeJoggingRequest(BaseModel):
     message_type: Optional[StrictStr] = Field(default='InitializeJoggingRequest', description="Type specifier for server, set automatically. ")
     motion_group: StrictStr = Field(description="Identifier of the motion group.")
     tcp: Optional[StrictStr] = Field(default=None, description="Identifier of the tool. Required for robots (all limits, including TCP limits, are respected at all times regardless of the motion). Not required for external axes. ")
-    response_rate: Optional[StrictInt] = Field(default=200, description="Update rate for the response message in milliseconds (ms).  Recommendation: As Wandelbots NOVA updates states in the controller's step rate, use either the controller's step rate or a multiple of it.                 Wandelbots NOVA will not interpolate the state but round it to the nearest step rate below the configured response rate. Use [getOptimizerConfiguration](getOptimizerConfiguration) to get the controller's step rate.  Minimal response rate is the step rate of the controller. ")
     response_coordinate_system: Optional[StrictStr] = Field(default=None, description="Unique identifier addressing a coordinate system to which the responses are transformed. If not set, world coordinate system is used. ")
-    pause_on_io: Optional[StrictStr] = Field(default=None, description="Defines an input/output that is listened to during the movement. Execution pauses if the defined comparator evaluates to `true`. ")
-    __properties: ClassVar[List[str]] = ["message_type", "motion_group", "tcp", "response_rate", "response_coordinate_system", "pause_on_io"]
+    __properties: ClassVar[List[str]] = ["message_type", "motion_group", "tcp", "response_coordinate_system"]
 
     @field_validator('message_type')
     def message_type_validate_enum(cls, value):
@@ -102,9 +100,7 @@ class InitializeJoggingRequest(BaseModel):
             "message_type": obj.get("message_type") if obj.get("message_type") is not None else 'InitializeJoggingRequest',
             "motion_group": obj.get("motion_group"),
             "tcp": obj.get("tcp"),
-            "response_rate": obj.get("response_rate") if obj.get("response_rate") is not None else 200,
-            "response_coordinate_system": obj.get("response_coordinate_system"),
-            "pause_on_io": obj.get("pause_on_io")
+            "response_coordinate_system": obj.get("response_coordinate_system")
         })
         return _obj
 

@@ -1,19 +1,21 @@
-use crate::{evaluation::evaluator_value::EvaluatorValue, unwrap_or_return, DynamicValue};
+use crate::{
+    evaluation::evaluator_value::MemoizedEvaluatorValue, interned_string::InternedString,
+    unwrap_or_return, DynamicValue,
+};
 use std::collections::HashSet;
 
 pub(crate) fn compare_arrays(
     value: &DynamicValue,
-    target_value: &EvaluatorValue,
+    target_value: &MemoizedEvaluatorValue,
     op: &str,
 ) -> bool {
     let target_array = unwrap_or_return!(&target_value.array_value, false);
     let value_array = unwrap_or_return!(&value.array_value, false);
-    let empty_string = String::new();
-    let value_set: HashSet<&String> = HashSet::from_iter(value_array.iter().map(|x| {
+    let value_set: HashSet<&InternedString> = HashSet::from_iter(value_array.iter().map(|x| {
         x.string_value
             .as_ref()
             .map(|s| &s.value)
-            .unwrap_or(&empty_string)
+            .unwrap_or(InternedString::empty_ref())
     }));
 
     for (_, item) in target_array.values() {

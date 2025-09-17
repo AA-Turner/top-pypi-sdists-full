@@ -59,6 +59,9 @@ class LegacyParseJobConfig(pydantic.BaseModel):
         alias="doNotUnrollColumns", description="Whether to unroll columns."
     )
     spread_sheet_extract_sub_tables: typing.Optional[bool] = pydantic.Field(alias="spreadSheetExtractSubTables")
+    spread_sheet_force_formula_computation: typing.Optional[bool] = pydantic.Field(
+        alias="spreadSheetForceFormulaComputation"
+    )
     extract_layout: typing.Optional[bool] = pydantic.Field(alias="extractLayout")
     high_res_ocr: typing.Optional[bool] = pydantic.Field(alias="highResOcr")
     html_make_all_elements_visible: typing.Optional[bool] = pydantic.Field(alias="htmlMakeAllElementsVisible")

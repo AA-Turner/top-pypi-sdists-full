@@ -3,11 +3,11 @@ from dataclasses import dataclass
 @dataclass(kw_only=True)
 class SchedulerEventData:
     """
-    Base data structure for scheduler-related events.
+    Base data structure for events in the scheduler system.
 
-    This class encapsulates information about events that occur within the scheduler system.
-    It provides a numeric event code to identify the event type and can be extended for
-    additional context as needed.
+    This class serves as a foundational data container for events triggered within the scheduler.
+    It holds a numeric event code that uniquely identifies the event type. Subclasses can extend
+    this class to include additional event-specific context.
 
     Parameters
     ----------
@@ -17,8 +17,8 @@ class SchedulerEventData:
     Returns
     -------
     SchedulerEventData
-        An instance of SchedulerEventData containing the event code.
+        An instance of SchedulerEventData with the specified event code.
     """
 
-    # Numeric code representing the type of event
+    # Numeric code representing the type of event in the scheduler
     code: int

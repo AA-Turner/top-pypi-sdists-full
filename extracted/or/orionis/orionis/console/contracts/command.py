@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from orionis.console.entities.command import Command as CommandEntity
 
 class ICommand(ABC):
 
@@ -83,5 +84,22 @@ class ICommand(ABC):
         TypeError
             If the args parameter is not a list, or if any element in the list
             is not an instance of CLIArgument.
+        """
+        pass
+
+    @abstractmethod
+    def get(self) -> tuple[str, CommandEntity]:
+        """
+        Retrieve the configured Command entity.
+
+        This method constructs and returns a Command entity object that encapsulates
+        all the configuration details of the command, including its signature, concrete
+        class, method, description, arguments, and timestamp setting. The returned
+        Command entity can be used for command execution and management.
+
+        Returns
+        -------
+        CommandEntity
+            A Command entity object containing all the command's configuration details.
         """
         pass

@@ -5,7 +5,7 @@ import warnings
 
 from nominal.units.v1 import units_pb2 as nominal_dot_units_dot_v1_dot_units__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

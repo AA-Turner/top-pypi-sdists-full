@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 name = "msgraph-beta-sdk"
 # The SDK version
 # x-release-please-start-version
-version = "1.43.0"
+version = "1.47.0"
 # x-release-please-end
 authors = [{name = "Microsoft", email = "graphtooling+python@microsoft.com"}]
 description = "The Microsoft Graph Beta Python SDK"
@@ -20,7 +20,8 @@ dependencies = [
 
 ]
 requires-python = ">=3.9"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 keywords = ["msgraph", "openAPI", "Microsoft", "Graph", "beta"]
 classifiers = [
@@ -30,7 +31,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
 ]
 
 [project.optional-dependencies]

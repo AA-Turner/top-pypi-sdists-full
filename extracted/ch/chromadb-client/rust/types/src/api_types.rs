@@ -2,15 +2,16 @@ use crate::collection_configuration::InternalCollectionConfiguration;
 use crate::collection_configuration::InternalUpdateCollectionConfiguration;
 use crate::error::QueryConversionError;
 use crate::operator::GetResult;
+use crate::operator::Key;
 use crate::operator::KnnBatchResult;
 use crate::operator::KnnProjectionRecord;
 use crate::operator::ProjectionRecord;
 use crate::operator::SearchResult;
-use crate::operator::SelectField;
 use crate::plan::PlanToProtoError;
 use crate::plan::SearchPayload;
 use crate::validators::{
-    validate_name, validate_non_empty_collection_update_metadata, validate_non_empty_metadata,
+    validate_metadata_vec, validate_name, validate_non_empty_collection_update_metadata,
+    validate_optional_metadata, validate_update_metadata_vec,
 };
 use crate::Collection;
 use crate::CollectionConfigurationToInternalConfigurationError;
@@ -659,7 +660,7 @@ pub struct CreateCollectionRequest {
     pub database_name: String,
     #[validate(custom(function = "validate_name"))]
     pub name: String,
-    #[validate(custom(function = "validate_non_empty_metadata"))]
+    #[validate(custom(function = "validate_optional_metadata"))]
     pub metadata: Option<Metadata>,
     pub configuration: Option<InternalCollectionConfiguration>,
     pub get_or_create: bool,
@@ -1007,18 +1008,14 @@ pub enum ForkCollectionError {
 impl ChromaError for ForkCollectionError {
     fn code(&self) -> ErrorCodes {
         match self {
+            ForkCollectionError::NotFound(_) => ErrorCodes::NotFound,
             ForkCollectionError::AlreadyExists(_) => ErrorCodes::AlreadyExists,
-            ForkCollectionError::CollectionConversionError(collection_conversion_error) => {
-                collection_conversion_error.code()
-            }
+            ForkCollectionError::CollectionConversionError(e) => e.code(),
             ForkCollectionError::DuplicateSegment => ErrorCodes::Internal,
             ForkCollectionError::Field(_) => ErrorCodes::FailedPrecondition,
             ForkCollectionError::Local => ErrorCodes::Unimplemented,
-            ForkCollectionError::Internal(chroma_error) => chroma_error.code(),
-            ForkCollectionError::NotFound(_) => ErrorCodes::NotFound,
-            ForkCollectionError::SegmentConversionError(segment_conversion_error) => {
-                segment_conversion_error.code()
-            }
+            ForkCollectionError::Internal(e) => e.code(),
+            ForkCollectionError::SegmentConversionError(e) => e.code(),
         }
     }
 }
@@ -1096,6 +1093,7 @@ pub struct AddCollectionRecordsRequest {
     pub embeddings: Vec<Vec<f32>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
+    #[validate(custom(function = "validate_metadata_vec"))]
     pub metadatas: Option<Vec<Option<Metadata>>>,
 }
 
@@ -1169,6 +1167,7 @@ pub struct UpdateCollectionRecordsRequest {
     pub embeddings: Option<Vec<Option<Vec<f32>>>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
+    #[validate(custom(function = "validate_update_metadata_vec"))]
     pub metadatas: Option<Vec<Option<UpdateMetadata>>>,
 }
 
@@ -1232,6 +1231,7 @@ pub struct UpsertCollectionRecordsRequest {
     pub embeddings: Vec<Vec<f32>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
+    #[validate(custom(function = "validate_update_metadata_vec"))]
     pub metadatas: Option<Vec<Option<UpdateMetadata>>>,
 }
 
@@ -1875,7 +1875,7 @@ pub struct SearchResponse {
     pub embeddings: Vec<Option<Vec<Option<Vec<f32>>>>>,
     pub metadatas: Vec<Option<Vec<Option<Metadata>>>>,
     pub scores: Vec<Option<Vec<Option<f32>>>>,
-    pub select: Vec<Vec<SelectField>>,
+    pub select: Vec<Vec<Key>>,
 }
 
 impl From<(SearchResult, Vec<SearchPayload>)> for SearchResponse {
@@ -1891,8 +1891,8 @@ impl From<(SearchResult, Vec<SearchPayload>)> for SearchResponse {
         };
 
         for (payload_result, payload) in result.results.into_iter().zip(payloads) {
-            // Get the sorted select fields for this payload
-            let mut payload_select = Vec::from_iter(payload.select.fields.iter().cloned());
+            // Get the sorted keys for this payload
+            let mut payload_select = Vec::from_iter(payload.select.keys.iter().cloned());
             payload_select.sort();
 
             let num_records = payload_result.records.len();
@@ -1916,7 +1916,7 @@ impl From<(SearchResult, Vec<SearchPayload>)> for SearchResponse {
             // Push documents if requested by this payload, otherwise None
             res.documents.push(
                 payload_select
-                    .binary_search(&SelectField::Document)
+                    .binary_search(&Key::Document)
                     .is_ok()
                     .then_some(documents),
             );
@@ -1924,23 +1924,23 @@ impl From<(SearchResult, Vec<SearchPayload>)> for SearchResponse {
             // Push embeddings if requested by this payload, otherwise None
             res.embeddings.push(
                 payload_select
-                    .binary_search(&SelectField::Embedding)
+                    .binary_search(&Key::Embedding)
                     .is_ok()
                     .then_some(embeddings),
             );
 
             // Push metadatas if requested by this payload, otherwise None
-            // Include if either SelectField::Metadata is present or any SelectField::MetadataField(_)
-            let has_metadata = payload_select.binary_search(&SelectField::Metadata).is_ok()
+            // Include if either Key::Metadata is present or any Key::MetadataField(_)
+            let has_metadata = payload_select.binary_search(&Key::Metadata).is_ok()
                 || payload_select
                     .last()
-                    .is_some_and(|field| matches!(field, SelectField::MetadataField(_)));
+                    .is_some_and(|field| matches!(field, Key::MetadataField(_)));
             res.metadatas.push(has_metadata.then_some(metadatas));
 
             // Push scores if requested by this payload, otherwise None
             res.scores.push(
                 payload_select
-                    .binary_search(&SelectField::Score)
+                    .binary_search(&Key::Score)
                     .is_ok()
                     .then_some(scores),
             );
@@ -2021,6 +2021,8 @@ impl ChromaError for ExecutorError {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{MetadataValue, SparseVector, UpdateMetadataValue};
+    use std::collections::HashMap;
 
     #[test]
     fn test_create_database_min_length() {
@@ -2032,5 +2034,83 @@ mod test {
     fn test_create_tenant_min_length() {
         let request = CreateTenantRequest::try_new("a".to_string());
         assert!(request.is_err());
+    }
+
+    #[test]
+    fn test_add_request_validates_sparse_vectors() {
+        let mut metadata = HashMap::new();
+        // Add unsorted sparse vector - should fail validation
+        metadata.insert(
+            "sparse".to_string(),
+            MetadataValue::SparseVector(SparseVector::new(vec![3, 1, 2], vec![0.3, 0.1, 0.2])),
+        );
+
+        let result = AddCollectionRecordsRequest::try_new(
+            "tenant".to_string(),
+            "database".to_string(),
+            CollectionUuid(uuid::Uuid::new_v4()),
+            vec!["id1".to_string()],
+            vec![vec![0.1, 0.2]],
+            None,
+            None,
+            Some(vec![Some(metadata)]),
+        );
+
+        // Should fail because sparse vector is not sorted
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_update_request_validates_sparse_vectors() {
+        let mut metadata = HashMap::new();
+        // Add unsorted sparse vector - should fail validation
+        metadata.insert(
+            "sparse".to_string(),
+            UpdateMetadataValue::SparseVector(SparseVector::new(
+                vec![3, 1, 2],
+                vec![0.3, 0.1, 0.2],
+            )),
+        );
+
+        let result = UpdateCollectionRecordsRequest::try_new(
+            "tenant".to_string(),
+            "database".to_string(),
+            CollectionUuid(uuid::Uuid::new_v4()),
+            vec!["id1".to_string()],
+            None,
+            None,
+            None,
+            Some(vec![Some(metadata)]),
+        );
+
+        // Should fail because sparse vector is not sorted
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_upsert_request_validates_sparse_vectors() {
+        let mut metadata = HashMap::new();
+        // Add unsorted sparse vector - should fail validation
+        metadata.insert(
+            "sparse".to_string(),
+            UpdateMetadataValue::SparseVector(SparseVector::new(
+                vec![3, 1, 2],
+                vec![0.3, 0.1, 0.2],
+            )),
+        );
+
+        let result = UpsertCollectionRecordsRequest::try_new(
+            "tenant".to_string(),
+            "database".to_string(),
+            CollectionUuid(uuid::Uuid::new_v4()),
+            vec!["id1".to_string()],
+            vec![vec![0.1, 0.2]],
+            None,
+            None,
+            Some(vec![Some(metadata)]),
+        );
+
+        // Should fail because sparse vector is not sorted
+        assert!(result.is_err());
     }
 }

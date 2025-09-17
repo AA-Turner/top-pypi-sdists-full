@@ -5,6 +5,17 @@ from flask import jsonify
 from .path_utils import mkdirs
 from logging.handlers import RotatingFileHandler
 from .abstract_classes import SingletonMeta
+from pathlib import Path
+
+def _normalize(obj):
+    """Recursively turn PosixPath into str, sets into list, etc."""
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _normalize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_normalize(x) for x in obj]
+    return obj
 
 
 # from abstract_utilities import get_logFile  # Potential conflict - consider removing or renaming
@@ -218,11 +229,11 @@ def initialize_call_log(value=None,
 
     print_or_log(full_message,level=log_level)
     
-def get_json_call_response(value, status_code, data=None,logMsg=None,callLog = False):
+def get_json_call_response(value, status_code, data=None, logMsg=None, callLog=False):
     response_body = {}
     if status_code == 200:
         response_body["success"] = True
-        response_body["result"] = value
+        response_body["result"] = _normalize(value)
         logMsg = logMsg or "success"
         if callLog:
             initialize_call_log(value=value,
@@ -231,7 +242,7 @@ def get_json_call_response(value, status_code, data=None,logMsg=None,callLog = F
                             log_level='info')
     else:
         response_body["success"] = False
-        response_body["error"] = value
+        response_body["error"] = _normalize(value)
         logMsg = logMsg or f"ERROR: {logMsg}"
         initialize_call_log(value=value,
                             data=data,

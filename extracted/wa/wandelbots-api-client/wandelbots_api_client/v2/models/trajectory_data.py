@@ -98,7 +98,7 @@ class TrajectoryData(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "message_type": obj.get("message_type"),
+            "message_type": obj.get("message_type") if obj.get("message_type") is not None else 'TrajectoryData',
             "motion_group": obj.get("motion_group"),
             "data": JointTrajectory.from_dict(obj["data"]) if obj.get("data") is not None else None,
             "tcp": obj.get("tcp")

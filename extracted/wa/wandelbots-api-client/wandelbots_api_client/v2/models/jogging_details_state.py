@@ -120,6 +120,31 @@ class JoggingDetailsState(BaseModel):
             raise ValueError("Failed to lookup data type from the field `kind` in the input.")
 
         # check if data type is `JoggingPausedByUser`
+        if _data_type == "PAUSED_BY_USER":
+            instance.actual_instance = JoggingPausedByUser.from_json(json_str)
+            return instance
+
+        # check if data type is `JoggingPausedNearCollision`
+        if _data_type == "PAUSED_NEAR_COLLISION":
+            instance.actual_instance = JoggingPausedNearCollision.from_json(json_str)
+            return instance
+
+        # check if data type is `JoggingPausedNearJointLimit`
+        if _data_type == "PAUSED_NEAR_JOINT_LIMIT":
+            instance.actual_instance = JoggingPausedNearJointLimit.from_json(json_str)
+            return instance
+
+        # check if data type is `JoggingPausedOnIO`
+        if _data_type == "PAUSED_ON_IO":
+            instance.actual_instance = JoggingPausedOnIO.from_json(json_str)
+            return instance
+
+        # check if data type is `JoggingRunning`
+        if _data_type == "RUNNING":
+            instance.actual_instance = JoggingRunning.from_json(json_str)
+            return instance
+
+        # check if data type is `JoggingPausedByUser`
         if _data_type == "JoggingPausedByUser":
             instance.actual_instance = JoggingPausedByUser.from_json(json_str)
             return instance

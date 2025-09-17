@@ -260,7 +260,10 @@ class GenerateRecordsParameterMixin(GenerateRecordsBase):
                         self.records["value"] = func(
                             seed=seed, size=(len(self.records),)
                         )
-                        self.records["value"] = self.records["value"].astype(float)
+                        cols = list(self.records.columns)
+                        self.records.isetitem(
+                            cols.index("value"), self.records["value"].astype(float)
+                        )
 
                     # set column names
                     self.domain_labels = self.domain_names
@@ -305,7 +308,10 @@ class GenerateRecordsParameterMixin(GenerateRecordsBase):
                         self.records["value"] = func(
                             seed=seed, size=(len(self.records),)
                         )
-                        self.records["value"] = self.records["value"].astype(float)
+                        cols = list(self.records.columns)
+                        self.records.isetitem(
+                            cols.index("value"), self.records["value"].astype(float)
+                        )
 
                         # set column names
                         self.domain_labels = self.domain_names
@@ -411,7 +417,10 @@ class GenerateRecordsVariableMixin(GenerateRecordsBase):
                                 self.records[i] = func[i](
                                     seed=seed, size=(len(self.records),)
                                 )
-                                self.records[i] = self.records[i].astype(float)
+                                cols = list(self.records.columns)
+                                self.records.isetitem(
+                                    cols.index(i), self.records[i].astype(float)
+                                )
                             else:
                                 self.records[i] = self.default_records[i]
 
@@ -465,7 +474,10 @@ class GenerateRecordsVariableMixin(GenerateRecordsBase):
                                 self.records[i] = func[i](
                                     seed=seed, size=(len(self.records),)
                                 )
-                                self.records[i] = self.records[i].astype(float)
+                                cols = list(self.records.columns)
+                                self.records.isetitem(
+                                    cols.index(i), self.records[i].astype(float)
+                                )
                             else:
                                 self.records[i] = self.default_records[i]
 

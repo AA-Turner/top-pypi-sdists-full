@@ -5,7 +5,7 @@ import warnings
 
 from nominal.ai.v1 import workbook_agent_pb2 as nominal_dot_ai_dot_v1_dot_workbook__agent__pb2
 
-GRPC_GENERATED_VERSION = '1.74.0'
+GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

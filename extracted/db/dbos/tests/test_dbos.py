@@ -1,5 +1,6 @@
 # mypy: disable-error-code="no-redef"
 
+import asyncio
 import datetime
 import logging
 import os
@@ -1086,33 +1087,49 @@ def test_nonserializable_values(dbos: DBOS) -> None:
 
     with pytest.raises(Exception) as exc_info:
         test_ns_transaction("h")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
     with pytest.raises(Exception) as exc_info:
         test_ns_wf("g")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
 
     wfh = DBOS.start_workflow(test_reg_wf, "a")
     with pytest.raises(Exception) as exc_info:
         DBOS.send(wfh.workflow_id, invalid_return, "sss")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
     wfh.get_result()
 
     with pytest.raises(Exception) as exc_info:
         test_ns_event("e")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
 
     with pytest.raises(Exception) as exc_info:
         test_bad_wf1("a")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
     with pytest.raises(Exception) as exc_info:
         test_bad_wf2("b")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
     with pytest.raises(Exception) as exc_info:
         test_bad_wf3("c")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
     with pytest.raises(Exception) as exc_info:
         test_bad_wf4("d")
-    assert "data item should not be a function" in str(exc_info.value)
+    assert "Serialized function should be defined at the top level of a module" in str(
+        exc_info.value
+    )
 
 
 def test_multi_set_event(dbos: DBOS) -> None:
@@ -1250,11 +1267,42 @@ def test_destroy_semantics(dbos: DBOS, config: DBOSConfig) -> None:
     var = "test"
     assert test_workflow(var) == var
 
+    # Start the workflow asynchornously
+    wf = dbos.start_workflow(test_workflow, var)
+    assert wf.get_result() == var
+
     DBOS.destroy()
     DBOS(config=config)
     DBOS.launch()
 
     assert test_workflow(var) == var
+
+    wf = dbos.start_workflow(test_workflow, var)
+    assert wf.get_result() == var
+
+
+@pytest.mark.asyncio
+async def test_destroy_semantics_async(dbos: DBOS, config: DBOSConfig) -> None:
+
+    @DBOS.workflow()
+    async def test_workflow(var: str) -> str:
+        return var
+
+    var = "test"
+    assert await test_workflow(var) == var
+
+    # Start the workflow asynchornously
+    wf = await dbos.start_workflow_async(test_workflow, var)
+    assert await wf.get_result() == var
+
+    DBOS.destroy()
+    DBOS(config=config)
+    DBOS.launch()
+
+    assert await test_workflow(var) == var
+
+    wf = await dbos.start_workflow_async(test_workflow, var)
+    assert await wf.get_result() == var
 
 
 def test_double_decoration(dbos: DBOS) -> None:
@@ -1637,17 +1685,17 @@ async def test_step_without_dbos(dbos: DBOS, config: DBOSConfig) -> None:
         assert DBOS.workflow_id is None
         return x
 
-    assert step(5) == 5
+    assert await asyncio.to_thread(step, 5) == 5
     assert await async_step(5) == 5
 
     DBOS(config=config)
 
-    assert step(5) == 5
+    assert await asyncio.to_thread(step, 5) == 5
     assert await async_step(5) == 5
 
     DBOS.launch()
 
-    assert step(5) == 5
+    assert await asyncio.to_thread(step, 5) == 5
     assert await async_step(5) == 5
 
     assert len(DBOS.list_workflows()) == 0

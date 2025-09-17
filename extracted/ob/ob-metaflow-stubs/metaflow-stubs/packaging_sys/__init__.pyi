@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-09-16T01:38:51.205180                                                            #
+# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-16T23:23:08.650014                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 import enum
 if typing.TYPE_CHECKING:
-    import metaflow.packaging_sys.backend
+    import metaflow.extension_support.metadata
     import typing
     import enum
     import metaflow.packaging_sys
-    import metaflow.extension_support.metadata
     import metaflow.packaging_sys.tar_backend
+    import metaflow.packaging_sys.backend
 
 from . import distribution_support as distribution_support
 from .distribution_support import PackagedDistributionFinder as PackagedDistributionFinder

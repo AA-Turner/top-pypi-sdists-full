@@ -18,6 +18,7 @@ use crate::error::CryptographyResult;
 mod asn1;
 mod backend;
 mod buf;
+mod declarative_asn1;
 mod error;
 mod exceptions;
 pub(crate) mod oid;
@@ -94,7 +95,7 @@ fn enable_fips(providers: &mut LoadedProviders) -> CryptographyResult<()> {
     Ok(())
 }
 
-#[pyo3::pymodule]
+#[pyo3::pymodule(gil_used = false)]
 mod _rust {
     use pyo3::types::PyModuleMethods;
 
@@ -116,7 +117,18 @@ mod _rust {
     #[pymodule_export]
     use crate::test_support::test_support;
 
-    #[pyo3::pymodule]
+    #[pyo3::pymodule(gil_used = false)]
+    mod declarative_asn1 {
+        #[pymodule_export]
+        use crate::declarative_asn1::asn1::encode_der;
+
+        #[pymodule_export]
+        use crate::declarative_asn1::types::{
+            non_root_python_to_rust, AnnotatedType, Annotation, Type,
+        };
+    }
+
+    #[pyo3::pymodule(gil_used = false)]
     mod x509 {
         #[pymodule_export]
         use crate::x509::certificate::{
@@ -143,7 +155,7 @@ mod _rust {
         };
     }
 
-    #[pyo3::pymodule]
+    #[pyo3::pymodule(gil_used = false)]
     mod ocsp {
         #[pymodule_export]
         use crate::x509::ocsp_req::{create_ocsp_request, load_der_ocsp_request, OCSPRequest};
@@ -153,7 +165,7 @@ mod _rust {
         };
     }
 
-    #[pyo3::pymodule]
+    #[pyo3::pymodule(gil_used = false)]
     mod openssl {
         use pyo3::prelude::PyModuleMethods;
 
@@ -207,33 +219,26 @@ mod _rust {
         #[pymodule_export]
         use crate::error::{capture_error_stack, raise_openssl_error, OpenSSLError};
 
+        #[pymodule_export]
+        const CRYPTOGRAPHY_OPENSSL_300_OR_GREATER: bool = cfg!(CRYPTOGRAPHY_OPENSSL_300_OR_GREATER);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_OPENSSL_309_OR_GREATER: bool = cfg!(CRYPTOGRAPHY_OPENSSL_309_OR_GREATER);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_OPENSSL_320_OR_GREATER: bool = cfg!(CRYPTOGRAPHY_OPENSSL_320_OR_GREATER);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_OPENSSL_330_OR_GREATER: bool = cfg!(CRYPTOGRAPHY_OPENSSL_330_OR_GREATER);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_OPENSSL_350_OR_GREATER: bool = cfg!(CRYPTOGRAPHY_OPENSSL_350_OR_GREATER);
+
+        #[pymodule_export]
+        const CRYPTOGRAPHY_IS_LIBRESSL: bool = cfg!(CRYPTOGRAPHY_IS_LIBRESSL);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_IS_BORINGSSL: bool = cfg!(CRYPTOGRAPHY_IS_BORINGSSL);
+        #[pymodule_export]
+        const CRYPTOGRAPHY_IS_AWSLC: bool = cfg!(CRYPTOGRAPHY_IS_AWSLC);
+
         #[pymodule_init]
         fn init(openssl_mod: &pyo3::Bound<'_, pyo3::types::PyModule>) -> pyo3::PyResult<()> {
-            openssl_mod.add(
-                "CRYPTOGRAPHY_OPENSSL_300_OR_GREATER",
-                cfg!(CRYPTOGRAPHY_OPENSSL_300_OR_GREATER),
-            )?;
-            openssl_mod.add(
-                "CRYPTOGRAPHY_OPENSSL_309_OR_GREATER",
-                cfg!(CRYPTOGRAPHY_OPENSSL_309_OR_GREATER),
-            )?;
-            openssl_mod.add(
-                "CRYPTOGRAPHY_OPENSSL_320_OR_GREATER",
-                cfg!(CRYPTOGRAPHY_OPENSSL_320_OR_GREATER),
-            )?;
-            openssl_mod.add(
-                "CRYPTOGRAPHY_OPENSSL_330_OR_GREATER",
-                cfg!(CRYPTOGRAPHY_OPENSSL_330_OR_GREATER),
-            )?;
-            openssl_mod.add(
-                "CRYPTOGRAPHY_OPENSSL_350_OR_GREATER",
-                cfg!(CRYPTOGRAPHY_OPENSSL_350_OR_GREATER),
-            )?;
-
-            openssl_mod.add("CRYPTOGRAPHY_IS_LIBRESSL", cfg!(CRYPTOGRAPHY_IS_LIBRESSL))?;
-            openssl_mod.add("CRYPTOGRAPHY_IS_BORINGSSL", cfg!(CRYPTOGRAPHY_IS_BORINGSSL))?;
-            openssl_mod.add("CRYPTOGRAPHY_IS_AWSLC", cfg!(CRYPTOGRAPHY_IS_AWSLC))?;
-
             cfg_if::cfg_if! {
                 if #[cfg(CRYPTOGRAPHY_OPENSSL_300_OR_GREATER)] {
                     let providers = super::super::_initialize_providers(openssl_mod.py())?;

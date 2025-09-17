@@ -64,7 +64,7 @@ class MotionGroupModelsApi:
     ) -> List[Dict[str, Collider]]:
         """Get Collision Model
 
-        Returns the default collision link chain for a given motion group model.  See [getMotionGroupDescription](getMotionGroupDescription) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Use the `stored_link_chain` or `link_chain` field in [storeCollisionScene](storeCollisionScene) to attach additional shapes to the link reference frames. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
+        Returns the default collision link chain for a given motion group model.  See [getMotionGroupModels](getMotionGroupModels) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Attach additional shapes to the link reference frames by extending the link dictionaries before further use. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -104,7 +104,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Dict[str, Collider]]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(
@@ -138,7 +138,7 @@ class MotionGroupModelsApi:
     ) -> ApiResponse[List[Dict[str, Collider]]]:
         """Get Collision Model
 
-        Returns the default collision link chain for a given motion group model.  See [getMotionGroupDescription](getMotionGroupDescription) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Use the `stored_link_chain` or `link_chain` field in [storeCollisionScene](storeCollisionScene) to attach additional shapes to the link reference frames. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
+        Returns the default collision link chain for a given motion group model.  See [getMotionGroupModels](getMotionGroupModels) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Attach additional shapes to the link reference frames by extending the link dictionaries before further use. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -178,7 +178,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Dict[str, Collider]]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(
@@ -212,7 +212,7 @@ class MotionGroupModelsApi:
     ) -> RESTResponseType:
         """Get Collision Model
 
-        Returns the default collision link chain for a given motion group model.  See [getMotionGroupDescription](getMotionGroupDescription) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Use the `stored_link_chain` or `link_chain` field in [storeCollisionScene](storeCollisionScene) to attach additional shapes to the link reference frames. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
+        Returns the default collision link chain for a given motion group model.  See [getMotionGroupModels](getMotionGroupModels) for supported motion group models.  The default link chain is derived from 3D models and optimized for collision detection within NOVA.  The default link chain includes link shapes only. It does not include any attached components like wire feeders or sensors.  Attach additional shapes to the link reference frames by extending the link dictionaries before further use. Additional shapes may overlap each other per link and may also overlap the respective link's default shape. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -252,7 +252,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[Dict[str, Collider]]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(
@@ -382,7 +382,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[str]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(
@@ -452,7 +452,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[str]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(
@@ -522,7 +522,7 @@ class MotionGroupModelsApi:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "List[str]",
             '404': None,
-            '422': "HTTPValidationError",
+            '422': "HTTPValidationError2",
             '500': None,
         }
         response_data = await self.api_client.call_api(

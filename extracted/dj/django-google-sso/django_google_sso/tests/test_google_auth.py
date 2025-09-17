@@ -86,3 +86,22 @@ def test_redirect_uri_with_custom_domain(
     assert (
         google.get_redirect_uri() == "https://my-other-domain.com/google_sso/callback/"
     )
+
+
+def test_get_redirect_uri_from_multiple_reverse_proxies(rf, query_string, monkeypatch):
+    # Arrange
+    expected_scheme = "https"
+    monkeypatch.setattr(conf, "GOOGLE_SSO_CALLBACK_DOMAIN", None)
+    current_site_domain = Site.objects.get_current().domain
+    request = rf.get(
+        f"/google_sso/callback/?{query_string}", HTTP_X_FORWARDED_PROTO="https, https"
+    )
+
+    # Act
+    google = GoogleAuth(request)
+
+    # Assert
+    assert (
+        google.get_redirect_uri()
+        == f"{expected_scheme}://{current_site_domain}/google_sso/callback/"
+    )

@@ -17,10 +17,9 @@ except ImportError:
 class AgentDeploymentSummary(pydantic.BaseModel):
     id: str = pydantic.Field(description="Deployment ID. Prefixed with dpl-")
     project_id: str = pydantic.Field(description="Project ID")
-    agent_slug: str = pydantic.Field(description="readable ID of the deployed app")
+    deployment_name: str = pydantic.Field(description="Identifier of the deployed app")
     thumbnail_url: typing.Optional[str]
     base_url: str = pydantic.Field(description="Base URL of the deployed app")
-    display_name: str = pydantic.Field(description="Display name of the deployed app")
     created_at: dt.datetime = pydantic.Field(description="Timestamp when the app deployment was created")
     updated_at: dt.datetime = pydantic.Field(description="Timestamp when the app deployment was last updated")
     api_key_id: typing.Optional[str]

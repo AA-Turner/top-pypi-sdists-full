@@ -27,10 +27,9 @@ class CustomerFacingDependencyLicense(BaseModel):
     """
     CustomerFacingDependencyLicense
     """ # noqa: E501
-    id: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     source: Optional[PackageSource] = None
-    __properties: ClassVar[List[str]] = ["id", "name", "source"]
+    __properties: ClassVar[List[str]] = ["name", "source"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,11 +70,6 @@ class CustomerFacingDependencyLicense(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if id (nullable) is None
-        # and model_fields_set contains the field
-        if self.id is None and "id" in self.model_fields_set:
-            _dict['id'] = None
-
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:
@@ -93,7 +87,6 @@ class CustomerFacingDependencyLicense(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "id": obj.get("id"),
             "name": obj.get("name"),
             "source": obj.get("source")
         })

@@ -20,7 +20,7 @@ class AgentData(pydantic.BaseModel):
     """
 
     id: typing.Optional[str]
-    agent_slug: str
+    deployment_name: str
     collection: typing.Optional[str]
     data: typing.Dict[str, typing.Any]
     created_at: typing.Optional[dt.datetime]

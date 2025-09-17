@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use chroma_error::{ChromaError, ErrorCodes};
 use chroma_system::Operator;
-use chroma_types::operator::{Rank, RecordMeasure};
+use chroma_types::operator::{RankExpr, RecordMeasure};
 use thiserror::Error;
 
 // NOTE: `RankDomain` represents evaluated scores for records
@@ -105,38 +105,38 @@ impl<R> RankProvider<R>
 where
     R: Iterator<Item = Vec<RecordMeasure>>,
 {
-    fn eval(&mut self, rank: Rank) -> RankDomain {
-        match rank {
-            Rank::Absolute(rank) => self.eval(*rank).map(f32::abs),
-            Rank::Division { left, right } => {
+    fn eval(&mut self, expr: RankExpr) -> RankDomain {
+        match expr {
+            RankExpr::Absolute(expr) => self.eval(*expr).map(f32::abs),
+            RankExpr::Division { left, right } => {
                 RankDomain::merge(self.eval(*left), self.eval(*right), f32::div)
             }
-            Rank::Exponentiation(rank) => self.eval(*rank).map(f32::exp),
-            Rank::Logarithm(rank) => self.eval(*rank).map(f32::ln),
-            Rank::Maximum(ranks) => ranks
+            RankExpr::Exponentiation(expr) => self.eval(*expr).map(f32::exp),
+            RankExpr::Logarithm(expr) => self.eval(*expr).map(f32::ln),
+            RankExpr::Maximum(exprs) => exprs
                 .into_iter()
-                .map(|rank| self.eval(rank))
+                .map(|expr| self.eval(expr))
                 .fold(RankDomain::flat(f32::MIN), |accumulate_domain, domain| {
                     RankDomain::merge(accumulate_domain, domain, f32::max)
                 }),
-            Rank::Minimum(ranks) => ranks
+            RankExpr::Minimum(exprs) => exprs
                 .into_iter()
-                .map(|rank| self.eval(rank))
+                .map(|expr| self.eval(expr))
                 .fold(RankDomain::flat(f32::MAX), |accumulate_domain, domain| {
                     RankDomain::merge(accumulate_domain, domain, f32::min)
                 }),
-            Rank::Multiplication(ranks) => ranks
+            RankExpr::Multiplication(exprs) => exprs
                 .into_iter()
-                .map(|rank| self.eval(rank))
+                .map(|expr| self.eval(expr))
                 .fold(RankDomain::flat(1.0), |accumulate_domain, domain| {
                     RankDomain::merge(accumulate_domain, domain, f32::mul)
                 }),
-            Rank::Knn {
-                embedding: _,
+            RankExpr::Knn {
+                query: _,
                 key: _,
                 limit: _,
                 default,
-                ordinal,
+                return_rank,
             } => {
                 let support = self
                     .knn_result_iter
@@ -145,21 +145,21 @@ where
                     .into_iter()
                     .enumerate()
                     .map(|(index, RecordMeasure { offset_id, measure })| {
-                        (offset_id, if ordinal { index as f32 } else { measure })
+                        (offset_id, if return_rank { index as f32 } else { measure })
                     })
                     .collect();
                 RankDomain { support, default }
             }
-            Rank::Subtraction { left, right } => {
+            RankExpr::Subtraction { left, right } => {
                 RankDomain::merge(self.eval(*left), self.eval(*right), f32::sub)
             }
-            Rank::Summation(ranks) => ranks
+            RankExpr::Summation(exprs) => exprs
                 .into_iter()
-                .map(|rank| self.eval(rank))
+                .map(|expr| self.eval(expr))
                 .fold(RankDomain::flat(0.0), |accumulate_domain, domain| {
                     RankDomain::merge(accumulate_domain, domain, f32::add)
                 }),
-            Rank::Value(val) => RankDomain::flat(val),
+            RankExpr::Value(val) => RankDomain::flat(val),
         }
     }
 }
@@ -186,7 +186,7 @@ impl ChromaError for RankError {
 }
 
 #[async_trait]
-impl Operator<RankInput, RankOutput> for Rank {
+impl Operator<RankInput, RankOutput> for RankExpr {
     type Error = RankError;
 
     async fn run(&self, input: &RankInput) -> Result<RankOutput, RankError> {
@@ -214,7 +214,7 @@ mod tests {
     #[tokio::test]
     async fn test_rank_with_knn_results() {
         let query = KnnQuery {
-            embedding: chroma_types::operator::QueryVector::Dense(vec![0.1, 0.2, 0.3]),
+            query: chroma_types::operator::QueryVector::Dense(vec![0.1, 0.2, 0.3]),
             key: String::new(),
             limit: 3,
         };
@@ -234,16 +234,16 @@ mod tests {
         ]];
 
         // Test simple KNN rank
-        let rank = Rank::Knn {
-            embedding: query.embedding.clone(),
+        let expr = RankExpr::Knn {
+            query: query.query.clone(),
             key: String::new(),
             limit: query.limit,
             default: None,
-            ordinal: false,
+            return_rank: false,
         };
         let input = RankInput { knn_results };
 
-        let output = rank.run(&input).await.expect("Rank should succeed");
+        let output = expr.run(&input).await.expect("Rank should succeed");
         assert_eq!(output.ranks.len(), 3);
         // After removing .reverse(), results are in ascending order by measure
         assert_eq!(output.ranks[0].offset_id, 3);
@@ -253,12 +253,12 @@ mod tests {
     #[tokio::test]
     async fn test_rank_arithmetic_operations() {
         let query1 = KnnQuery {
-            embedding: chroma_types::operator::QueryVector::Dense(vec![0.1]),
+            query: chroma_types::operator::QueryVector::Dense(vec![0.1]),
             key: String::new(),
             limit: 2,
         };
         let query2 = KnnQuery {
-            embedding: chroma_types::operator::QueryVector::Sparse(chroma_types::SparseVector {
+            query: chroma_types::operator::QueryVector::Sparse(chroma_types::SparseVector {
                 indices: vec![0],
                 values: vec![1.0],
             }),
@@ -289,27 +289,27 @@ mod tests {
         ];
 
         // Test summation
-        let rank = Rank::Summation(vec![
-            Rank::Knn {
-                embedding: query1.embedding.clone(),
+        let expr = RankExpr::Summation(vec![
+            RankExpr::Knn {
+                query: query1.query.clone(),
                 key: String::new(),
                 limit: query1.limit,
                 default: None,
-                ordinal: false,
+                return_rank: false,
             },
-            Rank::Knn {
-                embedding: query2.embedding.clone(),
+            RankExpr::Knn {
+                query: query2.query.clone(),
                 key: "sparse".to_string(),
                 limit: query2.limit,
                 default: None,
-                ordinal: false,
+                return_rank: false,
             },
         ]);
         let input = RankInput {
             knn_results: knn_results.clone(),
         };
 
-        let output = rank.run(&input).await.expect("Rank should succeed");
+        let output = expr.run(&input).await.expect("Rank should succeed");
         // Summation results:
         // Only Record 1 appears in both lists: 0.8 + 0.4 = 1.2
         // Records 2 and 3 are filtered out since they don't appear in both lists
@@ -320,19 +320,19 @@ mod tests {
 
         // Test multiplication with constant
         knn_results.pop();
-        let rank = Rank::Multiplication(vec![
-            Rank::Knn {
-                embedding: query1.embedding.clone(),
+        let expr = RankExpr::Multiplication(vec![
+            RankExpr::Knn {
+                query: query1.query.clone(),
                 key: String::new(),
                 limit: query1.limit,
                 default: None,
-                ordinal: false,
+                return_rank: false,
             },
-            Rank::Value(0.5),
+            RankExpr::Value(0.5),
         ]);
         let input = RankInput { knn_results };
 
-        let output = rank.run(&input).await.expect("Rank should succeed");
+        let output = expr.run(&input).await.expect("Rank should succeed");
         // Results are in ascending order, so the record with the lowest measure comes first
         // After multiplication by 0.5: record 1 = 0.8 * 0.5 = 0.4, record 2 = 0.6 * 0.5 = 0.3
         assert_eq!(output.ranks[0].offset_id, 2);
@@ -342,7 +342,7 @@ mod tests {
     #[tokio::test]
     async fn test_rank_min_max_functions() {
         let query = KnnQuery {
-            embedding: chroma_types::operator::QueryVector::Dense(vec![0.1]),
+            query: chroma_types::operator::QueryVector::Dense(vec![0.1]),
             key: String::new(),
             limit: 2,
         };
@@ -358,21 +358,21 @@ mod tests {
         ]];
 
         // Test max
-        let rank = Rank::Maximum(vec![
-            Rank::Knn {
-                embedding: query.embedding.clone(),
+        let expr = RankExpr::Maximum(vec![
+            RankExpr::Knn {
+                query: query.query.clone(),
                 key: String::new(),
                 limit: query.limit,
                 default: None,
-                ordinal: false,
+                return_rank: false,
             },
-            Rank::Value(0.5),
+            RankExpr::Value(0.5),
         ]);
         let input = RankInput {
             knn_results: knn_results.clone(),
         };
 
-        let output = rank.run(&input).await.expect("Rank should succeed");
+        let output = expr.run(&input).await.expect("Rank should succeed");
         // Results are in ascending order
         assert_eq!(output.ranks[0].offset_id, 2);
         assert_eq!(output.ranks[0].measure, 0.5); // max(0.3, 0.5) = 0.5
@@ -380,19 +380,19 @@ mod tests {
         assert_eq!(output.ranks[1].measure, 0.8); // max(0.8, 0.5) = 0.8
 
         // Test min
-        let rank = Rank::Minimum(vec![
-            Rank::Knn {
-                embedding: query.embedding.clone(),
+        let expr = RankExpr::Minimum(vec![
+            RankExpr::Knn {
+                query: query.query.clone(),
                 key: String::new(),
                 limit: query.limit,
                 default: None,
-                ordinal: false,
+                return_rank: false,
             },
-            Rank::Value(0.5),
+            RankExpr::Value(0.5),
         ]);
         let input = RankInput { knn_results };
 
-        let output = rank.run(&input).await.expect("Rank should succeed");
+        let output = expr.run(&input).await.expect("Rank should succeed");
         // Results are in ascending order
         assert_eq!(output.ranks[0].offset_id, 2);
         assert_eq!(output.ranks[0].measure, 0.3); // min(0.3, 0.5) = 0.3

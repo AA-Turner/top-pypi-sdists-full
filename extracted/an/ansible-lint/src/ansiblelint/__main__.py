@@ -226,12 +226,12 @@ def fix(runtime_options: Options, result: LintResult, rules: RulesCollection) ->
             ruamel_yaml_version_str,
             ruamel_safe_version,
         )
-    acceptable_tags = {"all", "none", *rules.known_tags()}
+    acceptable_tags = {"all", "none", *rules.known_transform_tags()}
     unknown_tags = set(options.write_list).difference(acceptable_tags)
 
     if unknown_tags:  # pragma: no cover
         _logger.error(
-            "Found invalid value(s) (%s) for --fix arguments, must be one of: %s",
+            "Found invalid value(s) (%s) for --fix arguments, must be one of: %s. Valid values are limited by the configured profile.",
             ", ".join(unknown_tags),
             ", ".join(acceptable_tags),
         )
@@ -495,7 +495,10 @@ def path_inject(own_location: str = "") -> None:
             inject_paths.append(str(parent))
 
     if not os.environ.get("PYENV_VIRTUAL_ENV", None):
-        if inject_paths and not all("pipx" in p for p in inject_paths):
+        if inject_paths and not any((
+            all("pipx" in p for p in inject_paths),
+            all("uv/tools" in p for p in inject_paths),
+        )):
             print(  # noqa: T201
                 f"WARNING: PATH altered to include {', '.join(inject_paths)} :: This is usually a sign of broken local setup, which can cause unexpected behaviors.",
                 file=sys.stderr,

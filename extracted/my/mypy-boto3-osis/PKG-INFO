@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-osis
-Version: 1.40.20
-Summary: Type annotations for boto3 OpenSearchIngestion 1.40.20 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.32
+Summary: Type annotations for boto3 OpenSearchIngestion 1.40.32 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 OpenSearchIngestion 1.40.20](https://pypi.org/project/boto3/) compatible
+[boto3 OpenSearchIngestion 1.40.32](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -93,6 +93,7 @@ See how it helps you find and fix potential bugs:
     - [Pylint compatibility](#pylint-compatibility)
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
+    - [Paginators annotations](#paginators-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -118,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.20' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.32' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `OpenSearchIngestion` service.
 4. Use provided commands to install generated packages.
@@ -338,6 +339,34 @@ from mypy_boto3_osis import OpenSearchIngestionClient
 client: OpenSearchIngestionClient = Session().client("osis")
 
 # now client usage is checked by mypy and IDE should provide code completion
+```
+
+<a id="paginators-annotations"></a>
+
+### Paginators annotations
+
+`mypy_boto3_osis.paginator` module contains type annotations for all
+paginators.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_osis import OpenSearchIngestionClient
+from mypy_boto3_osis.paginator import (
+    ListPipelineEndpointConnectionsPaginator,
+    ListPipelineEndpointsPaginator,
+)
+
+client: OpenSearchIngestionClient = Session().client("osis")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+list_pipeline_endpoint_connections_paginator: ListPipelineEndpointConnectionsPaginator = (
+    client.get_paginator("list_pipeline_endpoint_connections")
+)
+list_pipeline_endpoints_paginator: ListPipelineEndpointsPaginator = client.get_paginator(
+    "list_pipeline_endpoints"
+)
 ```
 
 <a id="literals"></a>

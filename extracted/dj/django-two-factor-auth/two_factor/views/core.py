@@ -9,6 +9,7 @@ from uuid import uuid4
 import django_otp
 import qrcode
 import qrcode.image.svg
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
 from django.contrib.auth.decorators import login_required
@@ -32,11 +33,10 @@ from django.views.generic import FormView, TemplateView
 from django.views.generic.base import View
 from django_otp import devices_for_user
 from django_otp.decorators import otp_required
-from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
+from django_otp.plugins.otp_static.models import StaticToken
 from django_otp.util import random_hex
 
 from two_factor import signals
-from two_factor.plugins.phonenumber.utils import get_available_phone_methods
 from two_factor.plugins.registry import MethodNotFoundError, registry
 from two_factor.utils import totp_digits
 from two_factor.views.mixins import OTPRequiredMixin
@@ -306,10 +306,7 @@ class LoginView(RedirectURLMixin, IdempotentSessionWizardView):
                         break
 
             if step == self.BACKUP_STEP:
-                try:
-                    self.device_cache = self.get_user().staticdevice_set.get(name='backup')
-                except StaticDevice.DoesNotExist:
-                    pass
+                self.device_cache = self.get_user().staticdevice_set.all().first()
 
             if not self.device_cache:
                 self.device_cache = default_device(self.get_user())
@@ -365,12 +362,8 @@ class LoginView(RedirectURLMixin, IdempotentSessionWizardView):
             device = self.get_device()
             context['device'] = device
             context['other_devices'] = self.get_other_devices(device)
-
-            try:
-                context['backup_tokens'] = self.get_user().staticdevice_set\
-                    .get(name='backup').token_set.count()
-            except StaticDevice.DoesNotExist:
-                context['backup_tokens'] = 0
+            context['backup_tokens'] = self.get_user().staticdevice_set\
+                .all().values('token_set__token').count()
 
         if getattr(settings, 'LOGOUT_REDIRECT_URL', None):
             context['cancel_url'] = resolve_url(settings.LOGOUT_REDIRECT_URL)
@@ -555,6 +548,7 @@ class SetupView(RedirectURLMixin, IdempotentSessionWizardView):
         # PhoneNumberForm / YubiKeyDeviceForm / EmailForm / WebauthnDeviceValidationForm
         elif method.code in ('call', 'sms', 'yubikey', 'email', 'webauthn'):
             device = self.get_device()
+            device.confirmed = True
             device.save()
 
         django_otp.login(self.request, device)
@@ -656,7 +650,8 @@ class BackupTokensView(FormView):
     number_of_tokens = 10
 
     def get_device(self):
-        return self.request.user.staticdevice_set.get_or_create(name='backup')[0]
+        device, _ = self.request.user.staticdevice_set.get_or_create(defaults={'name':'backup'})
+        return device
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -687,9 +682,18 @@ class SetupCompleteView(TemplateView):
             return redirect(request.session.get('next'))
         return super().get(request, *args, **kwargs)
 
-    def get_context_data(self):
+    def get_context_data(self, **kwargs):
+        phone_methods = None
+        if (apps.is_installed("two_factor.plugins.phonenumber")):
+            from two_factor.plugins.phonenumber.utils import (
+                get_available_phone_methods,
+            )
+
+            phone_methods = get_available_phone_methods()
+
         return {
-            'phone_methods': get_available_phone_methods(),
+            **super().get_context_data(**kwargs),
+            "phone_methods": phone_methods,
         }
 
 

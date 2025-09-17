@@ -29,7 +29,10 @@ class EventBlock(BaseModel):
 class SlackEvent(BaseModel):
     client_msg_id: str | None = None
     type: str
+    subtype: str | None = None
     text: str | None = None
+    # For message_changed edit events, Slack nests the edited message here
+    message: dict[str, Any] | None = None
     user: str | dict[str, Any] | None = None
     ts: str | None = None
     team: str | None = None

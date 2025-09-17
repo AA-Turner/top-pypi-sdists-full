@@ -365,178 +365,181 @@ class Formulae:
     def __init__(self):
         pass
     def formulaeu(self):
-        while True:
-            try:
-                def timedecimal_to_ampm():
-                    dayHours=Prompt.__init2__(None,func=FormBuilderMkText,ptext="How many hours in a day?: ",helpText="how many hours make a day? default is 24 ",data="dec.dec")
-                    if dayHours is None:
-                        return
-                    elif dayHours in ['d',]:
-                        dayHours=Decimal('24')
-                    halfday=dayHours/2
+        with localcontext() as ctx:
+            ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+            while True:
+                try:
+                    def timedecimal_to_ampm():
+                        dayHours=Prompt.__init2__(None,func=FormBuilderMkText,ptext="How many hours in a day?: ",helpText="how many hours make a day? default is 24 ",data="dec.dec")
+                        if dayHours is None:
+                            return
+                        elif dayHours in ['d',]:
+                            dayHours=Decimal('24')
+                        halfday=dayHours/2
 
-                    result=None
-                    time_Dec=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Time Decimal: ",helpText="time of day as a decimal to convert to 12H ",data="dec.dec")
-                    if time_Dec is None:
-                        return
-                    elif time_Dec in ['d',]:
-                        time_Dec=0.0
-                    ampm='am'
-                    if time_Dec >= 0 and time_Dec <= dayHours:
-                        if time_Dec <= halfday:
-                            hours=int(time_Dec)
-                        else:
-                            hours=int(time_Dec-halfday)
-                            ampm='pm'
-                        minutes=time_Dec-int(time_Dec)
-                        
-                        try:
-                            minutes=int(minutes*60)
-                        except Exception as e:
-                            print(e)
-                            minutes=0
-                        result=f"{hours}[12H]/{int(time_Dec)}[24]:{minutes} {ampm}"
-                        
-                        return result
-                    return result
-
-                def invert_value():
-                    result=None
-                    value=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Value to Invert: ",helpText="make user provided value, or formula negative (value*-1='-value')",data="dec.dec")
-                    if value is None:
-                        return
-                    elif value in ['d',]:
-                        value=0
-                    result=value*-1
-                    return result
-
-                def tax_rate_decimal():
-                    result=None
-                    tax_percent=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Tax Rate Percent: ",helpText="percent to convert to decimal (Percent/100=Rate)",data="dec.dec")
-                    if tax_percent is None:
-                        return
-                    elif tax_percent in ['d',]:
-                        tax_percent=default_taxrate/100
-                    result=tax_percent/100
-                    return result
-
-                
-
-                self.options={
-                    f'{uuid1()}':{
-                        'cmds':['invert','-value','iv-val'],
-                        'desc':f'{Fore.light_yellow}value{Fore.medium_violet_red} is multiplied by -1 to make inverse{Style.reset}',
-                        'exec':invert_value
-                    },
-                    f'{uuid1()}':{
-                        'cmds':['time dec to clock','t2c','time to clock'],
-                        'desc':f'{Fore.light_yellow}value{Fore.medium_violet_red} convert decimal time to clock time{Style.reset}',
-                        'exec':timedecimal_to_ampm
-                    },
-                    f'{uuid1()}':{
-                        'cmds':['percent to decimal','p2d','prcnt2decimal','prcnt 2 dec'],
-                        'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
-                        'exec':tax_rate_decimal
-                    },
-                    f'{uuid1()}':{
-                        'cmds':['basic counter','bcounter','countto','count to'],
-                        'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
-                        'exec':OAR.CountTo
-                    },
-                }
-                
-                for i in preloader:
-                    self.options[i]=preloader[i]
-                defaults_msg=f'''
-                '''
-                '''must be last for user to always see'''
-                self.options[f'{uuid1()}']={
-                        'cmds':['fcmd','findcmd','find cmd'],
-                        'desc':f'Find {Fore.light_yellow}cmd{Fore.medium_violet_red} and excute for return{Style.reset}',
-                        'exec':self.findAndUse2
-                    }
-                for num,i in enumerate(self.options):
-                    if str(num) not in self.options[i]['cmds']:
-                        self.options[i]['cmds'].append(str(num))
-                options=copy(self.options)
-
-                while True:                
-                    helpText=[]
-                    for i in options:
-                        msg=f"{Fore.light_green}{options[i]['cmds']}{Fore.light_red} -> {options[i]['desc']}{Style.reset}"
-                        helpText.append(msg)
-                    helpText='\n'.join(helpText)
-                    print(helpText)
-                    print(defaults_msg)
-                    cmd=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Quick Formulas|Do What?:",helpText=helpText,data="string")
-                    if cmd is None:
-                        return None
-                    result=None
-                    for i in options:
-                        els=[ii.lower() for ii in options[i]['cmds']]
-                        if cmd.lower() in els:
-                            result=options[i]['exec']()
-                            break
-                    print(f"{result}")
-                    returnResult=Prompt.__init2__(None,func=FormBuilderMkText,ptext="[Formula] Return Result?[y/n]",helpText=f"result to return is '{result}'",data="boolean")
-                    if returnResult in [True,]:
-                        if result is None:
-                            return None
-                        else:
-                            returnTypes=["float","Decimal","string","string"]
-                            returnActor=[lambda x:round(float(x),4),lambda x:Decimal(x).quantize(Decimal("0.0000")),lambda x: f"{x:.4f}",lambda x:str(x)]
-                            ct=len(returnTypes)
-                            returnType=None
-                            htext=[]
-                            strOnly=False
-                            for num,i in enumerate(returnTypes):
-                                try:
-                                    htext.append(std_colorize(f"{i} - {returnActor[num](result)} ",num,ct))
-                                except Exception as e:
-                                    strOnly=True
-                                    print(e)
-                            htext='\n'.join(htext)
-                            while returnType not in range(0,ct+1):
-                                print(htext)
-                                returnType=Prompt.__init2__(self,func=FormBuilderMkText,ptext="Return the value as?",helpText=f"{htext}\nwhich index?",data="integer")
-                                if returnType is None:
-                                    return None
-                                elif returnType in ['d',]:
-                                    if not strOnly:   
-                                        returnType=1
-                                    else:
-                                        returnType=-1
-                                        break
-                                        #return str(result)
+                        result=None
+                        time_Dec=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Time Decimal: ",helpText="time of day as a decimal to convert to 12H ",data="dec.dec")
+                        if time_Dec is None:
+                            return
+                        elif time_Dec in ['d',]:
+                            time_Dec=0.0
+                        ampm='am'
+                        if time_Dec >= 0 and time_Dec <= dayHours:
+                            if time_Dec <= halfday:
+                                hours=int(time_Dec)
+                            else:
+                                hours=int(time_Dec-halfday)
+                                ampm='pm'
+                            minutes=time_Dec-int(time_Dec)
+                            
                             try:
-                                if returnTypes[returnType] == 'float':
-                                    try:
-                                        return returnActor[returnType](result)
-                                    except Exception as e:
-                                        print(e)
-                                        continue
-                                elif returnTypes[returnType] == 'Decimal':
-                                    try:
-                                        return returnActor[returnType](result)
-                                    except Exception as e:
-                                        print(e)
-                                        continue
-                                elif returnTypes[returnType] == 'string':
-                                    try:
-                                        return returnActor[returnType](result)
-                                    except Exception as e:
-                                        print(e)
-                                        continue
-                                else:
-                                    return result
+                                minutes=int(minutes*60)
                             except Exception as e:
                                 print(e)
-                                print("returning as a string")
-                                return result
-                        return result                
-            except Exception as e:
-                print(e,str(e),repr(e))
-                return None
+                                minutes=0
+                            result=f"{hours}[12H]/{int(time_Dec)}[24]:{minutes} {ampm}"
+                            
+                            return result
+                        return result
+
+                    def invert_value():
+                        result=None
+                        value=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Value to Invert: ",helpText="make user provided value, or formula negative (value*-1='-value')",data="dec.dec")
+                        if value is None:
+                            return
+                        elif value in ['d',]:
+                            value=0
+                        result=value*-1
+                        return result
+
+                    def tax_rate_decimal():
+                        result=None
+                        tax_percent=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Tax Rate Percent: ",helpText="percent to convert to decimal (Percent/100=Rate)",data="dec.dec")
+                        if tax_percent is None:
+                            return
+                        elif tax_percent in ['d',]:
+                            tax_percent=default_taxrate/100
+                        result=tax_percent/100
+                        return result
+
+                    
+
+                    self.options={
+                        f'{uuid1()}':{
+                            'cmds':['invert','-value','iv-val'],
+                            'desc':f'{Fore.light_yellow}value{Fore.medium_violet_red} is multiplied by -1 to make inverse{Style.reset}',
+                            'exec':invert_value
+                        },
+                        f'{uuid1()}':{
+                            'cmds':['time dec to clock','t2c','time to clock'],
+                            'desc':f'{Fore.light_yellow}value{Fore.medium_violet_red} convert decimal time to clock time{Style.reset}',
+                            'exec':timedecimal_to_ampm
+                        },
+                        f'{uuid1()}':{
+                            'cmds':['percent to decimal','p2d','prcnt2decimal','prcnt 2 dec'],
+                            'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
+                            'exec':tax_rate_decimal
+                        },
+                        f'{uuid1()}':{
+                            'cmds':['basic counter','bcounter','countto','count to'],
+                            'desc':f'{Fore.light_yellow}decimal (0.02) {Fore.medium_violet_red} from percent (2%->2){Style.reset}',
+                            'exec':OAR.CountTo
+                        },
+                    }
+                    
+                    for i in preloader:
+                        self.options[i]=preloader[i]
+                    defaults_msg=f'''
+                    '''
+                    '''must be last for user to always see'''
+                    self.options[f'{uuid1()}']={
+                            'cmds':['fcmd','findcmd','find cmd'],
+                            'desc':f'Find {Fore.light_yellow}cmd{Fore.medium_violet_red} and excute for return{Style.reset}',
+                            'exec':self.findAndUse2
+                        }
+                    for num,i in enumerate(self.options):
+                        if str(num) not in self.options[i]['cmds']:
+                            self.options[i]['cmds'].append(str(num))
+                    options=copy(self.options)
+
+                    while True:                
+                        helpText=[]
+                        zt=len(options)
+                        for num,i in enumerate(options):
+                            msg=f"{Fore.light_green}{options[i]['cmds']}{Fore.light_red} -> {options[i]['desc']}{Style.reset}"
+                            helpText.append(std_colorize(msg,num,zt))
+                        helpText='\n'.join(helpText)
+                        print(helpText)
+                        print(defaults_msg)
+                        cmd=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Quick Formulas|Do What?:",helpText=helpText,data="string")
+                        if cmd is None:
+                            return None
+                        result=None
+                        for i in options:
+                            els=[ii.lower() for ii in options[i]['cmds']]
+                            if cmd.lower() in els:
+                                result=options[i]['exec']()
+                                break
+                        print(f"{result}")
+                        returnResult=Prompt.__init2__(None,func=FormBuilderMkText,ptext="[Formula] Return Result?[y/n]",helpText=f"result to return is '{result}'",data="boolean")
+                        if returnResult in [True,]:
+                            if result is None:
+                                return None
+                            else:
+                                returnTypes=["float","Decimal","string","string"]
+                                returnActor=[lambda x:round(float(x),4),lambda x:Decimal(x),lambda x: f"{x:.4f}",lambda x:str(x)]
+                                ct=len(returnTypes)
+                                returnType=None
+                                htext=[]
+                                strOnly=False
+                                for num,i in enumerate(returnTypes):
+                                    try:
+                                        htext.append(std_colorize(f"{i} - {returnActor[num](result)} ",num,ct))
+                                    except Exception as e:
+                                        strOnly=True
+                                        print(e)
+                                htext='\n'.join(htext)
+                                while returnType not in range(0,ct+1):
+                                    print(htext)
+                                    returnType=Prompt.__init2__(self,func=FormBuilderMkText,ptext="Return the value as?",helpText=f"{htext}\nwhich index?",data="integer")
+                                    if returnType is None:
+                                        return None
+                                    elif returnType in ['d',]:
+                                        if not strOnly:   
+                                            returnType=1
+                                        else:
+                                            returnType=-1
+                                            break
+                                            #return str(result)
+                                try:
+                                    if returnTypes[returnType] == 'float':
+                                        try:
+                                            return returnActor[returnType](result)
+                                        except Exception as e:
+                                            print(e)
+                                            continue
+                                    elif returnTypes[returnType] == 'Decimal':
+                                        try:
+                                            return returnActor[returnType](result)
+                                        except Exception as e:
+                                            print(e)
+                                            continue
+                                    elif returnTypes[returnType] == 'string':
+                                        try:
+                                            return returnActor[returnType](result)
+                                        except Exception as e:
+                                            print(e)
+                                            continue
+                                    else:
+                                        return result
+                                except Exception as e:
+                                    print(e)
+                                    print("returning as a string")
+                                    return result
+                            return result                
+                except Exception as e:
+                    print(e,str(e),repr(e))
+                    return None
             
 
     def pricing(self):
@@ -1159,6 +1162,36 @@ def generateWhiteNoise():
     except Exception as e:
         print(e)
 
+defaultEntries='''
+Aluminum Beverage Can [http://www.kadealu.com/] Stubby Container Volume: 250ml Can Ht: 92mm Can Body Diam: 66mm Can End Diam. 52/58mm Net Wt: 9.3/10.g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 330ml Can Ht: 116mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 10.6g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 355ml Can Ht: 122mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 11.5g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 475ml Can Ht: 158mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 500ml Can Ht: 168mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 250ml Can Ht: 115mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 270ml Can Ht: 123mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 13.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 310ml Can Ht: 138.8mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 9.5g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 330ml Can Ht: 147mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 355ml Can Ht: 156mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 180ml Can Ht: 104mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 8.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 250ml Can Ht: 134mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 9.1g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 200ml Can Ht: 96mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
+'''.split("\n")
+with Session(ENGINE) as session:
+    for line in defaultEntries:
+        check=session.query(Entry).filter(or_(
+            Entry.Barcode.icontains(line),
+            Entry.Code.icontains(line),
+            Entry.Name.icontains(line),
+            )).first()
+        if check is None:
+            e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
+            session.add(e)
+        else:
+            session.delete(check)
+            #e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
+            #session.add(e)
+    session.commit()
 
 class TasksMode:
     def networth_ui(self):

@@ -2,6 +2,7 @@
 // 2.0, and the BSD License. See the LICENSE file in the root of this repository
 // for complete details.
 
+use cryptography_crypto::constant_time;
 use pyo3::types::PyBytesMethods;
 
 use crate::buf::CffiBuf;
@@ -191,7 +192,7 @@ impl Poly1305 {
     fn verify(&mut self, py: pyo3::Python<'_>, signature: &[u8]) -> CryptographyResult<()> {
         let actual_bound = self.finalize(py)?;
         let actual = actual_bound.as_bytes();
-        if actual.len() != signature.len() || !openssl::memcmp::eq(actual, signature) {
+        if !constant_time::bytes_eq(actual, signature) {
             return Err(CryptographyError::from(
                 exceptions::InvalidSignature::new_err("Value did not match computed tag."),
             ));
@@ -201,7 +202,7 @@ impl Poly1305 {
     }
 }
 
-#[pyo3::pymodule]
+#[pyo3::pymodule(gil_used = false)]
 pub(crate) mod poly1305 {
     #[pymodule_export]
     use super::Poly1305;

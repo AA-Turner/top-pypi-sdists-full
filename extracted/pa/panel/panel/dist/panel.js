@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("53b5147b3d") /* ./tabulator */;
+    var tabulator_1 = require("632409fec4") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -19730,7 +19730,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"53b5147b3d": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"632409fec4": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19747,7 +19747,7 @@ ${namesToRegister
     const data_1 = require("be689f0377") /* ./data */;
     const layout_1 = require("9b11ce01a3") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
-    const tabulator_css_1 = tslib_1.__importDefault(require("cb7ce3ba00") /* ../styles/models/tabulator.css */);
+    const tabulator_css_1 = tslib_1.__importDefault(require("78fb957c9f") /* ../styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
         constructor(column, row, pre) {
             super();
@@ -20501,7 +20501,7 @@ ${namesToRegister
                 paginationMode: this.model.pagination,
                 paginationSize: this.model.page_size || 20,
                 paginationInitialPage: 1,
-                popupContainer: this.container,
+                popupContainer: this.model.container_popup && this.container,
                 groupBy: this.groupBy,
                 frozenRows: (row) => {
                     return (this.model.frozen_rows.length > 0) ? this.model.frozen_rows.includes(row._row.data._index) : false;
@@ -20837,9 +20837,11 @@ ${namesToRegister
                 };
                 columns.push(button_column);
             }
-            // We insert an empty last column to ensure select editor is rendered in correct position
-            // see: https://github.com/holoviz/panel/issues/7295
-            columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
+            if (this.model.container_popup) {
+                // We insert an empty last column to ensure select editor is rendered in correct position
+                // see: https://github.com/holoviz/panel/issues/7295
+                columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });
+            }
             return columns;
         }
         renderEditor(column, cell, onRendered, success, cancel) {
@@ -21229,6 +21231,7 @@ ${namesToRegister
             sorters: [List(Any), []],
             cell_styles: [Any, {}],
             theme_classes: [List(Str), []],
+            container_popup: [Bool, true],
         }));
     })();
 },
@@ -21347,10 +21350,10 @@ ${namesToRegister
         return records;
     }
 },
-"cb7ce3ba00": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
+"78fb957c9f": /* styles/models/tabulator.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.panel_models_markup_HTML = "bk-panel-models-markup-HTML";
-    exports.default = `.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:0px !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
+    exports.default = `.tabulator-table{max-width:max-content;}.tabulator-table .tabulator-row .row-content .bk-panel-models-markup-HTML{white-space:normal;}.tabulator-table .tabulator-cell.empty{min-width:0px !important;width:0px !important;padding:0px !important;}.tabulator-header .tabulator-col.empty{min-width:0px !important;width:0px !important;border-right:unset !important;}.tabulator-header .tabulator-col.empty .tabulator-col-content{padding:0px !important;}`;
 },
 "100965d6f3": /* models/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
@@ -40660,5 +40663,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"53b5147b3d","models/data":"be689f0377","styles/models/tabulator.css":"cb7ce3ba00","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"ace9331ee1","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"d7035097d8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"632409fec4","models/data":"be689f0377","styles/models/tabulator.css":"78fb957c9f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"ace9331ee1","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

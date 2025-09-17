@@ -6,7 +6,6 @@ from json.decoder import JSONDecodeError
 
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
-from ...core.jsonable_encoder import jsonable_encoder
 from ...core.remove_none_from_dict import remove_none_from_dict
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.http_validation_error import HttpValidationError
@@ -20,40 +19,31 @@ try:
 except ImportError:
     import pydantic  # type: ignore
 
-# this is used as the default value for optional parameters
-OMIT = typing.cast(typing.Any, ...)
-
 
 class AlphaClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
     def upload_file_v_2(
-        self,
-        *,
-        project_id: typing.Optional[str] = None,
-        organization_id: typing.Optional[str] = None,
-        configuration: str,
-        file: typing.Optional[str] = OMIT,
+        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
     ) -> ParsingJob:
         """
         Parameters:
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
 
-            - configuration: str.
-
-            - file: typing.Optional[str].
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.alpha.upload_file_v_2()
         """
-        _request: typing.Dict[str, typing.Any] = {"configuration": configuration}
-        if file is not OMIT:
-            _request["file"] = file
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v2alpha1/parse/upload"),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
-            json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
@@ -73,31 +63,25 @@ class AsyncAlphaClient:
         self._client_wrapper = client_wrapper
 
     async def upload_file_v_2(
-        self,
-        *,
-        project_id: typing.Optional[str] = None,
-        organization_id: typing.Optional[str] = None,
-        configuration: str,
-        file: typing.Optional[str] = OMIT,
+        self, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
     ) -> ParsingJob:
         """
         Parameters:
             - project_id: typing.Optional[str].
 
             - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
 
-            - configuration: str.
-
-            - file: typing.Optional[str].
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.alpha.upload_file_v_2()
         """
-        _request: typing.Dict[str, typing.Any] = {"configuration": configuration}
-        if file is not OMIT:
-            _request["file"] = file
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v2alpha1/parse/upload"),
             params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
-            json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
         )
