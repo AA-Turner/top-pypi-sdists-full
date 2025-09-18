@@ -1067,6 +1067,7 @@ class ParseInfo(_message.Message):
         "is_parse_function_output_optional",
         "parse_function_input_type_name",
         "parse_function_output_type_name",
+        "underscore_expr",
     )
     PARSE_FUNCTION_FIELD_NUMBER: _ClassVar[int]
     PARSE_FUNCTION_INPUT_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -1074,12 +1075,14 @@ class ParseInfo(_message.Message):
     IS_PARSE_FUNCTION_OUTPUT_OPTIONAL_FIELD_NUMBER: _ClassVar[int]
     PARSE_FUNCTION_INPUT_TYPE_NAME_FIELD_NUMBER: _ClassVar[int]
     PARSE_FUNCTION_OUTPUT_TYPE_NAME_FIELD_NUMBER: _ClassVar[int]
+    UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
     parse_function: FunctionReference
     parse_function_input_type: _arrow_pb2.ArrowType
     parse_function_output_type: _arrow_pb2.ArrowType
     is_parse_function_output_optional: bool
     parse_function_input_type_name: str
     parse_function_output_type_name: str
+    underscore_expr: _expression_pb2.LogicalExprNode
     def __init__(
         self,
         parse_function: _Optional[_Union[FunctionReference, _Mapping]] = ...,
@@ -1088,6 +1091,7 @@ class ParseInfo(_message.Message):
         is_parse_function_output_optional: bool = ...,
         parse_function_input_type_name: _Optional[str] = ...,
         parse_function_output_type_name: _Optional[str] = ...,
+        underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
     ) -> None: ...
 
 class FeatureExpression(_message.Message):

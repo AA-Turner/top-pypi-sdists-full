@@ -59,8 +59,24 @@ def helloWorld():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
+    return endOfAllJobs(J)
+
+
+def helloWorldJenkins():
+    """simple hello world job to Jenkins"""
+
+    J = baseToAllJobs("helloWorldJenkins")
+    try:
+        J.setInputSandbox([find_all("exe-script.py", rootPath, "DIRAC/tests/Workflow")[0]])
+    except IndexError:
+        try:
+            J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
+        except IndexError:  # we are in Jenkins
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
+    J.setExecutable("exe-script.py", "", "helloWorld.log")
+    J.setDestination("DIRAC.Jenkins.ch")
     return endOfAllJobs(J)
 
 
@@ -74,9 +90,7 @@ def helloWorld_input():
         try:
             J.setInputSandbox([find_all("exe-script-with-input.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox(
-                [find_all("exe-script-with-input.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]]
-            )
+            J.setInputSandbox([find_all("exe-script-with-input.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script-with-input.py", "", "helloWorld.log")
     return endOfAllJobs(J)
 
@@ -92,11 +106,7 @@ def helloWorld_input_single():
             J.setInputSandbox([find_all("exe-script-with-input-single-location.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
             J.setInputSandbox(
-                [
-                    find_all(
-                        "exe-script-with-input-single-location.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow"
-                    )[0]
-                ]
+                [find_all("exe-script-with-input-single-location.py", "/home/dirac", "DIRAC/tests/Workflow")[0]]
             )
     J.setExecutable("exe-script-with-input-single-location.py", "", "helloWorld.log")
     return endOfAllJobs(J)
@@ -112,7 +122,7 @@ def helloWorldCERN():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setDestination("LCG.CERN.cern")
     return endOfAllJobs(J)
@@ -128,7 +138,7 @@ def helloWorldNCBJ():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setDestination("LCG.NCBJ.pl")
     return endOfAllJobs(J)
@@ -144,9 +154,57 @@ def helloWorldGRIDKA():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setDestination("LCG.GRIDKA.de")
+    return endOfAllJobs(J)
+
+
+def helloWorldRAL():
+    """simple hello world job to GRIDKA"""
+
+    J = baseToAllJobs("helloWorldRAL")
+    try:
+        J.setInputSandbox([find_all("exe-script.py", rootPath, "DIRAC/tests/Workflow")[0]])
+    except IndexError:
+        try:
+            J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
+        except IndexError:  # we are in Jenkins
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
+    J.setExecutable("exe-script.py", "", "helloWorld.log")
+    J.setDestination("LCG.RAL.uk")
+    return endOfAllJobs(J)
+
+
+def helloWorldPIC():
+    """simple hello world job to GRIDKA"""
+
+    J = baseToAllJobs("helloWorldPIC")
+    try:
+        J.setInputSandbox([find_all("exe-script.py", rootPath, "DIRAC/tests/Workflow")[0]])
+    except IndexError:
+        try:
+            J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
+        except IndexError:  # we are in Jenkins
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
+    J.setExecutable("exe-script.py", "", "helloWorld.log")
+    J.setDestination("LCG.PIC.es")
+    return endOfAllJobs(J)
+
+
+def helloWorldRALPP():
+    """simple hello world job to GRIDKA"""
+
+    J = baseToAllJobs("helloWorldRALPP")
+    try:
+        J.setInputSandbox([find_all("exe-script.py", rootPath, "DIRAC/tests/Workflow")[0]])
+    except IndexError:
+        try:
+            J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
+        except IndexError:  # we are in Jenkins
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
+    J.setExecutable("exe-script.py", "", "helloWorld.log")
+    J.setDestination("LCG.UKI-SOUTHGRID-RALPP.uk")
     return endOfAllJobs(J)
 
 
@@ -160,7 +218,7 @@ def helloWorldGRIF():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setDestination("LCG.GRIF.fr")
     return endOfAllJobs(J)
@@ -176,25 +234,25 @@ def helloWorldSSHBatch():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setDestination("DIRAC.Jenkins_SSHBatch.ch")
     return endOfAllJobs(J)
 
 
-def helloWorldCloudDirector():
-    """simple hello world job to Cloud at Imperial College using VMDIRAC/CloudDirector"""
+def helloWorldARM():
+    """simple hello world job to DIRAC.ARM.ch"""
 
-    J = baseToAllJobs("helloWorldCloudDirector")
+    J = baseToAllJobs("helloWorldARM")
     try:
         J.setInputSandbox([find_all("exe-script.py", rootPath, "DIRAC/tests/Workflow")[0]])
     except IndexError:
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
-    J.setExecutable("exe-script.py", "", "helloWorldCloud.log")
-    J.setDestination("CLOUD.UKI-LT2-IC-HEP.uk")
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
+    J.setExecutable("exe-script.py", "", "helloWorld.log")
+    J.setDestination("DIRAC.ARM.ch")
     return endOfAllJobs(J)
 
 
@@ -208,7 +266,7 @@ def helloWorldCloudCE():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setExecutable("exe-script.py", "", "helloWorldCloud.log")
     J.setDestinationCE("stealthcloud.ic.ac.uk", "LCG.UKI-LT2-IC-HEP.uk")
     return endOfAllJobs(J)
@@ -224,7 +282,7 @@ def mpJob():
         try:
             J.setInputSandbox([find_all("mpTest.py", ".", "DIRAC/tests/Utilities")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("mpTest.py", os.environ["WORKSPACE"], "DIRAC/tests/Utilities")[0]])
+            J.setInputSandbox([find_all("mpTest.py", "/home/dirac", "DIRAC/tests/Utilities")[0]])
 
     J.setExecutable("mpTest.py")
     J.setTag(["4Processors", "MultiProcessor"])
@@ -241,7 +299,7 @@ def mp3Job():
         try:
             J.setInputSandbox([find_all("mpTest.py", ".", "DIRAC/tests/Utilities")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("mpTest.py", os.environ["WORKSPACE"], "DIRAC/tests/Utilities")[0]])
+            J.setInputSandbox([find_all("mpTest.py", "/home/dirac", "DIRAC/tests/Utilities")[0]])
 
     J.setExecutable("mpTest.py")
     J.setNumberOfProcessors(numberOfProcessors=3)
@@ -258,7 +316,7 @@ def min2max4Job():
         try:
             J.setInputSandbox([find_all("mpTest.py", ".", "DIRAC/tests/Utilities")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("mpTest.py", os.environ["WORKSPACE"], "DIRAC/tests/Utilities")[0]])
+            J.setInputSandbox([find_all("mpTest.py", "/home/dirac", "DIRAC/tests/Utilities")[0]])
 
     J.setExecutable("mpTest.py")
     J.setNumberOfProcessors(minNumberOfProcessors=2, maxNumberOfProcessors=4)
@@ -275,7 +333,7 @@ def wholeNodeJob():
         try:
             J.setInputSandbox([find_all("mpTest.py", ".", "DIRAC/tests/Utilities")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("mpTest.py", os.environ["WORKSPACE"], "DIRAC/tests/Utilities")[0]])
+            J.setInputSandbox([find_all("mpTest.py", "/home/dirac", "DIRAC/tests/Utilities")[0]])
 
     J.setExecutable("mpTest.py")
     J.setTag(["WholeNode", "MultiProcessor"])
@@ -292,7 +350,7 @@ def parametricJob():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setParameterSequence("args", ["one", "two", "three"])
     J.setParameterSequence("iargs", [1, 2, 3])
     J.setExecutable("exe-script.py", arguments=": testing %(args)s %(iargs)s", logFile="helloWorld_%n.log")
@@ -309,7 +367,7 @@ def parametricJobInputData():
         try:
             J.setInputSandbox([find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]])
         except IndexError:  # we are in Jenkins
-            J.setInputSandbox([find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]])
+            J.setInputSandbox([find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]])
     J.setParameterSequence("args", ["one", "two", "three"])
     J.setParameterSequence("iargs", [1, 2, 3])
     J.setParameterSequence(
@@ -340,7 +398,7 @@ def jobWithOutput():
         try:
             inp2 = [find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]]
         except IndexError:  # we are in Jenkins
-            inp2 = [find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]]
+            inp2 = [find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]]
         J.setInputSandbox(inp1 + inp2)
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setOutputData([timenow + "testFileUpload.txt"])
@@ -370,7 +428,7 @@ def jobWithOutputs():
         try:
             inp2 = [find_all("exe-script.py", ".", "DIRAC/tests/Workflow")[0]]
         except IndexError:  # we are in Jenkins
-            inp2 = [find_all("exe-script.py", os.environ["WORKSPACE"], "DIRAC/tests/Workflow")[0]]
+            inp2 = [find_all("exe-script.py", "/home/dirac", "DIRAC/tests/Workflow")[0]]
         J.setInputSandbox(inp1 + inp2)
     J.setExecutable("exe-script.py", "", "helloWorld.log")
     J.setOutputData([timenow + "testFileUpload.txt"], outputSE=["RAL-SE", "IN2P3-SE"])

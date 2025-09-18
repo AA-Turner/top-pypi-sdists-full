@@ -314,6 +314,7 @@ class Environment(_message.Message):
         "dashboard_url",
         "kube_cluster_id",
         "managed",
+        "telemetry_deployment_id",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -397,6 +398,7 @@ class Environment(_message.Message):
     DASHBOARD_URL_FIELD_NUMBER: _ClassVar[int]
     KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     MANAGED_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -453,6 +455,7 @@ class Environment(_message.Message):
     dashboard_url: str
     kube_cluster_id: str
     managed: bool
+    telemetry_deployment_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -511,4 +514,5 @@ class Environment(_message.Message):
         dashboard_url: _Optional[str] = ...,
         kube_cluster_id: _Optional[str] = ...,
         managed: bool = ...,
+        telemetry_deployment_id: _Optional[str] = ...,
     ) -> None: ...

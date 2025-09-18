@@ -10,7 +10,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
-from .cst import FONT_TAGS, ROW_TAGS, TABLE
+from .cst import config
 
 
 class Drawable(ABC):
@@ -24,6 +24,10 @@ class Drawable(ABC):
 
     def to_dot(self) -> str:
         """Transforms the intermediary object to its syntax in the dot format."""
+        raise NotImplementedError()
+
+    def to_puml(self) -> str:
+        """Transforms the intermediary object to it's syntax in the PlantUML format."""
         raise NotImplementedError()
 
     def __eq__(self, other) -> bool:
@@ -112,17 +116,30 @@ class Column(Drawable):
         return f" {type_str} {name} {'PK' if self.is_key else ''}"
 
     def to_dot(self) -> str:
-        base = ROW_TAGS.format(
+        base = config["DOT_ROW_TAGS"].format(
             ' ALIGN="LEFT" {port}',
             "{key_opening}{col_name}{key_closing} {type}{null}",
         )
+        KO = config["DOT_KEY_OPENING"]
+        KC = config["DOT_KEY_CLOSING"]
         return base.format(
             port=f'PORT="{self.name}"' if self.name else "",
-            key_opening="<u>" if self.is_key else "",
-            key_closing="</u>" if self.is_key else "",
-            col_name=FONT_TAGS.format(self.name),
-            type=(FONT_TAGS.format(" [{}]").format(self.type) if self.type is not None else ""),
+            key_opening=KO if self.is_key else "",
+            key_closing=KC if self.is_key else "",
+            col_name=config["DOT_FONT_TAGS"].format(self.name),
+            type=(
+                config["DOT_FONT_TAGS"].format(f" [{self.type}]") if self.type is not None else ""
+            ),
             null=" NOT NULL" if not self.is_null else "",
+        )
+
+    def to_puml(self) -> str:
+        return " {} {} : {}{}{}".format(
+            self.key_symbol,
+            self.name,
+            self.type.replace("(", "<").replace(")", ">"),
+            " NOT NULL" if not self.is_null else "",
+            "\n--" if self.is_key else "",
         )
 
 
@@ -201,15 +218,11 @@ class Relation(Drawable):
                 sanitize_mermaid(self.right_table),
             )
         )
-        return '{} "{}" -- "{}" {}'.format(*normalized)
+        return '  {} "{}" -- "{}" {}'.format(*normalized)
 
     def to_mermaid_er(self) -> str:
-        left = Relation.cardinalities_crowfoot.get(
-            self.left_cardinality,
-        )
-        right = Relation.cardinalities_crowfoot.get(
-            self.right_cardinality,
-        )
+        left = Relation.cardinalities_crowfoot.get(self.left_cardinality, self.left_cardinality)
+        right = Relation.cardinalities_crowfoot.get(self.right_cardinality, self.right_cardinality)
 
         left_col = sanitize_mermaid(self.left_table, is_er=True)
         right_col = sanitize_mermaid(self.right_table, is_er=True)
@@ -220,18 +233,68 @@ class Relation(Drawable):
             return ""
         return f"label=<<FONT>{self.cardinalities[card]}</FONT>>"
 
+    def graphviz_crow_arrowheads(self, card):
+        if card == "*":
+            head = '="crowodot"'
+        elif card == "?":
+            head = '="teeodot"'
+        elif card == "+":
+            head = '="crowtee"'
+        elif card == "1":
+            head = '="teetee"'
+        else:
+            raise ValueError(f"unknown cardinality: {card}")
+        return head
+
     def to_dot(self) -> str:
         if self.right_cardinality == self.left_cardinality == "":
             return ""
         cards = []
+        edge = "--"
+        if config["DOT_RELATION_GRAPH"] == "digraph":
+            # digraph needs direction
+            # https://graphviz.org/doc/info/lang.html#lexical-and-semantic-notes
+            edge = "->"
+        if config["DOT_RELATION_STYLE"] == "crow":
+            if self.right_cardinality and self.left_cardinality:
+                cards.append('dir="both"')
         if self.left_cardinality != "":
-            cards.append("tail" + self.graphviz_cardinalities(self.left_cardinality))
+            if config["DOT_RELATION_STYLE"] == "crow":
+                cards.append("arrowhead" + self.graphviz_crow_arrowheads(self.left_cardinality))
+            else:
+                cards.append("tail" + self.graphviz_cardinalities(self.left_cardinality))
         if self.right_cardinality != "":
-            cards.append("head" + self.graphviz_cardinalities(self.right_cardinality))
+            if config["DOT_RELATION_STYLE"] == "crow":
+                cards.append("arrowtail" + self.graphviz_crow_arrowheads(self.right_cardinality))
+            else:
+                cards.append("head" + self.graphviz_cardinalities(self.right_cardinality))
         left_col = f':"{self.left_column}"' if self.left_column else ""
         right_col = f':"{self.right_column}"' if self.right_column else ""
+        return f'"{self.left_table}"{left_col} {edge} "{self.right_table}"{right_col} [{",".join(cards)}];'
+
+    def to_puml(self) -> str:
+        __puml_left_cardinalities = {
+            "*": "}o",
+            "?": "|o",
+            "+": "}1",
+            "1": "||",
+            "": None,
+        }
+        __puml_right_cardinalities = {
+            "*": "o{",
+            "?": "o|",
+            "+": "1{",
+            "1": "||",
+            "": None,
+        }
+        left_col = f"::{self.left_column}" if self.left_column else ""
+        right_col = f"::{self.right_column}" if self.right_column else ""
+
         return (
-            f'"{self.left_table}"{left_col} -- "{self.right_table}"{right_col} [{",".join(cards)}];'
+            f"{self.left_table}{left_col}"
+            f" {__puml_left_cardinalities[self.left_cardinality]}"
+            f"--{__puml_right_cardinalities[self.right_cardinality]}"
+            f" {self.right_table}{right_col}"
         )
 
     def __eq__(self, other: object) -> bool:
@@ -273,7 +336,7 @@ class Table(Drawable):
     def to_mermaid(self) -> str:
         columns = [c.to_mermaid() for c in self.columns]
         name = sanitize_mermaid(self.name)
-        return f"class {name}{{\n" + "\n  ".join(columns) + "\n}"
+        return f"  class {name}{{\n   " + "\n   ".join(columns) + "\n  }"
 
     def to_mermaid_er(self) -> str:
         columns = [c.to_mermaid_er() for c in self.columns]
@@ -286,11 +349,16 @@ class Table(Drawable):
 
     @property
     def header_dot(self) -> str:
-        return ROW_TAGS.format("", f'<B><FONT POINT-SIZE="16">{self.name}</FONT></B>')
+        return config["DOT_ROW_TAGS"].format("", f'<B><FONT POINT-SIZE="16">{self.name}</FONT></B>')
 
     def to_dot(self) -> str:
         body = "".join(c.to_dot() for c in self.columns)
-        return TABLE.format(self.name, self.header_dot, body)
+        return config["DOT_TABLE"].format(self.name, self.header_dot, body)
+
+    def to_puml(self) -> str:
+        columns = [c.to_puml() for c in self.columns]
+        name = sanitize_mermaid(self.name)
+        return f"entity  {name}{{\n" + "\n  ".join(columns) + "\n}"
 
     def __str__(self) -> str:
         return self.header_markdown

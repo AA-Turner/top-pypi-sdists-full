@@ -3174,6 +3174,7 @@ class ParseInfo(Generic[T, V]):
     output_type: Type[V]
     output_is_optional: bool
     parse_function_captured_globals: Mapping[str, FunctionCapturedGlobal] | None
+    parse_expression: Underscore | None
 
 
 def _validate_parse_function(
@@ -3292,6 +3293,7 @@ def _validate_parse_function(
         output_type=parse_output,
         output_is_optional=output_optional,
         parse_function_captured_globals=parse_function_captured_globals,
+        parse_expression=None,
     )
 
 
@@ -3736,9 +3738,10 @@ def parse_and_register_stream_resolver(
 def make_stream_resolver(
     *,
     name: str,
+    source: StreamSource,
     message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
     output_features: "Mapping[FeatureWrapper, Underscore]",
-    source: StreamSource,
+    parse: Optional[Underscore] = None,
     environment: Optional[Environments] = None,
     machine_type: Optional[MachineType] = None,
     owner: Optional[str] = None,
@@ -3749,9 +3752,10 @@ def make_stream_resolver(
     NOTE: This is an experimental Chalk feature and may not work as expected.
 
     :param name: The name of the streaming resolver.
+    :param source:
     :param message_type:
     :param output_features:
-    :param source:
+    :param parse: Converts bytes --> message_type. If it returns None, message is skipped.
     :param environment:
     :param machine_type:
     :param owner:
@@ -3784,6 +3788,21 @@ def make_stream_resolver(
             f"Stream resolver '{name}' can't be called directly since it's defined as a set of static expressions."
         )
 
+    def _dummy_parse_fn(*args: Any, **kwargs: Any):
+        raise ValueError(
+            f"Stream resolver '{name}' has expression-based parse function so it can't be called directly."
+        )
+
+    parse_info: Optional[ParseInfo] = None
+    if parse is not None:
+        parse_info = ParseInfo(
+            fn=_dummy_parse_fn,
+            input_type=bytes,
+            output_type=message_type,
+            output_is_optional=True,
+            parse_function_captured_globals=None,
+            parse_expression=parse,
+        )
     resolver = StreamResolver(
         function_definition=caller_source,
         # No captured globals, the function "definition" is a bunch of static expressions
@@ -3807,7 +3826,7 @@ def make_stream_resolver(
         sql_query=None,
         owner=owner,
         # Note: currently don't support explicit parse functions. May want to allow customers to e.g. preprocess the raw bytes before parsing the proto or something
-        parse=None,
+        parse=parse_info,
         keys=None,
         timestamp=None,
         source_line=caller_lineno,

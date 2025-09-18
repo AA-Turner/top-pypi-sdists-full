@@ -1,13 +1,13 @@
 """Helpers for working with extensions to DIRAC"""
 import argparse
-from collections import defaultdict
 import fnmatch
-from importlib.machinery import PathFinder
 import functools
 import importlib
 import os
 import pkgutil
 import sys
+from collections import defaultdict
+from importlib.machinery import PathFinder
 
 import importlib_metadata as metadata
 import importlib_resources
@@ -71,6 +71,15 @@ def findServices(modules):
     :returns: list of tuples of the form (SystemName, ServiceName)
     """
     return findModules(modules, "Service", "*Handler")
+
+
+def findFutureServices(modules):
+    """Find the legacy adapted services for one or more DIRAC extension(s)
+
+    :param list/str/module module: One or more Python modules or Python module names
+    :returns: list of tuples of the form (SystemName, ServiceName)
+    """
+    return findModules(modules, "FutureClient")
 
 
 @iterateThenSort
@@ -139,7 +148,7 @@ def getExtensionMetadata(extensionName):
 
 
 def recurseImport(modName, parentModule=None, hideExceptions=False):
-    from DIRAC import S_OK, S_ERROR, gLogger
+    from DIRAC import S_ERROR, S_OK, gLogger
 
     if parentModule is not None:
         raise NotImplementedError(parentModule)
@@ -182,7 +191,7 @@ def parseArgs():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(required=True, dest="function")
     defaultExtensions = extensionsByPriority()
-    for func in [findSystems, findAgents, findExecutors, findServices, findDatabases]:
+    for func in [findSystems, findAgents, findExecutors, findServices, findDatabases, findFutureServices]:
         subparser = subparsers.add_parser(func.__name__)
         subparser.add_argument("--extensions", nargs="+", default=defaultExtensions)
         subparser.set_defaults(func=func)

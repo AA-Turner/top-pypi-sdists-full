@@ -11,21 +11,20 @@
 
 import random
 
-from DIRAC import S_OK, S_ERROR, gConfig
-
+from DIRAC import S_ERROR, S_OK
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.Core.Security import Properties
 from DIRAC.Core.Utilities.SiteSEMapping import getSEsForSite
 from DIRAC.Core.Utilities.TimeUtilities import fromString, toEpoch
-from DIRAC.Core.Security import Properties
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
-from DIRAC.ConfigurationSystem.Client.Helpers.Path import cfgPath
-from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.DataManagementSystem.Utilities.DMSHelpers import DMSHelpers
 from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.ResourceStatusSystem.Client.SiteStatus import SiteStatus
 from DIRAC.StorageManagementSystem.Client.StorageManagerClient import StorageManagerClient, getFilesToStage
-from DIRAC.WorkloadManagementSystem.Executor.Base.OptimizerExecutor import OptimizerExecutor
-from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
 from DIRAC.WorkloadManagementSystem.Client import JobStatus
+from DIRAC.WorkloadManagementSystem.Client.JobState.JobState import JobState
+from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
+from DIRAC.WorkloadManagementSystem.Executor.Base.OptimizerExecutor import OptimizerExecutor
 
 
 class JobScheduling(OptimizerExecutor):
@@ -122,20 +121,6 @@ class JobScheduling(OptimizerExecutor):
                 if not usableSites:
                     return self.__holdJob(jobState, "No requested site(s) are active/valid")
                 userSites = list(usableSites)
-
-        checkPlatform = self.ex_getOption("CheckPlatform", False)
-        jobPlatform = jobManifest.getOption("Platform", None)
-
-        # Check that the platform is valid (in OSCompatibility list)
-        if checkPlatform and jobPlatform:
-            result = gConfig.getOptionsDict("/Resources/Computing/OSCompatibility")
-            if not result["OK"]:
-                self.jobLog.error("Unable to get OSCompatibility list", result["Message"])
-                return result
-            allPlatforms = result["Value"]
-            if jobPlatform not in allPlatforms:
-                self.jobLog.error("Platform not supported", jobPlatform)
-                return S_ERROR("Platform is not supported")
 
         # Check if there is input data
         result = jobState.getInputData()
@@ -299,13 +284,13 @@ class JobScheduling(OptimizerExecutor):
             filtered -= set(banned)
         return list(filtered)
 
-    def __holdJob(self, jobState, holdMsg, delay=0):
+    def __holdJob(self, jobState: JobState, holdMsg, delay=0):
         if delay:
             self.freezeTask(delay)
         else:
             self.freezeTask(self.ex_getOption("HoldTime", 300))
         self.jobLog.info("On hold", holdMsg)
-        return jobState.setAppStatus(holdMsg, source=self.ex_optimizerName())
+        return jobState.setStatus(appStatus=holdMsg, source=self.ex_optimizerName())
 
     def __getSitesRequired(self, jobManifest):
         """Returns any candidate sites specified by the job or sites that have been
@@ -332,33 +317,6 @@ class JobScheduling(OptimizerExecutor):
                 return S_ERROR("Impossible site requirement")
 
         return S_OK((sites, bannedSites))
-
-    def __filterByPlatform(self, jobPlatform, userSites):
-        """Filters out sites that have no CE with a matching platform."""
-        basePath = "/Resources/Sites"
-        filteredSites = set()
-
-        # FIXME: can use Resources().getSiteCEMapping()
-        for site in userSites:
-            if "." not in site:
-                # Invalid site name: Doesn't contain a dot!
-                self.jobLog.warn("Skipped invalid site name", site)
-                continue
-            grid = site.split(".")[0]
-            sitePath = cfgPath(basePath, grid, site, "CEs")
-            result = gConfig.getSections(sitePath)
-            if not result["OK"]:
-                self.jobLog.info("Failed to get CEs", f"at site {site}")
-                continue
-            siteCEs = result["Value"]
-
-            for CEName in siteCEs:
-                CEPlatform = gConfig.getValue(cfgPath(sitePath, CEName, "OS"))
-                if jobPlatform == CEPlatform:
-                    # Site has a CE with a matchin platform
-                    filteredSites.add(site)
-
-        return S_OK(list(filteredSites))
 
     def _getTagsFromManifest(self, jobManifest):
         """helper method to add a list of tags to the TQ from the job manifest content"""

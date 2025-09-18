@@ -1,5 +1,5 @@
 """
-The Monitoring/Monitoring service interacts with the ElasticSearch backend
+The Monitoring/Monitoring service interacts with the OpenSearch backend
 exposed by MonitoringDB.
 
 .. literalinclude:: ../ConfigTemplate.cfg
@@ -13,15 +13,14 @@ exposed by MonitoringDB.
 import datetime
 import os
 
-from DIRAC import gLogger, S_OK, S_ERROR, gConfig
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.Core.DISET.RequestHandler import RequestHandler
 from DIRAC.Core.Utilities import TimeUtilities
+from DIRAC.Core.Utilities.File import mkDir
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.Core.Utilities.Plotting import gDataCache
 from DIRAC.Core.Utilities.Plotting.FileCoding import extractRequestFromFileId
 from DIRAC.Core.Utilities.Plotting.Plots import generateErrorMessagePlot
-from DIRAC.Core.Utilities.File import mkDir
-
 from DIRAC.MonitoringSystem.private.MainReporter import MainReporter
 
 
@@ -92,7 +91,7 @@ class MonitoringHandlerMixin:
         :return: S_OK([]) or S_ERROR() the list of available plots
         """
 
-        reporter = MainReporter(self.__db, self.diracSetup)
+        reporter = MainReporter(self.__db)
         return reporter.list(typeName)
 
     def transfer_toClient(self, fileId, token, fileHelper):
@@ -217,9 +216,9 @@ class MonitoringHandlerMixin:
         retVal = self.__checkPlotRequest(reportRequest)
         if not retVal["OK"]:
             return retVal
-        reporter = MainReporter(self.__db, self.diracSetup)
+        reporter = MainReporter(self.__db)
         reportRequest["generatePlot"] = True
-        return reporter.generate(reportRequest, self.getRemoteCredentials())
+        return reporter.generate(reportRequest)
 
     types_getReport = [dict]
 
@@ -241,27 +240,9 @@ class MonitoringHandlerMixin:
         retVal = self.__checkPlotRequest(reportRequest)
         if not retVal["OK"]:
             return retVal
-        reporter = MainReporter(self.__db, self.diracSetup)
+        reporter = MainReporter(self.__db)
         reportRequest["generatePlot"] = False
-        return reporter.generate(reportRequest, self.getRemoteCredentials())
-
-    types_addMonitoringRecords = [str, list]
-
-    def export_addMonitoringRecords(self, monitoringtype, data):
-        """
-        Bulk insert data directly to the given monitoring type.
-
-        :param str monitoringtype: monitoring type name
-        :param list data: list of documents
-        :returns: S_OK or S_ERROR
-        """
-
-        retVal = self.__db.getIndexName(monitoringtype)
-        if not retVal["OK"]:
-            return retVal
-        prefix = retVal["Value"]
-        gLogger.debug("addMonitoringRecords:", prefix)
-        return self.__db.bulk_index(prefix, data)
+        return reporter.generate(reportRequest)
 
     types_addRecords = [str, str, list]
 
@@ -274,7 +255,6 @@ class MonitoringHandlerMixin:
         :param list data: data to insert
         :returns: S_OK or S_ERROR
         """
-        indexname = f"{self.diracSetup.lower()}_{indexname}"
         gLogger.debug("Bulk index:", indexname)
         mapping = self.__db.getMapping(monitoringType)
         gLogger.debug("Mapping:", mapping)
@@ -289,24 +269,8 @@ class MonitoringHandlerMixin:
 
         :param str indexName: name of the index
         """
-        indexName = f"{self.diracSetup.lower()}_{indexName}"
         gLogger.debug("delete index:", indexName)
         return self.__db.deleteIndex(indexName)
-
-    types_getLastDayData = [str, dict]
-
-    def export_getLastDayData(self, typeName, condDict):
-        """
-        It returns the data from the last day index. Note: we create daily indexes.
-
-        :param str typeName: name of the monitoring type
-        :param dict condDict: conditions for the query
-
-                       * key -> name of the field
-                       * value -> list of possible values
-        """
-
-        return self.__db.getLastDayData(typeName, condDict)
 
     types_getLimitedDat = [str, dict, int]
 
@@ -357,16 +321,6 @@ class MonitoringHandlerMixin:
 
         return self.__db.put(recordsToInsert, monitoringType)
 
-    types_pingDB = []
-
-    def export_pingDB(self):
-        """
-        We can check, if the db is available.
-        """
-        return self.__db.pingDB()
-
 
 class MonitoringHandler(MonitoringHandlerMixin, RequestHandler):
-    def initialize(self):
-        self.diracSetup = self.serviceInfoDict["clientSetup"]
-        return S_OK()
+    pass

@@ -41,17 +41,17 @@
                       --SkipCAChecks
 
 """
-import sys
 import os
+import sys
 import warnings
 
 import urllib3
 
 import DIRAC
-from DIRAC.Core.Utilities.File import mkDir
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry, cfgInstallPath, cfgPath
 from DIRAC.Core.Base.Script import Script
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.ConfigurationSystem.Client.Helpers import cfgInstallPath, cfgPath, Registry
+from DIRAC.Core.Utilities.File import mkDir
 from DIRAC.Core.Utilities.SiteSEMapping import getSEsForSite
 from DIRAC.FrameworkSystem.Client.BundleDeliveryClient import BundleDeliveryClient
 
@@ -77,6 +77,7 @@ class Params:
         self.outputFile = ""
         self.skipVOMSDownload = False
         self.extensions = ""
+        self.legacyExchangeApiKey = ""
 
     def setGateway(self, optionValue):
         self.gatewayServer = optionValue
@@ -98,9 +99,7 @@ class Params:
         self.includeAllServers = True
 
     def setSetup(self, optionValue):
-        self.setup = optionValue
-        DIRAC.gConfig.setOptionValue("/DIRAC/Setup", self.setup)
-        DIRAC.gConfig.setOptionValue(cfgInstallPath("Setup"), self.setup)
+        DIRAC.gLogger.warn("Ignoring Setup option as it is not used for DIRAC v9.0+")
         return DIRAC.S_OK()
 
     def setSiteName(self, optionValue):
@@ -175,10 +174,22 @@ class Params:
         DIRAC.gConfig.setOptionValue("/DIRAC/Security/Authorization/issuer", self.issuer)
         return DIRAC.S_OK()
 
+    def setLegacyExchangeApiKey(self, optionValue):
+        self.legacyExchangeApiKey = optionValue
+        Script.localCfg.addDefaultEntry("/DiracX/LegacyExchangeApiKey", self.legacyExchangeApiKey)
+        DIRAC.gConfig.setOptionValue(cfgInstallPath("LegacyExchangeApiKey"), self.legacyExchangeApiKey)
+        return DIRAC.S_OK()
+
+    def setDiracxUrl(self, optionValue):
+        self.diracxUrl = optionValue
+        Script.localCfg.addDefaultEntry("/DiracX/URL", self.diracxUrl)
+        DIRAC.gConfig.setOptionValue(cfgInstallPath("URL"), self.diracxUrl)
+        return DIRAC.S_OK()
+
 
 def _runConfigurationWizard(setups, defaultSetup):
     """The implementation of the configuration wizard"""
-    from prompt_toolkit import prompt, print_formatted_text, HTML
+    from prompt_toolkit import HTML, print_formatted_text, prompt
     from prompt_toolkit.completion import FuzzyWordCompleter
 
     # It makes no sense to have suggestions if there is no default so adjust the message accordingly
@@ -222,7 +233,9 @@ def _runConfigurationWizard(setups, defaultSetup):
 def runConfigurationWizard(params):
     """Interactively configure DIRAC using metadata from installed extensions"""
     import subprocess
-    from prompt_toolkit import prompt, print_formatted_text, HTML
+
+    from prompt_toolkit import HTML, print_formatted_text, prompt
+
     from DIRAC.Core.Utilities.Extensions import extensionsByPriority, getExtensionMetadata
 
     for extension in extensionsByPriority():
@@ -289,13 +302,14 @@ def main():
 
 
 def login(params):
-    from prompt_toolkit import prompt, print_formatted_text, HTML
-    from DIRAC.Resources.IdProvider.IdProviderFactory import IdProviderFactory
+    from prompt_toolkit import HTML, print_formatted_text, prompt
+
     from DIRAC.FrameworkSystem.private.authorization.utils.Tokens import (
-        writeTokenDictToTokenFile,
         getTokenFileLocation,
         readTokenFromFile,
+        writeTokenDictToTokenFile,
     )
+    from DIRAC.Resources.IdProvider.IdProviderFactory import IdProviderFactory
 
     # Init authorization client
     result = IdProviderFactory().getIdProvider("DIRACCLI", issuer=params.issuer, scope=" ")
@@ -359,8 +373,12 @@ def runDiracConfigure(params):
     Script.registerSwitch("C:", "ConfigurationServer=", "Set <server> as DIRAC configuration server", params.setServer)
     Script.registerSwitch("I", "IncludeAllServers", "include all Configuration Servers", params.setAllServers)
     Script.registerSwitch("n:", "SiteName=", "Set <sitename> as DIRAC Site Name", params.setSiteName)
-    Script.registerSwitch("N:", "CEName=", "Determiner <sitename> from <cename>", params.setCEName)
+    Script.registerSwitch("N:", "CEName=", "Set <cename> as Computing Element name", params.setCEName)
     Script.registerSwitch("V:", "VO=", "Set the VO name", params.setVO)
+    Script.registerSwitch(
+        "K:", "LegacyExchangeApiKey=", "Set the Api Key to talk to DiracX", params.setLegacyExchangeApiKey
+    )
+    Script.registerSwitch("", "DiracxUrl=", "Set the URL to talk to DiracX", params.setDiracxUrl)
 
     Script.registerSwitch("W:", "gateway=", "Configure <gateway> as DIRAC Gateway for the site", params.setGateway)
 
@@ -473,8 +491,6 @@ def runDiracConfigure(params):
         else:
             DIRAC.gLogger.notice(f"Will update {DIRAC.gConfig.diracConfigFilePath}")
 
-    if params.setup:
-        DIRAC.gLogger.verbose("/DIRAC/Setup =", params.setup)
     if params.vo:
         DIRAC.gLogger.verbose("/DIRAC/VirtualOrganization =", params.vo)
     if params.configurationServer:
@@ -527,6 +543,8 @@ def runDiracConfigure(params):
                 result = bdc.syncCAs()
                 if result["OK"]:
                     result = bdc.syncCRLs()
+                if not result["OK"]:
+                    DIRAC.gLogger.error("Failed to sync CAs and/or CRLs", result["Message"])
             except Exception as e:
                 DIRAC.gLogger.error(f"Failed to sync CAs and CRLs: {str(e)}")
 

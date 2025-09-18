@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4253"
+__version__ = "1.1.4256"
 
 # Define package exports
 __all__ = [
@@ -107,6 +107,7 @@ __all__ = [
     "CustomFieldTextTypeDto",
     "CustomFieldType",
     "CustomerFacingDependencyDto",
+    "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
     "CustomerFacingDependencyLicense",
     "CustomerFacingIssueActionDto",
     "CustomerFacingIssueDto",
@@ -320,6 +321,7 @@ from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumb
 from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto as CustomFieldTextTypeDto
 from legit_api_client.models.custom_field_type import CustomFieldType as CustomFieldType
 from legit_api_client.models.customer_facing_dependency_dto import CustomerFacingDependencyDto as CustomerFacingDependencyDto
+from legit_api_client.models.customer_facing_dependency_dto_customer_facing_cursor_paged_dto import CustomerFacingDependencyDtoCustomerFacingCursorPagedDto as CustomerFacingDependencyDtoCustomerFacingCursorPagedDto
 from legit_api_client.models.customer_facing_dependency_license import CustomerFacingDependencyLicense as CustomerFacingDependencyLicense
 from legit_api_client.models.customer_facing_issue_action_dto import CustomerFacingIssueActionDto as CustomerFacingIssueActionDto
 from legit_api_client.models.customer_facing_issue_dto import CustomerFacingIssueDto as CustomerFacingIssueDto

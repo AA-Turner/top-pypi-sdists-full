@@ -9,7 +9,6 @@
     With this information the utility can calculate in normalized units the
     CPU time remaining for a given slot.
 """
-import os
 import shlex
 
 import DIRAC
@@ -55,7 +54,7 @@ class TimeLeft:
         if "Value" in resourceDict:
             if resourceDict["Value"].get("CPU"):
                 return resourceDict["Value"]["CPU"] * self.cpuPower
-            elif resourceDict["Value"].get("WallClock"):
+            if resourceDict["Value"].get("WallClock"):
                 # When CPU value missing, guess from WallClock and number of processors
                 return resourceDict["Value"]["WallClock"] * self.cpuPower * processors
 
@@ -127,69 +126,26 @@ class TimeLeft:
             # In case the returned cpu and cpuLimit are not in real seconds, this is however rubbish
             cpuWorkLeft = (timeLimit - time) * self.cpuPower
 
-        self.log.verbose(f"Remaining CPU in normalized units is: {cpuWorkLeft:.02f}")
+        self.log.verbose(f"Remaining CPU in normalized units is: {cpuWorkLeft:.2f}")
         return S_OK(cpuWorkLeft)
 
     def _getBatchSystemPlugin(self):
         """Using the name of the batch system plugin, will return an instance of the plugin class."""
         result = gConfig.getOptionsDictRecursively("/LocalSite/BatchSystemInfo")
-        missingConfig = False
         if not result["OK"]:
-            missingConfig = True
+            self.log.warn(f"Batch system information not available")
+            return result
 
-        if not missingConfig:
-            batchSystemInfo = result["Value"]
-            type = batchSystemInfo.get("Type")
-            jobID = batchSystemInfo.get("JobID")
-            parameters = batchSystemInfo.get("Parameters")
-
-        ###########################################################################################
-        # TODO: remove the following block in v9.0
-        # This is a temporary fix for the case where the batch system is not set in the configuration
-        else:
-            self.log.warn(
-                "Batch system info not set in local configuration: trying to guess from environment variables."
-            )
-            self.log.warn("Consider updating your pilot version before switching to v9.0.")
-            batchSystemInfo = {
-                "LSF": {
-                    "JobID": "LSB_JOBID",
-                    "Parameters": {
-                        "BinaryPath": "LSB_BINDIR",
-                        "Host": "LSB_HOSTS",
-                        "InfoPath": "LSB_ENVDIR",
-                        "Queue": "LSB_QUEUE",
-                    },
-                },
-                "PBS": {"JobID": "PBS_JOBID", "Parameters": {"BinaryPath": "PBS_O_PATH", "Queue": "PBS_O_QUEUE"}},
-                "SGE": {"JobID": "SGE_TASK_ID", "Parameters": {"BinaryPath": "SGE_BINARY_PATH", "Queue": "QUEUE"}},
-                "SLURM": {"JobID": "SLURM_JOB_ID", "Parameters": {}},
-                "HTCondor": {"JobID": "HTCONDOR_JOBID", "Parameters": {"InfoPath": "_CONDOR_JOB_AD"}},
-            }
-            type = None
-            for batchSystem, attributes in batchSystemInfo.items():
-                if attributes["JobID"] in os.environ:
-                    type = batchSystem
-                    jobID = os.environ[attributes["JobID"]]
-                    parameters = {}
-                    for parameterName, parameterVariable in attributes["Parameters"].items():
-                        parameters[parameterName] = os.environ.get(parameterVariable)
-                    break
-
-            if not type and "MACHINEFEATURES" in os.environ and "JOBFEATURES" in os.environ:
-                # Only use MJF if legacy batch system information not available for now
-                type = "MJF"
-                jobID = os.environ.get("JOB_ID")
-                parameters = {"Queue": os.environ.get("QUEUE")}
-
-        ###########################################################################################
+        batchSystemInfo = result["Value"]
+        type = batchSystemInfo.get("Type")
+        jobID = batchSystemInfo.get("JobID")
+        parameters = batchSystemInfo.get("Parameters")
 
         if not type or type == "Unknown":
             self.log.warn(f"Batch system type for site {DIRAC.siteName()} is not currently supported")
             return S_ERROR(DErrno.ERESUNK, "Current batch system is not supported")
 
         self.log.debug(f"Creating plugin for {type} batch system")
-
         result = ObjectLoader().loadObject(f"DIRAC.Resources.Computing.BatchSystems.TimeLeft.{type}ResourceUsage")
         if not result["OK"]:
             return result
@@ -217,5 +173,5 @@ def runCommand(cmd, timeout=120):
         if stderr:
             return S_ERROR(stderr)
         return S_ERROR(f"Status {status} while executing {cmd}")
-    else:
-        return S_OK(str(stdout))
+
+    return S_OK(str(stdout))

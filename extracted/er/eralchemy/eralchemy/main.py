@@ -2,15 +2,18 @@ import argparse
 import base64
 import copy
 import logging
+import os
 import re
 import sys
+import typing
+from functools import partial
 from importlib.metadata import PackageNotFoundError, version
 
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import ArgumentError
 
-from .cst import DOT_GRAPH_BEGINNING, ER_FORMAT_TITLE
-from .helpers import check_args
+from .cst import config
+from .helpers import check_args, plantuml_convert
 from .parser import (
     ParsingException,
     line_iterator_to_intermediary,
@@ -53,7 +56,7 @@ def cli(args=None) -> None:
     if args.v:
         print(f"eralchemy version {__version__}.")
         exit(0)
-    render_er(
+    output = render_er(
         args.i,
         args.o,
         args.m or "auto",
@@ -64,6 +67,10 @@ def cli(args=None) -> None:
         exclude_columns=args.exclude_columns,
         schema=args.s,
     )
+    if output:
+        with os.fdopen(sys.stdout.fileno(), "wb", closefd=False) as stdout:
+            stdout.write(output)
+            stdout.flush()
 
 
 def get_argparser() -> argparse.ArgumentParser:
@@ -102,18 +109,18 @@ def get_argparser() -> argparse.ArgumentParser:
     return parser
 
 
-def intermediary_to_markdown(tables, relationships, output, title=""):
+def intermediary_to_markdown(tables, relationships, title=""):
     """Saves the intermediary representation to markdown."""
     er_markup = _intermediary_to_markdown(tables, relationships)
     if title:
-        er_markup_with_config = f"{ER_FORMAT_TITLE.format(title)}\n{er_markup}"
+        format_title = config["MARKDOWN_TITLE"].format(title)
+        er_markup_with_config = f"{format_title}\n{er_markup}"
     else:
         er_markup_with_config = er_markup
-    with open(output, "w") as file_out:
-        file_out.write(er_markup_with_config)
+    return er_markup_with_config.encode()
 
 
-def intermediary_to_mermaid(tables, relationships, output, title=""):
+def intermediary_to_mermaid(tables, relationships, title=""):
     """Saves the intermediary representation to markdown."""
     markup = _intermediary_to_mermaid(tables, relationships)
     if title:
@@ -125,11 +132,10 @@ title: {title}
     md_markup = f"<!--\n\n{markup}\n\n-->\n"
     markup_b64 = base64.urlsafe_b64encode(markup.encode("utf8")).decode("ascii")
     md_markup += f"![](https://mermaid.ink/img/{markup_b64})\n"
-    with open(output, "w") as file_out:
-        file_out.write(md_markup)
+    return md_markup.encode()
 
 
-def intermediary_to_mermaid_er(tables, relationships, output, title=""):
+def intermediary_to_mermaid_er(tables, relationships, title=""):
     """Saves the intermediary representation to markdown."""
     markup = _intermediary_to_mermaid_er(tables, relationships)
     if title:
@@ -141,31 +147,47 @@ title: {title}
     md_markup = f"<!--\n\n{markup}\n\n-->\n"
     markup_b64 = base64.urlsafe_b64encode(markup.encode("utf8")).decode("ascii")
     md_markup += f"![](https://mermaid.ink/img/{markup_b64})\n"
-    with open(output, "w") as file_out:
-        file_out.write(md_markup)
+    return md_markup.encode()
 
 
-def intermediary_to_dot(tables, relationships, output, title=""):
+def intermediary_to_dot(tables, relationships, title=""):
     """Save the intermediary representation to dot format."""
     dot_file = _intermediary_to_dot(tables, relationships, title)
-    with open(output, "w") as file_out:
-        file_out.write(dot_file)
+    return dot_file.encode()
 
 
-def intermediary_to_schema(tables, relationships, output, title=""):
+def intermediary_to_schema(tables, relationships, title="", extension="png"):
     """Transforms and save the intermediary representation to the file chosen."""
-    if not GRAPHVIZ_AVAILABLE:
-        raise Exception("neither graphviz or pygraphviz are available. Install either library!")
     dot_file = _intermediary_to_dot(tables, relationships, title)
-    extension = output.split(".")[-1]
+    if not GRAPHVIZ_AVAILABLE:
+        raise Exception("either pygraphviz or graphviz should be installed")
     if USE_PYGRAPHVIZ:
         graph = AGraph()
         graph = graph.from_string(dot_file)
-        graph.draw(path=output, prog="dot", format=extension)
+        return graph.draw(prog="dot", format=extension)
     else:
-        graph = Source(dot_file, engine="dot", format=extension)
-        graph.render(outfile=output, cleanup=True)
-    return graph
+        graph = Source(dot_file, engine="dot")
+        return graph.pipe(format=extension)
+
+
+def intermediary_to_puml(tables, relationships, output, title=""):
+    """Saves the intermediary representation to PlantUML."""
+    puml_markup = _intermediary_to_puml(tables, relationships)
+    puml_markup = "\n".join(
+        (
+            "left to right direction",
+            f"title {title}\n {puml_markup}" if title else "",
+            puml_markup,
+        )
+    )
+    markup_encoded = plantuml_convert(puml_markup)
+    puml_markup += (
+        f"\nfooter [[https://www.plantuml.com/plantuml/svg/{markup_encoded}"
+        "{link to PlantUML server} Link to PlantUML server]]"
+    )
+
+    puml_markup = f"@startuml\n{puml_markup}\n@enduml"
+    return puml_markup.encode()
 
 
 def _intermediary_to_markdown(tables, relationships):
@@ -195,13 +217,20 @@ def _intermediary_to_dot(tables, relationships, title=""):
     r = "\n".join(r.to_dot() for r in relationships)
 
     graph_config = (
-        f"""{DOT_GRAPH_BEGINNING}
+        f"""{config["DOT_GRAPH_BEGINNING"]}
          label="{title}"
          labelloc=t\n"""
         if title
-        else DOT_GRAPH_BEGINNING
+        else config["DOT_GRAPH_BEGINNING"]
     )
     return f"{graph_config}\n{t}\n{r}\n}}"
+
+
+def _intermediary_to_puml(tables, relationships):
+    """Returns the er markup source in a string."""
+    t = "\n".join(t.to_puml() for t in tables)
+    r = "\n".join(r.to_puml() for r in relationships)
+    return f"{t}\n{r}"
 
 
 # Routes from the class name to the function transforming this class in
@@ -223,7 +252,10 @@ switch_output_mode_auto = {
     "mermaid": intermediary_to_mermaid,
     "mermaid_er": intermediary_to_mermaid_er,
     "graph": intermediary_to_schema,
+    "graph_svg": partial(intermediary_to_schema, extension="svg"),
     "dot": intermediary_to_dot,
+    "puml": intermediary_to_puml,
+    "pu": intermediary_to_puml,
 }
 
 # Routes from the file extension to the method to transform
@@ -232,6 +264,7 @@ switch_output_mode = {
     "er": intermediary_to_markdown,
     "md": intermediary_to_mermaid,
     "dot": intermediary_to_dot,
+    "puml": intermediary_to_puml,
 }
 
 
@@ -269,7 +302,7 @@ def all_to_intermediary(filename_or_input, schema=None):
         raise ValueError(f"Cannot process filename_or_input {input_class_name}: {e}")
 
 
-def get_output_mode(output, mode):
+def get_output_mode(output: typing.Union[str, None], mode: str):
     """From the output name and the mode returns a the function that will transform the intermediary representation to the output."""
     if mode != "auto":
         try:
@@ -277,11 +310,14 @@ def get_output_mode(output, mode):
         except KeyError:
             raise ValueError(f'Mode "{mode}" is not supported.')
 
+    if output is None:
+        raise ValueError("Mode must be set if output file is None")
+
     extension = output.split(".")[-1]
     try:
         return switch_output_mode[extension]
     except KeyError:
-        return intermediary_to_schema
+        return partial(intermediary_to_schema, extension=extension)
 
 
 def filter_resources(
@@ -351,7 +387,7 @@ def filter_resources(
 
 def render_er(
     input,
-    output,
+    output: typing.Union[str, None],
     mode="auto",
     include_tables=None,
     include_columns=None,
@@ -365,7 +401,8 @@ def render_er(
     :param input: Possible inputs are instances of:
         MetaData: SQLAlchemy Metadata
         DeclarativeMeta: SQLAlchemy declarative Base
-    :param output: name of the file to output the
+    :param output: name of the file to output the rendered graph to.
+        Returns text as str if set to None
     :param mode: str in list:
         'er': writes to a file the markup to generate an ER style diagram.
         'graph': writes the image of the ER diagram.
@@ -395,16 +432,32 @@ def render_er(
             exclude_columns=exclude_columns,
         )
         intermediary_to_output = get_output_mode(output, mode)
-        return intermediary_to_output(tables, relationships, output, title)
+        text = intermediary_to_output(tables, relationships, title)
+        # graphviz does not yet support printing to stdout
+        # but writes directly to the output file
+        # https://github.com/xflr6/graphviz/pull/234
+        if output is None:
+            return text
+        with open(output, "wb") as file_out:
+            file_out.write(text)
     except ImportError as e:
-        module_name = e.message.split()[-1]
-        print(f'Please install {module_name} using "pip install {module_name}".')
+        module_name = str(e).split()[-1]
+        print(f'Please install {module_name} using "pip install {module_name}".', file=sys.stderr)
     except (FileNotFoundError, ValueError) as e:
-        print(f"{e}")
+        print(f"rendering failed: {e}", file=sys.stderr)
     except ParsingException as e:
-        sys.stderr.write(e.message)
+        print(f"render failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
     # cli("-i example/forum.er -o test.dot".split(" "))
+    config["DOT_GRAPH_BEGINNING"] = """graph {
+    graph [rankdir=TD];
+    node [label="\\N",
+        shape=plaintext
+    ];
+    edge [color=gray50,
+        minlen=2,
+        style=dashed
+    ];"""
     cli()

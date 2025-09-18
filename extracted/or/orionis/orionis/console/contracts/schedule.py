@@ -312,6 +312,23 @@ class ISchedule(ABC):
         pass
 
     @abstractmethod
+    def isPaused(self) -> bool:
+        """
+        Check if the scheduler is currently paused.
+
+        This method determines whether the scheduler is in a paused state by checking if there are
+        any jobs that were paused using the `pause` method. If there are jobs in the internal set
+        `__pausedByPauseEverything`, it indicates that the scheduler has been paused.
+
+        Returns
+        -------
+        bool
+            True if the scheduler is currently paused (i.e., there are jobs in the paused set);
+            False otherwise.
+        """
+        pass
+
+    @abstractmethod
     def forceStop(self) -> None:
         """
         Forcefully stop the scheduler immediately without waiting for jobs to complete.

@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.45.0.post22",
+    version="2.45.0.post25",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -255,6 +255,7 @@ Class | Method | HTTP request | Description
  - [EventList](docs/EventList.md)
  - [Feature](docs/Feature.md)
  - [FeatureSupportLevelId](docs/FeatureSupportLevelId.md)
+ - [FencingCredentialsParams](docs/FencingCredentialsParams.md)
  - [FinalizingStage](docs/FinalizingStage.md)
  - [FreeAddressesList](docs/FreeAddressesList.md)
  - [FreeAddressesRequest](docs/FreeAddressesRequest.md)

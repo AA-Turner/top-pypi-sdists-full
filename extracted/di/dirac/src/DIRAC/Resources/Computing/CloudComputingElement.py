@@ -137,20 +137,23 @@ The following is an example set of settings for an OpenStack based cloud::
 
 """
 
-import uuid
-import os
-import sys
-import yaml
 import configparser
 import datetime
-from libcloud.compute.types import Provider, NodeState
-from libcloud.compute.providers import get_driver, set_driver
-from email.mime.text import MIMEText
+import os
+import sys
+import uuid
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import requests
 
-from DIRAC import S_OK, S_ERROR, gConfig, rootPath
-from DIRAC.Resources.Computing.ComputingElement import ComputingElement
+import yaml
+from libcloud.compute.providers import get_driver, set_driver
+from libcloud.compute.types import NodeState, Provider
+
+from DIRAC import S_ERROR, S_OK, rootPath
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
+from DIRAC.Resources.Computing.ComputingElement import ComputingElement
 
 # Standard CE name
 CE_NAME = "CloudCE"
@@ -441,9 +444,14 @@ class CloudComputingElement(ComputingElement):
         """
         driver = self._getDriver()
         count = 0
-        for node in driver.list_nodes():
-            if node.name.startswith(VM_NAME_PREFIX):
-                count += 1
+        try:
+            for node in driver.list_nodes():
+                if node.name.startswith(VM_NAME_PREFIX):
+                    count += 1
+        except requests.exceptions.ConnectTimeout as err:
+            self.log.error("Cannot get CE Status. Connection timeout occurred:", str(err))
+            return S_ERROR("Cannot get CE Status. Connection timeout occurred")
+
         result = S_OK()
         result["SubmittedJobs"] = 0
         result["RunningJobs"] = count

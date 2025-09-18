@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: yaspin
-Version: 3.1.0
+Version: 3.2.0
 Summary: Yet Another Terminal Spinner
-Home-page: https://github.com/pavdmyt/yaspin
 License: MIT
 Keywords: spinner,console,terminal,loader,indicator
 Author: Pavlo Dmytrenko
@@ -26,8 +25,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -39,491 +39,459 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
-Requires-Dist: termcolor (>=2.2.0,<2.4.0)
+Requires-Dist: termcolor (>=3.1,<4.0)
 Project-URL: Bug Tracker, https://github.com/pavdmyt/yaspin/issues
 Project-URL: Changelog, https://github.com/pavdmyt/yaspin/releases
-Project-URL: Documentation, https://github.com/pavdmyt/yaspin/blob/master/README.rst
+Project-URL: Documentation, https://github.com/pavdmyt/yaspin/blob/master/README.md
+Project-URL: Homepage, https://github.com/pavdmyt/yaspin
 Project-URL: Repository, https://github.com/pavdmyt/yaspin
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
-|Logo|
+![logo](https://raw.githubusercontent.com/pavdmyt/yaspin/master/static/logo_80.png)
 
-=====================================================================
-``yaspin``: **Y**\ et **A**\ nother Terminal **Spin**\ ner for Python
-=====================================================================
+# `yaspin`: Yet Another Terminal Spinner for Python
 
-|Coverage| |pypi| |black-fmt|
+---
 
-|Versions| |Wheel| |Examples|
+[![Coverage](https://codecov.io/gh/pavdmyt/yaspin/branch/master/graph/badge.svg)](https://codecov.io/gh/pavdmyt/yaspin)
+[![pypi](https://img.shields.io/pypi/v/yaspin.svg)](https://pypi.org/project/yaspin/)
+[![Versions](https://img.shields.io/pypi/pyversions/yaspin.svg)](https://pypi.org/project/yaspin/)
 
-|DownloadsTot| |DownloadsW|
+[![Wheel](https://img.shields.io/pypi/wheel/yaspin.svg)](https://pypi.org/project/yaspin/)
+[![Examples](https://img.shields.io/badge/learn%20by-examples-0077b3.svg)](https://github.com/pavdmyt/yaspin/tree/master/examples)
+[![DownloadsTot](https://static.pepy.tech/badge/yaspin)](https://pepy.tech/project/yaspin)
+[![DownloadsW](https://static.pepy.tech/badge/yaspin/week)](https://pepy.tech/project/yaspin)
 
+`Yaspin` provides a full-featured terminal spinner to show the progress during long-hanging operations.
 
-``Yaspin`` provides a full-featured terminal spinner to show the progress during long-hanging operations.
+![demo](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/demo.gif)
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/demo.gif
+It is easy to integrate into existing codebase by using it as a [context manager](https://docs.python.org/3/reference/datamodel.html#context-managers)
+or as a function [decorator](https://www.thecodeship.com/patterns/guide-to-python-function-decorators/):
 
-It is easy to integrate into existing codebase by using it as a `context manager`_
-or as a function `decorator`_:
+```python
+import time
+from yaspin import yaspin
 
-.. code:: python
+# Context manager:
+with yaspin():
+    time.sleep(3)  # time consuming code
 
-    import time
-    from yaspin import yaspin
+# Function decorator:
+@yaspin(text="Loading...")
+def some_operations():
+    time.sleep(3)  # time consuming code
 
-    # Context manager:
-    with yaspin():
-        time.sleep(3)  # time consuming code
-
-    # Function decorator:
-    @yaspin(text="Loading...")
-    def some_operations():
-        time.sleep(3)  # time consuming code
-
-    some_operations()
-
+some_operations()
+```
 
 **Yaspin** also provides an intuitive and powerful API. For example, you can easily summon a shark:
 
-.. code:: python
+```python
+import time
+from yaspin import yaspin
 
-    import time
-    from yaspin import yaspin
+with yaspin().white.bold.shark.on_blue as sp:
+    sp.text = "White bold shark in a blue sea"
+    time.sleep(5)
+```
 
-    with yaspin().white.bold.shark.on_blue as sp:
-        sp.text = "White bold shark in a blue sea"
-        time.sleep(5)
+![shark](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/shark.gif)
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/shark.gif
+## Features
 
-
-Features
---------
-
-- Runs at all major **CPython** versions (*3.9*, *3.10*, *3.11*, *3.12*, *3.13*), **PyPy**
-- Supports all (70+) spinners from `cli-spinners`_
-- Supports all *colors*, *highlights*, *attributes* and their mixes from `termcolor`_ library
-- Easy to combine with other command-line libraries, e.g. `prompt-toolkit`_
+- Runs at all major **CPython** versions (*3.9*, *3.10*, *3.11*, *3.12*, *3.13*, *3.14*), **PyPy**
+- Supports all (70+) spinners from [cli-spinners](https://github.com/sindresorhus/cli-spinners)
+- Supports all *colors*, *highlights*, *attributes* and their mixes from [termcolor](https://pypi.org/project/termcolor/) library
+- Easy to combine with other command-line libraries, e.g. [prompt-toolkit](https://github.com/jonathanslenders/python-prompt-toolkit/)
 - Flexible API, easy to integrate with existing code
-- User-friendly API for handling POSIX `signals`_
+- User-friendly API for handling POSIX [signals](https://www.computerhope.com/unix/signals.htm)
 - Safe **pipes** and **redirects**:
 
-.. code-block:: bash
+```bash
+$ python script_that_uses_yaspin.py > script.log
+$ python script_that_uses_yaspin.py | grep ERROR
+```
 
-    $ python script_that_uses_yaspin.py > script.log
-    $ python script_that_uses_yaspin.py | grep ERROR
+## Table of Contents
 
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Basic Example](#basic-example)
+  - [Spinners from cli-spinners](#run-any-spinner-from-cli-spinners)
+  - [Colors](#any-colour-you-like-)
+  - [Advanced colors usage](#advanced-colors-usage)
+  - [Building custom spinners](#run-any-spinner-you-want)
+  - [Changing spinner properties on the fly](#change-spinner-properties-on-the-fly)
+  - [Timer](#spinner-with-timer)
+  - [Custom Ellipsis](#custom-ellipsis)
+  - [Dynamic text](#dynamic-text)
+  - [Writing messages](#writing-messages)
+  - [Integration with other libraries](#integration-with-other-libraries)
+  - [Handling POSIX signals](#handling-posix-signals)
+  - [Injecting spinner into a function](#injecting-spinner-into-a-function)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
-Installation
-------------
+## Installation
 
-From `PyPI`_ using ``pip`` package manager:
+From [PyPI](https://pypi.org/) using `pip` package manager:
 
-.. code-block:: bash
-
-    pip install --upgrade yaspin
-
+```bash
+pip install --upgrade yaspin
+```
 
 Or install the latest sources from GitHub:
 
-.. code-block:: bash
+```bash
+pip install https://github.com/pavdmyt/yaspin/archive/master.zip
+```
 
-    pip install https://github.com/pavdmyt/yaspin/archive/master.zip
+## Usage
 
+### Basic Example
 
-Usage
------
+![basic_example](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/basic_example.gif)
 
-Basic Example
-/////////////
+```python
+import time
+from random import randint
+from yaspin import yaspin
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/basic_example.gif
+with yaspin(text="Loading", color="yellow") as spinner:
+    time.sleep(2)  # time consuming code
 
-.. code:: python
-
-    import time
-    from random import randint
-    from yaspin import yaspin
-
-    with yaspin(text="Loading", color="yellow") as spinner:
-        time.sleep(2)  # time consuming code
-
-        success = randint(0, 1)
-        if success:
-            spinner.ok("✅ ")
-        else:
-            spinner.fail("💥 ")
-
+    success = randint(0, 1)
+    if success:
+        spinner.ok("✅ ")
+    else:
+        spinner.fail("💥 ")
+```
 
 It is also possible to control spinner manually:
 
-.. code:: python
+```python
+import time
+from yaspin import yaspin
 
-    import time
-    from yaspin import yaspin
+spinner = yaspin()
+spinner.start()
 
-    spinner = yaspin()
-    spinner.start()
+time.sleep(3)  # time consuming tasks
 
-    time.sleep(3)  # time consuming tasks
+spinner.stop()
+```
 
-    spinner.stop()
+### Run any spinner from [cli-spinners](https://github.com/sindresorhus/cli-spinners)
 
+![cli_spinners](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/cli_spinners.gif)
 
-Run any spinner from `cli-spinners`_
-////////////////////////////////////
+```python
+import time
+from yaspin import yaspin
+from yaspin.spinners import Spinners
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/cli_spinners.gif
+with yaspin(Spinners.earth, text="Earth") as sp:
+    time.sleep(2)                # time consuming code
 
-.. code:: python
+    # change spinner
+    sp.spinner = Spinners.moon
+    sp.text = "Moon"
 
-    import time
-    from yaspin import yaspin
-    from yaspin.spinners import Spinners
+    time.sleep(2)                # time consuming code
+```
 
-    with yaspin(Spinners.earth, text="Earth") as sp:
-        time.sleep(2)                # time consuming code
+### Any Colour You Like [🌈](https://en.wikipedia.org/wiki/Any_Colour_You_Like)
 
-        # change spinner
-        sp.spinner = Spinners.moon
-        sp.text = "Moon"
+![basic_colors](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/basic_colors.gif)
 
-        time.sleep(2)                # time consuming code
+```python
+import time
+from yaspin import yaspin
 
+with yaspin(text="Colors!") as sp:
+    # Support all basic termcolor text colors
+    colors = ("red", "green", "yellow", "blue", "magenta", "cyan", "white")
 
-Any Colour You Like `🌈`_
-/////////////////////////
+    for color in colors:
+        sp.color, sp.text = color, color
+        time.sleep(1)
+```
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/basic_colors.gif
+### Advanced colors usage
 
-.. code:: python
+![advanced_colors](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/advanced_colors.gif)
 
-    import time
-    from yaspin import yaspin
+```python
+import time
+from yaspin import yaspin
+from yaspin.spinners import Spinners
 
-    with yaspin(text="Colors!") as sp:
-        # Support all basic termcolor text colors
-        colors = ("red", "green", "yellow", "blue", "magenta", "cyan", "white")
+text = "Bold blink magenta spinner on cyan color"
+with yaspin().bold.blink.magenta.bouncingBall.on_cyan as sp:
+    sp.text = text
+    time.sleep(3)
 
-        for color in colors:
-            sp.color, sp.text = color, color
-            time.sleep(1)
+# The same result can be achieved by passing arguments directly
+with yaspin(
+    Spinners.bouncingBall,
+    color="magenta",
+    on_color="on_cyan",
+    attrs=["bold", "blink"],
+) as sp:
+    sp.text = text
+    time.sleep(3)
+```
 
+### Run any spinner you want
 
-Advanced colors usage
-/////////////////////
+![custom_spinners](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/custom_spinners.gif)
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/advanced_colors.gif
+```python
+import time
+from yaspin import yaspin, Spinner
 
-.. code:: python
+# Compose new spinners with custom frame sequence and interval value
+sp = Spinner(["😸", "😹", "😺", "😻", "😼", "😽", "😾", "😿", "🙀"], 200)
 
-    import time
-    from yaspin import yaspin
-    from yaspin.spinners import Spinners
+with yaspin(sp, text="Cat!"):
+    time.sleep(3)  # cat consuming code :)
+```
 
-    text = "Bold blink magenta spinner on cyan color"
-    with yaspin().bold.blink.magenta.bouncingBall.on_cyan as sp:
-        sp.text = text
-        time.sleep(3)
+### Change spinner properties on the fly
 
-    # The same result can be achieved by passing arguments directly
-    with yaspin(
-        Spinners.bouncingBall,
-        color="magenta",
-        on_color="on_cyan",
-        attrs=["bold", "blink"],
-    ) as sp:
-        sp.text = text
-        time.sleep(3)
+![sp_properties](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/sp_properties.gif)
 
+```python
+import time
+from yaspin import yaspin
+from yaspin.spinners import Spinners
 
-Run any spinner you want
-////////////////////////
+with yaspin(Spinners.noise, text="Noise spinner") as sp:
+    time.sleep(2)
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/custom_spinners.gif
+    sp.spinner = Spinners.arc  # spinner type
+    sp.text = "Arc spinner"    # text along with spinner
+    sp.color = "green"         # spinner color
+    sp.side = "right"          # put spinner to the right
+    sp.reversal = True         # reverse spin direction
 
-.. code:: python
+    time.sleep(2)
+```
 
-    import time
-    from yaspin import yaspin, Spinner
+### Spinner with timer
 
-    # Compose new spinners with custom frame sequence and interval value
-    sp = Spinner(["😸", "😹", "😺", "😻", "😼", "😽", "😾", "😿", "🙀"], 200)
+```python
+import time
+from yaspin import yaspin
 
-    with yaspin(sp, text="Cat!"):
-        time.sleep(3)  # cat consuming code :)
+with yaspin(text="elapsed time", timer=True) as sp:
+    time.sleep(3.1415)
+    sp.ok()
+```
 
-
-Change spinner properties on the fly
-////////////////////////////////////
-
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/sp_properties.gif
-
-.. code:: python
-
-    import time
-    from yaspin import yaspin
-    from yaspin.spinners import Spinners
-
-    with yaspin(Spinners.noise, text="Noise spinner") as sp:
-        time.sleep(2)
-
-        sp.spinner = Spinners.arc  # spinner type
-        sp.text = "Arc spinner"    # text along with spinner
-        sp.color = "green"         # spinner color
-        sp.side = "right"          # put spinner to the right
-        sp.reversal = True         # reverse spin direction
-
-        time.sleep(2)
-
-
-Spinner with timer
-//////////////////
-
-.. code:: python
-
-    import time
-    from yaspin import yaspin
-
-    with yaspin(text="elapsed time", timer=True) as sp:
-        time.sleep(3.1415)
-        sp.ok()
-
-Custom Ellipsis
-///////////////
+### Custom Ellipsis
 
 If the text does not fit in the terminal it gets truncated, you can set a custom ellipsis to signal truncation.
 
-.. code:: python
+```python
+import time
+from yaspin import yaspin
 
-   import time
-   from yaspin import yaspin
+with yaspin(text="some long text", ellipsis="...") as sp:
+     time.sleep(2)
+```
 
-   with yaspin(text="some long text", ellipsis="...") as sp:
-        time.sleep(2)
+### Dynamic text
 
-Dynamic text
-////////////
+```python
+import time
+from datetime import datetime
+from yaspin import yaspin
 
-.. code:: python
+class TimedText:
+    def __init__(self, text):
+        self.text = text
+        self._start = datetime.now()
 
-    import time
-    from datetime import datetime
-    from yaspin import yaspin
+    def __str__(self):
+        now = datetime.now()
+        delta = now - self._start
+        return f"{self.text} ({round(delta.total_seconds(), 1)}s)"
 
-    class TimedText:
-        def __init__(self, text):
-            self.text = text
-            self._start = datetime.now()
+with yaspin(text=TimedText("time passed:")):
+    time.sleep(3)
+```
 
-        def __str__(self):
-            now = datetime.now()
-            delta = now - self._start
-            return f"{self.text} ({round(delta.total_seconds(), 1)}s)"
+### Writing messages
 
-    with yaspin(text=TimedText("time passed:")):
-        time.sleep(3)
+![write_text](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/write_text.gif)
 
+You should not write any message in the terminal using `print` while spinner is open.
+To write messages in the terminal without any collision with `yaspin` spinner, a `.write()` method is provided:
 
-Writing messages
-////////////////
+```python
+import time
+from yaspin import yaspin
 
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/write_text.gif
+with yaspin(text="Downloading images", color="cyan") as sp:
+    # task 1
+    time.sleep(1)
+    sp.write("> image 1 download complete")
 
-You should not write any message in the terminal using ``print`` while spinner is open.
-To write messages in the terminal without any collision with ``yaspin`` spinner, a ``.write()`` method is provided:
+    # task 2
+    time.sleep(2)
+    sp.write("> image 2 download complete")
 
-.. code:: python
+    # finalize
+    sp.ok("✔")
+```
 
-    import time
-    from yaspin import yaspin
+### Integration with other libraries
 
-    with yaspin(text="Downloading images", color="cyan") as sp:
-        # task 1
-        time.sleep(1)
-        sp.write("> image 1 download complete")
+![hide_show](https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/hide_show.gif)
 
-        # task 2
-        time.sleep(2)
-        sp.write("> image 2 download complete")
-
-        # finalize
-        sp.ok("✔")
-
-
-Integration with other libraries
-////////////////////////////////
-
-.. image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/gifs/hide_show.gif
-
-Utilizing ``hidden`` context manager it is possible to toggle the display of
+Utilizing `hidden` context manager it is possible to toggle the display of
 the spinner in order to call custom methods that write to the terminal. This is
-helpful for allowing easy usage in other frameworks like `prompt-toolkit`_.
-Using the powerful ``print_formatted_text`` function allows you even to apply
+helpful for allowing easy usage in other frameworks like [prompt-toolkit](https://github.com/jonathanslenders/python-prompt-toolkit/).
+Using the powerful `print_formatted_text` function allows you even to apply
 HTML formats and CSS styles to the output:
 
-.. code:: python
+```python
+import sys
+import time
 
-    import sys
-    import time
+from yaspin import yaspin
+from prompt_toolkit import HTML, print_formatted_text
+from prompt_toolkit.styles import Style
 
-    from yaspin import yaspin
-    from prompt_toolkit import HTML, print_formatted_text
-    from prompt_toolkit.styles import Style
+# override print with feature-rich ``print_formatted_text`` from prompt_toolkit
+print = print_formatted_text
 
-    # override print with feature-rich ``print_formatted_text`` from prompt_toolkit
-    print = print_formatted_text
-
-    # build a basic prompt_toolkit style for styling the HTML wrapped text
-    style = Style.from_dict({
-        'msg': '#4caf50 bold',
-        'sub-msg': '#616161 italic'
-    })
-
-
-    with yaspin(text='Downloading images') as sp:
-        # task 1
-        time.sleep(1)
-        with sp.hidden():
-            print(HTML(
-                u'<b>></b> <msg>image 1</msg> <sub-msg>download complete</sub-msg>'
-            ), style=style)
-
-        # task 2
-        time.sleep(2)
-        with sp.hidden():
-            print(HTML(
-                u'<b>></b> <msg>image 2</msg> <sub-msg>download complete</sub-msg>'
-            ), style=style)
-
-        # finalize
-        sp.ok()
+# build a basic prompt_toolkit style for styling the HTML wrapped text
+style = Style.from_dict({
+    'msg': '#4caf50 bold',
+    'sub-msg': '#616161 italic'
+})
 
 
-Handling POSIX `signals`_
-/////////////////////////
+with yaspin(text='Downloading images') as sp:
+    # task 1
+    time.sleep(1)
+    with sp.hidden():
+        print(HTML(
+            u'<b>></b> <msg>image 1</msg> <sub-msg>download complete</sub-msg>'
+        ), style=style)
+
+    # task 2
+    time.sleep(2)
+    with sp.hidden():
+        print(HTML(
+            u'<b>></b> <msg>image 2</msg> <sub-msg>download complete</sub-msg>'
+        ), style=style)
+
+    # finalize
+    sp.ok()
+```
+
+### Handling POSIX [signals](https://www.computerhope.com/unix/signals.htm)
 
 Handling keyboard interrupts (pressing Control-C):
 
-.. code:: python
+```python
+import time
 
-    import time
-
-    from yaspin import kbi_safe_yaspin
+from yaspin import kbi_safe_yaspin
 
 
-    with kbi_safe_yaspin(text="Press Control+C to send SIGINT (Keyboard Interrupt) signal"):
-        time.sleep(5)  # time consuming code
-
+with kbi_safe_yaspin(text="Press Control+C to send SIGINT (Keyboard Interrupt) signal"):
+    time.sleep(5)  # time consuming code
+```
 
 Handling other types of signals:
 
-.. code:: python
+```python
+import os
+import time
+from signal import SIGTERM, SIGUSR1
 
-    import os
-    import time
-    from signal import SIGTERM, SIGUSR1
-
-    from yaspin import yaspin
-    from yaspin.signal_handlers import default_handler, fancy_handler
-
-
-    sigmap = {SIGUSR1: default_handler, SIGTERM: fancy_handler}
-    with yaspin(sigmap=sigmap, text="Handling SIGUSR1 and SIGTERM signals") as sp:
-        sp.write("Send signals using `kill` command")
-        sp.write("E.g. $ kill -USR1 {0}".format(os.getpid()))
-        time.sleep(20)  # time consuming code
+from yaspin import yaspin
+from yaspin.signal_handlers import default_handler, fancy_handler
 
 
-More `examples`_.
+sigmap = {SIGUSR1: default_handler, SIGTERM: fancy_handler}
+with yaspin(sigmap=sigmap, text="Handling SIGUSR1 and SIGTERM signals") as sp:
+    sp.write("Send signals using `kill` command")
+    sp.write("E.g. $ kill -USR1 {0}".format(os.getpid()))
+    time.sleep(20)  # time consuming code
+```
 
+### Injecting spinner into a function
 
-Development
------------
+The `@inject_spinner` decorator provides access to the spinner instance from within the decorated function
+by injecting it as the first argument. This gives you the flexibility to control the spinner's behavior directly.
+
+```python
+import time
+from yaspin import inject_spinner
+from yaspin.core import Yaspin
+
+@inject_spinner()
+def simple_task(spinner: Yaspin, items: list) -> None:
+    for i, _ in enumerate(items, 1):
+        spinner.text = f"Processing item {i}/{len(items)}"
+        time.sleep(1)
+    spinner.ok("✓")
+
+simple_task(["item1", "item2", "item3"])
+```
+
+More [examples](https://github.com/pavdmyt/yaspin/tree/master/examples).
+
+## Development
 
 Clone the repository:
 
-.. code-block:: bash
-
-    git clone https://github.com/pavdmyt/yaspin.git
-
+```bash
+git clone https://github.com/pavdmyt/yaspin.git
+```
 
 Install dev dependencies:
 
-.. code-block:: bash
-
-    poetry install
-
-    # if you don't have poetry installed:
-    pip install -r requirements.txt
-
+```bash
+poetry install
+```
 
 Lint code:
 
-.. code-block:: bash
-
-    make lint
-
+```bash
+make lint
+```
 
 Format code:
 
-.. code-block:: bash
-
-    make black-fmt
-
+```bash
+make fmt
+```
 
 Run tests:
 
-.. code-block:: bash
+```bash
+make test
+```
 
-    make test
-
-
-Contributing
-------------
+## Contributing
 
 1. Fork it!
-2. Create your feature branch: ``git checkout -b my-new-feature``
-3. Commit your changes: ``git commit -m 'Add some feature'``
-4. Push to the branch: ``git push origin my-new-feature``
+2. Create your feature branch: `git checkout -b my-new-feature`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin my-new-feature`
 5. Submit a pull request
 6. Make sure tests are passing
 
-
-License
--------
+## License
 
 * MIT - Pavlo Dmytrenko; https://twitter.com/pavdmyt
-* Contains data from `cli-spinners`_: MIT License, Copyright (c) Sindre Sorhus sindresorhus@gmail.com (sindresorhus.com)
-
-
-.. |Logo| image:: https://raw.githubusercontent.com/pavdmyt/yaspin/master/static/logo_80.png
-   :alt: yaspin Logo
-.. |Coverage| image:: https://codecov.io/gh/pavdmyt/yaspin/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/pavdmyt/yaspin
-.. |pypi| image:: https://img.shields.io/pypi/v/yaspin.svg
-   :target: https://pypi.org/project/yaspin/
-.. |Versions| image:: https://img.shields.io/pypi/pyversions/yaspin.svg
-   :target: https://pypi.org/project/yaspin/
-.. |Wheel| image:: https://img.shields.io/pypi/wheel/yaspin.svg
-   :target: https://pypi.org/project/yaspin/
-.. |Examples| image:: https://img.shields.io/badge/learn%20by-examples-0077b3.svg
-   :target: https://github.com/pavdmyt/yaspin/tree/master/examples
-.. |black-fmt| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/ambv/black
-.. |DownloadsTot| image:: https://static.pepy.tech/badge/yaspin
-   :target: https://pepy.tech/project/yaspin
-.. |DownloadsW| image:: https://static.pepy.tech/badge/yaspin/week
-   :target: https://pepy.tech/project/yaspin
-
-
-.. _context manager: https://docs.python.org/3/reference/datamodel.html#context-managers
-.. _decorator: https://www.thecodeship.com/patterns/guide-to-python-function-decorators/
-.. _cli-spinners: https://github.com/sindresorhus/cli-spinners
-.. _termcolor: https://pypi.org/project/termcolor/
-.. _PyPI: https://pypi.org/
-.. _🌈: https://en.wikipedia.org/wiki/Any_Colour_You_Like
-.. _examples: https://github.com/pavdmyt/yaspin/tree/master/examples
-.. _prompt-toolkit: https://github.com/jonathanslenders/python-prompt-toolkit/
-.. _signals: https://www.computerhope.com/unix/signals.htm
+* Contains data from [cli-spinners](https://github.com/sindresorhus/cli-spinners): MIT License, Copyright (c) Sindre Sorhus sindresorhus@gmail.com (sindresorhus.com)
 

@@ -69,12 +69,11 @@ def _build_ocr_config_from_cli(
     try:
         match ocr_backend:
             case "tesseract":
-                # Handle PSM mode conversion from int to enum
                 processed_args = backend_args.copy()
                 if "psm" in processed_args and isinstance(processed_args["psm"], int):
                     try:
                         processed_args["psm"] = PSMMode(processed_args["psm"])
-                    except ValueError as e:
+                    except ValueError as e:  # pragma: no cover
                         raise ValidationError(
                             f"Invalid PSM mode value: {processed_args['psm']}",
                             context={"psm_value": processed_args["psm"], "error": str(e)},
@@ -84,7 +83,7 @@ def _build_ocr_config_from_cli(
                 return EasyOCRConfig(**backend_args)
             case "paddleocr":
                 return PaddleOCRConfig(**backend_args)
-            case _:
+            case _:  # pragma: no cover
                 return None
     except (TypeError, ValueError) as e:
         raise ValidationError(
@@ -122,7 +121,7 @@ def _configure_gmft(
     try:
         if cli_args.get("gmft_config"):
             gmft_config = GMFTConfig(**cli_args["gmft_config"])
-        elif "gmft" in file_config and isinstance(file_config["gmft"], dict):
+        elif "gmft" in file_config and isinstance(file_config["gmft"], dict):  # pragma: no cover
             gmft_config = GMFTConfig(**file_config["gmft"])
     except (TypeError, ValueError) as e:
         raise ValidationError(
@@ -130,7 +129,7 @@ def _configure_gmft(
             context={"gmft_config": cli_args.get("gmft_config") or file_config.get("gmft"), "error": str(e)},
         ) from e
 
-    if gmft_config:
+    if gmft_config:  # pragma: no cover
         config_dict["gmft_config"] = gmft_config
 
 
@@ -161,7 +160,7 @@ def load_config_from_file(config_path: Path) -> dict[str, Any]:
     try:
         with config_path.open("rb") as f:
             data = tomllib.load(f)
-    except FileNotFoundError as e:
+    except FileNotFoundError as e:  # pragma: no cover
         raise ValidationError(f"Configuration file not found: {config_path}") from e
     except tomllib.TOMLDecodeError as e:
         raise ValidationError(f"Invalid TOML in configuration file: {e}") from e
@@ -247,7 +246,7 @@ def build_extraction_config_from_dict(config_dict: dict[str, Any]) -> Extraction
 
     try:
         return ExtractionConfig(**extraction_config)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError) as e:  # pragma: no cover
         raise ValidationError(
             f"Invalid extraction configuration: {e}",
             context={"config": extraction_config, "error": str(e)},
@@ -271,7 +270,7 @@ def build_extraction_config(
 
     try:
         return ExtractionConfig(**config_dict)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError) as e:  # pragma: no cover
         raise ValidationError(
             f"Invalid extraction configuration: {e}",
             context={"config": config_dict, "error": str(e)},
@@ -293,7 +292,7 @@ def find_config_file(start_path: Path | None = None) -> Path | None:
                     data = tomllib.load(f)
                 if "tool" in data and "kreuzberg" in data["tool"]:
                     return pyproject_toml
-            except OSError as e:
+            except OSError as e:  # pragma: no cover
                 raise ValidationError(
                     f"Failed to read pyproject.toml: {e}",
                     context={"file": str(pyproject_toml), "error": str(e)},

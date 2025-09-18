@@ -1,5 +1,6 @@
 import hashlib
 import os
+import secrets
 import warnings
 import webbrowser
 from pathlib import Path
@@ -17,7 +18,8 @@ from trackio.media import TrackioImage, TrackioVideo
 from trackio.run import Run
 from trackio.sqlite_storage import SQLiteStorage
 from trackio.table import Table
-from trackio.ui import demo
+from trackio.ui.main import demo
+from trackio.ui.runs import run_page
 from trackio.utils import TRACKIO_DIR, TRACKIO_LOGO_DIR
 
 __version__ = Path(__file__).parent.joinpath("version.txt").read_text().strip()
@@ -52,6 +54,7 @@ def init(
     config: dict | None = None,
     resume: str = "never",
     settings: Any = None,
+    private: bool | None = None,
 ) -> Run:
     """
     Creates a new Trackio project and returns a [`Run`] object.
@@ -89,6 +92,10 @@ def init(
               doesn't exist
             - `"allow"`: Resume the run if it exists, otherwise create a new run
             - `"never"`: Never resume a run, always create a new one
+        private (`bool` or `None`, *optional*, defaults to `None`):
+            Whether to make the Space private. If None (default), the repo will be
+            public unless the organization's default is private. This value is ignored
+            if the repo already exists.
         settings (`Any`, *optional*, defaults to `None`):
             Not used. Provided for compatibility with `wandb.init()`.
 
@@ -133,7 +140,9 @@ def init(
             print(f"* Trackio metrics logged to: {TRACKIO_DIR}")
             utils.print_dashboard_instructions(project)
         else:
-            deploy.create_space_if_not_exists(space_id, space_storage, dataset_id)
+            deploy.create_space_if_not_exists(
+                space_id, space_storage, dataset_id, private
+            )
             print(
                 f"* View dashboard by going to: {deploy.SPACE_URL.format(space_id=space_id)}"
             )
@@ -225,6 +234,11 @@ def show(project: str | None = None, theme: str | ThemeClass = DEFAULT_THEME):
             can be a built-in theme (e.g. `'soft'`, `'default'`), a theme from the Hub
             (e.g. `"gstaff/xkcd"`), or a custom Theme class.
     """
+    write_token = secrets.token_urlsafe(32)
+
+    demo.write_token = write_token
+    run_page.write_token = write_token
+
     if theme != DEFAULT_THEME:
         # TODO: It's a little hacky to reproduce this theme-setting logic from Gradio Blocks,
         # but in Gradio 6.0, the theme will be set in `launch()` instead, which means that we
@@ -251,14 +265,20 @@ def show(project: str | None = None, theme: str | ThemeClass = DEFAULT_THEME):
     _, url, share_url = demo.launch(
         show_api=False,
         quiet=True,
-        inline=False,
+        inline=utils.is_in_notebook(),
         prevent_thread_lock=True,
         favicon_path=TRACKIO_LOGO_DIR / "trackio_logo_light.png",
         allowed_paths=[TRACKIO_LOGO_DIR],
     )
 
     base_url = share_url + "/" if share_url else url
-    dashboard_url = base_url + f"?project={project}" if project else base_url
-    print(f"* Trackio UI launched at: {dashboard_url}")
-    webbrowser.open(dashboard_url)
-    utils.block_except_in_notebook()
+
+    params = [f"write_token={write_token}"]
+    if project:
+        params.append(f"project={project}")
+    dashboard_url = base_url + "?" + "&".join(params)
+
+    if not utils.is_in_notebook():
+        print(f"* Trackio UI launched at: {dashboard_url}")
+        webbrowser.open(dashboard_url)
+        utils.block_except_in_notebook()

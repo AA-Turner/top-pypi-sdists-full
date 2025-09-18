@@ -26,11 +26,11 @@ class ApplicationAccount(BaseModel):
     """
 
     account_id: StrictStr
-    application_id: StrictStr
+    application_instance_id: StrictStr
     status: AccountStatus = Field(
         description="Indicates the status of the account in the application"
     )
-    __properties: ClassVar[List[str]] = ["account_id", "application_id", "status"]
+    __properties: ClassVar[List[str]] = ["account_id", "application_instance_id", "status"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -75,7 +75,7 @@ class ApplicationAccount(BaseModel):
         _obj = cls.model_validate(
             {
                 "account_id": obj.get("account_id"),
-                "application_id": obj.get("application_id"),
+                "application_instance_id": obj.get("application_instance_id"),
                 "status": obj.get("status"),
             }
         )

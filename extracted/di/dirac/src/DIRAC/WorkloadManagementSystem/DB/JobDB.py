@@ -11,16 +11,26 @@ The following options can be set in ``Systems/WorkloadManagement/Databases/JobDB
 * *CompressJDLs*:        Enable compression of JDLs when they are stored in the database, default *False*.
 
 """
+from __future__ import annotations
+
 import datetime
 import operator
+from typing import overload
 
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOForGroup
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getSiteTier
 from DIRAC.Core.Base.DB import DB
-from DIRAC.Core.Utilities import DErrno
 from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
+from DIRAC.Core.Utilities.Decorators import deprecated
 from DIRAC.Core.Utilities.DErrno import EWMSJMAN, EWMSSUBM, cmpError
-from DIRAC.Core.Utilities.ReturnValues import S_ERROR, S_OK
+from DIRAC.Core.Utilities.ReturnValues import (
+    S_ERROR,
+    S_OK,
+    convertToReturnValue,
+    returnValueOrRaise,
+    SErrorException,
+    DReturnType,
+)
 from DIRAC.FrameworkSystem.Client.Logger import contextLogger
 from DIRAC.ResourceStatusSystem.Client.SiteStatus import SiteStatus
 from DIRAC.WorkloadManagementSystem.Client import JobMinorStatus, JobStatus
@@ -106,18 +116,7 @@ class JobDB(DB):
         Returns a dictionary with the Job Parameters.
         If parameterList is empty - all the parameters are returned.
         """
-
-        if isinstance(jobID, (str, int)):
-            jobID = [jobID]
-
-        jobIDList = []
-        for jID in jobID:
-            ret = self._escapeString(str(jID))
-            if not ret["OK"]:
-                return ret
-            jobIDList.append(ret["Value"])
-
-        # self.log.debug('JobDB.getParameters: Getting Parameters for jobs %s' % ','.join(jobIDList))
+        jobIDList = [jobID] if isinstance(jobID, (str, int)) else jobID
 
         resultDict = {}
         if paramList:
@@ -130,7 +129,7 @@ class JobDB(DB):
                     return ret
                 paramNameList.append(ret["Value"])
             cmd = "SELECT JobID, Name, Value FROM JobParameters WHERE JobID IN ({}) AND Name IN ({})".format(
-                ",".join(jobIDList),
+                ",".join(str(int(j)) for j in jobIDList),
                 ",".join(paramNameList),
             )
             result = self._query(cmd)
@@ -207,13 +206,13 @@ class JobDB(DB):
             return S_ERROR("JobDB.getAtticJobParameters: failed to retrieve parameters")
 
     #############################################################################
+    @convertToReturnValue
     def getJobsAttributes(self, jobIDs, attrList=None):
         """Get all Job(s) Attributes for a given list of jobIDs.
         Return a dictionary with all Job Attributes as value pairs
         """
-
         if not jobIDs:
-            return S_OK({})
+            return {}
 
         # If no list of attributes is given, return all attributes
         if not attrList:
@@ -229,28 +228,29 @@ class JobDB(DB):
 
         attrNameListS = []
         for x in attrList:
-            ret = self._escapeString(x)
-            if not ret["OK"]:
-                return ret
-            x = "`" + ret["Value"][1:-1] + "`"
+            x = "`" + returnValueOrRaise(self._escapeString(x))[1:-1] + "`"
             attrNameListS.append(x)
         attrNames = "JobID," + ",".join(attrNameListS)
 
-        cmd = f"SELECT {attrNames} FROM Jobs WHERE JobID IN ({','.join(str(jobID) for jobID in jobIDs)})"
-        res = self._query(cmd)
-        if not res["OK"]:
-            return res
-        if not res["Value"]:
-            return S_OK({})
+        sqlCmd = "CREATE TEMPORARY TABLE to_select_Jobs (JobID INTEGER NOT NULL, PRIMARY KEY (JobID)) ENGINE=MEMORY;"
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            sqlCmd = "INSERT INTO to_select_Jobs (JobID) VALUES ( %s )"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(int(j),) for j in jobIDs]))
+            sqlCmd = f"SELECT {attrNames} FROM Jobs JOIN to_select_Jobs USING (JobID)"
+            result = returnValueOrRaise(self._query(sqlCmd))
+        finally:
+            sqlCmd = "DROP TEMPORARY TABLE to_select_Jobs"
+            returnValueOrRaise(self._update(sqlCmd))
 
         attributes = {}
-        for t_att in res["Value"]:
+        for t_att in result:
             jobID = int(t_att[0])
             attributes.setdefault(jobID, {})
             for tx, ax in zip(t_att[1:], attrList):
                 attributes[jobID].setdefault(ax, tx)
 
-        return S_OK(attributes)
+        return attributes
 
     #############################################################################
     def getJobAttributes(self, jobID, attrList=None):
@@ -275,6 +275,7 @@ class JobDB(DB):
         return S_OK(result["Value"].get(attribute))
 
     #############################################################################
+    @deprecated("Use JobParametersDB instead")
     def getJobParameter(self, jobID, parameter):
         """Get the given parameter of a job specified by its jobID"""
 
@@ -329,23 +330,42 @@ class JobDB(DB):
 
     #############################################################################
 
-    def getInputData(self, jobID):
+    @overload
+    def getInputData(self, jobID: int | str) -> DReturnType[list[str]]:
+        ...
+
+    @overload
+    def getInputData(self, jobID: list[int | str]) -> DReturnType[dict[int, list[str]]]:
+        ...
+
+    def getInputData(self, jobID: int | str | list[int | str]) -> DReturnType[list[str] | dict[int, list[str]]]:
         """Get input data for the given job"""
-        ret = self._escapeString(jobID)
-        if not ret["OK"]:
-            return ret
-        jobID = ret["Value"]
-        cmd = f"SELECT LFN FROM InputData WHERE JobID={jobID}"
+        if isinstance(jobID, (int, str)):
+            ret = self._escapeString(jobID)
+            if not ret["OK"]:
+                return ret
+            jobID = ret["Value"]
+            query = f"JobID={jobID}"
+            result = []
+        else:
+            job_ids = {int(i) for i in jobID}
+            query = f"JobID IN ({','.join(map(str, job_ids))})"
+            result = {i: [] for i in job_ids}
+        cmd = f"SELECT JobID, LFN FROM InputData WHERE {query}"
         res = self._query(cmd)
         if not res["OK"]:
             return res
 
-        inputData = [i[0] for i in res["Value"] if i[0].strip()]
-        for index, lfn in enumerate(inputData):
+        for jid, lfn in res["Value"]:
+            lfn = lfn.strip()
             if lfn.lower().startswith("lfn:"):
-                inputData[index] = lfn[4:]
+                lfn = lfn[4:]
+            if isinstance(result, list):
+                result.append(lfn)
+            else:
+                result[jid].append(lfn)
 
-        return S_OK(inputData)
+        return S_OK(result)
 
     #############################################################################
     def setInputData(self, jobID, inputData):
@@ -526,12 +546,10 @@ class JobDB(DB):
         if not isinstance(jobID, (list, tuple)):
             jobIDList = [jobID]
 
-        jIDList = []
-        for jID in jobIDList:
-            ret = self._escapeString(jID)
-            if not ret["OK"]:
-                return ret
-            jIDList.append(ret["Value"])
+        try:
+            jIDList = [int(jID) for jID in jobIDList]
+        except ValueError as e:
+            return S_ERROR(f"JobDB.setAttributes: {e}")
 
         if len(attrNames) != len(attrValues):
             return S_ERROR("JobDB.setAttributes: incompatible Argument length")
@@ -560,7 +578,7 @@ class JobDB(DB):
         if not attr:
             return S_ERROR("JobDB.setAttributes: Nothing to do")
 
-        cmd = f"UPDATE Jobs SET {', '.join(attr)} WHERE JobID in ( {', '.join(jIDList)} )"
+        cmd = f"UPDATE Jobs SET {', '.join(attr)} WHERE JobID in ( {', '.join(str(int(j)) for j in jIDList)} )"
 
         if myDate:
             cmd += f" AND LastUpdateTime < {myDate}"
@@ -686,50 +704,6 @@ class JobDB(DB):
         return self._update(req)
 
     #############################################################################
-    def setJobParameter(self, jobID, key, value):
-        """Set a parameter specified by name,value pair for the job JobID"""
-
-        ret = self._escapeString(key)
-        if not ret["OK"]:
-            return ret
-        e_key = ret["Value"]
-        ret = self._escapeString(value)
-        if not ret["OK"]:
-            return ret
-        e_value = ret["Value"]
-
-        cmd = "REPLACE JobParameters (JobID,Name,Value) VALUES (%d,%s,%s)" % (int(jobID), e_key, e_value)
-        return self._update(cmd)
-
-    #############################################################################
-    def setJobParameters(self, jobID, parameters):
-        """Set parameters specified by a list of name/value pairs for the job JobID
-
-        :param int jobID: Job ID
-        :param list parameters: list of tuples (name, value) pairs
-
-        :return: S_OK/S_ERROR
-        """
-
-        if not parameters:
-            return S_OK()
-
-        insertValueList = []
-        for name, value in parameters:
-            ret = self._escapeString(name)
-            if not ret["OK"]:
-                return ret
-            e_name = ret["Value"]
-            ret = self._escapeString(value)
-            if not ret["OK"]:
-                return ret
-            e_value = ret["Value"]
-            insertValueList.append(f"({jobID},{e_name},{e_value})")
-
-        cmd = f"REPLACE JobParameters (JobID,Name,Value) VALUES {', '.join(insertValueList)}"
-        return self._update(cmd)
-
-    #############################################################################
     def setJobOptParameter(self, jobID, name, value):
         """Set an optimzer parameter specified by name,value pair for the job JobID"""
         ret = self._escapeString(jobID)
@@ -796,16 +770,6 @@ class JobDB(DB):
             value,
         )
         return self._update(cmd)
-
-    #############################################################################
-    def __setInitialJobParameters(self, classadJob, jobID):
-        """Set initial job parameters as was defined in the Classad"""
-
-        # Extract initital job parameters
-        parameters = {}
-        if classadJob.lookupAttribute("Parameters"):
-            parameters = classadJob.getDictionaryFromSubJDL("Parameters")
-        return self.setJobParameters(jobID, list(parameters.items()))
 
     #############################################################################
     def setJobJDL(self, jobID, jdl=None, originalJDL=None):
@@ -898,11 +862,10 @@ class JobDB(DB):
         self,
         jdl,
         owner,
-        ownerDN,
         ownerGroup,
-        diracSetup,
         initialStatus=JobStatus.RECEIVED,
         initialMinorStatus="Job accepted",
+        vo=None,
     ):
         """Insert the initial JDL into the Job database,
         Do initial JDL crosscheck,
@@ -910,24 +873,25 @@ class JobDB(DB):
 
         :param str jdl: job description JDL
         :param str owner: job owner user name
-        :param str ownerDN: job owner DN
         :param str ownerGroup: job owner group
-        :param str diracSetup: setup in which context the job is submitted
         :param str initialStatus: optional initial job status (Received by default)
         :param str initialMinorStatus: optional initial minor job status
         :return: new job ID
         """
+        # Workaround for the case when a custom version of dirac would be
+        # calling this method
+        if not vo:
+            vo = getVOForGroup(ownerGroup)
 
         jobAttrs = {
             "LastUpdateTime": str(datetime.datetime.utcnow()),
             "SubmissionTime": str(datetime.datetime.utcnow()),
             "Owner": owner,
-            "OwnerDN": ownerDN,
             "OwnerGroup": ownerGroup,
-            "DIRACSetup": diracSetup,
+            "VO": vo,
         }
 
-        result = checkAndAddOwner(jdl, owner, ownerDN, ownerGroup, diracSetup)
+        result = checkAndAddOwner(jdl, owner, ownerGroup)
         if not result["OK"]:
             return result
         jobManifest = result["Value"]
@@ -969,9 +933,7 @@ class JobDB(DB):
 
         classAdJob.insertAttributeInt("JobID", jobID)
         vo = getVOForGroup(ownerGroup)
-        result = self.__checkAndPrepareJob(
-            jobID, classAdJob, classAdReq, owner, ownerDN, ownerGroup, diracSetup, jobAttrs, vo
-        )
+        result = self.__checkAndPrepareJob(jobID, classAdJob, classAdReq, owner, ownerGroup, jobAttrs, vo)
         if not result["OK"]:
             return result
 
@@ -985,11 +947,6 @@ class JobDB(DB):
 
         # Adding the job in the Jobs table
         result = self.insertFields("Jobs", inDict=jobAttrs)
-        if not result["OK"]:
-            return result
-
-        # Setting the Job parameters
-        result = self.__setInitialJobParameters(classAdJob, jobID)
         if not result["OK"]:
             return result
 
@@ -1027,12 +984,12 @@ class JobDB(DB):
 
         return retVal
 
-    def __checkAndPrepareJob(self, jobID, classAdJob, classAdReq, owner, ownerDN, ownerGroup, diracSetup, jobAttrs, vo):
+    def __checkAndPrepareJob(self, jobID, classAdJob, classAdReq, owner, ownerGroup, jobAttrs, vo):
         """
         Check Consistency of Submitted JDL and set some defaults
         Prepare subJDL with Job Requirements
         """
-        retVal = checkAndPrepareJob(jobID, classAdJob, classAdReq, owner, ownerDN, ownerGroup, diracSetup, jobAttrs, vo)
+        retVal = checkAndPrepareJob(jobID, classAdJob, classAdReq, owner, ownerGroup, jobAttrs, vo)
 
         if not retVal["OK"]:
             if cmpError(retVal, EWMSSUBM):
@@ -1047,63 +1004,42 @@ class JobDB(DB):
         return S_OK()
 
     #############################################################################
+    @convertToReturnValue
     def removeJobFromDB(self, jobIDs):
         """
         Remove jobs from the Job DB and clean up all the job related data in various tables
         """
-
-        # ret = self._escapeString(jobID)
-        # if not ret['OK']:
-        #  return ret
-        # e_jobID = ret['Value']
-
         if not jobIDs:
-            return S_OK()
-
-        if not isinstance(jobIDs, list):
-            jobIDList = [jobIDs]
-        else:
-            jobIDList = jobIDs
+            return None
+        jobIDList = jobIDs if isinstance(jobIDs, list) else [jobIDs]
 
         failedTablesList = []
-        for table in [
-            "InputData",
-            "JobParameters",
-            "AtticJobParameters",
-            "HeartBeatLoggingInfo",
-            "OptimizerParameters",
-            "JobCommands",
-            "Jobs",
-            "JobJDLs",
-        ]:
-            cmd = f"DELETE FROM {table} WHERE JobID in ({','.join(str(j) for j in jobIDList)})"
-            result = self._update(cmd)
-            if not result["OK"]:
-                failedTablesList.append(table)
 
-        result = S_OK()
+        sqlCmd = "CREATE TEMPORARY TABLE to_delete_Jobs (JobID INT(11) UNSIGNED NOT NULL, PRIMARY KEY (JobID)) ENGINE=MEMORY;"
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            sqlCmd = "INSERT INTO to_delete_Jobs (JobID) VALUES ( %s )"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(j,) for j in jobIDList]))
+
+            for table in [
+                "InputData",
+                "JobParameters",
+                "AtticJobParameters",
+                "HeartBeatLoggingInfo",
+                "OptimizerParameters",
+                "JobCommands",
+                "Jobs",
+                "JobJDLs",
+            ]:
+                sqlCmd = f"DELETE m from `{table}` m JOIN to_delete_Jobs t USING (JobID)"
+                if not self._update(sqlCmd)["OK"]:
+                    failedTablesList.append(table)
+        finally:
+            sqlCmd = "DROP TEMPORARY TABLE to_delete_Jobs"
+            returnValueOrRaise(self._update(sqlCmd))
+
         if failedTablesList:
-            result = S_ERROR(f"Errors while job removal (tables {','.join(failedTablesList)})")
-
-        return result
-
-    #################################################################
-    def rescheduleJobs(self, jobIDs):
-        """Reschedule all the jobs in the given list"""
-
-        result = S_OK()
-
-        failedJobs = []
-        for jobID in jobIDs:
-            result = self.rescheduleJob(jobID)
-            if not result["OK"]:
-                failedJobs.append(jobID)
-
-        if failedJobs:
-            result = S_ERROR("JobDB.rescheduleJobs: Not all the jobs were rescheduled")
-            result["FailedJobs"] = failedJobs
-
-        return result
+            raise SErrorException(f"Errors while job removal (tables {','.join(failedTablesList)})")
 
     #############################################################################
     def rescheduleJob(self, jobID):
@@ -1119,9 +1055,7 @@ class JobDB(DB):
                 "VerifiedFlag",
                 "RescheduleCounter",
                 "Owner",
-                "OwnerDN",
                 "OwnerGroup",
-                "DIRACSetup",
             ],
         )
         if result["OK"]:
@@ -1197,9 +1131,7 @@ class JobDB(DB):
             classAdJob,
             classAdReq,
             resultDict["Owner"],
-            resultDict["OwnerDN"],
             resultDict["OwnerGroup"],
-            resultDict["DIRACSetup"],
             jobAttrs,
             getVOForGroup(resultDict["OwnerGroup"]),
         )
@@ -1228,11 +1160,11 @@ class JobDB(DB):
 
         jobAttrs["ApplicationStatus"] = "Unknown"
 
-        jobAttrs["ApplicationNumStatus"] = 0
-
         jobAttrs["LastUpdateTime"] = str(datetime.datetime.utcnow())
 
         jobAttrs["RescheduleTime"] = str(datetime.datetime.utcnow())
+
+        jobAttrs["VO"] = getVOForGroup(resultDict["OwnerGroup"])
 
         reqJDL = classAdReq.asJDL()
         classAdJob.insertAttributeInt("JobRequirements", reqJDL)
@@ -1247,10 +1179,6 @@ class JobDB(DB):
         if not result["OK"]:
             return result
 
-        result = self.__setInitialJobParameters(classAdJob, jobID)
-        if not result["OK"]:
-            return result
-
         result = self.setJobAttributes(jobID, list(jobAttrs), list(jobAttrs.values()), force=True)
         if not result["OK"]:
             return result
@@ -1261,319 +1189,6 @@ class JobDB(DB):
         retVal["MinorStatus"] = JobMinorStatus.RESCHEDULED
 
         return retVal
-
-    #############################################################################
-    def getUserSitesTuple(self, sites):
-        """Returns tuple of active/banned/invalid sties from a user provided list."""
-        ret = self._escapeValues(sites)
-        if not ret["OK"]:
-            return ret
-
-        sites = set(sites)
-        sitesSql = ret["Value"]
-        sitesSql[0] = f"SELECT {sitesSql[0]} AS Site"
-        sitesSql = " UNION SELECT ".join(sitesSql)
-        cmd = f"SELECT Site FROM ({sitesSql}) "
-        cmd += "AS tmptable WHERE Site NOT IN (SELECT Site FROM SiteMask WHERE Status='Active')"
-        result = self._query(cmd)
-        if not result["OK"]:
-            return result
-        nonActiveSites = {x[0] for x in result["Value"]}
-        activeSites = sites.difference(nonActiveSites)
-        bannedSites = nonActiveSites.intersection(set(self.getSiteMask("Banned")))
-        invalidSites = nonActiveSites.difference(bannedSites)
-        return S_OK((activeSites, bannedSites, invalidSites))
-
-    #############################################################################
-    def getSiteMask(self, siteState="Active"):
-        """Get the currently active site list"""
-
-        ret = self._escapeString(siteState)
-        if not ret["OK"]:
-            return ret
-        siteState = ret["Value"]
-
-        if siteState == "All":
-            cmd = "SELECT Site FROM SiteMask"
-        else:
-            cmd = f"SELECT Site FROM SiteMask WHERE Status={siteState}"
-
-        result = self._query(cmd)
-        siteList = []
-        if result["OK"]:
-            siteList = [x[0] for x in result["Value"]]
-        else:
-            return S_ERROR(DErrno.EMYSQL, f"SQL query failed: {cmd}")
-
-        return S_OK(siteList)
-
-    #############################################################################
-    def getSiteMaskStatus(self, sites=None):
-        """Get the current site mask status
-
-        :param sites: A string for a single site to check, or a list to check multiple sites.
-        :returns: If input was a list, a dictionary of sites, keys are site
-                 names and values are the site statuses. Unknown sites are
-                 not included in the output dictionary.
-                 If input was a string, then a single value with that site's
-                 status, or S_ERROR if the site does not exist in the DB.
-        """
-        if isinstance(sites, list):
-            safeSites = []
-            for site in sites:
-                res = self._escapeString(site)
-                if not res["OK"]:
-                    return res
-                safeSites.append(res["Value"])
-            sitesString = ",".join(safeSites)
-            cmd = f"SELECT Site, Status FROM SiteMask WHERE Site in ({sitesString})"
-
-            result = self._query(cmd)
-            return S_OK(dict(result["Value"]))
-
-        elif isinstance(sites, str):
-            ret = self._escapeString(sites)
-            if not ret["OK"]:
-                return ret
-            cmd = f"SELECT Status FROM SiteMask WHERE Site={ret['Value']}"
-            result = self._query(cmd)
-            if result["Value"]:
-                return S_OK(result["Value"][0][0])
-            return S_ERROR(f"Unknown site {sites}")
-
-        else:
-            cmd = "SELECT Site,Status FROM SiteMask"
-
-        result = self._query(cmd)
-        siteDict = {}
-        if result["OK"]:
-            for site, status in result["Value"]:
-                siteDict[site] = status
-        else:
-            return S_ERROR(DErrno.EMYSQL, f"SQL query failed: {cmd}")
-
-        return S_OK(siteDict)
-
-    #############################################################################
-    def getAllSiteMaskStatus(self):
-        """Get the everything from site mask status"""
-        cmd = "SELECT Site,Status,LastUpdateTime,Author,Comment FROM SiteMask"
-
-        result = self._query(cmd)
-
-        if not result["OK"]:
-            return result["Message"]
-
-        siteDict = {}
-        if result["OK"]:
-            for site, status, lastUpdateTime, author, comment in result["Value"]:
-                try:
-                    # TODO: This is only needed in DIRAC v8.0.x while moving from BLOB -> TEXT
-                    comment = comment.decode()
-                except AttributeError:
-                    pass
-                siteDict[site] = status, lastUpdateTime, author, comment
-
-        return S_OK(siteDict)
-
-    #############################################################################
-    def setSiteMask(self, siteMaskList, authorDN="Unknown", comment="No comment"):
-        """Set the Site Mask to the given mask in a form of a list of tuples (site,status)"""
-
-        for site, status in siteMaskList:
-            result = self.__setSiteStatusInMask(site, status, authorDN, comment)
-            if not result["OK"]:
-                return result
-
-        return S_OK()
-
-    #############################################################################
-    def __setSiteStatusInMask(self, site, status, authorDN="Unknown", comment="No comment"):
-        """Set the given site status to 'status' or add a new active site"""
-
-        result = self._escapeString(site)
-        if not result["OK"]:
-            return result
-        site = result["Value"]
-
-        result = self._escapeString(status)
-        if not result["OK"]:
-            return result
-        status = result["Value"]
-
-        result = self._escapeString(authorDN)
-        if not result["OK"]:
-            return result
-        authorDN = result["Value"]
-
-        result = self._escapeString(comment)
-        if not result["OK"]:
-            return result
-        comment = result["Value"]
-
-        req = f"SELECT Status FROM SiteMask WHERE Site={site}"
-        result = self._query(req)
-        if result["OK"]:
-            if result["Value"]:
-                current_status = result["Value"][0][0]
-                if current_status == status:
-                    return S_OK()
-                else:
-                    req = (
-                        "UPDATE SiteMask SET Status=%s,LastUpdateTime=UTC_TIMESTAMP(),"
-                        "Author=%s, Comment=%s WHERE Site=%s"
-                    )
-                    req = req % (status, authorDN, comment, site)
-            else:
-                req = f"INSERT INTO SiteMask VALUES ({site},{status},UTC_TIMESTAMP(),{authorDN},{comment})"
-            result = self._update(req)
-            if not result["OK"]:
-                return S_ERROR("Failed to update the Site Mask")
-            # update the site mask logging record
-            req = f"INSERT INTO SiteMaskLogging VALUES ({site},{status},UTC_TIMESTAMP(),{authorDN},{comment})"
-            result = self._update(req)
-            if not result["OK"]:
-                self.log.warn("Failed to update site mask logging", f"for {site}")
-        else:
-            return S_ERROR("Failed to get the Site Status from the Mask")
-
-        return S_OK()
-
-    #############################################################################
-    def banSiteInMask(self, site, authorDN="Unknown", comment="No comment"):
-        """Forbid the given site in the Site Mask"""
-
-        return self.__setSiteStatusInMask(site, "Banned", authorDN, comment)
-
-    #############################################################################
-    def allowSiteInMask(self, site, authorDN="Unknown", comment="No comment"):
-        """Forbid the given site in the Site Mask"""
-
-        return self.__setSiteStatusInMask(site, "Active", authorDN, comment)
-
-    #############################################################################
-    def removeSiteFromMask(self, site=None):
-        """Remove the given site from the mask"""
-        if not site:
-            req = "DELETE FROM SiteMask"
-        else:
-            ret = self._escapeString(site)
-            if not ret["OK"]:
-                return ret
-            site = ret["Value"]
-            req = f"DELETE FROM SiteMask WHERE Site={site}"
-
-        return self._update(req)
-
-    #############################################################################
-    def getSiteMaskLogging(self, siteList):
-        """Get the site mask logging history for the list if site names"""
-
-        if siteList:
-            siteString = ",".join(["'" + x + "'" for x in siteList])
-            req = f"SELECT Site,Status,UpdateTime,Author,Comment FROM SiteMaskLogging WHERE Site in ({siteString})"
-        else:
-            req = "SELECT Site,Status,UpdateTime,Author,Comment FROM SiteMaskLogging"
-        req += " ORDER BY UpdateTime ASC"
-
-        result = self._query(req)
-        if not result["OK"]:
-            return result
-
-        availableSiteList = []
-        for site, status, utime, author, comment in result["Value"]:
-            availableSiteList.append(site)
-
-        resultDict = {}
-        for site in siteList:
-            if not result["Value"] or site not in availableSiteList:
-                ret = self._escapeString(site)
-                if not ret["OK"]:
-                    continue
-                e_site = ret["Value"]
-                req = f"SELECT Status Site,Status,LastUpdateTime,Author,Comment FROM SiteMask WHERE Site={e_site}"
-                resSite = self._query(req)
-                if resSite["OK"]:
-                    if resSite["Value"]:
-                        site, status, lastUpdate, author, comment = resSite["Value"][0]
-                        try:
-                            # TODO: This is only needed in DIRAC v8.0.x while moving from BLOB -> TEXT
-                            comment = comment.decode()
-                        except AttributeError:
-                            pass
-                        resultDict[site] = [[status, str(lastUpdate), author, comment]]
-                    else:
-                        resultDict[site] = [["Unknown", "", "", "Site not present in logging table"]]
-
-        for site, status, utime, author, comment in result["Value"]:
-            if site not in resultDict:
-                resultDict[site] = []
-            try:
-                # TODO: This is only needed in DIRAC v8.0.x while moving from BLOB -> TEXT
-                comment = comment.decode()
-            except AttributeError:
-                pass
-            resultDict[site].append([status, str(utime), author, comment])
-
-        return S_OK(resultDict)
-
-    #############################################################################
-    def getSiteSummary(self):
-        """Get the summary of jobs in a given status on all the sites"""
-
-        waitingList = ['"Submitted"', '"Assigned"', '"Waiting"', '"Matched"']
-        waitingString = ",".join(waitingList)
-
-        result = self.getDistinctJobAttributes("Site")
-        if not result["OK"]:
-            return result
-
-        siteList = result["Value"]
-        siteDict = {}
-        totalDict = {
-            JobStatus.WAITING: 0,
-            JobStatus.RUNNING: 0,
-            JobStatus.STALLED: 0,
-            JobStatus.DONE: 0,
-            JobStatus.FAILED: 0,
-        }
-
-        for site in siteList:
-            if site == "ANY":
-                continue
-            # Waiting
-            siteDict[site] = {}
-            ret = self._escapeString(site)
-            if not ret["OK"]:
-                return ret
-            e_site = ret["Value"]
-
-            req = f"SELECT COUNT(JobID) FROM Jobs WHERE Status IN ({waitingString}) AND Site={e_site}"
-            result = self._query(req)
-            if result["OK"]:
-                count = result["Value"][0][0]
-            else:
-                return S_ERROR("Failed to get Site data from the JobDB")
-            siteDict[site][JobStatus.WAITING] = count
-            totalDict[JobStatus.WAITING] += count
-            # Running,Stalled,Done,Failed
-            for status in [
-                f'"{JobStatus.RUNNING}"',
-                f'"{JobStatus.STALLED}"',
-                f'"{JobStatus.DONE}"',
-                f'"{JobStatus.FAILED}"',
-            ]:
-                req = f"SELECT COUNT(JobID) FROM Jobs WHERE Status={status} AND Site={e_site}"
-                result = self._query(req)
-                if result["OK"]:
-                    count = result["Value"][0][0]
-                else:
-                    return S_ERROR("Failed to get Site data from the JobDB")
-                siteDict[site][status.replace('"', "")] = count
-                totalDict[status.replace('"', "")] += count
-
-        siteDict["Total"] = totalDict
-        return S_OK(siteDict)
 
     #################################################################################
     def getSiteSummaryWeb(self, selectDict, sortList, startItem, maxItems):
@@ -1869,15 +1484,14 @@ class JobDB(DB):
     def getSummarySnapshot(self, requestedFields=False):
         """Get the summary snapshot for a given combination"""
         if not requestedFields:
-            requestedFields = ["Status", "MinorStatus", "Site", "Owner", "OwnerGroup", "JobGroup", "JobSplitType"]
-        defFields = ["DIRACSetup"] + requestedFields
+            requestedFields = ["Status", "MinorStatus", "Site", "Owner", "OwnerGroup", "JobGroup"]
         valueFields = ["COUNT(JobID)", "SUM(RescheduleCounter)"]
-        defString = ", ".join(defFields)
+        defString = ", ".join(requestedFields)
         valueString = ", ".join(valueFields)
         result = self._query(f"SELECT {defString}, {valueString} FROM Jobs GROUP BY {defString}")
         if not result["OK"]:
             return result
-        return S_OK(((defFields + valueFields), result["Value"]))
+        return S_OK(((requestedFields + valueFields), result["Value"]))
 
     def removeInfoFromHeartBeatLogging(self, status, delTime, maxLines):
         """Remove HeartBeatLoggingInfo from DB.

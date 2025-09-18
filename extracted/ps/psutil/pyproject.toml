@@ -70,7 +70,7 @@ ignore = [
     "PLW0603",  # Using the global statement to update `lineno` is discouraged
     "PLW1514",  # `open` in text mode without explicit `encoding` argument
     "PLW2901",  # `for` loop variable `x` overwritten by assignment target
-    "PT",  # flake8-pytest-style
+    "PT028",  # pytest-parameter-with-default-argument
     "PTH",  # flake8-use-pathlib
     "PYI",  # flake8-pyi (python types stuff)
     "Q000",  # Single quotes found but double quotes preferred
@@ -94,16 +94,18 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# B904 == Use `raise from` to specify exception cause
 # EM101 == raw-string-in-exception
 # EM102 == f-string-in-exception
 # EM103 == dot-format-in-exception
+# PLC1901 == `x == ""` can be simplified to `not x` as an empty string is falsey
+# PT009 == Use a regular `assert` instead of unittest-style `self.assert*`
 # T201 == print()
 # T203 == pprint()
 # TRY003 == raise-vanilla-args
-# B904 ==  Use `raise from` to specify exception cause
-# PLC1901 == `x == ""` can be simplified to `not x` as an empty string is falsey
 ".github/workflows/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203"]
 "psutil/tests/*" = ["B904", "EM101", "EM102", "EM103", "PLC1901", "TRY003"]
+"psutil/tests/test_sudo.py" = ["PT009"]
 "scripts/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203"]
 "scripts/internal/*" = ["B904", "EM101", "EM102", "EM103", "T201", "T203", "TRY003"]
 "setup.py" = [
@@ -125,7 +127,6 @@ ignore = [
 [tool.ruff.lint.isort]
 # https://beta.ruff.rs/docs/settings/#isort
 force-single-line = true  # one import per line
-lines-after-imports = 2
 
 [tool.coverage.report]
 exclude_lines = [
@@ -220,15 +221,39 @@ trailing_comma_inline_array = true
 [tool.cibuildwheel]
 skip = [
     "*-musllinux*",
-    "cp313-win*",  # pywin32 is not available on cp313 yet
+    "cp36-*",
+    "cp37-*",
     "cp3{7,8,9,10,11,12}-*linux_{ppc64le,s390x}",  # Only test cp36/cp313 on qemu tested architectures
     "pp*",
 ]
+test-skip = [
+    "cp313-macosx*",  # Hangs on macOS for some reason
+    "cp3{6,7,8,9,10,11,12}-*",  # Only run tests for minor (3.8) and major (3.13) Python versions
+]
 test-extras = ["test"]
-test-command = "make -C {project} PYTHON=python PSUTIL_SCRIPTS_DIR=\"{project}/scripts\" test-ci"
+test-command = "make -C {project} PYTHON=python PSUTIL_SCRIPTS_DIR=\"{project}/scripts\" test-cibuildwheel"
 
 [tool.cibuildwheel.macos]
 archs = ["arm64", "x86_64"]
+
+[tool.pytest.ini_options]
+addopts = '''
+    --verbose
+    --capture=no
+    --no-header
+    --tb=short
+    --strict-config
+    --strict-markers
+    --instafail
+    -p no:junitxml
+    -p no:doctest
+    -p no:nose
+    -p no:pastebin
+    -p instafail
+    -p subtests
+    -p xdist
+    '''
+testpaths = ["psutil/tests/"]
 
 [build-system]
 build-backend = "setuptools.build_meta"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dapr-ext-fastapi
-Version: 1.15.0
+Version: 1.16.0
 Summary: The official release of Dapr FastAPI extension.
 Home-page: https://dapr.io/
 Author: Dapr Authors

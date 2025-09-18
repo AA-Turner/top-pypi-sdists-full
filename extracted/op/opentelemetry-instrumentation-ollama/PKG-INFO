@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-ollama
-Version: 0.47.1
+Version: 0.47.2
 Summary: OpenTelemetry Ollama instrumentation
 License: Apache-2.0
 Author: Gal Kleinman

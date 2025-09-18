@@ -1,20 +1,20 @@
-import time
-from io import StringIO
 import copy
 import os
+import time
+from io import StringIO
 
-from DIRAC import S_OK, S_ERROR, gLogger
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
+from DIRAC.Core.Utilities.DErrno import ETSUKN
 from DIRAC.Core.Utilities.List import fromChar
-from DIRAC.Core.Utilities.ModuleFactory import ModuleFactory
-from DIRAC.Core.Utilities.DErrno import ETSDATA, ETSUKN
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.Interfaces.API.Job import Job
 from DIRAC.TransformationSystem.Client import TransformationFilesStatus
 from DIRAC.TransformationSystem.Client.TaskManager import TaskBase
-from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
 from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
+from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
 
 
 class WorkflowTasks(TaskBase):
@@ -30,7 +30,7 @@ class WorkflowTasks(TaskBase):
         jobClass=None,
         opsH=None,
         destinationPlugin=None,
-        ownerDN=None,
+        owner=None,
         ownerGroup=None,
     ):
         """Generates some default objects.
@@ -43,10 +43,12 @@ class WorkflowTasks(TaskBase):
 
         super().__init__(transClient, logger)
 
-        useCertificates = True if (bool(ownerDN) and bool(ownerGroup)) else False
+        useCertificates = bool(bool(owner) and bool(ownerGroup))
         if not submissionClient:
             self.submissionClient = WMSClient(
-                useCertificates=useCertificates, delegatedDN=ownerDN, delegatedGroup=ownerGroup
+                useCertificates=useCertificates,
+                delegatedDN=getDNForUsername(owner)["Value"][0] if owner else None,
+                delegatedGroup=ownerGroup,
             )
         else:
             self.submissionClient = submissionClient
@@ -79,12 +81,11 @@ class WorkflowTasks(TaskBase):
         self.destinationPlugin_o = None
 
         self.outputDataModule_o = None
+        self.objectLoader = ObjectLoader()
 
         self.parametricSequencedKeys = ["JOB_ID", "PRODUCTION_ID", "InputData"]
 
-    def prepareTransformationTasks(
-        self, transBody, taskDict, owner="", ownerGroup="", ownerDN="", bulkSubmissionFlag=False
-    ):
+    def prepareTransformationTasks(self, transBody, taskDict, owner="", ownerGroup="", bulkSubmissionFlag=False):
         """Prepare tasks, given a taskDict, that is created (with some manipulation) by the DB
             jobClass is by default "DIRAC.Interfaces.API.Job.Job". An extension of it also works.
 
@@ -93,7 +94,6 @@ class WorkflowTasks(TaskBase):
         :param dict taskDict: dictionary of per task parameters
         :param str owner: owner of the transformation
         :param str ownerGroup: group of the owner of the transformation
-        :param str ownerDN: DN of the owner of the transformation
         :param bool bulkSubmissionFlag: flag for using bulk submission or not
 
         :return: S_OK/S_ERROR with updated taskDict
@@ -107,25 +107,18 @@ class WorkflowTasks(TaskBase):
             owner = proxyInfo["username"]
             ownerGroup = proxyInfo["group"]
 
-        if not ownerDN:
-            res = getDNForUsername(owner)
-            if not res["OK"]:
-                return res
-            ownerDN = res["Value"][0]
-
         if bulkSubmissionFlag:
-            return self._prepareTasksBulk(transBody, taskDict, owner, ownerGroup, ownerDN)
+            return self._prepareTasksBulk(transBody, taskDict, owner, ownerGroup)
         # not a bulk submission
-        return self._prepareTasks(transBody, taskDict, owner, ownerGroup, ownerDN)
+        return self._prepareTasks(transBody, taskDict, owner, ownerGroup)
 
-    def _prepareTasksBulk(self, transBody, taskDict, owner, ownerGroup, ownerDN):
+    def _prepareTasksBulk(self, transBody, taskDict, owner, ownerGroup):
         """Prepare transformation tasks with a single job object for bulk submission
 
         :param str transBody: transformation job template
         :param dict taskDict: dictionary of per task parameters
         :param str owner: owner of the transformation
         :param str ownerGroup: group of the owner of the transformation
-        :param str ownerDN: DN of the owner of the transformation
 
         :return: S_OK/S_ERROR with updated taskDict
         """
@@ -142,7 +135,6 @@ class WorkflowTasks(TaskBase):
         self._logVerbose(f"Setting job owner:group to {owner}:{ownerGroup}", transID=transID, method=method)
         oJob.setOwner(owner)
         oJob.setOwnerGroup(ownerGroup)
-        oJob.setOwnerDN(ownerDN)
 
         try:
             site = oJob.workflow.findParameter("Site").getValue()
@@ -243,14 +235,13 @@ class WorkflowTasks(TaskBase):
         taskDict["BulkJobObject"] = oJob
         return S_OK(taskDict)
 
-    def _prepareTasks(self, transBody, taskDict, owner, ownerGroup, ownerDN):
+    def _prepareTasks(self, transBody, taskDict, owner, ownerGroup):
         """Prepare transformation tasks with a job object per task
 
         :param str transBody: transformation job template
         :param dict taskDict: dictionary of per task parameters
         :param owner: owner of the transformation
         :param str ownerGroup: group of the owner of the transformation
-        :param str ownerDN: DN of the owner of the transformation
 
         :return:  S_OK/S_ERROR with updated taskDict
         """
@@ -265,7 +256,6 @@ class WorkflowTasks(TaskBase):
         oJobTemplate = self.jobClass(transBody)
         oJobTemplate.setOwner(owner)
         oJobTemplate.setOwnerGroup(ownerGroup)
-        oJobTemplate.setOwnerDN(ownerDN)
 
         try:
             site = oJobTemplate.workflow.findParameter("Site").getValue()
@@ -316,13 +306,13 @@ class WorkflowTasks(TaskBase):
                 self._logError("Could not get a list a sites", transID=transID, method=method)
                 paramsDict["TaskObject"] = ""
                 continue
-            else:
-                self._logDebug("Setting Site: ", str(sites), transID=transID, method=method)
-                res = oJob.setDestination(sites)
-                if not res["OK"]:
-                    self._logError(f"Could not set the site: {res['Message']}", transID=transID, method=method)
-                    paramsDict["TaskObject"] = ""
-                    continue
+
+            self._logDebug("Setting Site: ", str(sites), transID=transID, method=method)
+            res = oJob.setDestination(sites)
+            if not res["OK"]:
+                self._logError(f"Could not set the site: {res['Message']}", transID=transID, method=method)
+                paramsDict["TaskObject"] = ""
+                continue
 
             self._handleInputs(oJob, paramsDict)
             self._handleRest(oJob, paramsDict)
@@ -366,18 +356,16 @@ class WorkflowTasks(TaskBase):
         except KeyError:
             pass
 
-        if self.destinationPlugin_o:
-            destinationPlugin_o = self.destinationPlugin_o
-        else:
-            res = self.__generatePluginObject(self.destinationPlugin)
-            if not res["OK"]:
+        if not self.destinationPlugin_o:
+            result = self.objectLoader.loadObject(self.pluginLocation)
+            if not result["OK"]:
                 self._logFatal("Could not generate a destination plugin object")
-                return res
-            destinationPlugin_o = res["Value"]
-            self.destinationPlugin_o = destinationPlugin_o
+                return result
+            taskManagerPluginClass = result["Value"]
+            self.destinationPlugin_o = taskManagerPluginClass(f"{self.destinationPlugin}", operationsHelper=self.opsH)
 
-        destinationPlugin_o.setParameters(paramsDict)
-        destSites = destinationPlugin_o.run()
+        self.destinationPlugin_o.setParameters(paramsDict)
+        destSites = self.destinationPlugin_o.run()
         if not destSites:
             return sites
 
@@ -463,33 +451,18 @@ class WorkflowTasks(TaskBase):
         if hospitalCEs:
             oJob._addJDLParameter("GridCE", hospitalCEs)
 
-    def __generatePluginObject(self, plugin):
-        """This simply instantiates the TaskManagerPlugin class with the relevant plugin name"""
-        method = "__generatePluginObject"
-        try:
-            plugModule = __import__(self.pluginLocation, globals(), locals(), ["TaskManagerPlugin"])
-        except ImportError as e:
-            self._logException(f"Failed to import 'TaskManagerPlugin' {plugin}: {e}", method=method)
-            return S_ERROR()
-        try:
-            plugin_o = getattr(plugModule, "TaskManagerPlugin")(f"{plugin}", operationsHelper=self.opsH)
-            return S_OK(plugin_o)
-        except AttributeError as e:
-            self._logException(f"Failed to create {plugin}(): {e}.", method=method)
-            return S_ERROR()
-
     #############################################################################
 
     def getOutputData(self, paramDict):
         """Get the list of job output LFNs from the provided plugin"""
         if not self.outputDataModule_o:
-            # Create the module object
-            moduleFactory = ModuleFactory()
+            result = self.objectLoader.loadObject(self.outputDataModule)
+            if not result["OK"]:
+                return result
+            objectClass = result["Value"]
 
-            moduleInstance = moduleFactory.getModule(self.outputDataModule, None)
-            if not moduleInstance["OK"]:
-                return moduleInstance
-            self.outputDataModule_o = moduleInstance["Value"]
+            self.outputDataModule_o = objectClass()
+
         # This is the "argument" to the module, set it and then execute
         self.outputDataModule_o.paramDict = paramDict
         return self.outputDataModule_o.execute()

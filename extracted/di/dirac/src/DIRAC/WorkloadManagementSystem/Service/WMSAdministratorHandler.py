@@ -1,12 +1,11 @@
 """
 This is a DIRAC WMS administrator interface.
 """
-from DIRAC import S_OK, S_ERROR
-
+from DIRAC import S_ERROR, S_OK
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Core.DISET.RequestHandler import RequestHandler
+from DIRAC.Core.Utilities.Decorators import deprecated
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
-from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
-from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getSites
 from DIRAC.WorkloadManagementSystem.Client.PilotManagerClient import PilotManagerClient
 
 
@@ -22,153 +21,124 @@ class WMSAdministratorHandlerMixin:
         except RuntimeError as excp:
             return S_ERROR(f"Can't connect to DB: {excp!r}")
 
-        cls.elasticJobParametersDB = None
-        useESForJobParametersFlag = Operations().getValue("/Services/JobMonitoring/useESForJobParametersFlag", False)
-        if useESForJobParametersFlag:
-            try:
-                result = ObjectLoader().loadObject(
-                    "WorkloadManagementSystem.DB.ElasticJobParametersDB", "ElasticJobParametersDB"
-                )
-                if not result["OK"]:
-                    return result
-                cls.elasticJobParametersDB = result["Value"]()
-            except RuntimeError as excp:
-                return S_ERROR(f"Can't connect to DB: {excp!r}")
+        result = ObjectLoader().loadObject("WorkloadManagementSystem.DB.JobParametersDB", "JobParametersDB")
+        if not result["OK"]:
+            return result
+        cls.elasticJobParametersDB = result["Value"]()
 
         cls.pilotManager = PilotManagerClient()
 
         return S_OK()
 
-    types_setSiteMask = [list]
-
+    @deprecated("no-op RPC")
     def export_setSiteMask(self, siteList):
         """Set the site mask for matching. The mask is given in a form of Classad string.
 
         :param list siteList: site, status
-
         :return: S_OK()/S_ERROR()
         """
-        credDict = self.getRemoteCredentials()
-        maskList = [(site, "Active") for site in siteList]
-        return self.jobDB.setSiteMask(maskList, credDict["DN"], "No comment")
+        return S_OK()
 
     ##############################################################################
     types_getSiteMask = []
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_getSiteMask(cls, siteState="Active"):
         """Get the site mask
 
         :param str siteState: site status
-
         :return: S_OK(list)/S_ERROR()
         """
-        return cls.jobDB.getSiteMask(siteState)
+        return S_OK()
 
     types_getSiteMaskStatus = []
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_getSiteMaskStatus(cls, sites=None):
         """Get the site mask of given site(s) with columns 'site' and 'status' only
 
         :param sites: list of sites or site
         :type sites: list or str
-
         :return: S_OK()/S_ERROR() -- S_OK contain dict or str
         """
-        return cls.jobDB.getSiteMaskStatus(sites)
+        return S_OK()
 
     ##############################################################################
     types_getAllSiteMaskStatus = []
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_getAllSiteMaskStatus(cls):
         """Get all the site parameters in the site mask
 
         :return: dict
         """
-        return cls.jobDB.getAllSiteMaskStatus()
+        return S_OK()
 
     ##############################################################################
     types_banSite = [str]
 
+    @deprecated("no-op RPC")
     def export_banSite(self, site, comment="No comment"):
         """Ban the given site in the site mask
 
         :param str site: site
         :param str comment: comment
-
         :return: S_OK()/S_ERROR()
         """
-        credDict = self.getRemoteCredentials()
-        author = credDict["username"] if credDict["username"] != "anonymous" else credDict["DN"]
-        return self.jobDB.banSiteInMask(site, author, comment)
+        return S_OK()
 
     ##############################################################################
     types_allowSite = [str]
 
+    @deprecated("no-op RPC")
     def export_allowSite(self, site, comment="No comment"):
         """Allow the given site in the site mask
 
         :param str site: site
         :param str comment: comment
-
         :return: S_OK()/S_ERROR()
         """
-        credDict = self.getRemoteCredentials()
-        author = credDict["username"] if credDict["username"] != "anonymous" else credDict["DN"]
-        return self.jobDB.allowSiteInMask(site, author, comment)
+        return S_OK()
 
     ##############################################################################
     types_clearMask = []
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_clearMask(cls):
         """Clear up the entire site mask
 
         :return: S_OK()/S_ERROR()
         """
-        return cls.jobDB.removeSiteFromMask(None)
+        return S_OK()
 
     ##############################################################################
     types_getSiteMaskLogging = [[str, list]]
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_getSiteMaskLogging(cls, sites):
         """Get the site mask logging history
 
         :param list sites: sites
-
         :return: S_OK(dict)/S_ERROR()
         """
-        if isinstance(sites, str):
-            sites = [sites]
-
-        return cls.jobDB.getSiteMaskLogging(sites)
+        return S_OK()
 
     ##############################################################################
     types_getSiteMaskSummary = []
 
     @classmethod
+    @deprecated("no-op RPC")
     def export_getSiteMaskSummary(cls):
         """Get the mask status for all the configured sites
 
         :return: S_OK(dict)/S_ERROR()
         """
-        # Get all the configured site names
-        res = getSites()
-        if not res["OK"]:
-            return res
-        sites = res["Value"]
-
-        # Get the current mask status
-        result = cls.jobDB.getSiteMaskStatus()
-        siteDict = result["Value"]
-        for site in sites:
-            if site not in siteDict:
-                siteDict[site] = "Unknown"
-
-        return S_OK(siteDict)
+        return S_OK()
 
     ##############################################################################
     types_getJobPilotOutput = [[str, int]]
@@ -178,18 +148,18 @@ class WMSAdministratorHandlerMixin:
         job reference
 
         :param str jobID: job ID
-
         :return: S_OK(dict)/S_ERROR()
         """
         pilotReference = ""
         # Get the pilot grid reference first from the job parameters
 
-        if self.elasticJobParametersDB:
-            res = self.elasticJobParametersDB.getJobParameters(int(jobID), "Pilot_Reference")
-            if not res["OK"]:
-                return res
-            if res["Value"].get(int(jobID)):
-                pilotReference = res["Value"][int(jobID)]["Pilot_Reference"]
+        credDict = self.getRemoteCredentials()
+        vo = credDict.get("VO", Registry.getVOForGroup(credDict["group"]))
+        res = self.elasticJobParametersDB.getJobParameters(int(jobID), vo=vo, paramList=["Pilot_Reference"])
+        if not res["OK"]:
+            return res
+        if res["Value"].get(int(jobID)):
+            pilotReference = res["Value"][int(jobID)]["Pilot_Reference"]
 
         if not pilotReference:
             res = self.jobDB.getJobParameter(int(jobID), "Pilot_Reference")
@@ -211,55 +181,6 @@ class WMSAdministratorHandlerMixin:
         if pilotReference:
             return self.pilotManager.getPilotOutput(pilotReference)
         return S_ERROR("No pilot job reference found")
-
-    ##############################################################################
-    types_getSiteSummaryWeb = [dict, list, int, int]
-
-    @classmethod
-    def export_getSiteSummaryWeb(cls, selectDict, sortList, startItem, maxItems):
-        """Get the summary of the jobs running on sites in a generic format
-
-        :param dict selectDict: selectors
-        :param list sortList: sorting list
-        :param int startItem: start item number
-        :param int maxItems: maximum of items
-
-        :return: S_OK(dict)/S_ERROR()
-        """
-        return cls.jobDB.getSiteSummaryWeb(selectDict, sortList, startItem, maxItems)
-
-    ##############################################################################
-    types_getSiteSummarySelectors = []
-
-    @classmethod
-    def export_getSiteSummarySelectors(cls):
-        """Get all the distinct selector values for the site summary web portal page
-
-        :return: S_OK(dict)/S_ERROR()
-        """
-        resultDict = {}
-        statusList = ["Good", "Fair", "Poor", "Bad", "Idle"]
-        resultDict["Status"] = statusList
-        maskStatus = ["Active", "Banned", "NoMask", "Reduced"]
-        resultDict["MaskStatus"] = maskStatus
-
-        res = getSites()
-        if not res["OK"]:
-            return res
-        siteList = res["Value"]
-
-        countryList = []
-        for site in siteList:
-            if site.find(".") != -1:
-                country = site.split(".")[2].lower()
-                if country not in countryList:
-                    countryList.append(country)
-        countryList.sort()
-        resultDict["Country"] = countryList
-        siteList.sort()
-        resultDict["Site"] = siteList
-
-        return S_OK(resultDict)
 
 
 class WMSAdministratorHandler(WMSAdministratorHandlerMixin, RequestHandler):

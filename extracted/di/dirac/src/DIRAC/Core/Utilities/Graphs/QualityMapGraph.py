@@ -113,8 +113,8 @@ class QualityMapGraph(PlotBase):
         start_plot = 0
         end_plot = 0
         if "starttime" in self.prefs and "endtime" in self.prefs:
-            start_plot = date2num(datetime.datetime.fromtimestamp(to_timestamp(self.prefs["starttime"])))
-            end_plot = date2num(datetime.datetime.fromtimestamp(to_timestamp(self.prefs["endtime"])))
+            start_plot = date2num(datetime.datetime.utcfromtimestamp(to_timestamp(self.prefs["starttime"])))
+            end_plot = date2num(datetime.datetime.utcfromtimestamp(to_timestamp(self.prefs["endtime"])))
 
         labels = self.gdata.getLabels()
         nKeys = self.gdata.getNumberOfKeys()
@@ -168,6 +168,7 @@ class QualityMapGraph(PlotBase):
         setp(self.ax.get_yticklines(), markersize=0.0)  # pylint: disable=not-callable
 
         cax, _kw = make_axes(self.ax, orientation="vertical", fraction=0.07)  # pylint: disable=unpacking-non-sequence
+        # ColorbarBase is used to generate the colors within the legend at the right of the plot
         ColorbarBase(
             cax, cmap=self.cmap, norm=self.norms, boundaries=self.cbBoundaries, values=self.cbValues, ticks=self.cbTicks
         )

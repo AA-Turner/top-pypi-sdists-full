@@ -23,7 +23,7 @@ use uv_cli::{
 };
 use uv_client::Connectivity;
 use uv_configuration::{
-    BuildIsolation, BuildOptions, Concurrency, DependencyGroups, DryRun, EditableMode,
+    BuildIsolation, BuildOptions, Concurrency, DependencyGroups, DryRun, EditableMode, EnvFile,
     ExportFormat, ExtrasSpecification, HashCheckingMode, IndexStrategy, InstallOptions,
     KeyringProviderType, NoBinary, NoBuild, ProjectBuildBackend, Reinstall, RequiredVersion,
     SourceStrategy, TargetTriple, TrustedHost, TrustedPublishing, Upgrade, VersionControlSystem,
@@ -343,8 +343,7 @@ pub(crate) struct RunSettings {
     pub(crate) install_mirrors: PythonInstallMirrors,
     pub(crate) refresh: Refresh,
     pub(crate) settings: ResolverInstallerSettings,
-    pub(crate) env_file: Vec<PathBuf>,
-    pub(crate) no_env_file: bool,
+    pub(crate) env_file: EnvFile,
     pub(crate) max_recursion_depth: u32,
 }
 
@@ -461,8 +460,7 @@ impl RunSettings {
                 resolver_installer_options(installer, build),
                 filesystem,
             ),
-            env_file,
-            no_env_file,
+            env_file: EnvFile::from_args(env_file, no_env_file),
             install_mirrors,
             max_recursion_depth: max_recursion_depth.unwrap_or(Self::DEFAULT_MAX_RECURSION_DEPTH),
         }
@@ -538,11 +536,11 @@ impl ToolRunSettings {
         if installer.reinstall || !installer.reinstall_package.is_empty() {
             if with.is_empty() && with_requirements.is_empty() {
                 warn_user_once!(
-                    "Tools cannot be reinstalled via `{invocation_source}`; use `uv tool upgrade --all --reinstall` to reinstall all installed tools, or `{invocation_source} package@latest` to run the latest version of a tool."
+                    "Tools cannot be reinstalled via `{invocation_source}`; use `uv tool upgrade --all --reinstall` to reinstall all installed tools, `{invocation_source} package@latest` to run the latest version of a tool, or `uv cache prune` to clear any cached tool environments."
                 );
             } else {
                 warn_user_once!(
-                    "Tools cannot be reinstalled via `{invocation_source}`; use `uv tool upgrade --all --reinstall` to reinstall all installed tools, `{invocation_source} package@latest` to run the latest version of a tool, or `{invocation_source} --refresh package` to reinstall any `--with` dependencies."
+                    "Tools cannot be reinstalled via `{invocation_source}`; use `uv tool upgrade --all --reinstall` to reinstall all installed tools, `{invocation_source} package@latest` to run the latest version of a tool, `{invocation_source} --refresh package` to reinstall any `--with` dependencies, or `uv cache prune` to clear any cached tool environments."
                 );
             }
         }
@@ -2721,6 +2719,7 @@ pub(crate) struct VenvSettings {
     pub(crate) seed: bool,
     pub(crate) allow_existing: bool,
     pub(crate) clear: bool,
+    pub(crate) no_clear: bool,
     pub(crate) path: Option<PathBuf>,
     pub(crate) prompt: Option<String>,
     pub(crate) system_site_packages: bool,
@@ -2740,6 +2739,7 @@ impl VenvSettings {
             seed,
             allow_existing,
             clear,
+            no_clear,
             path,
             prompt,
             system_site_packages,
@@ -2759,6 +2759,7 @@ impl VenvSettings {
             seed,
             allow_existing,
             clear,
+            no_clear,
             path,
             prompt,
             system_site_packages,

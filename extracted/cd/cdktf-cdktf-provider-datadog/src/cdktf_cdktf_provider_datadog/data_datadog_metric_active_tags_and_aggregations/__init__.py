@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_metric_active_tags_and_aggregations`
 
-Refer to the Terraform Registry for docs: [`data_datadog_metric_active_tags_and_aggregations`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations).
+Refer to the Terraform Registry for docs: [`data_datadog_metric_active_tags_and_aggregations`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogMetricActiveTagsAndAggregations(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogMetricActiveTagsAndAggregations.DataDatadogMetricActiveTagsAndAggregations",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations datadog_metric_active_tags_and_aggregations}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations datadog_metric_active_tags_and_aggregations}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDatadogMetricActiveTagsAndAggregations(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations datadog_metric_active_tags_and_aggregations} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations datadog_metric_active_tags_and_aggregations} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
-        :param window: The number of seconds to look back from now. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
+        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
+        :param window: The number of seconds to look back from now. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDatadogMetricActiveTagsAndAggregations(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogMetricActiveTagsAndAggregations to import.
-        :param import_from_id: The id of the existing DataDatadogMetricActiveTagsAndAggregations that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogMetricActiveTagsAndAggregations that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogMetricActiveTagsAndAggregations to import is found.
         '''
         if __debug__:
@@ -376,8 +376,8 @@ class DataDatadogMetricActiveTagsAndAggregationsConfig(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
-        :param window: The number of seconds to look back from now. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
+        :param metric: The metric for which to fetch tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
+        :param window: The number of seconds to look back from now. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -480,7 +480,7 @@ class DataDatadogMetricActiveTagsAndAggregationsConfig(
     def metric(self) -> builtins.str:
         '''The metric for which to fetch tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#metric DataDatadogMetricActiveTagsAndAggregations#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -490,7 +490,7 @@ class DataDatadogMetricActiveTagsAndAggregationsConfig(
     def window(self) -> typing.Optional[jsii.Number]:
         '''The number of seconds to look back from now.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/metric_active_tags_and_aggregations#window DataDatadogMetricActiveTagsAndAggregations#window}
         '''
         result = self._values.get("window")
         return typing.cast(typing.Optional[jsii.Number], result)

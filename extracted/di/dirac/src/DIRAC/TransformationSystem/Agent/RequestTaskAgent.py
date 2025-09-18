@@ -12,8 +12,6 @@ The following options can be set for the RequestTaskAgent.
 * The options *SubmitTasks*, *MonitorTasks*, *MonitorFiles*, and *CheckReserved*
   need to be assigned any non-empty value to be activated
 
-* .. versionadded:: v6r20p5
-
    It is possible to run the RequestTaskAgent without a *shifterProxy* or
    *ShifterCredentials*, in this case the credentials of the authors of the
    transformations are used to submit the jobs to the RMS. This enables the use of
@@ -65,14 +63,14 @@ class RequestTaskAgent(TaskManagerAgentBase):
 
         return S_OK()
 
-    def _getClients(self, ownerDN=None, ownerGroup=None):
+    def _getClients(self, owner=None, ownerGroup=None):
         """Set the clients for task submission.
 
         Here the taskManager becomes a RequestTasks object.
 
         See :func:`DIRAC.TransformationSystem.TaskManagerAgentBase._getClients`.
         """
-        res = super()._getClients(ownerDN=ownerDN, ownerGroup=ownerGroup)
-        threadTaskManager = self.requestTasksCls(ownerDN=ownerDN, ownerGroup=ownerGroup)
+        res = super()._getClients(owner=owner, ownerGroup=ownerGroup)
+        threadTaskManager = self.requestTasksCls(owner=owner, ownerGroup=ownerGroup)
         res.update({"TaskManager": threadTaskManager})
         return res

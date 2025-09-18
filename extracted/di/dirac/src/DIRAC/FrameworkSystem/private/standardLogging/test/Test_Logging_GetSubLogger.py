@@ -5,7 +5,7 @@ import pytest
 from DIRAC.FrameworkSystem.private.standardLogging.LogLevels import LogLevels
 
 
-from DIRAC.FrameworkSystem.private.standardLogging.test.TestLogUtilities import gLogger, gLoggerReset
+from DIRAC.FrameworkSystem.private.standardLogging.test.TestLogUtilities import gLogger, gLoggerReset, cleaningLog
 
 
 def test_getSubLoggerLogRecord():
@@ -48,10 +48,6 @@ def test_getSubLoggerObject():
     assert log == anotherLog
 
 
-# Run the tests for all the log levels and exceptions
-# We may need to rerun the test if we are unlucky and the timestamps
-# don't match
-@pytest.mark.flaky(reruns=3)
 @pytest.mark.parametrize("logLevel", ["exception"] + [lvl.lower() for lvl in LogLevels.getLevelNames()])
 def test_localSubLoggerObject(logLevel):
     """
@@ -65,7 +61,7 @@ def test_localSubLoggerObject(logLevel):
     # Create a real subLogger and a localSubLogger
     # with the same "name"
     subLog = log.getSubLogger("child")
-    localSubLog = log.getSubLogger("child")
+    localSubLog = log.getLocalSubLogger("child")
 
     # Print and capture a message with the real sublogger
     capturedBackend.truncate(0)
@@ -80,4 +76,4 @@ def test_localSubLoggerObject(logLevel):
     locMsg = capturedBackend.getvalue()
 
     # Compare the output
-    assert subMsg == locMsg
+    assert cleaningLog(subMsg) == cleaningLog(locMsg)

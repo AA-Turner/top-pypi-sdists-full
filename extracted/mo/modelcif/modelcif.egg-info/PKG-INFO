@@ -1,27 +1,27 @@
 Metadata-Version: 2.4
 Name: modelcif
-Version: 1.4
+Version: 1.5
 Summary: Package for handling ModelCIF mmCIF and BinaryCIF files
 Home-page: https://github.com/ihmwg/python-modelcif
 Author: Ben Webb
-Author-email: ben@salilab.org
+Author-email: Ben Webb <ben@salilab.org>
+License-Expression: MIT
+Project-URL: homepage, https://github.com/ihmwg/python-modelcif
+Project-URL: repository, https://github.com/ihmwg/python-modelcif
+Project-URL: documentation, https://python-modelcif.readthedocs.io/
+Project-URL: issues, https://github.com/ihmwg/python-modelcif/issues/
+Project-URL: changelog, https://github.com/ihmwg/python-modelcif/blob/main/ChangeLog.rst
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ihm>=2.6
 Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5908678.svg)](https://doi.org/10.5281/zenodo.5908678)
 [![docs](https://readthedocs.org/projects/python-modelcif/badge/)](https://python-modelcif.readthedocs.org/)

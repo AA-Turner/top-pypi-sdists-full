@@ -8,16 +8,13 @@ Service handler for FTS3DB using DISET
   :caption: FTS3Manager options
 
 """
-from DIRAC import S_OK, S_ERROR, gLogger
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername
 from DIRAC.Core.DISET.RequestHandler import RequestHandler, getServiceOption
 from DIRAC.Core.Security.Properties import FULL_DELEGATION, LIMITED_DELEGATION
 from DIRAC.Core.Utilities import DErrno
-from DIRAC.Core.Utilities.JEncode import strToIntDict
-
-
+from DIRAC.Core.Utilities.JEncode import decode, encode, strToIntDict
 from DIRAC.DataManagementSystem.DB.FTS3DB import FTS3DB
-from DIRAC.Core.Utilities.JEncode import encode, decode
 
 ########################################################################
 
@@ -208,5 +205,3 @@ class FTS3ManagerHandlerMixin:
 
 class FTS3ManagerHandler(FTS3ManagerHandlerMixin, RequestHandler):
     """DISET handler for FTS3Manager"""
-
-    pass

@@ -14244,7 +14244,17 @@ var tf_component_traceviewer;
             try {
               traceViewerLink = new URL(window.location.origin + this.traceDataUrl);
               this._sessionId = traceViewerLink.searchParams.get('session_id');
-              this._selectedHosts = (traceViewerLink.searchParams.get('hosts') || '').split(',');
+              // For 1P
+              const hostsParam = traceViewerLink.searchParams.get('hosts');
+              // For OSS/3P
+              const hostParam = traceViewerLink.searchParams.get('host');
+              if (hostsParam) {
+                this._selectedHosts = hostsParam.split(',');
+              } else if (hostParam) {
+                this._selectedHosts = hostParam.split(',');
+              } else {
+                this._selectedHosts = [];
+              }
               if (traceViewerLink.searchParams.has('new_backend')) {
                 this._useNewBackend = traceViewerLink.searchParams.get('new_backend') === 'true';
                 this._useNewBackendSetInUrl = true;
@@ -15333,8 +15343,8 @@ var tf_component_traceviewer;
             await this._getDefaults();
           }
           this._createBackendToggleButton();
-          this._updateSearchBehavior();
         }
+        this._updateSearchBehavior();
       }
       let initialRequestedRange = null;
       if (initialViewportRange) {

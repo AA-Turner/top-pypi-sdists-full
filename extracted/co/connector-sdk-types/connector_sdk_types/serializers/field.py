@@ -16,6 +16,8 @@ class SemanticType(str, Enum):
     ACCOUNT_ID = "account-id"
     # Represents the ID of an application discovered by the connector
     APPLICATION_ID = "application-id"
+    # Represents the ID of an application instance discovered by the connector
+    APPLICATION_INSTANCE_ID = "application-instance-id"
     # Represents an AWS external ID that can be used to authenticate with AWS
     AWS_EXTERNAL_ID = "aws-external-id"
     # Represents the ID of an entitlement discovered by the connector

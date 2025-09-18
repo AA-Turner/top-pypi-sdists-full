@@ -622,6 +622,11 @@ class SystemAdministratorClientCLI(CLI):
           install agent <system> <agent> [-m <ModuleName>] [-p <Option>=<Value>] [-p <Option>=<Value>] ...
           install executor <system> <executor> [-m <ModuleName>] [-p <Option>=<Value>] [-p <Option>=<Value>] ...
         """
+        result = getProxyInfo()
+        if not result["OK"]:
+            self._errMsg(result["Message"])
+        user = result["Value"]["username"]
+
         argss = args.split()
         hostSetup = extension = None
         if not argss:
@@ -648,15 +653,6 @@ class SystemAdministratorClientCLI(CLI):
                 return
             system = result["Value"][database]["System"]
             dbType = result["Value"][database]["Type"]
-            setup = gConfig.getValue("/DIRAC/Setup", "")
-            if not setup:
-                self._errMsg("Unknown current setup")
-                return
-            instance = gConfig.getValue(f"/DIRAC/Setups/{setup}/{system}", "")
-            if not instance:
-                self._errMsg(f"No instance defined for system {system}")
-                self._errMsg(f"\tAdd new instance with 'add instance {system} <instance_name>'")
-                return
 
             if dbType == "MySQL":
                 if not gComponentInstaller.mysqlPassword:
@@ -681,7 +677,7 @@ class SystemAdministratorClientCLI(CLI):
 
                 if database != "InstalledComponentsDB":
                     result = MonitoringUtilities.monitorInstallation(
-                        "DB", system.replace("System", ""), database, cpu=cpu, hostname=hostname
+                        "DB", system.replace("System", ""), database, cpu=cpu, hostname=hostname, user=user
                     )
                     if not result["OK"]:
                         self._errMsg(result["Message"])
@@ -691,9 +687,8 @@ class SystemAdministratorClientCLI(CLI):
                 result = client.getInfo()
                 if not result["OK"]:
                     self._errMsg(result["Message"])
-                hostSetup = result["Value"]["Setup"]
 
-            result = gComponentInstaller.addDatabaseOptionsToCS(gConfig, system, database, hostSetup, overwrite=True)
+            result = gComponentInstaller.addDatabaseOptionsToCS(gConfig, system, database, overwrite=True)
             if not result["OK"]:
                 self._errMsg(result["Message"])
                 return
@@ -731,12 +726,11 @@ class SystemAdministratorClientCLI(CLI):
             if not result["OK"]:
                 self._errMsg(result["Message"])
                 return
-            hostSetup = result["Value"]["Setup"]
 
             # Install Module section if not yet there
             if module:
                 result = gComponentInstaller.addDefaultOptionsToCS(
-                    gConfig, option, system, module, extensionsByPriority(), hostSetup
+                    gConfig, option, system, module, extensionsByPriority()
                 )
                 # in case of Error we must stop, this can happen when the module name is wrong...
                 if not result["OK"]:
@@ -749,14 +743,13 @@ class SystemAdministratorClientCLI(CLI):
                     system,
                     component,
                     extensionsByPriority(),
-                    hostSetup,
-                    specialOptions,
+                    specialOptions=specialOptions,
                     addDefaultOptions=True,
                 )
             else:
                 # Install component section
                 result = gComponentInstaller.addDefaultOptionsToCS(
-                    gConfig, option, system, component, extensionsByPriority(), hostSetup, specialOptions
+                    gConfig, option, system, component, extensionsByPriority(), specialOptions
                 )
 
             if not result["OK"]:
@@ -797,14 +790,14 @@ class SystemAdministratorClientCLI(CLI):
                     return
 
                 result = MonitoringUtilities.monitorInstallation(
-                    "DB", system, "InstalledComponentsDB", cpu=cpu, hostname=hostname
+                    "DB", system, "InstalledComponentsDB", cpu=cpu, hostname=hostname, user=user
                 )
                 if not result["OK"]:
                     self._errMsg(f"Error registering installation into database: {result['Message']}")
                     return
 
             result = MonitoringUtilities.monitorInstallation(
-                option, system, component, module, cpu=cpu, hostname=hostname
+                option, system, component, module, cpu=cpu, hostname=hostname, user=user
             )
             if not result["OK"]:
                 self._errMsg(f"Error registering installation into database: {result['Message']}")
@@ -831,6 +824,7 @@ class SystemAdministratorClientCLI(CLI):
         result = getProxyInfo()
         if not result["OK"]:
             self._errMsg(result["Message"])
+        user = result["Value"]["username"]
 
         option = argss[0]
         if option == "db":
@@ -853,7 +847,7 @@ class SystemAdministratorClientCLI(CLI):
                 self._errMsg(result["Message"])
                 return
             system = result["Value"][component]["System"]
-            result = MonitoringUtilities.monitorUninstallation(system, component, hostname=hostname, cpu=cpu)
+            result = MonitoringUtilities.monitorUninstallation(system, component, hostname=hostname, cpu=cpu, user=user)
             if not result["OK"]:
                 self._errMsg(result["Message"])
                 return
@@ -948,7 +942,7 @@ class SystemAdministratorClientCLI(CLI):
             else:
                 cpu = result["Value"]["CPUModel"]
             hostname = self.host
-            result = MonitoringUtilities.monitorUninstallation(system, component, hostname=hostname, cpu=cpu)
+            result = MonitoringUtilities.monitorUninstallation(system, component, hostname=hostname, cpu=cpu, user=user)
             if not result["OK"]:
                 return result
 
@@ -1104,44 +1098,6 @@ class SystemAdministratorClientCLI(CLI):
             gLogger.notice("Error:", result["Message"])
         else:
             gLogger.notice("Software reverted to", result["Value"])
-
-    def do_add(self, args):
-        """
-        Add new entity to the Configuration Service
-
-        usage:
-
-          add system <system> <instance>
-        """
-        if not args:
-            gLogger.notice(self.do_add.__doc__)
-            return
-
-        argss = args.split()
-        option = argss[0]
-        del argss[0]
-        if option == "instance" or option == "system":
-            system = argss[0]
-            instance = argss[1]
-            client = SystemAdministratorClient(self.host, self.port)
-            result = client.getInfo()
-            if not result["OK"]:
-                self._errMsg(result["Message"])
-            hostSetup = result["Value"]["Setup"]
-            instanceName = gConfig.getValue(f"/DIRAC/Setups/{hostSetup}/{system}", "")
-            if instanceName:
-                if instanceName == instance:
-                    gLogger.notice(f"System {system} already has instance {instance} defined in {hostSetup} Setup")
-                else:
-                    self._errMsg(f"System {system} already has instance {instance} defined in {hostSetup} Setup")
-                return
-            result = gComponentInstaller.addSystemInstance(system, instance, hostSetup)
-            if not result["OK"]:
-                self._errMsg(result["Message"])
-            else:
-                gLogger.notice(f"{system} system instance {instance} added successfully")
-        else:
-            gLogger.notice("Unknown option:", option)
 
     def do_exec(self, args):
         """

@@ -1,8 +1,8 @@
 """
-This class is used to insert data to a db (currently elasticsearch).
+This class is used to insert data to a db (currently opensearch).
 It uses an internal list which is used to keep messages in the memory.
 addRecord is used to insert messages to the internal queue. commit is used
-to insert the acumulated messages to elasticsearch.
+to insert the acumulated messages to opensearch.
 It provides two failover mechanism:
 1.) If the database is not available, the data will be kept in the memory.
 2.) If a MQ is available, we store the messages in MQ service.
@@ -16,15 +16,12 @@ a MQ service is available, if the MQ is not working a failover will be performed
 
 """
 
-import threading
 import json
+import threading
 
-from DIRAC import S_OK, S_ERROR, gLogger
-
-from DIRAC.Resources.MessageQueue.MQCommunication import createConsumer
-from DIRAC.Resources.MessageQueue.MQCommunication import createProducer
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.MonitoringSystem.Client.ServerUtils import getMonitoringDB
-from DIRAC.ConfigurationSystem.Client.Config import gConfig
+from DIRAC.Resources.MessageQueue.MQCommunication import createConsumer, createProducer
 
 
 class MonitoringReporter:

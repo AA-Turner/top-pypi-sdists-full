@@ -8,8 +8,7 @@
 #include <sys/sysctl.h>
 #include <devstat.h>
 
-#include "../../_psutil_common.h"
-#include "../../_psutil_posix.h"
+#include "../../arch/all/init.h"
 
 
 // convert a bintime struct to milliseconds
@@ -83,4 +82,3 @@ error:
         free(stats.dinfo);
     return NULL;
 }
-

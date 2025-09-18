@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 The python-bitcoin-utils developers
+# Copyright (C) 2018-2025 The python-bitcoin-utils developers
 #
 # This file is part of python-bitcoin-utils
 #
@@ -23,6 +23,7 @@ from ecdsa import ellipticcurve  # type: ignore
 from bitcoinutils.constants import SATOSHIS_PER_BITCOIN, LEAF_VERSION_TAPSCRIPT
 from bitcoinutils.schnorr import full_pubkey_gen, point_add, point_mul, G
 import struct
+
 
 # clean whatever is not used!
 class Secp256k1Params:
@@ -76,7 +77,13 @@ class ControlBlock:
         returns the control block as a hexadecimal string
     """
 
-    def __init__(self, pubkey: PublicKey, scripts: None | list[list[Script]], index: int, is_odd=False):
+    def __init__(
+        self,
+        pubkey: PublicKey,
+        scripts: None | list[list[Script]],
+        index: int,
+        is_odd=False,
+    ):
         """
         Parameters
         ----------
@@ -89,7 +96,7 @@ class ControlBlock:
         """
         self.pubkey = pubkey
         self.scripts = scripts
-        self.merkle_path = b"".join(_generate_merkle_path(scripts, index))
+        self.merkle_path = _generate_merkle_path(scripts, index)
         self.is_odd = is_odd
 
     def to_bytes(self) -> bytes:
@@ -98,10 +105,17 @@ class ControlBlock:
         pub_key = bytes.fromhex(self.pubkey.to_x_only_hex())
         return leaf_version + pub_key + self.merkle_path
 
-    def to_hex(self):
-        """Converts object to hexadecimal string"""
+    def to_hex(self) -> str:
+        """Converts object to hexadecimal string
+        
+        Returns
+        -------
+        str
+            The control block as a hexadecimal string
+        """
         return b_to_h(self.to_bytes())
-    
+
+
 def _generate_merkle_path(all_leafs, target_leaf_index):
     """Generate the merkle path for spending a taproot path.
 
@@ -114,28 +128,38 @@ def _generate_merkle_path(all_leafs, target_leaf_index):
 
     Returns
     ----------
-    merkle_path : list
-        List of tagged hashes representing the merkle path.
+    merkle_path : bytes
+        Tagged hash representing the merkle path.
     """
-    merkle_path = []
     traversed = 0
-    
+
     def traverse_level(level):
         nonlocal traversed
-        for leaf in level:
-            if isinstance(leaf, list):
-                traverse_level(leaf)
-            else:
-                if traversed == target_leaf_index:
-                    traversed += 1
-                    continue
-                tagged_hash = tapleaf_tagged_hash(leaf)
-                merkle_path.append(tagged_hash)
+        if isinstance(level, list):
+            if len(level) == 1:
+                return traverse_level(level[0])
+            if len(level) == 2:
+                a, a1 = traverse_level(level[0])
+                b, b1 = traverse_level(level[1])
+                if a1:
+                    return (a + b), True
+                if b1:
+                    return (b + a), True
+                return tapbranch_tagged_hash(a, b), False
+            raise ValueError(
+                "Invalid Merkle branch: List cannot have more than 2 branches."
+            )
+        else:
+            if traversed == target_leaf_index:
                 traversed += 1
-    
-    traverse_level(all_leafs)
-    
-    return merkle_path
+                return b"", True
+            traversed += 1
+            return tapleaf_tagged_hash(level), False
+
+    merkle_path = traverse_level(all_leafs)
+
+    return merkle_path[0]
+
 
 def get_tag_hashed_merkle_root(
     scripts: None | Script | list[Script] | list[list[Script]],
@@ -169,7 +193,9 @@ def get_tag_hashed_merkle_root(
             return tapbranch_tagged_hash(left, right)
         else:
             # Raise an error if a branch node contains more than two elements
-            raise ValueError("Invalid Merkle branch: List cannot have more than 2 branches.")
+            raise ValueError(
+                "Invalid Merkle branch: List cannot have more than 2 branches."
+            )
 
 
 def to_satoshis(num: int | float | Decimal):
@@ -206,21 +232,23 @@ def encode_varint(i: int) -> bytes:
         return b"\xff" + i.to_bytes(8, "little")
     else:
         raise ValueError("Integer is too large: %d" % i)
-    
+
+
 def parse_compact_size(data: bytes) -> tuple:
     """
-    Parse variable integer. Returns (count, size) 
+    Parse variable integer. Returns (count, size)
     """
     first_byte = data[0]
-    if first_byte < 0xfd:
+    if first_byte < 0xFD:
         return (first_byte, 1)
-    elif first_byte == 0xfd:
-        return (struct.unpack('<H', data[1:3])[0], 3)
-    elif first_byte == 0xfe:
-        return (struct.unpack('<I', data[1:5])[0], 5)
-    elif first_byte == 0xff:
-        return (struct.unpack('<Q', data[1:9])[0], 9)
-        
+    elif first_byte == 0xFD:
+        return (struct.unpack("<H", data[1:3])[0], 3)
+    elif first_byte == 0xFE:
+        return (struct.unpack("<I", data[1:5])[0], 5)
+    elif first_byte == 0xFF:
+        return (struct.unpack("<Q", data[1:9])[0], 9)
+
+
 def get_transaction_length(data: bytes) -> int:
     """
     Return length of a transaction, including handling for SegWit transactions.
@@ -231,8 +259,8 @@ def get_transaction_length(data: bytes) -> int:
     offset += 4
 
     # Check for SegWit marker and flag
-    marker, flag = data[offset], data[offset+1]
-    is_segwit = (marker == 0 and flag != 0)
+    marker, flag = data[offset], data[offset + 1]
+    is_segwit = marker == 0 and flag != 0
     if is_segwit:
         offset += 2  # Skip marker and flag
 
@@ -280,12 +308,21 @@ def get_transaction_length(data: bytes) -> int:
 
 
 def is_address_bech32(address: str) -> bool:
-    """
-    Returns if an address (string) is bech32 or not
+    """Returns if an address (string) is bech32 or not
+    
+    Parameters
+    ----------
+    address : str
+        The address to check
+        
+    Returns
+    -------
+    bool
+        True if the address is bech32, False otherwise
     """
     if not address:
         return False
-    
+
     CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
     # Check if the string has valid characters
     for char in address:
@@ -299,6 +336,7 @@ def is_address_bech32(address: str) -> bool:
     if len(hrp) < 1 or len(data) < 6:
         return False
     return True
+
 
 def vi_to_int(byteint: bytes) -> Tuple[int, int]:
     """
@@ -349,7 +387,7 @@ def tagged_hash(data: bytes, tag: str) -> bytes:
 
 
 def calculate_tweak(
-    pubkey: PublicKey, scripts: None | Script | list[Script] | list[list[Script]]
+    pubkey: PublicKey, scripts: None | Script | list[Script] | list[list[Script]] | bytes
 ) -> int:
     """
     Calculates the tweak to apply to the public and private key when required.
@@ -360,6 +398,8 @@ def calculate_tweak(
 
     if not scripts:
         tweak = tagged_hash(key_x, "TapTweak")
+    elif isinstance(scripts, bytes):
+        tweak = tagged_hash(key_x + scripts, "TapTweak")
     else:
         # if also script spending this should include the tapleaf of the
         # versioned script!
@@ -373,13 +413,39 @@ def calculate_tweak(
 
 
 def tapleaf_tagged_hash(script: Script) -> bytes:
-    """Calculates the tagged hash for a tapleaf"""
-    script_part = bytes([LEAF_VERSION_TAPSCRIPT]) + prepend_compact_size(script.to_bytes())
+    """Calculates the tagged hash for a tapleaf
+    
+    Parameters
+    ----------
+    script : Script
+        The script to calculate the tagged hash for
+        
+    Returns
+    -------
+    bytes
+        The tagged hash of the tapleaf
+    """
+    script_part = bytes([LEAF_VERSION_TAPSCRIPT]) + prepend_compact_size(
+        script.to_bytes()
+    )
     return tagged_hash(script_part, "TapLeaf")
 
 
 def tapbranch_tagged_hash(thashed_a: bytes, thashed_b: bytes) -> bytes:
-    """Calculates the tagged hash for a tapbranch"""
+    """Calculates the tagged hash for a tapbranch
+    
+    Parameters
+    ----------
+    thashed_a : bytes
+        First tagged hash
+    thashed_b : bytes
+        Second tagged hash
+        
+    Returns
+    -------
+    bytes
+        The tagged hash of the tapbranch
+    """
     # order - smaller left side
     if thashed_a < thashed_b:
         return tagged_hash(thashed_a + thashed_b, "TapBranch")
@@ -450,7 +516,7 @@ def tweak_taproot_pubkey(internal_pubkey: bytes, tweak: int) -> Tuple[bytes, boo
         Q = (Q[0], Secp256k1Params._field - Q[1])  # type: ignore
 
     # print(f'Tweaked Public Key: {Q[0]:064x}{Q[1]:064x}')
-    return bytes.fromhex(f"{Q[0]:064x}{Q[1]:064x}"), is_odd # type: ignore
+    return bytes.fromhex(f"{Q[0]:064x}{Q[1]:064x}"), is_odd  # type: ignore
 
 
 def tweak_taproot_privkey(privkey: bytes, tweak: int) -> bytes:
@@ -491,7 +557,7 @@ def b_to_h(b: bytes) -> str:
 
 
 def h_to_b(h: str) -> bytes:
-    """Converts bytes to hexadecimal string"""
+    """Converts hexadecimal string to bytes"""
     return bytes.fromhex(h)
 
 
@@ -515,14 +581,17 @@ def b_to_i(b: bytes) -> int:
     """Converts a bytes to a number"""
     return int.from_bytes(b, byteorder="big")
 
+
 def i_to_b32(i: int) -> bytes:
     """Converts a integer to bytes"""
     return i.to_bytes(32, byteorder="big")
+
 
 def i_to_b(i: int) -> bytes:
     """Converts a integer to bytes"""
     # determine the number of bytes required to represent the integer
     byte_length = (i.bit_length() + 7) // 8
     return i.to_bytes(byte_length, "big")
+
 
 # TODO are these required - maybe bytestoint and inttobytes are only required?!?

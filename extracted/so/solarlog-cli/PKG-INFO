@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: solarlog_cli
-Version: 0.5.0
+Version: 0.6.0
 Summary: Python library to access the Solar-Log
 Project-URL: Repository, https://github.com/dontinelli/solarlog_cli.git
 Project-URL: Issues, https://github.com/dontinelli/solarlog_cli/issues
@@ -15,6 +15,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.12
 Requires-Dist: aiohttp
+Requires-Dist: bcrypt>=4.3.0
 Requires-Dist: mashumaro>=3.13
 Description-Content-Type: text/markdown
 

@@ -1,10 +1,11 @@
 """ SandboxMetadataDB class is a front-end to the metadata for sandboxes
 """
-from DIRAC import gLogger, S_OK, S_ERROR
-from DIRAC.Core.Base.DB import DB
-from DIRAC.Core.Utilities import List
-from DIRAC.Core.Security import Properties
+from DIRAC import S_ERROR, S_OK
 from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.Core.Base.DB import DB
+from DIRAC.Core.Security import Properties
+from DIRAC.Core.Utilities import List
+from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue, returnValueOrRaise
 
 
 class SandboxMetadataDB(DB):
@@ -32,8 +33,8 @@ class SandboxMetadataDB(DB):
             "Fields": {
                 "OwnerId": "INTEGER(10) UNSIGNED AUTO_INCREMENT NOT NULL",
                 "Owner": "VARCHAR(32) NOT NULL",
-                "OwnerDN": "VARCHAR(255) NOT NULL",
                 "OwnerGroup": "VARCHAR(32) NOT NULL",
+                "VO": "VARCHAR(64) NOT NULL",
             },
             "PrimaryKey": "OwnerId",
         }
@@ -59,12 +60,11 @@ class SandboxMetadataDB(DB):
         self.__tablesDesc["sb_EntityMapping"] = {
             "Fields": {
                 "SBId": "INTEGER(10) UNSIGNED NOT NULL",
-                "EntitySetup": "VARCHAR(64) NOT NULL",
                 "EntityId": "VARCHAR(128) NOT NULL",
                 "Type": "VARCHAR(64) NOT NULL",
             },
-            "Indexes": {"Entity": ["EntityId", "EntitySetup"], "SBIndex": ["SBId"]},
-            "UniqueIndexes": {"Mapping": ["SBId", "EntitySetup", "EntityId", "Type"]},
+            "Indexes": {"Entity": ["EntityId"], "SBIndex": ["SBId"]},
+            "UniqueIndexes": {"Mapping": ["SBId", "EntityId", "Type"]},
         }
 
         for tableName in self.__tablesDesc:
@@ -73,18 +73,16 @@ class SandboxMetadataDB(DB):
 
         return self._createTables(tablesToCreate)
 
-    def __registerAndGetOwnerId(self, owner, ownerDN, ownerGroup):
+    def __registerAndGetOwnerId(self, owner, ownerGroup, VO):
         """
         Get the owner ID and register it if it's not there
         """
         ownerEscaped = self._escapeString(owner)["Value"]
-        ownerDNEscaped = self._escapeString(ownerDN)["Value"]
         ownerGroupEscaped = self._escapeString(ownerGroup)["Value"]
-        sqlCmd = "SELECT OwnerId FROM `sb_Owners` WHERE Owner = {} AND OwnerDN = {} AND OwnerGroup = {}".format(
-            ownerEscaped,
-            ownerDNEscaped,
-            ownerGroupEscaped,
-        )
+        if not VO:
+            return S_ERROR("VO is not specified")
+        VOEscaped = self._escapeString(VO)["Value"]
+        sqlCmd = f"SELECT OwnerId FROM `sb_Owners` WHERE Owner = {ownerEscaped} AND OwnerGroup = {ownerGroupEscaped} AND VO = {VOEscaped}"
         result = self._query(sqlCmd)
         if not result["OK"]:
             return result
@@ -92,11 +90,7 @@ class SandboxMetadataDB(DB):
         if data:
             return S_OK(data[0][0])
         # Its not there, insert it
-        sqlCmd = "INSERT INTO `sb_Owners` ( OwnerId, Owner, OwnerDN, OwnerGroup ) VALUES ( 0, {}, {}, {} )".format(
-            ownerEscaped,
-            ownerDNEscaped,
-            ownerGroupEscaped,
-        )
+        sqlCmd = f"INSERT INTO `sb_Owners` ( OwnerId, Owner, OwnerGroup, VO ) VALUES ( 0, {ownerEscaped}, {ownerGroupEscaped}, {VOEscaped} )"
         result = self._update(sqlCmd)
         if not result["OK"]:
             return result
@@ -107,12 +101,12 @@ class SandboxMetadataDB(DB):
             return S_ERROR("Can't determine owner id after insertion")
         return S_OK(result["Value"][0][0])
 
-    def registerAndGetSandbox(self, owner, ownerDN, ownerGroup, sbSE, sbPFN, size=0):
+    def registerAndGetSandbox(self, owner, ownerGroup, VO, sbSE, sbPFN, size=0):
         """
         Register a new sandbox in the metadata catalog
         Returns ( sbid, newSandbox )
         """
-        result = self.__registerAndGetOwnerId(owner, ownerDN, ownerGroup)
+        result = self.__registerAndGetOwnerId(owner, ownerGroup, VO)
         if not result["OK"]:
             return result
         ownerId = result["Value"]
@@ -135,9 +129,12 @@ class SandboxMetadataDB(DB):
             if not result["OK"]:
                 return result
             if not result["Value"]:
-                return S_ERROR("SandBox already exists but doesn't belong to the user or setup")
+                return S_ERROR("SandBox already exists but doesn't belong to the user")
             sbId = result["Value"][0][0]
-            self.accessedSandboxById(sbId)
+            if not (
+                ret := self._update(f"UPDATE `sb_SandBoxes` SET LastAccessTime=UTC_TIMESTAMP() WHERE SBId = {sbId}")
+            )["OK"]:
+                return ret
             return S_OK((sbId, False))
         # Inserted, time to get the id
         if "lastRowId" in result:
@@ -151,13 +148,9 @@ class SandboxMetadataDB(DB):
         """
         Update last access time for sb id
         """
-        return self.__accessedSandboxByCond({"SBId": sbId})
+        return self._update(f"UPDATE `sb_SandBoxes` SET LastAccessTime=UTC_TIMESTAMP() WHERE SBId = {sbId}")
 
-    def __accessedSandboxByCond(self, condDict):
-        sqlCond = [f"{key}={condDict[key]}" for key in condDict]
-        return self._update(f"UPDATE `sb_SandBoxes` SET LastAccessTime=UTC_TIMESTAMP() WHERE {' AND '.join(sqlCond)}")
-
-    def assignSandboxesToEntities(self, enDict, requesterName, requesterGroup, enSetup, ownerName="", ownerGroup=""):
+    def assignSandboxesToEntities(self, enDict, requesterName, requesterGroup, ownerName="", ownerGroup=""):
         """
         Assign jobs to entities
         """
@@ -186,15 +179,15 @@ class SandboxMetadataDB(DB):
                     return S_ERROR("SB Location has to have SEName|SEPFN form")
                 SEName = splitted[0]
                 SEPFN = ":".join(splitted[1:])
-                entitiesToSandboxList.append((entityId, enSetup, sbTuple[1], SEName, SEPFN))
+                entitiesToSandboxList.append((entityId, sbTuple[1], SEName, SEPFN))
         if not entitiesToSandboxList:
             return S_OK()
 
         sbIds = []
         assigned = 0
-        for entityId, entitySetup, SBType, SEName, SEPFN in entitiesToSandboxList:
-            result = self.getSandboxId(SEName, SEPFN, requesterName, requesterGroup)
+        for entityId, SBType, SEName, SEPFN in entitiesToSandboxList:
             insertValues = []
+            result = self.getSandboxId(SEName, SEPFN, requesterName, requesterGroup)
             if not result["OK"]:
                 self.log.warn(
                     f"Cannot find id for {SEName}:",
@@ -204,10 +197,9 @@ class SandboxMetadataDB(DB):
                 sbId = result["Value"]
                 sbIds.append(str(sbId))
                 insertValues.append(
-                    "( %s, %s, %s, %d )"
+                    "( %s, %s, %d )"
                     % (
                         self._escapeString(entityId)["Value"],
-                        self._escapeString(entitySetup)["Value"],
                         self._escapeString(SBType)["Value"],
                         sbId,
                     )
@@ -215,81 +207,42 @@ class SandboxMetadataDB(DB):
 
             if not insertValues:
                 return S_ERROR(
-                    "Sandbox does not exist or you're not authorized to assign it being %s@%s"
-                    % (requesterName, requesterGroup)
+                    f"Sandbox does not exist or you are not authorized to assign it being {requesterName}@{requesterGroup}"
                 )
-            sqlCmd = "INSERT INTO `sb_EntityMapping` ( entityId, entitySetup, Type, SBId ) VALUES %s" % ", ".join(
-                insertValues
-            )
+            sqlCmd = f"INSERT INTO `sb_EntityMapping` ( entityId, Type, SBId ) VALUES {', '.join(insertValues)}"
             result = self._update(sqlCmd)
             if not result["OK"]:
                 if result["Message"].find("Duplicate entry") == -1:
                     return result
             assigned += 1
         sqlCmd = f"UPDATE `sb_SandBoxes` SET Assigned=1 WHERE SBId in ( {', '.join(sbIds)} )"
-        result = self._update(sqlCmd)
-        if not result["OK"]:
+        if not (result := self._update(sqlCmd))["OK"]:
             return result
         return S_OK(assigned)
 
-    def __filterEntitiesByRequester(self, entitiesList, entitiesSetup, requesterName, requesterGroup):
+    @convertToReturnValue
+    def unassignEntities(self, entities: list):
         """
-        Given a list of entities and a requester, return the ones that the requester is allowed to modify
-        """
-        sqlCond = ["s.OwnerId=o.OwnerId", "s.SBId=e.SBId", f"e.EntitySetup={entitiesSetup}"]
-        requesterProps = Registry.getPropertiesForEntity(requesterGroup, name=requesterName)
-        if Properties.JOB_ADMINISTRATOR in requesterProps:
-            # Do nothing, just ensure it doesn't fit in the other cases
-            pass
-        elif Properties.JOB_SHARING in requesterProps:
-            sqlCond.append(f"o.OwnerGroup='{requesterGroup}'")
-        elif Properties.NORMAL_USER in requesterProps:
-            sqlCond.append(f"o.OwnerGroup='{requesterGroup}'")
-            sqlCond.append(f"o.Owner='{requesterName}'")
-        else:
-            return S_ERROR("Not authorized to access sandbox")
-        for i in range(len(entitiesList)):
-            entitiesList[i] = self._escapeString(entitiesList[i])["Value"]
-        if len(entitiesList) == 1:
-            sqlCond.append(f"e.EntityId = {entitiesList[0]}")
-        else:
-            sqlCond.append(f"e.EntityId in ( {', '.join(entitiesList)} )")
-        sqlCmd = "SELECT DISTINCT e.EntityId FROM `sb_EntityMapping` e, `sb_SandBoxes` s, `sb_Owners` o WHERE"
-        sqlCmd = f"{sqlCmd} {' AND '.join(sqlCond)}"
-        result = self._query(sqlCmd)
-        if not result["OK"]:
-            return result
-        return S_OK([row[0] for row in result["Value"]])
+        Unassign entities to sandboxes. Entities are a list of strings, e.g. ['job:1234', 'job:5678'].
 
-    def unassignEntities(self, entitiesDict, requesterName, requesterGroup):
+        :param list entities: list of entities to unassign
         """
-        Unassign jobs to sandboxes
-        entitiesDict = { 'setup' : [ 'entityId', 'entityId' ] }
-        """
-        updated = 0
-        for entitySetup in entitiesDict:
-            entitiesIds = entitiesDict[entitySetup]
-            if not entitiesIds:
-                continue
-            escapedSetup = self._escapeString(entitySetup)["Value"]
-            result = self.__filterEntitiesByRequester(entitiesIds, escapedSetup, requesterName, requesterGroup)
-            if not result["OK"]:
-                gLogger.error("Cannot filter entities", result["Message"])
-                continue
-            ids = result["Value"]
-            if not ids:
-                return S_OK(0)
-            sqlCond = [f"EntitySetup = {escapedSetup}"]
-            sqlCond.append("EntityId in ( %s )" % ", ".join(["'%s'" % str(eid) for eid in ids]))
-            sqlCmd = f"DELETE FROM `sb_EntityMapping` WHERE {' AND '.join(sqlCond)}"
-            result = self._update(sqlCmd)
-            if not result["OK"]:
-                gLogger.error("Cannot unassign entities", result["Message"])
-            else:
-                updated += 1
-        return S_OK(updated)
+        if not entities:
+            return None
 
-    def getSandboxesAssignedToEntity(self, entityId, entitySetup, requesterName, requesterGroup):
+        sqlCmd = "CREATE TEMPORARY TABLE to_delete_EntityId (EntityId VARCHAR(128) NOT NULL, PRIMARY KEY (EntityId)) ENGINE=MEMORY;"
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            sqlCmd = "INSERT INTO to_delete_EntityId (EntityId) VALUES ( %s )"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(e,) for e in entities]))
+            sqlCmd = "DELETE m from `sb_EntityMapping` m JOIN to_delete_EntityId t USING (EntityId)"
+            returnValueOrRaise(self._update(sqlCmd))
+        finally:
+            sqlCmd = "DROP TEMPORARY TABLE to_delete_EntityId"
+            returnValueOrRaise(self._update(sqlCmd))
+        return 1
+
+    def getSandboxesAssignedToEntity(self, entityId, requesterName, requesterGroup, requestedVO):
         """
         Get the sandboxes and the type of assignation to the jobId
         """
@@ -297,7 +250,6 @@ class SandboxMetadataDB(DB):
         sqlCond = [
             "s.SBId = e.SBId",
             f"e.EntityId = {self._escapeString(entityId)['Value']}",
-            f"e.EntitySetup = {self._escapeString(entitySetup)['Value']}",
         ]
         requesterProps = Registry.getPropertiesForEntity(requesterGroup, name=requesterName)
         if Properties.JOB_ADMINISTRATOR in requesterProps or Properties.JOB_MONITOR in requesterProps:
@@ -307,11 +259,13 @@ class SandboxMetadataDB(DB):
             sqlTables.append("`sb_Owners` o")
             sqlCond.append(f"o.OwnerGroup='{requesterGroup}'")
             sqlCond.append("s.OwnerId=o.OwnerId")
+            sqlCond.append(f"o.VO='{requestedVO}'")
         elif Properties.NORMAL_USER in requesterProps:
             sqlTables.append("`sb_Owners` o")
             sqlCond.append(f"o.OwnerGroup='{requesterGroup}'")
             sqlCond.append(f"o.Owner='{requesterName}'")
             sqlCond.append("s.OwnerId=o.OwnerId")
+            sqlCond.append(f"o.VO='{requestedVO}'")
         else:
             return S_ERROR("Not authorized to access sandbox")
         sqlCmd = "SELECT DISTINCT s.SEName, s.SEPFN, e.Type FROM  {} WHERE {}".format(
@@ -329,22 +283,37 @@ class SandboxMetadataDB(DB):
             "TIMESTAMPDIFF( DAY, LastAccessTime, UTC_TIMESTAMP() ) >= %d" % self.__assignedSBGraceDays,
             f"! Assigned AND TIMESTAMPDIFF( DAY, LastAccessTime, UTC_TIMESTAMP() ) >= {self.__unassignedSBGraceDays}",
         ]
-        sqlCmd = f"SELECT SBId, SEName, SEPFN FROM `sb_SandBoxes` WHERE ( {' ) OR ( '.join(sqlCond)} )"
+        # Exclude sandboxes that are in S3 as those are handled by DiracX
+        sqlCmd = f"SELECT SBId, SEName, SEPFN FROM `sb_SandBoxes` WHERE SEPFN not like '/S3/%' AND (( {' ) OR ( '.join(sqlCond)} ))"
         return self._query(sqlCmd)
 
+    @convertToReturnValue
     def deleteSandboxes(self, SBIdList):
         """
-        Delete sandboxes
+        Delete sandboxes using a temporary table for efficiency and consistency.
         """
-        sqlSBList = ", ".join([str(sbid) for sbid in SBIdList])
-        for table in ("sb_SandBoxes", "sb_EntityMapping"):
-            sqlCmd = f"DELETE FROM `{table}` WHERE SBId IN ( {sqlSBList} )"
-            result = self._update(sqlCmd)
-            if not result["OK"]:
-                return result
+        if not SBIdList:
+            return S_OK()
+        # Create temporary table
+        sqlCmd = "CREATE TEMPORARY TABLE to_delete_SBId (SBId INTEGER(10) UNSIGNED NOT NULL, PRIMARY KEY (SBId)) ENGINE=MEMORY;"
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            # Insert SBIds into temporary table
+            sqlCmd = "INSERT INTO to_delete_SBId (SBId) VALUES (%s)"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(sbid,) for sbid in SBIdList]))
+            # Delete from sb_EntityMapping first (to respect FK constraints if any)
+            sqlCmd = "DELETE FROM `sb_EntityMapping` WHERE SBId IN (SELECT SBId FROM to_delete_SBId)"
+            returnValueOrRaise(self._update(sqlCmd))
+            # Delete from sb_SandBoxes
+            sqlCmd = "DELETE FROM `sb_SandBoxes` WHERE SBId IN (SELECT SBId FROM to_delete_SBId)"
+            returnValueOrRaise(self._update(sqlCmd))
+        finally:
+            # Drop temporary table
+            sqlCmd = "DROP TEMPORARY TABLE to_delete_SBId"
+            returnValueOrRaise(self._update(sqlCmd))
         return S_OK()
 
-    def getSandboxId(self, SEName, SEPFN, requesterName, requesterGroup, field="SBId", requesterDN=None):
+    def getSandboxId(self, SEName, SEPFN, requesterName, requesterGroup, field="SBId"):
         """
         Get the sandboxId if it exists
 
@@ -364,7 +333,7 @@ class SandboxMetadataDB(DB):
             "s.OwnerId=o.OwnerId",
         ]
         sqlCmd = f"SELECT s.{field} FROM `sb_SandBoxes` s, `sb_Owners` o WHERE"
-        requesterProps = Registry.getPropertiesForEntity(requesterGroup, name=requesterName, dn=requesterDN)
+        requesterProps = Registry.getPropertiesForEntity(requesterGroup, name=requesterName)
         if Properties.JOB_ADMINISTRATOR in requesterProps or Properties.JOB_MONITOR in requesterProps:
             # Do nothing, just ensure it doesn't fit in the other cases
             pass
@@ -384,23 +353,3 @@ class SandboxMetadataDB(DB):
         if not data:
             return S_ERROR("No sandbox matches the requirements")
         return S_OK(data[0][0])
-
-    def getSandboxOwner(self, SEName, SEPFN, requesterDN, requesterGroup):
-        """get the sandbox owner, if such sandbox exists
-
-        :param SEName: name of the StorageElement
-        :param SEPFN: PFN of the Sandbox
-        :param requestDN: host DN used as credentials
-        :param requesterGroup: group used to use as credentials (should be 'hosts')
-
-        :returns: S_OK with tuple (owner, ownerDN, ownerGroup)
-        """
-        res = self.getSandboxId(SEName, SEPFN, None, requesterGroup, "OwnerId", requesterDN=requesterDN)
-        if not res["OK"]:
-            return res
-
-        sqlCmd = "SELECT `Owner`, `OwnerDN`, `OwnerGroup` FROM `sb_Owners` WHERE `OwnerId` = %d" % res["Value"]
-        res = self._query(sqlCmd)
-        if not res["OK"]:
-            return res
-        return S_OK(res["Value"][0])

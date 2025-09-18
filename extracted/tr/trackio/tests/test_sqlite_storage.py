@@ -35,6 +35,24 @@ def test_get_projects_and_runs(temp_dir):
     assert "run1" in runs
 
 
+def test_delete_run(temp_dir):
+    project = "test_project"
+    run_name = "test_run"
+
+    config = {"param1": "value1", "_Created": "2023-01-01T00:00:00"}
+    SQLiteStorage.store_config(project, run_name, config)
+
+    metrics = [{"accuracy": 0.95, "loss": 0.1}]
+    SQLiteStorage.bulk_log(project, run_name, metrics)
+
+    assert SQLiteStorage.get_run_config(project, run_name) is not None
+    assert len(SQLiteStorage.get_logs(project, run_name)) > 0
+
+    SQLiteStorage.delete_run(project, run_name)
+    assert SQLiteStorage.get_run_config(project, run_name) is None
+    assert len(SQLiteStorage.get_logs(project, run_name)) == 0
+
+
 def test_import_export(temp_dir):
     db_path_1 = SQLiteStorage.init_db("proj1")
     db_path_2 = SQLiteStorage.init_db("proj2")
@@ -154,3 +172,52 @@ def test_concurrent_database_access_without_errors():
             total_logs += len(logs)
 
         assert total_logs > 0, "Should have created some log entries"
+
+
+def test_config_storage_in_database(temp_dir):
+    config = {
+        "epochs": 10,
+        "_Username": "testuser",
+        "_Created": "2024-01-01T00:00:00+00:00",
+    }
+
+    SQLiteStorage.bulk_log(
+        project="test_project",
+        run="test_run",
+        metrics_list=[{"loss": 0.5}],
+        config=config,
+    )
+
+    stored_config = SQLiteStorage.get_run_config("test_project", "test_run")
+    assert stored_config["epochs"] == 10
+    assert stored_config["_Username"] == "testuser"
+    assert stored_config["_Created"] == "2024-01-01T00:00:00+00:00"
+
+
+def test_old_database_without_configs_table(temp_dir):
+    # To make sure that we can continue to work with projects created with older versions of Trackio.
+    import json
+
+    db_path = SQLiteStorage.get_project_db_path("test")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""
+            CREATE TABLE metrics (
+                id INTEGER PRIMARY KEY,
+                timestamp TEXT,
+                run_name TEXT,
+                step INTEGER,
+                metrics TEXT
+            )
+        """)
+        conn.execute(
+            "INSERT INTO metrics (timestamp, run_name, step, metrics) VALUES (?, ?, ?, ?)",
+            ("2024-01-01", "test_run", 0, json.dumps({"loss": 0.5})),
+        )
+
+    config = SQLiteStorage.get_run_config("test", "test_run")
+    assert config is None
+
+    all_configs = SQLiteStorage.get_all_run_configs("test")
+    assert all_configs == {}

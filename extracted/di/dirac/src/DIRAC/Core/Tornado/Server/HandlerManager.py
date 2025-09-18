@@ -2,8 +2,6 @@
   This module contains the necessary tools to discover and load
   the handlers for serving HTTPS
 """
-from tornado.web import RequestHandler
-
 from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.ConfigurationSystem.Client import PathFinder
 from DIRAC.Core.Base.private.ModuleLoader import ModuleLoader
@@ -56,22 +54,17 @@ class HandlerManager:
         if diracSystems["OK"]:
             for system in diracSystems["Value"]:
                 try:
-                    sysInstance = PathFinder.getSystemInstance(system)
-                    result = gConfig.getSections(f"/Systems/{system}/{sysInstance}/{handlerInstance}")
+                    result = gConfig.getSections(f"/Systems/{system}/{handlerInstance}")
                     if result["OK"]:
                         for instName in result["Value"]:
                             newInst = f"{system}/{instName}"
-                            port = gConfig.getValue(
-                                f"/Systems/{system}/{sysInstance}/{handlerInstance}/{instName}/Port"
-                            )
+                            port = gConfig.getValue(f"/Systems/{system}/{handlerInstance}/{instName}/Port")
                             if port:
                                 newInst += f":{port}"
 
                             if handlerInstance == "Services":
                                 # We search in the CS all handlers which used HTTPS as protocol
-                                isHTTPS = gConfig.getValue(
-                                    f"/Systems/{system}/{sysInstance}/{handlerInstance}/{instName}/Protocol"
-                                )
+                                isHTTPS = gConfig.getValue(f"/Systems/{system}/{handlerInstance}/{instName}/Protocol")
                                 if isHTTPS and isHTTPS.lower() == "https":
                                     urls.append(newInst)
                             else:
@@ -103,7 +96,7 @@ class HandlerManager:
         # Extract ports, e.g.: ['Framework/MyService', 'Framework/MyService2:9443]
         port, instances = self.__extractPorts(instances)
 
-        loader = ModuleLoader(componentType, pathFinder, RequestHandler, moduleSuffix="Handler")
+        loader = ModuleLoader(componentType, pathFinder, False, moduleSuffix="Handler")
 
         # Use DIRAC system to load: search in CS if path is given and if not defined
         # it search in place it should be (e.g. in DIRAC/FrameworkSystem/< component type >)

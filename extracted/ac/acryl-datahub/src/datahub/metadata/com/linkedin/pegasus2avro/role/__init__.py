@@ -8,11 +8,13 @@
 # fmt: off
 # isort: skip_file
 from .....schema_classes import ActorsClass
+from .....schema_classes import RoleGroupClass
 from .....schema_classes import RolePropertiesClass
 from .....schema_classes import RoleUserClass
 
 
 Actors = ActorsClass
+RoleGroup = RoleGroupClass
 RoleProperties = RolePropertiesClass
 RoleUser = RoleUserClass
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 4.8.1
+Version: 4.8.2
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)
@@ -79,7 +79,6 @@ Requires-Dist: pyinstrument; extra == "test"
 Requires-Dist: ruff; extra == "test"
 Provides-Extra: test-more
 Requires-Dist: coveralls; extra == "test-more"
-Requires-Dist: pyright; extra == "test-more"
 Requires-Dist: ezdxf; extra == "test-more"
 Requires-Dist: xatlas; extra == "test-more"
 Requires-Dist: pytest-beartype; python_version >= "3.10" and extra == "test-more"

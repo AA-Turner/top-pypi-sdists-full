@@ -6,22 +6,22 @@
 """
 
 import datetime
-import time
+import importlib
 import os
-
+import time
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
-from DIRAC.Core.Utilities.Graphs.GraphUtilities import pixelToPoint, evalPrefs, to_timestamp, add_time_to_title
-from DIRAC.Core.Utilities.Graphs.GraphData import GraphData
-from DIRAC.Core.Utilities.Graphs.Legend import Legend
+
 from DIRAC import gLogger
+from DIRAC.Core.Utilities.Graphs.GraphData import GraphData
+from DIRAC.Core.Utilities.Graphs.GraphUtilities import add_time_to_title, evalPrefs, pixelToPoint, to_timestamp
+from DIRAC.Core.Utilities.Graphs.Legend import Legend
 
 DEBUG = 0
 
 
 class Graph:
-    def __init__(self, *args, **kw):
-        super().__init__(*args, **kw)
+    """Base class for all other Graphs"""
 
     def layoutFigure(self, legend):
         prefs = self.prefs
@@ -274,18 +274,13 @@ class Graph:
         for i in range(nPlots):
             plot_type = plot_prefs[i]["plot_type"]
             try:
-                # TODO: Remove when we moved to python3
-                exec(f"import {plot_type}")
-            except ImportError:
-                print("Trying to use python like import")
-                try:
-                    exec(f"from . import  {plot_type}")
-                except ImportError as x:
-                    print(f"Failed to import graph type {plot_type}: {str(x)}")
-                    return None
+                plotModule = importlib.import_module(f"DIRAC.Core.Utilities.Graphs.{plot_type}")
+            except ModuleNotFoundError as x:
+                print(f"Failed to import graph type {plot_type}: {str(x)}")
+                return None
 
             ax = plot_axes[i]
-            plot = eval(f"{plot_type}.{plot_type}(graphData[i],ax,plot_prefs[i])")
+            plot = getattr(plotModule, plot_type)(graphData[i], ax, plot_prefs[i])
             plot.draw()
 
         if DEBUG:
@@ -341,8 +336,8 @@ class Graph:
             ax_wm.axis("off")
             ax_wm.set_frame_on(False)
             ax_wm.set_clip_on(False)
-        except Exception as e:
-            print(e)
+        except Exception:
+            gLogger.exception("Caught exception")
 
     def writeGraph(self, fname, fileFormat="PNG"):
         """Write out the resulting graph to a file with fname in a given format"""

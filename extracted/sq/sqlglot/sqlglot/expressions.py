@@ -134,7 +134,7 @@ class Expression(metaclass=_Expression):
 
         return hash((self.__class__, self.hashable_args))
 
-    def __reduce__(self) -> t.Tuple[t.Callable, t.Tuple[t.Dict[str, t.Any]]]:
+    def __reduce__(self) -> t.Tuple[t.Callable, t.Tuple[t.List[t.Dict[str, t.Any]]]]:
         from sqlglot.serde import dump, load
 
         return (load, (dump(self),))
@@ -264,7 +264,7 @@ class Expression(metaclass=_Expression):
         return self.type is not None and self.type.is_type(*dtypes)
 
     def is_leaf(self) -> bool:
-        return not any(isinstance(v, (Expression, list)) for v in self.args.values())
+        return not any(isinstance(v, (Expression, list)) and v for v in self.args.values())
 
     @property
     def meta(self) -> t.Dict[str, t.Any]:
@@ -1584,6 +1584,11 @@ class Detach(Expression):
     arg_types = {"this": True, "exists": False}
 
 
+# https://duckdb.org/docs/sql/statements/load_and_install.html
+class Install(Expression):
+    arg_types = {"this": True, "from": False, "force": False}
+
+
 # https://duckdb.org/docs/guides/meta/summarize.html
 class Summarize(Expression):
     arg_types = {"this": True, "table": False}
@@ -2065,7 +2070,7 @@ class ProjectionPolicyColumnConstraint(ColumnConstraintKind):
 # computed column expression
 # https://learn.microsoft.com/en-us/sql/t-sql/statements/create-table-transact-sql?view=sql-server-ver16
 class ComputedColumnConstraint(ColumnConstraintKind):
-    arg_types = {"this": True, "persisted": False, "not_null": False}
+    arg_types = {"this": True, "persisted": False, "not_null": False, "data_type": False}
 
 
 class Constraint(Expression):
@@ -5766,6 +5771,15 @@ class ArrayUniqueAgg(AggFunc):
     pass
 
 
+class AIAgg(AggFunc):
+    arg_types = {"this": True, "expression": True}
+    _sql_names = ["AI_AGG"]
+
+
+class AISummarizeAgg(AggFunc):
+    _sql_names = ["AI_SUMMARIZE_AGG"]
+
+
 class ArrayAll(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -6951,6 +6965,16 @@ class MD5Digest(Func):
     _sql_names = ["MD5_DIGEST"]
 
 
+# https://docs.snowflake.com/en/sql-reference/functions/md5_number_lower64
+class MD5NumberLower64(Func):
+    pass
+
+
+# https://docs.snowflake.com/en/sql-reference/functions/md5_number_upper64
+class MD5NumberUpper64(Func):
+    pass
+
+
 class Median(AggFunc):
     pass
 
@@ -7001,11 +7025,17 @@ class FeaturesAtTime(Func):
 
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-generate-embedding
 class GenerateEmbedding(Func):
-    arg_types = {"this": True, "expression": True, "params_struct": False}
+    arg_types = {"this": True, "expression": True, "params_struct": False, "is_text": False}
 
 
 class MLForecast(Func):
     arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+# Represents Snowflake's <model>!<attribute> syntax. For example: SELECT model!PREDICT(INPUT_DATA => {*})
+# See: https://docs.snowflake.com/en/guides-overview-ml-functions
+class ModelAttribute(Expression):
+    arg_types = {"this": True, "expression": True}
 
 
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/search_functions#vector_search
@@ -7198,6 +7228,16 @@ class SHA(Func):
 
 class SHA2(Func):
     _sql_names = ["SHA2"]
+    arg_types = {"this": True, "length": False}
+
+
+# Represents the variant of the SHA1 function that returns a binary value
+class SHA1Digest(Func):
+    pass
+
+
+# Represents the variant of the SHA2 function that returns a binary value
+class SHA2Digest(Func):
     arg_types = {"this": True, "length": False}
 
 

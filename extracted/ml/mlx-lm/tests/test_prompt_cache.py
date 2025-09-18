@@ -8,7 +8,10 @@ import unittest
 import mlx.core as mx
 
 from mlx_lm.generate import generate_step
+from mlx_lm.models.base import create_attention_mask, create_causal_mask
 from mlx_lm.models.cache import (
+    BatchKVCache,
+    CacheList,
     ChunkedKVCache,
     KVCache,
     MambaCache,
@@ -308,6 +311,154 @@ class TestPromptCache(unittest.TestCase):
             i += 1
             self.assertEqual(tok, toks[i])
             self.assertTrue(mx.allclose(logits, all_logits[i], rtol=4e-2))
+
+    def test_cache_list(self):
+        c = CacheList(KVCache(), KVCache())
+        self.assertTrue(c.is_trimmable())
+        k = mx.zeros((1, 2, 8, 8))
+        v = mx.zeros((1, 2, 8, 8))
+        c[0].update_and_fetch(k, v)
+        c[1].update_and_fetch(k, v)
+        m = c.trim(5)
+        self.assertEqual(m, 5)
+
+        c = CacheList(MambaCache(), KVCache())
+        self.assertFalse(c.is_trimmable())
+
+    def test_make_mask_with_cache(self):
+        # For 1 time step with no cache, don't need a mask
+        mask = create_attention_mask(mx.zeros((1, 1)), cache=None, return_array=False)
+        self.assertEqual(mask, None)
+
+        mask = create_attention_mask(mx.zeros((1, 1)), cache=None, return_array=True)
+        self.assertEqual(mask, None)
+
+        # Regular causal mask
+        mask = create_attention_mask(mx.zeros((1, 4)), cache=None, return_array=False)
+        self.assertEqual(mask, "causal")
+
+        mask = create_attention_mask(mx.zeros((1, 4)), cache=None, return_array=True)
+        self.assertTrue(mx.array_equal(mask, create_causal_mask(4)))
+
+        # With a window size
+        mask = create_attention_mask(
+            mx.zeros((1, 4)), cache=None, window_size=4, return_array=False
+        )
+        self.assertEqual(mask, "causal")
+
+        mask = create_attention_mask(
+            mx.zeros((1, 4)), cache=None, window_size=3, return_array=False
+        )
+        self.assertTrue(mx.array_equal(mask, create_causal_mask(4, window_size=3)))
+
+        # With a regular KV cache
+        cache = KVCache()
+        mask = create_attention_mask(mx.zeros((1, 4)), cache=cache, return_array=False)
+        self.assertEqual(mask, "causal")
+
+        mask = create_attention_mask(mx.zeros((1, 4)), cache=cache, return_array=True)
+        self.assertTrue(mx.array_equal(mask, create_causal_mask(4)))
+
+        k = v = mx.zeros((1, 2, 16, 8))
+        cache.update_and_fetch(k, v)
+        mask = create_attention_mask(mx.zeros((1, 4)), cache=cache, return_array=True)
+        self.assertEqual(mask.shape, (4, 20))
+
+    def test_rotating_cache_mask(self):
+        cache = RotatingKVCache(max_size=8)
+
+        mask = cache.make_mask(4, window_size=5)
+        self.assertEqual(mask, "causal")
+        mask = create_attention_mask(mx.zeros((1, 4, 32)), cache, window_size=5)
+        self.assertEqual(mask, "causal")
+        mask = create_attention_mask(
+            mx.zeros((1, 4, 32)), cache, window_size=5, return_array=True
+        )
+        self.assertEqual(mask.dtype, mx.bool_)
+        self.assertEqual(mask.shape, (4, 4))
+
+        mask = cache.make_mask(6, window_size=5)
+        self.assertEqual(mask.dtype, mx.bool_)
+        self.assertEqual(mask.sum(axis=-1).max(), 5)
+        cmask = create_attention_mask(mx.zeros((1, 6, 32)), cache, window_size=5)
+        self.assertTrue(mx.array_equal(cmask, mask))
+
+        mask = cache.make_mask(1, window_size=5)
+        self.assertEqual(mask, None)
+        mask = create_attention_mask(mx.zeros((1, 1, 32)), cache, window_size=5)
+        self.assertEqual(mask, None)
+
+        kv = mx.zeros((1, 1, 10, 32))
+        cache.update_and_fetch(kv, kv)
+        mask = cache.make_mask(3, window_size=5)
+        self.assertEqual(mask.shape, (3, 11))
+        self.assertTrue(mx.all(mask.sum(axis=-1) == 5))
+        for i in range(3):
+            s = 11 - 3 + i
+            self.assertTrue(mx.all(mask[s - 5 : s]))
+        cmask = create_attention_mask(mx.zeros((1, 3, 32)), cache, window_size=5)
+        self.assertTrue(mx.array_equal(cmask, mask))
+
+        mask = cache.make_mask(1)
+        self.assertEqual(mask, None)
+        mask = create_attention_mask(mx.zeros((1, 1, 32)), cache)
+        self.assertEqual(mask, None)
+
+        mask = cache.make_mask(1, window_size=5)
+        self.assertEqual(mask.squeeze(1).tolist(), [True] + [False] * 3 + [True] * 4)
+        cmask = create_attention_mask(mx.zeros((1, 1, 32)), cache, window_size=5)
+        self.assertTrue(mx.array_equal(cmask, mask))
+
+        kv = mx.zeros((1, 1, 1, 32))
+        cache.update_and_fetch(kv, kv)
+
+        mask = cache.make_mask(1, window_size=5)
+        self.assertEqual(
+            mask.squeeze(1).tolist(), [True] * 2 + [False] * 3 + [True] * 3
+        )
+        cmask = create_attention_mask(mx.zeros((1, 1, 32)), cache, window_size=5)
+        self.assertTrue(mx.array_equal(cmask, mask))
+
+    def test_batch_kv_cache(self):
+        cache = BatchKVCache(left_padding=[2, 3, 4])
+        k, v = mx.zeros((3, 1, 4, 8)), mx.zeros((3, 1, 4, 8))
+        # Update works
+        k, v = cache.update_and_fetch(k, v)
+        self.assertEqual(k.shape, (3, 1, 4, 8))
+
+        # State can be evaluated
+        mx.eval(cache.state)
+
+        # State can be set
+        cache.state = cache.state
+
+        # Test filtering
+        cache.filter([0, 1])
+
+        # In this case filtering left shifts the cache so it has zero padding
+        self.assertEqual(cache.state[0].shape, (2, 1, 2, 8))
+
+        mask = cache.make_mask(1)
+        self.assertEqual(mask[0].squeeze().tolist(), [True, True, True])
+        self.assertEqual(mask[1].squeeze().tolist(), [False, True, True])
+
+        # Test extension
+        cache_a = BatchKVCache(left_padding=[2, 1, 2])
+        cache_b = BatchKVCache(left_padding=[3, 0])
+
+        k = mx.zeros((3, 1, 8, 1))
+        v = mx.zeros((3, 1, 8, 1))
+        cache_a.update_and_fetch(k, v)
+
+        k = mx.zeros((2, 1, 4, 1))
+        v = mx.zeros((2, 1, 4, 1))
+        cache_b.update_and_fetch(k, v)
+
+        cache_a.extend(cache_b)
+        self.assertEqual(cache_a.keys.shape[0], 5)
+        self.assertEqual(cache_a.values.shape[0], 5)
+        self.assertEqual(cache_a.offset.tolist(), [6, 7, 6, 1, 4])
+        self.assertEqual(cache_a.left_padding.tolist(), [2, 1, 2, 7, 4])
 
 
 if __name__ == "__main__":

@@ -32,8 +32,6 @@ dependencies = [
     "unionai-actor>=0.1.10; platform_system == 'Linux' and platform_machine == 'x86_64'",
     "pyyaml",
     "typing_extensions",
-    # Temporary fix for segfault issue on windows
-    "protobuf<5.28.0; platform_system == 'Windows'",
 ]
 classifiers = [
     "Intended Audience :: Science/Research",

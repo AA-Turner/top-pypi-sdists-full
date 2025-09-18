@@ -601,3 +601,64 @@ def test_find_default_config_none() -> None:
     with patch("kreuzberg._config.find_config_file", return_value=None):
         result = find_default_config()
     assert result is None
+
+
+def test_configure_gmft_with_cli_config() -> None:
+    config_dict: dict[str, Any] = {"extract_tables": True}
+    file_config: dict[str, Any] = {}
+    cli_args: MutableMapping[str, Any] = {"gmft_config": {"verbosity": 2}}
+
+    _configure_gmft(config_dict, file_config, cli_args)
+
+    assert "gmft_config" in config_dict
+    assert isinstance(config_dict["gmft_config"], GMFTConfig)
+    assert config_dict["gmft_config"].verbosity == 2
+
+
+def test_configure_gmft_with_file_config() -> None:
+    config_dict: dict[str, Any] = {"extract_tables": True}
+    file_config = {"gmft": {"verbosity": 1}}
+    cli_args: MutableMapping[str, Any] = {}
+
+    _configure_gmft(config_dict, file_config, cli_args)
+
+    assert "gmft_config" in config_dict
+    assert isinstance(config_dict["gmft_config"], GMFTConfig)
+    assert config_dict["gmft_config"].verbosity == 1
+
+
+def test_configure_ocr_backend_no_ocr_config_from_cli_or_file() -> None:
+    from kreuzberg._config import _configure_ocr_backend
+
+    config_dict: dict[str, Any] = {"ocr_backend": "tesseract"}
+    file_config: dict[str, Any] = {}
+    cli_args: MutableMapping[str, Any] = {}
+
+    _configure_ocr_backend(config_dict, file_config, cli_args)
+    assert "ocr_config" not in config_dict
+
+
+def test_build_extraction_config_from_dict_no_ocr_config() -> None:
+    from kreuzberg._config import build_extraction_config_from_dict
+
+    config_dict = {
+        "ocr_backend": "tesseract",
+        "force_ocr": True,
+    }
+
+    config = build_extraction_config_from_dict(config_dict)
+    assert config.ocr_backend == "tesseract"
+    assert config.force_ocr is True
+    assert config.ocr_config is None
+
+
+def test_build_extraction_config_from_dict_no_gmft_config() -> None:
+    from kreuzberg._config import build_extraction_config_from_dict
+
+    config_dict = {
+        "extract_tables": True,
+    }
+
+    config = build_extraction_config_from_dict(config_dict)
+    assert config.extract_tables is True
+    assert config.gmft_config is None

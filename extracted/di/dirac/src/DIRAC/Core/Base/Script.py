@@ -68,7 +68,7 @@ class Script:
                 "Invalid dirac- console_scripts entry_point: "
                 + repr(entrypoint)
                 + "\n"
-                + "All dirac- console_scripts should be wrapped in the DiracScript "
+                + "All dirac- console_scripts should be wrapped in the Script "
                 + "decorator to ensure extension overlays are applied correctly."
             )
         return entrypointFunc._func()
@@ -112,8 +112,6 @@ class Script:
             cls.scriptName = script
         cls.localCfg.setConfigurationForScript(cls.scriptName)
 
-        if not ignoreErrors:
-            cls.localCfg.addMandatoryEntry("/DIRAC/Setup")
         resultDict = cls.localCfg.loadUserData()
         if not ignoreErrors and not resultDict["OK"]:
             gLogger.error("There were errors when loading configuration", resultDict["Message"])

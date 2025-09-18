@@ -1,22 +1,8 @@
 # Copyright Valkey GLIDE Project Contributors - SPDX Identifier: Apache-2.0
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import (
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Set,
-    Tuple,
-    Type,
-    Union,
-    cast,
-    get_args,
-)
+from typing import Dict, List, Mapping, Optional, Protocol, Set, Tuple, Union, cast
 
-from glide.async_commands.bitmap import (
+from glide.glide import ClusterScanCursor
+from glide_shared.commands.bitmap import (
     BitFieldGet,
     BitFieldSubCommands,
     BitwiseOperation,
@@ -24,8 +10,20 @@ from glide.async_commands.bitmap import (
     _create_bitfield_args,
     _create_bitfield_read_only_args,
 )
-from glide.async_commands.command_args import Limit, ListDirection, ObjectType, OrderBy
-from glide.async_commands.sorted_set import (
+from glide_shared.commands.command_args import Limit, ListDirection, ObjectType, OrderBy
+from glide_shared.commands.core_options import (
+    ConditionalChange,
+    ExpireOptions,
+    ExpiryGetEx,
+    ExpirySet,
+    HashFieldConditionalChange,
+    InsertPosition,
+    OnlyIfEqual,
+    PubSubMsg,
+    UpdateOptions,
+    _build_sort_args,
+)
+from glide_shared.commands.sorted_set import (
     AggregationType,
     GeoSearchByBox,
     GeoSearchByRadius,
@@ -43,7 +41,7 @@ from glide.async_commands.sorted_set import (
     _create_zinter_zunion_cmd_args,
     _create_zrange_args,
 )
-from glide.async_commands.stream import (
+from glide_shared.commands.stream import (
     StreamAddOptions,
     StreamClaimOptions,
     StreamGroupOptions,
@@ -54,389 +52,16 @@ from glide.async_commands.stream import (
     StreamTrimOptions,
     _create_xpending_range_args,
 )
-from glide.constants import (
+from glide_shared.constants import (
     TOK,
     TEncodable,
     TResult,
     TXInfoStreamFullResponse,
     TXInfoStreamResponse,
 )
-from glide.exceptions import RequestError
-from glide.protobuf.command_request_pb2 import RequestType
-from glide.routes import Route
-
-from ..glide import ClusterScanCursor
-
-
-class ConditionalChange(Enum):
-    """
-    A condition to the `SET`, `ZADD` and `GEOADD` commands.
-    """
-
-    ONLY_IF_EXISTS = "XX"
-    """ Only update key / elements that already exist. Equivalent to `XX` in the Valkey API. """
-
-    ONLY_IF_DOES_NOT_EXIST = "NX"
-    """ Only set key / add elements that does not already exist. Equivalent to `NX` in the Valkey API. """
-
-
-@dataclass
-class OnlyIfEqual:
-    """
-    Change condition to the `SET` command,
-    For additional conditonal options see ConditionalChange
-
-    - comparison_value - value to compare to the current value of a key.
-
-    If comparison_value is equal to the key, it will overwrite the value of key to the new provided value
-    Equivalent to the IFEQ comparison-value in the Valkey API
-    """
-
-    comparison_value: TEncodable
-
-
-class ExpiryType(Enum):
-    """
-    SET option: The type of the expiry.
-    """
-
-    SEC = 0, Union[int, timedelta]
-    """
-    Set the specified expire time, in seconds. Equivalent to `EX` in the Valkey API.
-    """
-
-    MILLSEC = 1, Union[int, timedelta]
-    """
-    Set the specified expire time, in milliseconds. Equivalent to `PX` in the Valkey API.
-    """
-
-    UNIX_SEC = 2, Union[int, datetime]
-    """
-    Set the specified Unix time at which the key will expire, in seconds. Equivalent to `EXAT` in the Valkey API.
-    """
-
-    UNIX_MILLSEC = 3, Union[int, datetime]
-    """
-    Set the specified Unix time at which the key will expire, in milliseconds. Equivalent to `PXAT` in the Valkey API.
-    """
-
-    KEEP_TTL = 4, Type[None]
-    """
-    Retain the time to live associated with the key. Equivalent to `KEEPTTL` in the Valkey API.
-    """
-
-
-class ExpiryTypeGetEx(Enum):
-    """
-    GetEx option: The type of the expiry.
-    """
-
-    SEC = 0, Union[int, timedelta]
-    """ Set the specified expire time, in seconds. Equivalent to `EX` in the Valkey API. """
-
-    MILLSEC = 1, Union[int, timedelta]
-    """ Set the specified expire time, in milliseconds. Equivalent to `PX` in the Valkey API. """
-
-    UNIX_SEC = 2, Union[int, datetime]
-    """ Set the specified Unix time at which the key will expire, in seconds. Equivalent to `EXAT` in the Valkey API. """
-
-    UNIX_MILLSEC = 3, Union[int, datetime]
-    """ Set the specified Unix time at which the key will expire, in milliseconds. Equivalent to `PXAT` in the Valkey API. """
-
-    PERSIST = 4, Type[None]
-    """ Remove the time to live associated with the key. Equivalent to `PERSIST` in the Valkey API. """
-
-
-class InfoSection(Enum):
-    """
-    INFO option: a specific section of information:
-
-    When no parameter is provided, the default option is assumed.
-    """
-
-    SERVER = "server"
-    """ General information about the server """
-
-    CLIENTS = "clients"
-    """ Client connections section """
-
-    MEMORY = "memory"
-    """ Memory consumption related information """
-
-    PERSISTENCE = "persistence"
-    """ RDB and AOF related information """
-
-    STATS = "stats"
-    """ General statistics """
-
-    REPLICATION = "replication"
-    """ Master/replica replication information """
-
-    CPU = "cpu"
-    """ CPU consumption statistics """
-
-    COMMAND_STATS = "commandstats"
-    """ Valkey command statistics """
-
-    LATENCY_STATS = "latencystats"
-    """ Valkey command latency percentile distribution statistics """
-
-    SENTINEL = "sentinel"
-    """ Valkey Sentinel section (only applicable to Sentinel instances) """
-
-    CLUSTER = "cluster"
-    """ Valkey Cluster section """
-
-    MODULES = "modules"
-    """ Modules section """
-
-    KEYSPACE = "keyspace"
-    """ Database related statistics """
-
-    ERROR_STATS = "errorstats"
-    """ Valkey error statistics """
-
-    ALL = "all"
-    """ Return all sections (excluding module generated ones) """
-
-    DEFAULT = "default"
-    """ Return only the default set of sections """
-
-    EVERYTHING = "everything"
-    """ Includes all and modules """
-
-
-class ExpireOptions(Enum):
-    """
-    EXPIRE option: options for setting key expiry.
-    """
-
-    HasNoExpiry = "NX"
-    """ Set expiry only when the key has no expiry (Equivalent to "NX" in Valkey). """
-
-    HasExistingExpiry = "XX"
-    """ Set expiry only when the key has an existing expiry (Equivalent to "XX" in Valkey). """
-
-    NewExpiryGreaterThanCurrent = "GT"
-    """
-    Set expiry only when the new expiry is greater than the current one (Equivalent to "GT" in Valkey).
-    """
-
-    NewExpiryLessThanCurrent = "LT"
-    """
-    Set expiry only when the new expiry is less than the current one (Equivalent to "LT" in Valkey).
-    """
-
-
-class UpdateOptions(Enum):
-    """
-    Options for updating elements of a sorted set key.
-    """
-
-    LESS_THAN = "LT"
-    """ Only update existing elements if the new score is less than the current score. """
-
-    GREATER_THAN = "GT"
-    """ Only update existing elements if the new score is greater than the current score. """
-
-
-class ExpirySet:
-    """
-    SET option: Represents the expiry type and value to be executed with "SET" command.
-
-    Attributes:
-        cmd_arg (str): The expiry type.
-        value (str): The value for the expiry type.
-    """
-
-    def __init__(
-        self,
-        expiry_type: ExpiryType,
-        value: Optional[Union[int, datetime, timedelta]],
-    ) -> None:
-        self.set_expiry_type_and_value(expiry_type, value)
-
-    def __eq__(self, other: "object") -> bool:
-        if not isinstance(other, ExpirySet):
-            return NotImplemented
-        return self.expiry_type == other.expiry_type and self.value == other.value
-
-    def set_expiry_type_and_value(
-        self, expiry_type: ExpiryType, value: Optional[Union[int, datetime, timedelta]]
-    ):
-        """
-        Args:
-            expiry_type (ExpiryType): The expiry type.
-            value (Optional[Union[int, datetime, timedelta]]): The value of the expiration type. The type of expiration
-                determines the type of expiration value:
-
-                    - SEC: Union[int, timedelta]
-                    - MILLSEC: Union[int, timedelta]
-                    - UNIX_SEC: Union[int, datetime]
-                    - UNIX_MILLSEC: Union[int, datetime]
-                    - KEEP_TTL: Type[None]
-        """
-        if not isinstance(value, get_args(expiry_type.value[1])):
-            raise ValueError(
-                f"The value of {expiry_type} should be of type {expiry_type.value[1]}"
-            )
-        self.expiry_type = expiry_type
-        if self.expiry_type == ExpiryType.SEC:
-            self.cmd_arg = "EX"
-            if isinstance(value, timedelta):
-                value = int(value.total_seconds())
-        elif self.expiry_type == ExpiryType.MILLSEC:
-            self.cmd_arg = "PX"
-            if isinstance(value, timedelta):
-                value = int(value.total_seconds() * 1000)
-        elif self.expiry_type == ExpiryType.UNIX_SEC:
-            self.cmd_arg = "EXAT"
-            if isinstance(value, datetime):
-                value = int(value.timestamp())
-        elif self.expiry_type == ExpiryType.UNIX_MILLSEC:
-            self.cmd_arg = "PXAT"
-            if isinstance(value, datetime):
-                value = int(value.timestamp() * 1000)
-        elif self.expiry_type == ExpiryType.KEEP_TTL:
-            self.cmd_arg = "KEEPTTL"
-        self.value = str(value) if value else None
-
-    def get_cmd_args(self) -> List[str]:
-        return [self.cmd_arg] if self.value is None else [self.cmd_arg, self.value]
-
-
-class ExpiryGetEx:
-    """
-    GetEx option: Represents the expiry type and value to be executed with "GetEx" command.
-
-    Attributes:
-        cmd_arg (str): The expiry type.
-        value (str): The value for the expiry type.
-    """
-
-    def __init__(
-        self,
-        expiry_type: ExpiryTypeGetEx,
-        value: Optional[Union[int, datetime, timedelta]],
-    ) -> None:
-        self.set_expiry_type_and_value(expiry_type, value)
-
-    def set_expiry_type_and_value(
-        self,
-        expiry_type: ExpiryTypeGetEx,
-        value: Optional[Union[int, datetime, timedelta]],
-    ):
-        """
-        Args:
-            expiry_type (ExpiryType): The expiry type.
-            value (Optional[Union[int, datetime, timedelta]]): The value of the expiration type. The type of expiration
-                determines the type of expiration value:
-
-                    - SEC: Union[int, timedelta]
-                    - MILLSEC: Union[int, timedelta]
-                    - UNIX_SEC: Union[int, datetime]
-                    - UNIX_MILLSEC: Union[int, datetime]
-                    - PERSIST: Type[None]
-        """
-        if not isinstance(value, get_args(expiry_type.value[1])):
-            raise ValueError(
-                f"The value of {expiry_type} should be of type {expiry_type.value[1]}"
-            )
-        self.expiry_type = expiry_type
-        if self.expiry_type == ExpiryTypeGetEx.SEC:
-            self.cmd_arg = "EX"
-            if isinstance(value, timedelta):
-                value = int(value.total_seconds())
-        elif self.expiry_type == ExpiryTypeGetEx.MILLSEC:
-            self.cmd_arg = "PX"
-            if isinstance(value, timedelta):
-                value = int(value.total_seconds() * 1000)
-        elif self.expiry_type == ExpiryTypeGetEx.UNIX_SEC:
-            self.cmd_arg = "EXAT"
-            if isinstance(value, datetime):
-                value = int(value.timestamp())
-        elif self.expiry_type == ExpiryTypeGetEx.UNIX_MILLSEC:
-            self.cmd_arg = "PXAT"
-            if isinstance(value, datetime):
-                value = int(value.timestamp() * 1000)
-        elif self.expiry_type == ExpiryTypeGetEx.PERSIST:
-            self.cmd_arg = "PERSIST"
-        self.value = str(value) if value else None
-
-    def get_cmd_args(self) -> List[str]:
-        return [self.cmd_arg] if self.value is None else [self.cmd_arg, self.value]
-
-
-class InsertPosition(Enum):
-    BEFORE = "BEFORE"
-    AFTER = "AFTER"
-
-
-class FlushMode(Enum):
-    """
-    Defines flushing mode for:
-
-    `FLUSHALL` command and `FUNCTION FLUSH` command.
-
-    See [FLUSHAL](https://valkey.io/commands/flushall/) and [FUNCTION-FLUSH](https://valkey.io/commands/function-flush/)
-    for details
-
-    SYNC was introduced in version 6.2.0.
-    """
-
-    ASYNC = "ASYNC"
-    SYNC = "SYNC"
-
-
-class FunctionRestorePolicy(Enum):
-    """
-    Options for the FUNCTION RESTORE command.
-    """
-
-    APPEND = "APPEND"
-    """ Appends the restored libraries to the existing libraries and aborts on collision. This is the default policy. """
-
-    FLUSH = "FLUSH"
-    """ Deletes all existing libraries before restoring the payload. """
-
-    REPLACE = "REPLACE"
-    """
-    Appends the restored libraries to the existing libraries, replacing any existing ones in case
-    of name collisions. Note that this policy doesn't prevent function name collisions, only libraries.
-    """
-
-
-def _build_sort_args(
-    key: TEncodable,
-    by_pattern: Optional[TEncodable] = None,
-    limit: Optional[Limit] = None,
-    get_patterns: Optional[List[TEncodable]] = None,
-    order: Optional[OrderBy] = None,
-    alpha: Optional[bool] = None,
-    store: Optional[TEncodable] = None,
-) -> List[TEncodable]:
-    args = [key]
-
-    if by_pattern:
-        args.extend(["BY", by_pattern])
-
-    if limit:
-        args.extend(["LIMIT", str(limit.offset), str(limit.count)])
-
-    if get_patterns:
-        for pattern in get_patterns:
-            args.extend(["GET", pattern])
-
-    if order:
-        args.append(order.value)
-
-    if alpha:
-        args.append("ALPHA")
-
-    if store:
-        args.extend(["STORE", store])
-
-    return args
+from glide_shared.exceptions import RequestError
+from glide_shared.protobuf.command_request_pb2 import RequestType
+from glide_shared.routes import Route
 
 
 class CoreCommands(Protocol):
@@ -1476,6 +1101,519 @@ class CoreCommands(Protocol):
         return cast(
             int,
             await self._execute_command(RequestType.HStrlen, [key, field]),
+        )
+
+    async def httl(self, key: TEncodable, fields: List[TEncodable]) -> List[int]:
+        """
+        Returns the remaining time to live (in seconds) of hash key's field(s) that have an associated expiration.
+
+        See [valkey.io](https://valkey.io/commands/httl/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to get TTL for.
+
+        Returns:
+            List[int]: A list of TTL values for each field:
+            - Positive integer: remaining TTL in seconds
+            - `-1`: field exists but has no expiration
+            - `-2`: field does not exist or key does not exist
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+            >>> await client.httl("my_hash", ["field1", "field2", "non_existent_field"])
+                [9, 9, -2]  # field1 and field2 have ~9 seconds left, non_existent_field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        return cast(
+            List[int],
+            await self._execute_command(
+                RequestType.HTtl, [key, "FIELDS", str(len(fields))] + fields
+            ),
+        )
+
+    async def hpttl(self, key: TEncodable, fields: List[TEncodable]) -> List[int]:
+        """
+        Returns the remaining time to live (in milliseconds) of hash key's field(s) that have an associated expiration.
+
+        See [valkey.io](https://valkey.io/commands/hpttl/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to get TTL for.
+
+        Returns:
+            List[int]: A list of TTL values for each field:
+            - Positive integer: remaining TTL in milliseconds
+            - `-1`: field exists but has no expiration
+            - `-2`: field does not exist or key does not exist
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.MILLSEC, 10000))
+            >>> await client.hpttl("my_hash", ["field1", "field2", "non_existent_field"])
+                [9500, 9500, -2]  # field1 and field2 have ~9500 milliseconds left, non_existent_field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        return cast(
+            List[int],
+            await self._execute_command(
+                RequestType.HPTtl, [key, "FIELDS", str(len(fields))] + fields
+            ),
+        )
+
+    async def hexpiretime(self, key: TEncodable, fields: List[TEncodable]) -> List[int]:
+        """
+        Returns the expiration Unix timestamp (in seconds) of hash key's field(s) that have an associated expiration.
+
+        See [valkey.io](https://valkey.io/commands/hexpiretime/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to get expiration timestamps for.
+
+        Returns:
+            List[int]: A list of expiration timestamps for each field:
+            - Positive integer: absolute expiration timestamp in seconds (Unix timestamp)
+            - `-1`: field exists but has no expiration
+            - `-2`: field does not exist or key does not exist
+
+        Examples:
+            >>> import time
+            >>> future_timestamp = int(time.time()) + 60  # 60 seconds from now
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.UNIX_SEC, future_timestamp))
+            >>> await client.hexpiretime("my_hash", ["field1", "field2", "non_existent_field"])
+                [future_timestamp, future_timestamp, -2]  # field1 and field2 expire at future_timestamp, non_existent_field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        return cast(
+            List[int],
+            await self._execute_command(
+                RequestType.HExpireTime, [key, "FIELDS", str(len(fields))] + fields
+            ),
+        )
+
+    async def hpexpiretime(
+        self, key: TEncodable, fields: List[TEncodable]
+    ) -> List[int]:
+        """
+        Returns the expiration Unix timestamp (in milliseconds) of hash key's field(s) that have an associated expiration.
+
+        See [valkey.io](https://valkey.io/commands/hpexpiretime/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to get expiration timestamps for.
+
+        Returns:
+            List[int]: A list of expiration timestamps for each field:
+            - Positive integer: absolute expiration timestamp in milliseconds (Unix timestamp in ms)
+            - `-1`: field exists but has no expiration
+            - `-2`: field does not exist or key does not exist
+
+        Examples:
+            >>> import time
+            >>> future_timestamp_ms = int(time.time() * 1000) + 60000  # 60 seconds from now in milliseconds
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.UNIX_MILLSEC, future_timestamp_ms))
+            >>> await client.hpexpiretime("my_hash", ["field1", "field2", "non_existent_field"])
+                [future_timestamp_ms, future_timestamp_ms, -2]  # field1 and field2 expire at future_timestamp_ms, non_existent_field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        return cast(
+            List[int],
+            await self._execute_command(
+                RequestType.HPExpireTime, [key, "FIELDS", str(len(fields))] + fields
+            ),
+        )
+
+    async def hsetex(
+        self,
+        key: TEncodable,
+        field_value_map: Mapping[TEncodable, TEncodable],
+        field_conditional_change: Optional[HashFieldConditionalChange] = None,
+        expiry: Optional[ExpirySet] = None,
+    ) -> int:
+        """
+        Sets the specified fields to their respective values in the hash stored at `key` with optional expiration.
+
+        See [valkey.io](https://valkey.io/commands/hsetex/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            field_value_map (Mapping[TEncodable, TEncodable]): A field-value map consisting of fields and their corresponding
+                values to be set in the hash stored at the specified key.
+            field_conditional_change (Optional[HashFieldConditionalChange]): Field conditional change option:
+                - ONLY_IF_ALL_EXIST (FXX): Only set fields if all of them already exist.
+                - ONLY_IF_NONE_EXIST (FNX): Only set fields if none of them already exist.
+            expiry (Optional[ExpirySet]): Expiration options for the fields:
+                - SEC (EX): Expiration time in seconds.
+                - MILLSEC (PX): Expiration time in milliseconds.
+                - UNIX_SEC (EXAT): Absolute expiration time in seconds (Unix timestamp).
+                - UNIX_MILLSEC (PXAT): Absolute expiration time in milliseconds (Unix timestamp).
+                - KEEP_TTL (KEEPTTL): Retain existing TTL.
+
+        Returns:
+            int: 1 if all fields were set successfully, 0 if none were set due to conditional constraints.
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+                1  # All fields set with 10 second expiration
+            >>> await client.hsetex("my_hash", {"field3": "value3"}, field_conditional_change=HashFieldConditionalChange.ONLY_IF_ALL_EXIST)
+                1  # Field set because field already exists
+            >>> await client.hsetex("new_hash", {"field1": "value1"}, field_conditional_change=HashFieldConditionalChange.ONLY_IF_ALL_EXIST)
+                0  # No fields set because hash doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key]
+
+        # Add field conditional change option if specified
+        if field_conditional_change is not None:
+            args.append(field_conditional_change.value)
+
+        # Add expiry options if specified
+        if expiry is not None:
+            args.extend(expiry.get_cmd_args())
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(field_value_map))])
+
+        # Add field-value pairs
+        for field, value in field_value_map.items():
+            args.extend([field, value])
+
+        return cast(
+            int,
+            await self._execute_command(RequestType.HSetEx, args),
+        )
+
+    async def hgetex(
+        self,
+        key: TEncodable,
+        fields: List[TEncodable],
+        expiry: Optional[ExpiryGetEx] = None,
+    ) -> Optional[List[Optional[bytes]]]:
+        """
+        Retrieves the values of specified fields in the hash stored at `key` and optionally sets their expiration.
+
+        See [valkey.io](https://valkey.io/commands/hgetex/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to retrieve from the hash.
+            expiry (Optional[ExpiryGetEx]): Expiration options for the retrieved fields:
+                - SEC (EX): Expiration time in seconds.
+                - MILLSEC (PX): Expiration time in milliseconds.
+                - UNIX_SEC (EXAT): Absolute expiration time in seconds (Unix timestamp).
+                - UNIX_MILLSEC (PXAT): Absolute expiration time in milliseconds (Unix timestamp).
+                - PERSIST: Remove expiration from the fields.
+
+        Returns:
+            Optional[List[Optional[bytes]]]: A list of values associated with the given fields, in the same order as requested.
+            For every field that does not exist in the hash, a null value is returned.
+            If `key` does not exist, it is treated as an empty hash, and the function returns a list of null values.
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+            >>> await client.hgetex("my_hash", ["field1", "field2"])
+                [b"value1", b"value2"]
+            >>> await client.hgetex("my_hash", ["field1"], expiry=ExpiryGetEx(ExpiryTypeGetEx.SEC, 20))
+                [b"value1"]  # field1 now has 20 second expiration
+            >>> await client.hgetex("my_hash", ["field1"], expiry=ExpiryGetEx(ExpiryTypeGetEx.PERSIST, None))
+                [b"value1"]  # field1 expiration removed
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key]
+
+        # Add expiry options if specified
+        if expiry is not None:
+            args.extend(expiry.get_cmd_args())
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(fields))])
+
+        # Add fields
+        args.extend(fields)
+
+        return cast(
+            Optional[List[Optional[bytes]]],
+            await self._execute_command(RequestType.HGetEx, args),
+        )
+
+    async def hexpire(
+        self,
+        key: TEncodable,
+        seconds: int,
+        fields: List[TEncodable],
+        option: Optional[ExpireOptions] = None,
+    ) -> List[int]:
+        """
+        Sets expiration time in seconds for one or more hash fields.
+
+        See [valkey.io](https://valkey.io/commands/hexpire/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            seconds (int): The expiration time in seconds.
+            fields (List[TEncodable]): The list of fields to set expiration for.
+            option (Optional[ExpireOptions]): Conditional expiration option:
+                - HasNoExpiry (NX): Set expiration only when the field has no expiry.
+                - HasExistingExpiry (XX): Set expiration only when the field has an existing expiry.
+                - NewExpiryGreaterThanCurrent (GT): Set expiration only when the new expiry is greater than the current one.
+                - NewExpiryLessThanCurrent (LT): Set expiration only when the new expiry is less than the current one.
+
+        Returns:
+            List[int]: A list of status codes for each field:
+            - `1`: Expiration time was applied successfully.
+            - `0`: Specified condition was not met.
+            - `-2`: Field does not exist or key does not exist.
+            - `2`: Field was deleted immediately (when seconds is 0 or timestamp is in the past).
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+            >>> await client.hexpire("my_hash", 20, ["field1", "field2"])
+                [1, 1]  # Both fields' expiration set to 20 seconds
+            >>> await client.hexpire("my_hash", 30, ["field1"], option=ExpireOptions.NewExpiryGreaterThanCurrent)
+                [1]  # field1 expiration updated to 30 seconds (greater than current 20)
+            >>> await client.hexpire("my_hash", 0, ["field2"])
+                [2]  # field2 deleted immediately
+            >>> await client.hexpire("my_hash", 10, ["non_existent_field"])
+                [-2]  # Field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key, str(seconds)]
+
+        # Add conditional option if specified
+        if option is not None:
+            args.append(option.value)
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(fields))])
+
+        # Add fields
+        args.extend(fields)
+
+        return cast(
+            List[int],
+            await self._execute_command(RequestType.HExpire, args),
+        )
+
+    async def hpersist(self, key: TEncodable, fields: List[TEncodable]) -> List[int]:
+        """
+        Removes the expiration from one or more hash fields, making them persistent.
+
+        See [valkey.io](https://valkey.io/commands/hpersist/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            fields (List[TEncodable]): The list of fields to remove expiration from.
+
+        Returns:
+            List[int]: A list of status codes for each field:
+            - `1`: Expiration was removed successfully (field became persistent).
+            - `-1`: Field exists but has no expiration.
+            - `-2`: Field does not exist or key does not exist.
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+            >>> await client.hpersist("my_hash", ["field1", "field2"])
+                [1, 1]  # Both fields made persistent
+            >>> await client.hpersist("my_hash", ["field1"])
+                [-1]  # field1 already persistent
+            >>> await client.hpersist("my_hash", ["non_existent_field"])
+                [-2]  # Field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key, "FIELDS", str(len(fields))] + fields
+
+        return cast(
+            List[int],
+            await self._execute_command(RequestType.HPersist, args),
+        )
+
+    async def hpexpire(
+        self,
+        key: TEncodable,
+        milliseconds: int,
+        fields: List[TEncodable],
+        option: Optional[ExpireOptions] = None,
+    ) -> List[int]:
+        """
+        Sets expiration time in milliseconds for one or more hash fields.
+
+        See [valkey.io](https://valkey.io/commands/hpexpire/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            milliseconds (int): The expiration time in milliseconds.
+            fields (List[TEncodable]): The list of fields to set expiration for.
+            option (Optional[ExpireOptions]): Conditional expiration option:
+                - HasNoExpiry (NX): Set expiration only when the field has no expiry.
+                - HasExistingExpiry (XX): Set expiration only when the field has an existing expiry.
+                - NewExpiryGreaterThanCurrent (GT): Set expiration only when the new expiry is greater than the current one.
+                - NewExpiryLessThanCurrent (LT): Set expiration only when the new expiry is less than the current one.
+
+        Returns:
+            List[int]: A list of status codes for each field:
+            - `1`: Expiration time was applied successfully.
+            - `0`: Specified condition was not met.
+            - `-2`: Field does not exist or key does not exist.
+            - `2`: Field was deleted immediately (when milliseconds is 0 or timestamp is in the past).
+
+        Examples:
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.MILLSEC, 10000))
+            >>> await client.hpexpire("my_hash", 20000, ["field1", "field2"])
+                [1, 1]  # Both fields' expiration set to 20000 milliseconds
+            >>> await client.hpexpire("my_hash", 30000, ["field1"], option=ExpireOptions.NewExpiryGreaterThanCurrent)
+                [1]  # field1 expiration updated to 30000 milliseconds (greater than current 20000)
+            >>> await client.hpexpire("my_hash", 0, ["field2"])
+                [2]  # field2 deleted immediately
+            >>> await client.hpexpire("my_hash", 10000, ["non_existent_field"])
+                [-2]  # Field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key, str(milliseconds)]
+
+        # Add conditional option if specified
+        if option is not None:
+            args.append(option.value)
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(fields))])
+
+        # Add fields
+        args.extend(fields)
+
+        return cast(
+            List[int],
+            await self._execute_command(RequestType.HPExpire, args),
+        )
+
+    async def hexpireat(
+        self,
+        key: TEncodable,
+        unix_timestamp: int,
+        fields: List[TEncodable],
+        option: Optional[ExpireOptions] = None,
+    ) -> List[int]:
+        """
+        Sets expiration time at absolute Unix timestamp in seconds for one or more hash fields.
+
+        See [valkey.io](https://valkey.io/commands/hexpireat/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            unix_timestamp (int): The absolute expiration time as Unix timestamp in seconds.
+            fields (List[TEncodable]): The list of fields to set expiration for.
+            option (Optional[ExpireOptions]): Conditional expiration option:
+                - HasNoExpiry (NX): Set expiration only when the field has no expiry.
+                - HasExistingExpiry (XX): Set expiration only when the field has an existing expiry.
+                - NewExpiryGreaterThanCurrent (GT): Set expiration only when the new expiry is greater than the current one.
+                - NewExpiryLessThanCurrent (LT): Set expiration only when the new expiry is less than the current one.
+
+        Returns:
+            List[int]: A list of status codes for each field:
+            - `1`: Expiration time was applied successfully.
+            - `0`: Specified condition was not met.
+            - `-2`: Field does not exist or key does not exist.
+            - `2`: Field was deleted immediately (when timestamp is in the past).
+
+        Examples:
+            >>> import time
+            >>> future_timestamp = int(time.time()) + 60  # 60 seconds from now
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.SEC, 10))
+            >>> await client.hexpireat("my_hash", future_timestamp, ["field1", "field2"])
+                [1, 1]  # Both fields' expiration set to future_timestamp
+            >>> past_timestamp = int(time.time()) - 60  # 60 seconds ago
+            >>> await client.hexpireat("my_hash", past_timestamp, ["field1"])
+                [2]  # field1 deleted immediately (past timestamp)
+            >>> await client.hexpireat("my_hash", future_timestamp, ["non_existent_field"])
+                [-2]  # Field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key, str(unix_timestamp)]
+
+        # Add conditional option if specified
+        if option is not None:
+            args.append(option.value)
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(fields))])
+
+        # Add fields
+        args.extend(fields)
+
+        return cast(
+            List[int],
+            await self._execute_command(RequestType.HExpireAt, args),
+        )
+
+    async def hpexpireat(
+        self,
+        key: TEncodable,
+        unix_timestamp_ms: int,
+        fields: List[TEncodable],
+        option: Optional[ExpireOptions] = None,
+    ) -> List[int]:
+        """
+        Sets expiration time at absolute Unix timestamp in milliseconds for one or more hash fields.
+
+        See [valkey.io](https://valkey.io/commands/hpexpireat/) for more details.
+
+        Args:
+            key (TEncodable): The key of the hash.
+            unix_timestamp_ms (int): The absolute expiration time as Unix timestamp in milliseconds.
+            fields (List[TEncodable]): The list of fields to set expiration for.
+            option (Optional[ExpireOptions]): Conditional expiration option:
+                - HasNoExpiry (NX): Set expiration only when the field has no expiry.
+                - HasExistingExpiry (XX): Set expiration only when the field has an existing expiry.
+                - NewExpiryGreaterThanCurrent (GT): Set expiration only when the new expiry is greater than the current one.
+                - NewExpiryLessThanCurrent (LT): Set expiration only when the new expiry is less than the current one.
+
+        Returns:
+            List[int]: A list of status codes for each field:
+            - `1`: Expiration time was applied successfully.
+            - `0`: Specified condition was not met.
+            - `-2`: Field does not exist or key does not exist.
+            - `2`: Field was deleted immediately (when timestamp is in the past).
+
+        Examples:
+            >>> import time
+            >>> future_timestamp_ms = int(time.time() * 1000) + 60000  # 60 seconds from now in milliseconds
+            >>> await client.hsetex("my_hash", {"field1": "value1", "field2": "value2"}, expiry=ExpirySet(ExpiryType.MILLSEC, 10000))
+            >>> await client.hpexpireat("my_hash", future_timestamp_ms, ["field1", "field2"])
+                [1, 1]  # Both fields' expiration set to future_timestamp_ms
+            >>> past_timestamp_ms = int(time.time() * 1000) - 60000  # 60 seconds ago in milliseconds
+            >>> await client.hpexpireat("my_hash", past_timestamp_ms, ["field1"])
+                [2]  # field1 deleted immediately (past timestamp)
+            >>> await client.hpexpireat("my_hash", future_timestamp_ms, ["non_existent_field"])
+                [-2]  # Field doesn't exist
+
+        Since: Valkey 9.0.0
+        """
+        args: List[TEncodable] = [key, str(unix_timestamp_ms)]
+
+        # Add conditional option if specified
+        if option is not None:
+            args.append(option.value)
+
+        # Add FIELDS keyword and field count
+        args.extend(["FIELDS", str(len(fields))])
+
+        # Add fields
+        args.extend(fields)
+
+        return cast(
+            List[int],
+            await self._execute_command(RequestType.HPExpireAt, args),
         )
 
     async def lpush(self, key: TEncodable, elements: List[TEncodable]) -> int:
@@ -6994,7 +7132,7 @@ class CoreCommands(Protocol):
         See [valkey.io](https://valkey.io/commands/watch) for more details.
 
         Note:
-            In cluster mode, if keys in `key_value_map` map to different hash slots,
+            In cluster mode, if keys in `keys` map to different hash slots,
             the command will be split across these slots and executed separately for each.
             This means the command is atomic only at the slot level. If one or more slot-specific
             requests fail, the entire call will return the first encountered error, even
@@ -7013,7 +7151,7 @@ class CoreCommands(Protocol):
                 'OK'
             >>> transaction.set("sampleKey", "foobar")
             >>> await client.exec(transaction)
-                'OK' # Executes successfully and keys are unwatched.
+                ['OK'] # Executes successfully and keys are unwatched.
 
             >>> await client.watch("sampleKey")
                 'OK'
@@ -7028,21 +7166,6 @@ class CoreCommands(Protocol):
             TOK,
             await self._execute_command(RequestType.Watch, keys),
         )
-
-    @dataclass
-    class PubSubMsg:
-        """
-        Describes the incoming pubsub message
-
-        Attributes:
-            message (TEncodable): Incoming message.
-            channel (TEncodable): Name of an channel that triggered the message.
-            pattern (Optional[TEncodable]): Pattern that triggered the message.
-        """
-
-        message: TEncodable
-        channel: TEncodable
-        pattern: Optional[TEncodable]
 
     async def get_pubsub_message(self) -> PubSubMsg:
         """

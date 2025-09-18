@@ -1,11 +1,13 @@
-[tool.poetry]
+[project]
 name = "supabase_auth"
-version = "2.12.3" # {x-release-please-version}
+version = "2.19.0" # {x-release-please-version}
 description = "Python Client Library for Supabase Auth"
-authors = ["Joel Lee <joel@joellee.org>"]
-homepage = "https://github.com/supabase/auth-py"
-repository = "https://github.com/supabase/auth-py"
-documentation = "https://github.com/supabase/auth-py"
+authors = [
+  {name = "Joel Lee", email = "joel@joellee.org" }
+]
+maintainers = [
+  { name = "Leonardo Santiago", email = "leonardo.santiago@supabase.io" }
+]
 readme = "README.md"
 license = "MIT"
 classifiers = [
@@ -13,25 +15,36 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+requires-python = ">=3.9"
+dependencies = [
+  "httpx[http2] >=0.26,<0.29",
+  "pydantic >=1.10,<3",
+  "pyjwt[crypto] >=2.10.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-httpx = { version = ">=0.26,<0.29", extras = ["http2"] }
-pydantic = ">=1.10,<3"
-pyjwt = "^2.10.1"
+[project.urls]
+homepage = "https://github.com/supabase/supabase-py/tree/main/src/auth"
+repository = "https://github.com/supabase/supabase-py"
+documentation = "https://github.com/supabase/supabase-py/tree/main/src/auth"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
-pytest-mock = "^3.14.0"
-pre-commit = "^4.2.0"
-pytest-cov = "^6.2.1"
-pytest-depends = "^1.0.1"
-pytest-asyncio = "^1.0.0"
-Faker = "^37.4.0"
-unasync-cli = { git = "https://github.com/supabase-community/unasync-cli.git", branch = "main" }
-pygithub = ">=1.57,<3.0"
-respx = ">=0.20.2,<0.23.0"
-ruff = "^0.12.1"
+# [project.scripts]
+# gh-download = "scripts.gh-download:main"
+
+[dependency-groups]
+tests = [
+  "Faker >= 37.4.0",
+  "respx >=0.20.2,<0.23.0",
+  "pytest >= 8.4.1",
+  "pytest-mock >= 3.14.0",
+  "pytest-cov >= 6.2.1",
+  "pytest-depends >= 1.0.1",
+  "pytest-asyncio >= 1.0.0",
+]
+lints = [
+  "ruff >=0.12.1",
+  "unasync >= 0.6.0",
+]
+dev = [{ include-group = "lints" }, {include-group = "tests" }]
 
 [tool.ruff.lint]
 select = [
@@ -55,6 +68,10 @@ ignore = ["F401", "F403", "F841", "E712", "E501", "E402", "E722", "E731", "UP006
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
 
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.8.3,<0.9.0"]
+build-backend = "uv_build"

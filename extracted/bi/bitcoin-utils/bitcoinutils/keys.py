@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 The python-bitcoin-utils developers
+# Copyright (C) 2018-2025 The python-bitcoin-utils developers
 #
 # This file is part of python-bitcoin-utils
 #
@@ -13,14 +13,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Tuple
+    from typing import Tuple, List, Union, Any
 
 import re
 import struct
 import hashlib
 from abc import ABC, abstractmethod
 from base64 import b64encode, b64decode
-from typing import Optional
+from typing import Optional, List, Tuple, Union, cast
 from base58check import b58encode, b58decode  # type: ignore
 from ecdsa import (  # type: ignore
     SigningKey,
@@ -138,18 +138,18 @@ class PrivateKey:
         return self.key.to_string()
 
     @classmethod
-    def from_wif(cls, wif: str):
+    def from_wif(cls, wif: str) -> 'PrivateKey':
         """Creates key from WIFC or WIF format key"""
 
         return cls(wif=wif)
 
     @classmethod
-    def from_bytes(cls, b: bytes):
-        """Creates key from WIFC or WIF format key"""
+    def from_bytes(cls, b: bytes) -> 'PrivateKey':
+        """Creates a key directly from 32 raw bytes"""
 
         return cls(b=b)
 
-    def _from_bytes(self, b: bytes):
+    def _from_bytes(self, b: bytes) -> None:
         """Creates a key directly from 32 raw bytes"""
 
         if len(b) != 32:
@@ -157,7 +157,7 @@ class PrivateKey:
         self.key = SigningKey.from_string(b, curve=SECP256k1)
 
     # expects wif in hex string
-    def _from_wif(self, wif: str):
+    def _from_wif(self, wif: str) -> None:
         """Creates key from WIFC or WIF format key
 
         Check to_wif for the detailed process. From WIF is the reverse.
@@ -196,7 +196,7 @@ class PrivateKey:
         else:
             self.key = SigningKey.from_string(key_bytes, curve=SECP256k1)
 
-    def to_wif(self, compressed: bool = True):
+    def to_wif(self, compressed: bool = True) -> str:
         """Returns key in WIFC or WIF string
 
         |  Pseudocode:
@@ -276,8 +276,8 @@ class PrivateKey:
         return None
 
     def sign_input(
-        self, tx: Transaction, txin_index: int, script: Script, sighash=SIGHASH_ALL
-    ):
+        self, tx: Transaction, txin_index: int, script: Script, sighash: int = SIGHASH_ALL
+    ) -> str:
         # get the digest from the transaction object and sign
         tx_digest = tx.get_transaction_digest(txin_index, script, sighash)
         return self._sign_input(tx_digest, sighash)
@@ -289,7 +289,7 @@ class PrivateKey:
         script: Script,
         amount: int,
         sighash: int = SIGHASH_ALL,
-    ):
+    ) -> str:
         # get the digest from the transaction object and sign
         tx_digest = tx.get_transaction_segwit_digest(
             txin_index, script, amount, sighash
@@ -304,10 +304,10 @@ class PrivateKey:
         amounts: list[int],
         script_path: bool = False,
         tapleaf_script: Script = Script([]),
-        tapleaf_scripts: Optional[Script | list[Script] | list[list[Script]]] = None,
+        tapleaf_scripts: Optional[Union[Script, List[Script], List[List[Script]], bytes]] = None,
         sighash: int = TAPROOT_SIGHASH_ALL,
         tweak: bool = True,
-    ):
+    ) -> str:
         # get the digest from the transaction object and sign
         # note that when signing a tapleaf we typically won't use tweaked
         # keys - so tweak should be set to False
@@ -439,7 +439,7 @@ class PrivateKey:
         self,
         tx_digest: bytes,
         sighash: int = SIGHASH_ALL,
-        scripts: Optional[Script | list[Script] | list[list[Script]]] = None,
+        scripts: Optional[Union[Script, List[Script], List[List[Script]], bytes]] = None,
         tweak: bool = True,
     ) -> str:
         """Signs a taproot transaction input with the private key
@@ -466,11 +466,13 @@ class PrivateKey:
             # byte_key = bytes.fromhex(negated_key)
             byte_key = self.key.to_string()
 
-        # deterministic signing nonce is random and RFC6979-like
-        # it is the hash of the tx_digest and private key
-        # TODO not identical to Bitcoin Core's signature, rand_aux
-        # needs to change if we want identical signatures!
-        rand_aux = hashlib.sha256(tx_digest + byte_key).digest()
+        # a value in rand_aux will make the signatures different from bitcoin core
+        # if rand_aux is None:
+        #     rand_aux = hashlib.sha256(tx_digest + byte_key).digest()
+
+        # Currently bitcoin core is just passing 32 bytes data as randam aux
+        # https://github.com/bitcoin/bitcoin/blob/master/src/script/sign.cpp#L88
+        rand_aux = bytes(32)
 
         # use BIP-340 python's reference implementation for signing
         sig = schnorr_sign(tx_digest, byte_key, rand_aux)
@@ -481,7 +483,7 @@ class PrivateKey:
 
         return b_to_h(sig)
 
-    def get_public_key(self) -> PublicKey:
+    def get_public_key(self) -> 'PublicKey':
         """Returns the corresponding PublicKey"""
 
         verifying_key = b_to_h(self.key.get_verifying_key().to_string())
@@ -528,77 +530,116 @@ class PublicKey:
         returns the corresponding P2trAddress object
     """
 
-    def __init__(self, hex_str: str) -> None:
+    def __init__(self, hex_str: Optional[str] = None, message: Optional[str] = None, signature: Optional[bytes] = None) -> None:
         """
         Parameters
         ----------
-        hex_str : str
+        hex_str : str, optional
             the public key in hex string
+
+        In case of generating public key from message and signature:-
+        message : str, optional
+            The original message that was signed
+        signature : bytes, optional
+            A 65-byte Bitcoin signature (1-byte recovery ID + 64-byte ECDSA signature).
 
         Raises
         ------
         TypeError
             If first byte of public key (corresponding to SEC format) is
             invalid.
+            If neither hex_str nor (message, signature) are provided
+        ValueError
+            If message is empty when attempting recovery
+            If signature is not exactly 65 bytes
+            If an invalid recovery ID is detected
         """
-        hex_str = hex_str.strip()
+        if hex_str:
+            hex_str = hex_str.strip()
 
-        # Normalize hex string by removing '0x' prefix and any whitespace
-        if hex_str.lower().startswith('0x'):
-            hex_str = hex_str[2:]
+            # Normalize hex string by removing '0x' prefix and any whitespace
+            if hex_str.lower().startswith('0x'):
+                hex_str = hex_str[2:]
 
-        # expects key as hex string - SEC format
-        first_byte_in_hex = hex_str[:2]  # 2 hex chars = 1 byte
-        hex_bytes = h_to_b(hex_str)
+            # expects key as hex string - SEC format
+            first_byte_in_hex = hex_str[:2]  # 2 hex chars = 1 byte
+            hex_bytes = h_to_b(hex_str)
 
-        taproot = False
+            taproot = False
 
-        # check if compressed or not
-        if len(hex_bytes) > 33:
-            # uncompressed - SEC format: 0x04 + x + y coordinates (x,y are 32 byte
-            # numbers)
+            # check if compressed or not
+            if len(hex_bytes) > 33:
+                # uncompressed - SEC format: 0x04 + x + y coordinates (x,y are 32 byte
+                # numbers)
 
-            # remove first byte and instantiate ecdsa key
-            self.key = VerifyingKey.from_string(hex_bytes[1:], curve=SECP256k1)
-        elif len(hex_bytes) > 31:
-            # key is either compressed or in x-only taproot format
+                # remove first byte and instantiate ecdsa key
+                self.key = VerifyingKey.from_string(hex_bytes[1:], curve=SECP256k1)
+            elif len(hex_bytes) > 31:
+                # key is either compressed or in x-only taproot format
 
-            # taproot public keys are exactly 32 bytes
-            if len(hex_bytes) == 32:
-                taproot = True
+                # taproot public keys are exactly 32 bytes
+                if len(hex_bytes) == 32:
+                    taproot = True
 
-            # compressed - SEC FORMAT: 0x02|0x03 + x coordinate (if 02 then y
-            # is even else y is odd. Calculate y and then instantiate the ecdsa key
-            x_coord = int(hex_str[2:], 16)
+                # compressed - SEC FORMAT: 0x02|0x03 + x coordinate (if 02 then y
+                # is even else y is odd. Calculate y and then instantiate the ecdsa key
+                x_coord = int(hex_str if taproot else hex_str[2:], 16)
 
-            # y = modulo_square_root( (x**3 + 7) mod p ) -- there will be 2 y values
-            y_values = sqrt_mod(
-                (x_coord**3 + 7) % Secp256k1Params._p, Secp256k1Params._p, True
+                # y = modulo_square_root( (x**3 + 7) mod p ) -- there will be 2 y values
+                y_values = sqrt_mod(
+                    (x_coord**3 + 7) % Secp256k1Params._p, Secp256k1Params._p, True
+                )
+
+                assert y_values is not None
+                # check SEC format's first byte to determine which of the 2 values to use
+                if first_byte_in_hex == "02" or taproot:
+                    # y is the even value
+                    if y_values[0] % 2 == 0:  # type: ignore
+                        y_coord = y_values[0]  # type: ignore
+                    else:
+                        y_coord = y_values[1]  # type: ignore
+                elif first_byte_in_hex == "03":
+                    # y is the odd value
+                    if y_values[0] % 2 == 0:  # type: ignore
+                        y_coord = y_values[1]  # type: ignore
+                    else:
+                        y_coord = y_values[0]  # type: ignore
+                else:
+                    raise TypeError("Invalid SEC compressed format")
+
+                uncompressed_hex = f"{x_coord:064x}{y_coord:064x}"
+                uncompressed_hex_bytes = h_to_b(uncompressed_hex)
+                self.key = VerifyingKey.from_string(uncompressed_hex_bytes, curve=SECP256k1)
+        elif message or signature:
+            if not message:
+                raise ValueError("Empty message provided for public key recovery.")
+
+            if not signature or len(signature) != 65:
+                raise ValueError("Invalid signature length, must be exactly 65 bytes")
+
+            # The compressed signature is of the format: recovery_id (1 byte) | r (32 bytes) | s (32 bytes)
+            # We subtract the prefix(27) for uncompressed signatures and an additional 4 (31) for compressed signatures to get the recovery id
+            recovery_id = signature[0] - 31
+            if not (0 <= recovery_id <= 3): # A valid recovery ID is between 0 and 3
+                raise ValueError(f"Invalid recovery ID: expected 31-34, got {signature[0]}")
+
+            signature = signature[1:] #Remove recovery id from signature
+
+            # All bitcoin signatures include the magic prefix. It is just a string
+            # added to the message to distinguish Bitcoin-specific messages.
+            message_magic = add_magic_prefix(message)
+            # create message digest
+            message_digest = hashlib.sha256(hashlib.sha256(message_magic).digest()).digest()
+
+            recovered_keys = VerifyingKey.from_public_key_recovery_with_digest(
+                signature, message_digest, curve=SECP256k1, hashfunc = hashlib.sha256, sigdecode=sigdecode_string
             )
-
-            assert y_values is not None
-            # check SEC format's first byte to determine which of the 2 values to use
-            if first_byte_in_hex == "02" or taproot:
-                # y is the even value
-                if y_values[0] % 2 == 0:  # type: ignore
-                    y_coord = y_values[0]  # type: ignore
-                else:
-                    y_coord = y_values[1]  # type: ignore
-            elif first_byte_in_hex == "03":
-                # y is the odd value
-                if y_values[0] % 2 == 0:  # type: ignore
-                    y_coord = y_values[1]  # type: ignore
-                else:
-                    y_coord = y_values[0]  # type: ignore
-            else:
-                raise TypeError("Invalid SEC compressed format")
-
-            uncompressed_hex = f"{x_coord:064x}{y_coord:064x}"
-            uncompressed_hex_bytes = h_to_b(uncompressed_hex)
-            self.key = VerifyingKey.from_string(uncompressed_hex_bytes, curve=SECP256k1)
+            self.key = recovered_keys[recovery_id]
+        else:
+            raise TypeError("Either 'hex_str' or ('message', 'signature') must be provided.")
 
     @classmethod
-    def from_hex(cls, hex_str: str) -> PublicKey:
+    def from_hex(cls, hex_str: str) -> 'PublicKey':
         """Creates a public key from a hex string (SEC format)"""
 
         return cls(hex_str)
@@ -633,7 +674,7 @@ class PublicKey:
         return key_hex[:64]
 
     def to_taproot_hex(
-        self, scripts: Optional[Script | list[Script] | list[list[Script]]] = None
+        self, scripts: Optional[Union[Script, List[Script], List[List[Script]]]] = None
     ) -> Tuple[str, bool]:
         """Returns the tweaked x coordinate of the public key as a hex string.
 
@@ -648,7 +689,7 @@ class PublicKey:
         tweak_int = calculate_tweak(self, scripts)
 
         # keep x-only coordinate
-        tweak_and_odd = tweak_taproot_pubkey(self.key.to_string(), tweak_int) 
+        tweak_and_odd = tweak_taproot_pubkey(self.key.to_string(), tweak_int)
         pubkey = tweak_and_odd[0][:32]
         is_odd = tweak_and_odd[1]
 
@@ -665,11 +706,12 @@ class PublicKey:
         return y % 2 == 0
 
     @classmethod
-    def from_message_signature(cls, signature):
-        # TODO implement (add signature=None in __init__, etc.)
-        # TODO plus does this apply to DER signatures as well?
-        # return cls(signature=signature)
-        raise BaseException("NO-OP!")
+    def from_message_signature(cls, message: str, signature: bytes) -> 'PublicKey':
+        """Recovers a public key from a Bitcoin-signed message and a 65-byte compressed signature.
+        """
+        #Note: Only works for compressed signatures because DER encoding does not contain the recovery id
+        return cls(message=message, signature=signature)
+        # raise BaseException("NO-OP!")
 
     @classmethod
     def verify_message(cls, address: str, signature: str, message: str) -> bool:
@@ -789,14 +831,14 @@ class PublicKey:
 
         return b_to_h(self._to_hash160(compressed))
 
-    def get_address(self, compressed: bool = True) -> P2pkhAddress:
+    def get_address(self, compressed: bool = True) -> 'P2pkhAddress':
         """Returns the corresponding P2PKH Address (default compressed)"""
 
         hash160 = self._to_hash160(compressed)
         addr_string_hex = b_to_h(hash160)
         return P2pkhAddress(hash160=addr_string_hex)
 
-    def get_segwit_address(self) -> P2wpkhAddress:
+    def get_segwit_address(self) -> 'P2wpkhAddress':
         """Returns the corresponding P2WPKH address
 
         Only compressed is allowed. It is otherwise identical to normal P2PKH
@@ -807,8 +849,8 @@ class PublicKey:
         return P2wpkhAddress(witness_program=addr_string_hex)
 
     def get_taproot_address(
-        self, scripts: Optional[Script | list[Script] | list[list[Script]]] = None
-    ) -> P2trAddress:
+        self, scripts: Optional[Union[Script, List[Script], List[List[Script]], bytes]] = None
+    ) -> 'P2trAddress':
         """Returns the corresponding P2TR address
 
         Only compressed is allowed. Taproot uses x-only public key with
@@ -901,19 +943,19 @@ class Address(ABC):
             raise TypeError("A valid address or hash160 is required.")
 
     @classmethod
-    def from_address(cls, address: str) -> Address:
+    def from_address(cls, address: str) -> 'Address':
         """Creates an address object from an address string"""
 
         return cls(address=address)
 
     @classmethod
-    def from_hash160(cls, hash160: str) -> Address:
+    def from_hash160(cls, hash160: str) -> 'Address':
         """Creates an address object from a hash160 string"""
 
         return cls(hash160=hash160)
 
     @classmethod
-    def from_script(cls, script: Script) -> Address:
+    def from_script(cls, script: Script) -> 'Address':
         """Creates an address object from a Script object"""
 
         return cls(script=script)
@@ -1079,7 +1121,7 @@ class P2shAddress(Address):
         address: Optional[str] = None,
         hash160: Optional[str] = None,
         script: Optional[Script] = None,
-    ):
+    ) -> None:
         super().__init__(address=address, hash160=hash160, script=script)
 
     def to_script_pub_key(self) -> Script:
@@ -1177,19 +1219,19 @@ class SegwitAddress(ABC):
             raise TypeError("A valid address or witness program is required.")
 
     @classmethod
-    def from_address(cls, address: str) -> SegwitAddress:
+    def from_address(cls, address: str) -> 'SegwitAddress':
         """Creates an address object from an address string"""
 
         return cls(address=address)
 
     @classmethod
-    def from_witness_program(cls, witness_program: str) -> SegwitAddress:
+    def from_witness_program(cls, witness_program: str) -> 'SegwitAddress':
         """Creates an address object from a hash string"""
 
         return cls(witness_program=witness_program)
 
     @classmethod
-    def from_script(cls, script: Script) -> SegwitAddress:
+    def from_script(cls, script: Script) -> 'SegwitAddress':
         """Creates an address object from a Script object"""
 
         return cls(script=script)

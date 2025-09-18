@@ -68,22 +68,16 @@ import os
 import shutil
 import stat
 import uuid
-from urllib.parse import urlparse
-from urllib.parse import quote
-from urllib.parse import unquote
 from shlex import quote as shlex_quote
+from urllib.parse import quote, unquote, urlparse
 
 import pexpect
 
 import DIRAC
-from DIRAC import S_OK, S_ERROR
-from DIRAC import gLogger
-
-from DIRAC.Resources.Computing.ComputingElement import ComputingElement
-from DIRAC.Resources.Computing.PilotBundle import bundleProxy, writeScript
+from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC.Core.Utilities.List import breakListIntoChunks, uniqueElements
 from DIRAC.Resources.Computing.BatchSystems.executeBatch import executeBatchContent
-from DIRAC.Core.Utilities.List import uniqueElements
-from DIRAC.Core.Utilities.List import breakListIntoChunks
+from DIRAC.Resources.Computing.ComputingElement import ComputingElement
 
 
 class SSH:
@@ -307,15 +301,14 @@ class SSHComputingElement(ComputingElement):
         self.errorTemplate = ""
 
     ############################################################################
-    def setProxy(self, proxy, valid=0):
+    def setProxy(self, proxy):
         """
         Set and prepare proxy to use
 
         :param str proxy: proxy to use
-        :param int valid: proxy validity period
         :return:  S_OK/S_ERROR
         """
-        ComputingElement.setProxy(self, proxy, valid)
+        ComputingElement.setProxy(self, proxy)
         if self.ceParameters.get("SSHType", "ssh") == "gsissh":
             result = self._prepareProxy()
             if not result["OK"]:
@@ -538,23 +531,7 @@ class SSHComputingElement(ComputingElement):
         if not os.access(executableFile, 5):
             os.chmod(executableFile, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
-        # if no proxy is supplied, the executable can be submitted directly
-        # otherwise a wrapper script is needed to get the proxy to the execution node
-        # The wrapper script makes debugging more complicated and thus it is
-        # recommended to transfer a proxy inside the executable if possible.
-        if proxy:
-            self.log.verbose("Setting up proxy for payload")
-            wrapperContent = bundleProxy(executableFile, proxy)
-            name = writeScript(wrapperContent, os.getcwd())
-            submitFile = name
-        else:  # no proxy
-            submitFile = executableFile
-
-        result = self._submitJobToHost(submitFile, numberOfJobs)
-        if proxy:
-            os.remove(submitFile)
-
-        return result
+        return self._submitJobToHost(executableFile, numberOfJobs)
 
     def _submitJobToHost(self, executableFile, numberOfJobs, host=None):
         """Submit prepared executable to the given host"""

@@ -2,7 +2,6 @@
 import fnmatch
 import json
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
@@ -12,6 +11,8 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from itertools import chain
+from pathlib import Path
 from typing import Optional
 
 import git
@@ -21,22 +22,31 @@ from packaging.version import Version
 from typer import colors as c
 
 # Editable configuration
-DEFAULT_HOST_OS = "cc7"
+DEFAULT_HOST_OS = "el9"
 DEFAULT_MYSQL_VER = "mysql:8.4.4"
-DEFAULT_ES_VER = "elasticsearch:7.9.1"
+DEFAULT_ES_VER = "opensearchproject/opensearch:2.18.0"
+# In MacOSX with Arm (MX), there's an issue with opensearch
+# You *must* set the ES_PLATFORM flag to `linux/arm64` to make it work.
+DEFAULT_ES_PLATFORM = "linux/amd64"
 DEFAULT_IAM_VER = "indigoiam/iam-login-service:v1.10.2"
-
 FEATURE_VARIABLES = {
     "DIRACOSVER": "master",
     "DIRACOS_TARBALL_PATH": None,
     "TEST_HTTPS": "No",
+    "TEST_DIRACX": "No",
     "DIRAC_FEWER_CFG_LOCKS": None,
     "DIRAC_USE_JSON_ENCODE": None,
-    "DIRAC_USE_JSON_DECODE": None,
+    "INSTALLATION_BRANCH": "",
+    "DEBUG": "Yes",
 }
 DEFAULT_MODULES = {
     "DIRAC": Path(__file__).parent.absolute(),
 }
+# All services that have a FutureClient, but we *explicitly* deactivate
+# (for example if we did not finish to develop it)
+DIRACX_DISABLED_SERVICES = [
+    "WorkloadManagement/JobMonitoring",
+]
 
 # Static configuration
 DB_USER = "Dirac"
@@ -70,6 +80,10 @@ LOG_LEVEL_MAP = {
 }
 LOG_PATTERN = re.compile(r"^[\d\-]{10} [\d:]{8} UTC [^\s]+ ([A-Z]+):")
 
+# In niche cases where we use MacOSX with Orbstack, some commands may not work with docker compose
+# If you're in that case, set in your environment `export DOCKER_COMPOSE_CMD="docker-compose"`
+DOCKER_COMPOSE_CMD = shlex.split(os.environ.get("DOCKER_COMPOSE_CMD", "docker compose"))
+
 
 class NaturalOrderGroup(typer.core.TyperGroup):
     """Group for showing subcommands in the correct order"""
@@ -93,8 +107,10 @@ This is equivalent to running:
   ./integration_tests.py prepare-environment
   ./integration_tests.py install-server
   ./integration_tests.py install-client
+  ./integration_tests.py install-pilot
   ./integration_tests.py test-server
   ./integration_tests.py test-client
+  ./integration_tests.py test-pilot
 
 The test setup can be shutdown using:
 
@@ -137,6 +153,19 @@ Command completion of typer based scripts can be enabled by running:
 After restarting your terminal you command completion is available using:
 
   typer ./integration_tests.py run ...
+
+## DiracX
+
+If you want to activate DiracX, you have to set the flag TEST_DIRACX to "Yes".
+It will search for legacy adapted services (services with a future client activated)
+and do the necessary to make DIRAC work alongside DiracX.
+
+To deactivate a legacy adapted service (to pass CI for example), you have to add it in
+the `DIRACX_DISABLED_SERVICES` list. If you don't, the program will set this service to be used
+with DiracX, and if it is badly adapted, errors will be raised.
+
+> Note that you can provide a DiracX project (repository, branch) by building it and providing
+the dist folder to the prepare-environment command.
 """,
 )
 
@@ -146,14 +175,17 @@ def create(
     flags: Optional[list[str]] = typer.Argument(None),
     editable: Optional[bool] = None,
     extra_module: Optional[list[str]] = None,
+    diracx_dist_dir: Optional[str] = None,
     release_var: Optional[str] = None,
     run_server_tests: bool = True,
     run_client_tests: bool = True,
+    run_pilot_tests: bool = True,
 ):
     """Start a local instance of the integration tests"""
-    prepare_environment(flags, editable, extra_module, release_var)
+    prepare_environment(flags, editable, extra_module, diracx_dist_dir, release_var)
     install_server()
     install_client()
+    install_pilot()
     exit_code = 0
     if run_server_tests:
         try:
@@ -169,6 +201,13 @@ def create(
             exit_code += e.exit_code
         else:
             raise NotImplementedError()
+    if run_pilot_tests:
+        try:
+            test_pilot()
+        except TestExit as e:
+            exit_code += e.exit_code
+        else:
+            raise NotImplementedError()
     if exit_code != 0:
         typer.secho("One or more tests failed", err=True, fg=c.RED)
     raise typer.Exit(exit_code)
@@ -180,8 +219,8 @@ def destroy():
     typer.secho("Shutting down and removing containers", err=True, fg=c.GREEN)
     with _gen_docker_compose(DEFAULT_MODULES) as docker_compose_fn:
         os.execvpe(
-            "docker",
-            ["docker", "compose", "-f", docker_compose_fn, "down", "--remove-orphans", "-t", "0", "--volumes"],
+            DOCKER_COMPOSE_CMD[0],
+            [*DOCKER_COMPOSE_CMD, "-f", docker_compose_fn, "down", "--remove-orphans", "-t", "0", "--volumes"],
             _make_env({}),
         )
 
@@ -191,6 +230,7 @@ def prepare_environment(
     flags: Optional[list[str]] = typer.Argument(None),
     editable: Optional[bool] = None,
     extra_module: Optional[list[str]] = None,
+    diracx_dist_dir: Optional[str] = None,
     release_var: Optional[str] = None,
 ):
     """Prepare the local environment for installing DIRAC."""
@@ -215,27 +255,38 @@ def prepare_environment(
     docker_compose_env = _make_env(flags)
     server_flags = {}
     client_flags = {}
+    pilot_flags = {}
     for key, value in flags.items():
         if key.startswith("SERVER_"):
             server_flags[key[len("SERVER_") :]] = value
         elif key.startswith("CLIENT_"):
             client_flags[key[len("CLIENT_") :]] = value
+        elif key.startswith("PILOT_"):
+            pilot_flags[key[len("PILOT_") :]] = value
         else:
             server_flags[key] = value
             client_flags[key] = value
+            pilot_flags[key] = value
     server_config = _make_config(modules, server_flags, release_var, editable)
     client_config = _make_config(modules, client_flags, release_var, editable)
+    pilot_config = _make_config(modules, pilot_flags, release_var, editable)
 
-    typer.secho("Running docker-compose to create containers", fg=c.GREEN)
-    with _gen_docker_compose(modules) as docker_compose_fn:
+    # The dependencies of dirac-server and dirac-client will be automatically
+    # started but we need to add manually all the extra services
+    module_configs = _load_module_configs(modules)
+    extra_services = list(chain(*[config["extra-services"] for config in module_configs.values()]))
+
+    typer.secho("Running docker compose to create containers", fg=c.GREEN)
+    with _gen_docker_compose(modules, diracx_dist_dir=diracx_dist_dir) as docker_compose_fn:
         subprocess.run(
-            ["docker", "compose", "-f", docker_compose_fn, "up", "-d"],
+            [*DOCKER_COMPOSE_CMD, "-f", docker_compose_fn, "up", "-d", "dirac-server", "dirac-client", "dirac-pilot"]
+            + extra_services,
             check=True,
             env=docker_compose_env,
         )
 
-    typer.secho("Creating users in server and client containers", fg=c.GREEN)
-    for container_name in ["server", "client"]:
+    typer.secho("Creating users in server client and pilot containers", fg=c.GREEN)
+    for container_name in ["server", "client", "pilot"]:
         if os.getuid() == 0:
             continue
         cmd = _build_docker_cmd(container_name, use_root=True, cwd="/")
@@ -243,7 +294,7 @@ def prepare_environment(
         uid = str(os.getuid())
         ret = subprocess.run(cmd + ["groupadd", "--gid", gid, "dirac"], check=False)
         if ret.returncode != 0:
-            typer.secho(f"Failed to add add group dirac with id={gid}", fg=c.YELLOW)
+            typer.secho(f"Failed to add group dirac with id={gid}", fg=c.YELLOW)
         subprocess.run(
             cmd
             + [
@@ -263,7 +314,8 @@ def prepare_environment(
         subprocess.run(cmd + ["chown", "dirac", "/home/dirac"], check=True)
 
     typer.secho("Creating MySQL user", fg=c.GREEN)
-    cmd = ["docker", "exec", "mysql", "mysql", f"--password={DB_ROOTPWD}", "-e"]
+    mysql_command = "mariadb" if "mariadb" in docker_compose_env["MYSQL_VER"].lower() else "mysql"
+    cmd = ["docker", "exec", "mysql", f"{mysql_command}", f"--password={DB_ROOTPWD}", "-e"]
     # It sometimes takes a while for MySQL to be ready so wait for a while if needed
     for _ in range(10):
         ret = subprocess.run(
@@ -288,7 +340,7 @@ def prepare_environment(
     _prepare_iam_instance()
 
     typer.secho("Copying files to containers", fg=c.GREEN)
-    for name, config in [("server", server_config), ("client", client_config)]:
+    for name, config in [("server", server_config), ("client", client_config), ("pilot", pilot_config)]:
         if path := config.get("DIRACOS_TARBALL_PATH"):
             path = Path(path)
             config["DIRACOS_TARBALL_PATH"] = f"/{path.name}"
@@ -318,59 +370,55 @@ def prepare_environment(
             )
             subprocess.run(command, check=True, shell=True)
 
+    docker_compose_fn_final = Path(tempfile.mkdtemp()) / "ci"
+    typer.secho("Running docker compose to create DiracX containers", fg=c.GREEN)
+    typer.secho(f"Will leave a folder behind: {docker_compose_fn_final}", fg=c.YELLOW)
+
+    with _gen_docker_compose(modules, diracx_dist_dir=diracx_dist_dir) as docker_compose_fn:
+        # We cannot use the temporary directory created in the context manager because
+        # we don't stay in the contect manager (Popen)
+        # So we need something that outlives it.
+        shutil.copytree(docker_compose_fn.parent, docker_compose_fn_final, dirs_exist_ok=True)
+        # We use Popen because we don't want to wait for this command to finish.
+        # It is going to start all the diracx containers, including one which waits
+        # for the DIRAC installation to be over.
+        subStdout = open(docker_compose_fn_final / "stdout", "w")
+        subStderr = open(docker_compose_fn_final / "stderr", "w")
+
+        subprocess.Popen(
+            [*DOCKER_COMPOSE_CMD, "-f", docker_compose_fn_final / "docker-compose.yml", "up", "-d", "diracx"],
+            env=docker_compose_env,
+            stdin=None,
+            stdout=subStdout,
+            stderr=subStderr,
+            close_fds=True,
+        )
+
 
 @app.command()
 def install_server():
     """Install DIRAC in the server container."""
     _check_containers_running()
 
+    # This runs a continuous loop that exports the config in yaml
+    # for the diracx container to use
+    # It needs to be started and running before the DIRAC server installation
+    # because after installing the databases, the install server script
+    # calls dirac-proxy-init.
+    # At this point we need the new CS to have been updated
+    # already else the token exchange fails.
+
+    typer.secho("Starting configuration export loop for diracx", fg=c.GREEN)
+    base_cmd = _build_docker_cmd("server", tty=False, daemon=True, use_root=True)
+    subprocess.run(
+        base_cmd + ["bash", "/home/dirac/LocalRepo/ALTERNATIVE_MODULES/DIRAC/tests/CI/exportCSLoop.sh"],
+        check=True,
+    )
+
     typer.secho("Running server installation", fg=c.GREEN)
     base_cmd = _build_docker_cmd("server", tty=False)
     subprocess.run(
         base_cmd + ["bash", "/home/dirac/LocalRepo/TestCode/DIRAC/tests/CI/install_server.sh"],
-        check=True,
-    )
-
-    typer.secho("Copying credentials and certificates", fg=c.GREEN)
-    base_cmd = _build_docker_cmd("client", tty=False)
-    subprocess.run(
-        base_cmd
-        + [
-            "mkdir",
-            "-p",
-            "/home/dirac/ServerInstallDIR/user",
-            "/home/dirac/ClientInstallDIR/etc",
-            "/home/dirac/.globus",
-        ],
-        check=True,
-    )
-    for path in [
-        "etc/grid-security",
-        "user/client.pem",
-        "user/client.key",
-        f"/tmp/x509up_u{os.getuid()}",
-    ]:
-        source = os.path.join("/home/dirac/ServerInstallDIR", path)
-        ret = subprocess.run(
-            ["docker", "cp", f"server:{source}", "-"],
-            check=True,
-            text=False,
-            stdout=subprocess.PIPE,
-        )
-        if path.startswith("user/"):
-            dest = f"client:/home/dirac/ServerInstallDIR/{os.path.dirname(path)}"
-        elif path.startswith("/"):
-            dest = f"client:{os.path.dirname(path)}"
-        else:
-            dest = f"client:/home/dirac/ClientInstallDIR/{os.path.dirname(path)}"
-        subprocess.run(["docker", "cp", "-", dest], check=True, text=False, input=ret.stdout)
-    subprocess.run(
-        base_cmd
-        + [
-            "bash",
-            "-c",
-            "cp /home/dirac/ServerInstallDIR/user/client.* /home/dirac/.globus/",
-        ],
         check=True,
     )
 
@@ -383,6 +431,18 @@ def install_client():
     base_cmd = _build_docker_cmd("client")
     subprocess.run(
         base_cmd + ["bash", "/home/dirac/LocalRepo/TestCode/DIRAC/tests/CI/install_client.sh"],
+        check=True,
+    )
+
+
+@app.command()
+def install_pilot():
+    """Run a pilot in a container."""
+    _check_containers_running()
+    typer.secho("Running pilot installation", fg=c.GREEN)
+    base_cmd = _build_docker_cmd("pilot")
+    subprocess.run(
+        base_cmd + ["bash", "/home/dirac/LocalRepo/TestCode/DIRAC/tests/CI/run_pilot.sh"],
         check=True,
     )
 
@@ -412,6 +472,18 @@ def test_client():
 
 
 @app.command()
+def test_pilot():
+    """Run the pilot integration tests."""
+    _check_containers_running()
+    typer.secho("Running pilot tests", err=True, fg=c.GREEN)
+    base_cmd = _build_docker_cmd("pilot")
+    ret = subprocess.run(base_cmd + ["bash", "LocalRepo/TestCode/DIRAC/tests/CI/run_tests.sh"], check=False)
+    color = c.GREEN if ret.returncode == 0 else c.RED
+    typer.secho(f"pilot tests finished with {ret.returncode}", err=True, fg=color)
+    raise TestExit(ret.returncode)
+
+
+@app.command()
 def exec_server():
     """Start an interactive session in the server container."""
     _check_containers_running()
@@ -436,6 +508,16 @@ def exec_client():
         ". $HOME/CONFIG && . $HOME/ClientInstallDIR/bashrc && exec bash",
     ]
     typer.secho("Opening prompt inside client container", err=True, fg=c.GREEN)
+    os.execvp(cmd[0], cmd)
+
+
+@app.command()
+def exec_pilot():
+    """Start an interactive session in the pilot container."""
+    _check_containers_running()
+    cmd = _build_docker_cmd("pilot")
+    cmd += ["bash", "-c", ". $HOME/CONFIG && exec bash"]
+    typer.secho("Opening prompt inside pilot container", err=True, fg=c.GREEN)
     os.execvp(cmd[0], cmd)
 
 
@@ -509,19 +591,38 @@ class TestExit(typer.Exit):
 
 
 @contextmanager
-def _gen_docker_compose(modules):
+def _gen_docker_compose(modules, *, diracx_dist_dir=None):
     # Load the docker compose configuration and mount the necessary volumes
     input_fn = Path(__file__).parent / "tests/CI/docker-compose.yml"
     docker_compose = yaml.safe_load(input_fn.read_text())
-    for ctn in ("dirac-server", "dirac-client"):
+    # diracx-wait-for-db needs the volume to be able to run the waiting script
+    for ctn in ("dirac-server", "dirac-client", "dirac-pilot", "diracx-wait-for-db"):
         if "volumes" not in docker_compose["services"][ctn]:
             docker_compose["services"][ctn]["volumes"] = []
     volumes = [f"{path}:/home/dirac/LocalRepo/ALTERNATIVE_MODULES/{name}" for name, path in modules.items()]
     volumes += [f"{path}:/home/dirac/LocalRepo/TestCode/{name}" for name, path in modules.items()]
     docker_compose["services"]["dirac-server"]["volumes"].extend(volumes[:])
     docker_compose["services"]["dirac-client"]["volumes"].extend(volumes[:])
+    docker_compose["services"]["dirac-pilot"]["volumes"].extend(volumes[:])
+    docker_compose["services"]["diracx-wait-for-db"]["volumes"].extend(volumes[:])
 
     module_configs = _load_module_configs(modules)
+    if diracx_dist_dir is not None:
+        for container_name in [
+            "dirac-client",
+            "dirac-pilot",
+            "dirac-server",
+            "diracx-init-cs",
+            "diracx-wait-for-db",
+            "diracx-init-db",
+            "diracx",
+        ]:
+            docker_compose["services"][container_name].setdefault("volumes", []).append(
+                f"{diracx_dist_dir}:/diracx_sources"
+            )
+            docker_compose["services"][container_name].setdefault("environment", []).append(
+                "DIRACX_CUSTOM_SOURCE_PREFIXES=/diracx_sources"
+            )
 
     # Add any extension services
     for module_name, module_configs in module_configs.items():
@@ -544,10 +645,11 @@ def _gen_docker_compose(modules):
 def _check_containers_running(*, is_up=True):
     with _gen_docker_compose(DEFAULT_MODULES) as docker_compose_fn:
         running_containers = subprocess.run(
-            ["docker", "compose", "-f", docker_compose_fn, "ps", "-q", "-a"],
+            [*DOCKER_COMPOSE_CMD, "-f", docker_compose_fn, "ps", "-q", "-a"],
             stdout=subprocess.PIPE,
             env=_make_env({}),
-            check=True,
+            # docker compose ps has a non-zero exit code when no containers are running
+            check=False,
             text=True,
         ).stdout.split("\n")
     if is_up:
@@ -620,8 +722,16 @@ def _make_env(flags):
     env["HOST_OS"] = flags.pop("HOST_OS", DEFAULT_HOST_OS)
     env["CI_REGISTRY_IMAGE"] = flags.pop("CI_REGISTRY_IMAGE", "diracgrid")
     env["MYSQL_VER"] = flags.pop("MYSQL_VER", DEFAULT_MYSQL_VER)
+    if "mariadb" in env["MYSQL_VER"].lower():
+        env["MYSQL_ADMIN_COMMAND"] = "mariadb-admin"
+    else:
+        env["MYSQL_ADMIN_COMMAND"] = "mysqladmin"
     env["ES_VER"] = flags.pop("ES_VER", DEFAULT_ES_VER)
+    env["ES_PLATFORM"] = flags.pop("ES_PLATFORM", DEFAULT_ES_PLATFORM)
     env["IAM_VER"] = flags.pop("IAM_VER", DEFAULT_IAM_VER)
+    if "CVMFS_DIR" not in env or not Path(env["CVMFS_DIR"]).is_dir():
+        typer.secho(f"CVMFS_DIR environment value: {env.get('CVMFS_DIR', 'NOT SET')}", fg=c.YELLOW)
+        env["CVMFS_DIR"] = "/tmp"
     return env
 
 
@@ -1023,7 +1133,6 @@ def _create_iam_group_membership(
 
 def _make_config(modules, flags, release_var, editable):
     config = {
-        "DEBUG": "True",
         # MYSQL Settings
         "DB_USER": DB_USER,
         "DB_PASSWORD": DB_PASSWORD,
@@ -1031,10 +1140,10 @@ def _make_config(modules, flags, release_var, editable):
         "DB_ROOTPWD": DB_ROOTPWD,
         "DB_HOST": DB_HOST,
         "DB_PORT": DB_PORT,
-        # ElasticSearch settings
+        # OpenSearch settings
         "NoSQLDB_USER": "elastic",
         "NoSQLDB_PASSWORD": "changeme",
-        "NoSQLDB_HOST": "elasticsearch",
+        "NoSQLDB_HOST": "opensearch",
         "NoSQLDB_PORT": "9200",
         # IAM initial settings
         "IAM_INIT_CLIENT_ID": IAM_INIT_CLIENT_ID,
@@ -1050,15 +1159,18 @@ def _make_config(modules, flags, release_var, editable):
         # Hostnames
         "SERVER_HOST": "server",
         "CLIENT_HOST": "client",
+        "PILOT_HOST": "pilot",
         # Test specific variables
         "WORKSPACE": "/home/dirac",
+        # DiracX variable
+        "DIRACX_URL": "http://diracx:8000",
     }
 
     if editable:
         config["PIP_INSTALL_EXTRA_ARGS"] = "-e"
 
     required_feature_flags = []
-    for module_name, module_ci_config in _load_module_configs(modules).items():
+    for _, module_ci_config in _load_module_configs(modules).items():
         config |= module_ci_config["config"]
         required_feature_flags += module_ci_config.get("required-feature-flags", [])
     config["DIRAC_CI_SETUP_SCRIPT"] = "/home/dirac/LocalRepo/TestCode/" + config["DIRAC_CI_SETUP_SCRIPT"]
@@ -1069,8 +1181,6 @@ def _make_config(modules, flags, release_var, editable):
     else:
         config["DIRAC_RELEASE"] = _find_dirac_release()
 
-    print(config)
-
     for key, default_value in FEATURE_VARIABLES.items():
         config[key] = flags.pop(key, default_value)
     for key in required_feature_flags:
@@ -1079,6 +1189,18 @@ def _make_config(modules, flags, release_var, editable):
         except KeyError:
             typer.secho(f"Required feature variable {key!r} is missing", err=True, fg=c.RED)
             raise typer.Exit(code=1)
+
+    # If we test DiracX, add specific config
+    if config["TEST_DIRACX"].lower() in ("yes", "true"):
+        if DIRACX_DISABLED_SERVICES:
+            # We link all disabled services
+            # config["DIRACX_DISABLED_SERVICES"] = "Service1 Service2 Service3 ..."
+            diracx_disabled_services = " ".join(DIRACX_DISABLED_SERVICES)
+
+            typer.secho(f"The following services won't be legacy adapted: {diracx_disabled_services}", fg="yellow")
+
+            config["DIRACX_DISABLED_SERVICES"] = diracx_disabled_services
+
     config["TESTREPO"] = [f"/home/dirac/LocalRepo/TestCode/{name}" for name in modules]
     config["ALTERNATIVE_MODULES"] = [f"/home/dirac/LocalRepo/ALTERNATIVE_MODULES/{name}" for name in modules]
 
@@ -1100,7 +1222,7 @@ def _load_module_configs(modules):
     return module_ci_configs
 
 
-def _build_docker_cmd(container_name, *, use_root=False, cwd="/home/dirac", tty=True):
+def _build_docker_cmd(container_name, *, use_root=False, cwd="/home/dirac", tty=True, daemon=False):
     if use_root or os.getuid() == 0:
         user = "root"
     else:
@@ -1115,6 +1237,8 @@ def _build_docker_cmd(container_name, *, use_root=False, cwd="/home/dirac", tty=
                 err=True,
                 fg=c.YELLOW,
             )
+    if daemon:
+        cmd += ["-d"]
     cmd += [
         "-e=TERM=xterm-color",
         "-e=INSTALLROOT=/home/dirac",

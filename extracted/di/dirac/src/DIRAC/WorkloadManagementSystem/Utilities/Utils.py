@@ -1,182 +1,150 @@
 """ Utilities for WMS
 """
-import io
 import os
 import sys
 import json
 
-from DIRAC import gConfig, gLogger, S_OK, S_ERROR
+from DIRAC import gLogger, S_OK, S_ERROR
 from DIRAC.Core.Utilities.File import mkDir
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
-from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
-from DIRAC.ConfigurationSystem.Client.Helpers.Resources import findGenericCloudCredentials
+from DIRAC.FrameworkSystem.private.standardLogging.Logging import Logging
+from DIRAC.WorkloadManagementSystem.DB.JobLoggingDB import JobLoggingDB
+from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
+from DIRAC.WorkloadManagementSystem.DB.TaskQueueDB import TaskQueueDB
 
 
 def createJobWrapper(
-    jobID,
-    jobParams,
-    resourceParams,
-    optimizerParams,
-    extraOptions="",
-    defaultWrapperLocation="DIRAC/WorkloadManagementSystem/JobWrapper/JobWrapperTemplate.py",
-    log=gLogger,
-    logLevel="INFO",
+    jobID: str,
+    jobParams: dict,
+    resourceParams: dict,
+    optimizerParams: dict,
+    payloadParams: dict | None = None,
+    extraOptions: str | None = None,
+    wrapperPath: str | None = None,
+    rootLocation: str | None = None,
+    pythonPath: str | None = None,
+    defaultWrapperLocation: str | None = "DIRAC/WorkloadManagementSystem/JobWrapper/JobWrapperTemplate.py",
+    log: Logging | None = gLogger,
+    logLevel: str | None = "INFO",
+    cfgPath: str | None = None,
 ):
     """This method creates a job wrapper filled with the CE and Job parameters to execute the job.
-    Main user is the JobAgent
+    Main user is the JobAgent.
+
+    :param jobID: Job ID
+    :param jobParams: Job parameters
+    :param resourceParams: CE parameters
+    :param optimizerParams: Optimizer parameters
+    :param payloadParams: Payload parameters
+    :param extraOptions: Extra options to be passed to the job wrapper
+    :param wrapperPath: Path where the job wrapper will be created
+    :param rootLocation: Location where the job wrapper will be executed
+    :param pythonPath: Path to the python executable
+    :param defaultWrapperLocation: Location of the default job wrapper template
+    :param log: Logger
+    :param logLevel: Log level
+    :param cfgPath: Path to a specific configuration file
+    :return: S_OK with the path to the job wrapper and the path to the job wrapper json file
     """
     if isinstance(extraOptions, str) and extraOptions.endswith(".cfg"):
         extraOptions = f"--cfg {extraOptions}"
 
     arguments = {"Job": jobParams, "CE": resourceParams, "Optimizer": optimizerParams}
+    if payloadParams:
+        arguments["Payload"] = payloadParams
     log.verbose(f"Job arguments are: \n {arguments}")
 
-    siteRoot = gConfig.getValue("/LocalSite/Root", os.getcwd())
-    log.debug(f"SiteRootPythonDir is:\n{siteRoot}")
-    workingDir = gConfig.getValue("/LocalSite/WorkingDirectory", siteRoot)
-    mkDir(f"{workingDir}/job/Wrapper")
-
-    diracRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-    jobWrapperFile = f"{workingDir}/job/Wrapper/Wrapper_{jobID}"
-    if os.path.exists(jobWrapperFile):
-        log.verbose(f"Removing existing Job Wrapper for {jobID}")
-        os.remove(jobWrapperFile)
-    with open(os.path.join(diracRoot, defaultWrapperLocation)) as fd:
-        wrapperTemplate = fd.read()
-
-    if "LogLevel" in jobParams:
-        logLevel = jobParams["LogLevel"]
-        log.info(f"Found Job LogLevel JDL parameter with value: {logLevel}")
-    else:
-        log.info(f"Applying default LogLevel JDL parameter with value: {logLevel}")
-
-    dPython = sys.executable
-    realPythonPath = os.path.realpath(dPython)
-    log.debug("Real python path after resolving links is: ", realPythonPath)
-    dPython = realPythonPath
-
-    # Making real substitutions
-    # wrapperTemplate = wrapperTemplate.replace( "@JOBARGS@", str( arguments ) )
-    wrapperTemplate = wrapperTemplate.replace("@SITEPYTHON@", str(siteRoot))
-
-    jobWrapperJsonFile = jobWrapperFile + ".json"
-    with open(jobWrapperJsonFile, "w", encoding="utf8") as jsonFile:
-        json.dump(str(arguments), jsonFile, ensure_ascii=False)
-
-    with open(jobWrapperFile, "w") as wrapper:
-        wrapper.write(wrapperTemplate)
-
-    jobExeFile = f"{workingDir}/job/Wrapper/Job{jobID}"
-    jobFileContents = """#!/bin/sh
-{} {} {} -o LogLevel={} -o /DIRAC/Security/UseServerCertificate=no
-""".format(
-        dPython,
-        jobWrapperFile,
-        extraOptions,
-        logLevel,
-    )
-    with open(jobExeFile, "w") as jobFile:
-        jobFile.write(jobFileContents)
-
-    return S_OK((jobExeFile, jobWrapperJsonFile, jobWrapperFile))
-
-
-def createRelocatedJobWrapper(
-    wrapperPath,
-    rootLocation,
-    jobID,
-    jobParams,
-    resourceParams,
-    optimizerParams,
-    extraOptions="",
-    defaultWrapperLocation="DIRAC/WorkloadManagementSystem/JobWrapper/JobWrapperTemplate.py",
-    log=gLogger,
-    logLevel="INFO",
-):
-    """This method creates a job wrapper for a specific job in wrapperPath,
-    but assumes this has been reloated to rootLocation before running it.
-    """
-    if isinstance(extraOptions, str) and extraOptions.endswith(".cfg") and "--cfg" not in extraOptions:
-        extraOptions = f"--cfg {extraOptions}"
-
-    arguments = {"Job": jobParams, "CE": resourceParams, "Optimizer": optimizerParams}
-    log.verbose(f"Job arguments are: \n {arguments}")
+    if not wrapperPath:
+        wrapperPath = os.path.join(os.getcwd(), "job/Wrapper")
+        mkDir(wrapperPath)
 
     diracRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
     jobWrapperFile = os.path.join(wrapperPath, f"Wrapper_{jobID}")
     if os.path.exists(jobWrapperFile):
-        log.verbose(f"Removing existing Job Wrapper for {jobID}")
+        log.verbose("Removing existing Job Wrapper for", jobID)
         os.remove(jobWrapperFile)
     with open(os.path.join(diracRoot, defaultWrapperLocation)) as fd:
         wrapperTemplate = fd.read()
 
     if "LogLevel" in jobParams:
         logLevel = jobParams["LogLevel"]
-        log.info(f"Found Job LogLevel JDL parameter with value: {logLevel}")
+        log.info("Found Job LogLevel JDL parameter with value", logLevel)
     else:
-        log.info(f"Applying default LogLevel JDL parameter with value: {logLevel}")
+        log.info("Applying default LogLevel JDL parameter with value", logLevel)
+
+    if not pythonPath:
+        pythonPath = os.path.realpath(sys.executable)
+        log.debug("Real python path after resolving links is: ", pythonPath)
 
     # Making real substitutions
-    # wrapperTemplate = wrapperTemplate.replace( "@JOBARGS@", str( arguments ) )
-    wrapperTemplate = wrapperTemplate.replace("@SITEPYTHON@", rootLocation)
+    sitePython = os.getcwd()
+    if rootLocation:
+        sitePython = rootLocation
+    wrapperTemplate = wrapperTemplate.replace("@SITEPYTHON@", sitePython)
 
     jobWrapperJsonFile = jobWrapperFile + ".json"
     with open(jobWrapperJsonFile, "w", encoding="utf8") as jsonFile:
-        json.dump(str(arguments), jsonFile, ensure_ascii=False)
+        json.dump(arguments, jsonFile, ensure_ascii=False)
 
     with open(jobWrapperFile, "w") as wrapper:
         wrapper.write(wrapperTemplate)
+
+    if not rootLocation:
+        rootLocation = wrapperPath
 
     # The "real" location of the jobwrapper after it is started
     jobWrapperDirect = os.path.join(rootLocation, f"Wrapper_{jobID}")
     jobExeFile = os.path.join(wrapperPath, f"Job{jobID}")
     jobFileContents = """#!/bin/sh
-python {} {} -o LogLevel={} -o /DIRAC/Security/UseServerCertificate=no
+{} {} {} -o LogLevel={} -o /DIRAC/Security/UseServerCertificate=no {}
 """.format(
+        pythonPath,
         jobWrapperDirect,
-        extraOptions,
+        extraOptions if extraOptions else "",
         logLevel,
+        cfgPath if cfgPath else "",
     )
+
     with open(jobExeFile, "w") as jobFile:
         jobFile.write(jobFileContents)
 
-    jobExeDirect = os.path.join(rootLocation, f"Job{jobID}")
-    return S_OK(jobExeDirect)
+    generatedFiles = {
+        "JobExecutablePath": jobExeFile,
+        "JobWrapperConfigPath": jobWrapperJsonFile,
+        "JobWrapperPath": jobWrapperFile,
+    }
+    if rootLocation != wrapperPath:
+        generatedFiles["JobExecutableRelocatedPath"] = os.path.join(rootLocation, os.path.basename(jobExeFile))
+    return S_OK(generatedFiles)
 
 
-def getProxyFileForCloud(ce):
-    """Get a file with the proxy to be used to connect to the
-        given cloud endpoint
+def rescheduleJobs(jobIDs: list[int], source: str = "") -> dict:
+    """Utility to reschedule jobs (not atomic, nor bulk)
+    Requires direct access to the JobDB and TaskQueueDB
 
-    :param ce: cloud endpoint object
-    :return: S_OK/S_ERROR, value is the path to the proxy file
+    :param jobIDs: list of jobIDs
+    :param source: source of the reschedule
+    :return: S_OK/S_ERROR
+    :rtype: dict
+
     """
 
-    vo = ce.parameters.get("VO")
-    cloudDN = None
-    cloudGroup = None
-    if vo:
-        result = findGenericCloudCredentials(vo=vo)
-        if not result["OK"]:
-            return result
-        cloudDN, cloudGroup = result["Value"]
+    failedJobs = []
 
-    cloudUser = ce.parameters.get("GenericCloudUser")
-    if cloudUser:
-        result = Registry.getDNForUsername(cloudUser)
+    for jobID in jobIDs:
+        result = JobDB().rescheduleJob(jobID)
         if not result["OK"]:
-            return result
-        cloudDN = result["Value"][0]
-    cloudGroup = ce.parameters.get("GenericCloudGroup", cloudGroup)
+            failedJobs.append(jobID)
+            continue
+        TaskQueueDB().deleteJob(jobID)
+        JobLoggingDB().addLoggingRecord(
+            result["JobID"],
+            status=result["Status"],
+            minorStatus=result["MinorStatus"],
+            applicationStatus="Unknown",
+            source=source,
+        )
 
-    if cloudDN and cloudGroup:
-        result = gProxyManager.getPilotProxyFromDIRACGroup(cloudDN, cloudGroup, 3600)
-        if not result["OK"]:
-            return result
-        proxy = result["Value"]
-        result = gProxyManager.dumpProxyToFile(proxy)
-        return result
-    else:
-        return S_ERROR("Could not find generic cloud credentials")
+    if failedJobs:
+        return S_ERROR(f"Failed to reschedule jobs {failedJobs}")
+    return S_OK()

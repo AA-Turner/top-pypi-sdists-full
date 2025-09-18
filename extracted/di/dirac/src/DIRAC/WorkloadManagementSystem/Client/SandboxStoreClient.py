@@ -1,28 +1,49 @@
 """ Client for the SandboxStore.
     Will connect to the WorkloadManagement/SandboxStore service.
 """
+from __future__ import annotations
 
-import os
-import tarfile
 import hashlib
-import tempfile
+import os
 import re
+import tarfile
+import tempfile
+from contextlib import contextmanager
 from io import BytesIO, StringIO
+from typing import Literal
 
-from DIRAC import gLogger, S_OK, S_ERROR, gConfig
+import zstandard
 
-from DIRAC.Core.Tornado.Client.ClientSelector import TransferClientSelector as TransferClient
-from DIRAC.Core.Base.Client import Client
-from DIRAC.Core.Utilities.File import mkDir
-from DIRAC.Resources.Storage.StorageElement import StorageElement
-from DIRAC.Core.Utilities.ReturnValues import returnSingleResult
-from DIRAC.Core.Utilities.File import getGlobbedTotalSize
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOForGroup
+from DIRAC.Core.Base.Client import Client
+from DIRAC.Core.Tornado.Client.ClientSelector import TransferClientSelector as TransferClient
+from DIRAC.Core.Utilities.File import getGlobbedTotalSize, mkDir
+from DIRAC.Core.Utilities.ReturnValues import returnSingleResult
+from DIRAC.Resources.Storage.StorageElement import StorageElement
+
+
+@contextmanager
+def ZstdCompatibleTarFile(tarFileName: os.PathLike, *, mode: Literal["r"] = "r"):
+    """Context manager to extend tarfile.open to support zstd compressed files.
+
+    This is only needed for Python <=3.13.
+    """
+    with open(tarFileName, "rb") as f:
+        magic = f.read(4)
+    # Read magic bytes to determine compression format
+    if magic.startswith(b"\x28\xb5\x2f\xfd"):  # zstd magic number
+        dctx = zstandard.ZstdDecompressor()
+        with open(tarFileName, "rb") as f, dctx.stream_reader(f) as decompressor:
+            with tarfile.open(fileobj=decompressor, mode=f"{mode}|") as tf:
+                yield tf
+    else:
+        with tarfile.open(name=tarFileName, mode=mode) as tf:
+            yield tf
 
 
 class SandboxStoreClient:
     __validSandboxTypes = ("Input", "Output")
-    __smdb = None
 
     def __init__(self, rpcClient=None, transferClient=None, smdb=False, **kwargs):
         """Constructor
@@ -39,49 +60,20 @@ class SandboxStoreClient:
         self.__transferClient = transferClient
         self.__kwargs = kwargs
         self.__vo = None
-        SandboxStoreClient.__smdb = smdb
         if "delegatedGroup" in kwargs:
             self.__vo = getVOForGroup(kwargs["delegatedGroup"])
-        if SandboxStoreClient.__smdb is True:
-            try:
-                from DIRAC.WorkloadManagementSystem.DB.SandboxMetadataDB import SandboxMetadataDB
-
-                SandboxStoreClient.__smdb = SandboxMetadataDB()
-                result = SandboxStoreClient.__smdb._getConnection()  # pylint: disable=protected-access
-                if not result["OK"]:
-                    SandboxStoreClient.__smdb = False
-                else:
-                    result["Value"].close()
-            except (ImportError, RuntimeError, AttributeError):
-                SandboxStoreClient.__smdb = False
 
     def __getRPCClient(self):
         """Get an RPC client for SB service"""
         if self.__rpcClient:
             return self.__rpcClient
-        else:
-            return Client(url=self.__serviceName, **self.__kwargs)
+        return Client(url=self.__serviceName, **self.__kwargs)
 
     def __getTransferClient(self):
         """Get RPC client for TransferClient"""
         if self.__transferClient:
             return self.__transferClient
-        else:
-            return TransferClient(self.__serviceName, **self.__kwargs)
-
-    # Upload sandbox to jobs and pilots
-
-    def uploadFilesAsSandboxForJob(self, fileList, jobId, sbType, sizeLimit=0):
-        """Upload SB for a job"""
-        if sbType not in self.__validSandboxTypes:
-            return S_ERROR(f"Invalid Sandbox type {sbType}")
-        return self.uploadFilesAsSandbox(fileList, sizeLimit, assignTo={f"Job:{jobId}": sbType})
-
-    def uploadFilesAsSandboxForPilot(self, fileList, jobId, sbType, sizeLimit=0):
-        """Upload SB for a pilot"""
-        if sbType not in self.__validSandboxTypes:
-            return S_ERROR(f"Invalid Sandbox type {sbType}")
-        return self.uploadFilesAsSandbox(fileList, sizeLimit, assignTo={f"Pilot:{jobId}": sbType})
+        return TransferClient(self.__serviceName, **self.__kwargs)
 
     # Upload generic sandbox
 
@@ -224,7 +216,7 @@ class SandboxStoreClient:
 
         try:
             sandboxSize = 0
-            with tarfile.open(name=tarFileName, mode="r") as tf:
+            with ZstdCompatibleTarFile(tarFileName, mode="r") as tf:
                 for tarinfo in tf:
                     tf.extract(tarinfo, path=destinationDir)
                     sandboxSize += tarinfo.size
@@ -245,30 +237,10 @@ class SandboxStoreClient:
     ##############
     # Jobs
 
-    def getSandboxesForJob(self, jobId):
-        """Download job sandbox"""
-        return self.__getSandboxesForEntity(f"Job:{jobId}")
-
-    def assignSandboxesToJob(self, jobId, sbList, ownerName="", ownerGroup="", eSetup=""):
-        """Assign SB to a job"""
-        return self.__assignSandboxesToEntity(f"Job:{jobId}", sbList, ownerName, ownerGroup, eSetup)
-
-    def assignSandboxToJob(self, jobId, sbLocation, sbType, ownerName="", ownerGroup="", eSetup=""):
-        """Assign SB to a job"""
-        return self.__assignSandboxToEntity(f"Job:{jobId}", sbLocation, sbType, ownerName, ownerGroup, eSetup)
-
-    def unassignJobs(self, jobIdList):
-        """Unassign SB to a job"""
-        if isinstance(jobIdList, int):
-            jobIdList = [jobIdList]
-        entitiesList = []
-        for jobId in jobIdList:
-            entitiesList.append(f"Job:{jobId}")
-        return self.__unassignEntities(entitiesList)
-
     def downloadSandboxForJob(self, jobId, sbType, destinationPath="", inMemory=False, unpack=True):
         """Download SB for a job"""
-        result = self.__getSandboxesForEntity(f"Job:{jobId}")
+        result = self.__getRPCClient().getSandboxesAssignedToEntity(f"Job:{jobId}")
+
         if not result["OK"]:
             return result
         sbDict = result["Value"]
@@ -291,85 +263,3 @@ class SandboxStoreClient:
                 return result
             downloadedSandboxesLoc.append(result["Value"])
         return S_OK(downloadedSandboxesLoc)
-
-    ##############
-    # Pilots
-
-    def getSandboxesForPilot(self, pilotId):
-        """Get SB for a pilot"""
-        return self.__getSandboxesForEntity(f"Pilot:{pilotId}")
-
-    def assignSandboxesToPilot(self, pilotId, sbList, ownerName="", ownerGroup="", eSetup=""):
-        """Assign SB to a pilot"""
-        return self.__assignSandboxesToEntity(f"Pilot:{pilotId}", sbList, ownerName, ownerGroup, eSetup)
-
-    def assignSandboxToPilot(self, pilotId, sbLocation, sbType, ownerName="", ownerGroup="", eSetup=""):
-        """Assign SB to a pilot"""
-        return self.__assignSandboxToEntity(f"Pilot:{pilotId}", sbLocation, sbType, ownerName, ownerGroup, eSetup)
-
-    def unassignPilots(self, pilotIdIdList):
-        """Unassign SB to a pilot"""
-        if isinstance(pilotIdIdList, int):
-            pilotIdIdList = [pilotIdIdList]
-        entitiesList = []
-        for pilotId in pilotIdIdList:
-            entitiesList.append(f"Pilot:{pilotId}")
-        return self.__unassignEntities(entitiesList)
-
-    def downloadSandboxForPilot(self, jobId, sbType, destinationPath=""):
-        """Download SB for a pilot"""
-        result = self.__getSandboxesForEntity(f"Pilot:{jobId}")
-        if not result["OK"]:
-            return result
-        sbDict = result["Value"]
-        if sbType not in sbDict:
-            return S_ERROR(f"No {sbType} sandbox registered for pilot {jobId}")
-
-        downloadedSandboxesLoc = []
-        for sbLocation in sbDict[sbType]:
-            result = self.downloadSandbox(sbLocation, destinationPath)
-            if not result["OK"]:
-                return result
-            downloadedSandboxesLoc.append(result["Value"])
-        return S_OK(downloadedSandboxesLoc)
-
-    ##############
-    # Entities
-
-    def __getSandboxesForEntity(self, eId):
-        """
-        Get the sandboxes assigned to jobs and the relation type
-        """
-        rpcClient = self.__getRPCClient()
-        return rpcClient.getSandboxesAssignedToEntity(eId)
-
-    def __assignSandboxesToEntity(self, eId, sbList, ownerName="", ownerGroup="", eSetup=""):
-        """
-        Assign sandboxes to a job.
-        sbList must be a list of sandboxes and relation types
-          sbList = [ ( "SB:SEName|SEPFN", "Input" ), ( "SB:SEName|SEPFN", "Output" ) ]
-        """
-        for sbT in sbList:
-            if sbT[1] not in self.__validSandboxTypes:
-                return S_ERROR(f"Invalid Sandbox type {sbT[1]}")
-        if SandboxStoreClient.__smdb and ownerName and ownerGroup:
-            if not eSetup:
-                eSetup = gConfig.getValue("/DIRAC/Setup", "Production")
-            return SandboxStoreClient.__smdb.assignSandboxesToEntities({eId: sbList}, ownerName, ownerGroup, eSetup)
-        rpcClient = self.__getRPCClient()
-        return rpcClient.assignSandboxesToEntities({eId: sbList}, ownerName, ownerGroup, eSetup)
-
-    def __assignSandboxToEntity(self, eId, sbLocation, sbType, ownerName="", ownerGroup="", eSetup=""):
-        """
-        Assign a sandbox to a job
-          sbLocation is "SEName:SEPFN"
-          sbType is Input or Output
-        """
-        return self.__assignSandboxesToEntity(eId, [(sbLocation, sbType)], ownerName, ownerGroup, eSetup)
-
-    def __unassignEntities(self, eIdList):
-        """
-        Unassign a list of jobs of their respective sandboxes
-        """
-        rpcClient = self.__getRPCClient()
-        return rpcClient.unassignEntities(eIdList)

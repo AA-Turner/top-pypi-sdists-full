@@ -35,8 +35,6 @@ except Exception:
             platformTuple += ("-".join(platform.libc_ver()),)
         elif platformTuple[0] == "Darwin":
             platformTuple += (".".join(platform.mac_ver()[0].split(".")[:2]),)
-        elif platformTuple[0] == "Windows":
-            platformTuple += (platform.win32_ver()[0],)
         else:
             platformTuple += platform.release()
 

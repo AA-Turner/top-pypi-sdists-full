@@ -7,14 +7,12 @@
   :caption: SandboxStore options
 
 """
-from DIRAC import gLogger, S_OK, S_ERROR
 from DIRAC.Core.Tornado.Server.TornadoService import TornadoService
 from DIRAC.WorkloadManagementSystem.Service.SandboxStoreHandler import SandboxStoreHandlerMixin
 
 
 class TornadoSandboxStoreHandler(SandboxStoreHandlerMixin, TornadoService):
     def initializeRequest(self):
-        self.diracSetup = self.get_argument("clientSetup")
         # Ugly, but makes DIPS and HTTPS handlers compatible, TBD properly
         self.serviceInfoDict = self._serviceInfoDict
         return SandboxStoreHandlerMixin.initializeRequest(self)

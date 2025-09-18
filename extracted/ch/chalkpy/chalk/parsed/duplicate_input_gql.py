@@ -303,6 +303,19 @@ class UpsertNamedQueryGQL:
 
 @dataclasses_json.dataclass_json
 @dataclass
+class UpsertModelReferenceGQL:
+    name: str
+    filename: str
+    version: Optional[int] = None
+    alias: Optional[str] = None
+    asOf: Optional[datetime] = None
+    code: Optional[str] = None
+    sourceLineStart: Optional[int] = None
+    sourceLineEnd: Optional[int] = None
+
+
+@dataclasses_json.dataclass_json
+@dataclass
 class MetadataSettings:
     name: str
     missing: str
@@ -737,6 +750,7 @@ class UpsertGraphGQL:
     sinks: Optional[List[UpsertSinkResolverGQL]] = None
     cronQueries: Optional[List[UpsertCronQueryGQL]] = None
     namedQueries: Optional[List[UpsertNamedQueryGQL]] = None
+    modelReferences: Optional[List[UpsertModelReferenceGQL]] = None
     charts: Optional[List[CreateChartGQL]] = None
     config: Optional[ProjectSettingsGQL] = None
     failed: Optional[List[FailedImport]] = None

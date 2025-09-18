@@ -20,13 +20,13 @@ import tempfile
 from pathlib import Path
 
 import DIRAC
-from DIRAC import S_OK, S_ERROR, gConfig, gLogger
-from DIRAC.Core.Utilities.CGroups2 import CG2Manager
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers import Operations
+from DIRAC.Core.Utilities.CGroups2 import CG2Manager
 from DIRAC.Core.Utilities.ThreadScheduler import gThreadScheduler
 from DIRAC.Resources.Computing.ComputingElement import ComputingElement
 from DIRAC.Resources.Storage.StorageElement import StorageElement
-from DIRAC.WorkloadManagementSystem.Utilities.Utils import createRelocatedJobWrapper
+from DIRAC.WorkloadManagementSystem.Utilities.Utils import createJobWrapper
 
 # Default container to use if it isn't specified in the CE options
 CONTAINER_DEFROOT = "/cvmfs/cernvm-prod.cern.ch/cvm4"
@@ -130,8 +130,6 @@ class SingularityComputingElement(ComputingElement):
         setup = infoDict.get("DefaultSetup")
         if not setup:
             setup = list(infoDict.get("Setups"))[0]
-        if not setup:
-            setup = gConfig.getValue("/DIRAC/Setup", "unknown")
         setup = str(setup)
 
         diracProject = "DIRAC"
@@ -160,8 +158,6 @@ class SingularityComputingElement(ComputingElement):
         cfgOpts = []
 
         setup = infoDict.get("DefaultSetup")
-        if not setup:
-            setup = gConfig.getValue("/DIRAC/Setup", "unknown")
         cfgOpts.append(f"-S '{setup}'")
 
         csServers = infoDict.get("ConfigurationServers")
@@ -210,20 +206,21 @@ class SingularityComputingElement(ComputingElement):
             self.log.warn("No user proxy")
 
         # Job Wrapper (Standard-ish DIRAC wrapper)
-        result = createRelocatedJobWrapper(
+        result = createJobWrapper(
             wrapperPath=tmpDir,
             rootLocation=self.__innerdir,
             jobID=jobDesc.get("jobID", 0),
             jobParams=jobDesc.get("jobParams", {}),
             resourceParams=jobDesc.get("resourceParams", {}),
             optimizerParams=jobDesc.get("optimizerParams", {}),
+            pythonPath="python",
             log=log,
             logLevel=logLevel,
             extraOptions="" if self.__installDIRACInContainer else "/tmp/pilot.cfg",
         )
         if not result["OK"]:
             return result
-        wrapperPath = result["Value"]
+        wrapperPath = result["Value"].get("JobExecutableRelocatedPath")
 
         if self.__installDIRACInContainer:
             infoDict = None
@@ -390,7 +387,12 @@ class SingularityComputingElement(ComputingElement):
                     continue
 
                 mountedPath = se.getStorageParameters(protocol="file")["Value"]["Path"]
-                bindPaths.append(f"{mountedPath}:{mountedPath}:ro")
+                mountOptions = se.getStorageParameters(protocol="file")["Value"].get("MountOptions", "ro")
+                if mountOptions not in ("rw", "ro"):
+                    self.log.warn(f"Unknown mount mode: {mountOptions}")
+                    continue
+
+                bindPaths.append(f"{mountedPath}:{mountedPath}:{mountOptions}")
             except KeyError:
                 pass
 

@@ -10,6 +10,7 @@ from typing import Any, cast, Iterable
 import regex
 
 from arelle import XbrlConst, XmlUtil
+from arelle.ModelDtsObject import ModelConcept
 from arelle.ModelInstanceObject import ModelFact
 from arelle.ModelObject import ModelObject
 from arelle.ModelValue import QName
@@ -32,6 +33,7 @@ from ..PluginValidationDataExtension import PluginValidationDataExtension
 
 _: TypeGetText
 
+DISALLOWED_LABEL_WHITE_SPACE_CHARACTERS = regex.compile(r'\s{2,}')
 GFM_CONTEXT_DATE_PATTERN = regex.compile(r"^[12][0-9]{3}-[01][0-9]-[0-3][0-9]$")
 GFM_RECOMMENDED_NAMESPACE_PREFIXES = {
     XbrlConst.xbrli: ("xbrli",),
@@ -676,6 +678,117 @@ def rule_gfm_1_3_8(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_3_20(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.20] Set the nillable attribute value to "true".
+
+    GFM 1.3.20 The nillable attribute value of an xsd:element must equal "true".
+    """
+    nonNillableElements = set()
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if concept.namespaceURI == XbrlConst.xsd:
+            if concept.get("nillable") == "false":
+                nonNillableElements.add(concept)
+    if len(nonNillableElements) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.3.20',
+            msg=_("Set the nillable attribute value to 'true'."),
+            modelObject=nonNillableElements
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_23(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.23] Set the periodType attribute to "duration".
+
+    GFM 1.3.23 If the abstract attribute of xsd:element is "true", then the
+    xbrli:periodType attribute must be "duration".
+    """
+    instantAbstractElements = set()
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if concept.abstract == "true" and  concept.periodType == "instant":
+            instantAbstractElements.add(concept)
+    if len(instantAbstractElements) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.3.23',
+            msg=_("Set the periodType attribute to 'duration'."),
+            modelObject=instantAbstractElements
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_30(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.30] Set the periodType attribute to "duration".
+
+    GFM 1.3.30 If xsd:element type attribute equals "nonnum:domainItemType" then
+    the xbrli:periodType attribute must equal "duration".
+    """
+    instantDomainElements = set()
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if concept.type is not None and concept.type.isDomainItemType and concept.periodType == "instant":
+            instantDomainElements.add(concept)
+    if len(instantDomainElements) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.3.30',
+            msg=_("Set the periodType attribute to 'duration'."),
+            modelObject=instantDomainElements
+        )
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_31(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.31] Set the abstract attribute to "true".
+
+    GFM 1.3.31: If xsd:element type attribute equals "nonnum:domainItemType" then
+    the abstract attribute must equal to "true".
+    """
+    nonAbstractDomainElements = set()
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if concept.type is not None and concept.type.isDomainItemType and concept.abstract != "true":
+            nonAbstractDomainElements.add(concept)
+    if len(nonAbstractDomainElements) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.3.31',
+            msg=_("Set the abstract attribute to 'true'."),
+            modelObject=nonAbstractDomainElements
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_5_6(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -683,7 +796,7 @@ def rule_gfm_1_5_6(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    EDINET.EC5700W: [GFM 1.5.6] The length of a label must be less than 511 characters unless it its role is documentation.
+    EDINET.EC5700W: [GFM 1.5.6] The length of a label must be less than 511 characters unless its role is documentation.
     """
     labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
     if labelRelationshipSet is None:
@@ -692,12 +805,84 @@ def rule_gfm_1_5_6(
         labelRels = labelRelationshipSet.fromModelObject(concept)
         for rel in labelRels:
             label = rel.toModelObject
-            if label.role != XbrlConst.documentationLabel and label.viewText() is not None and len(label.viewText()) > 511:
+            if label.role != XbrlConst.documentationLabel and label.viewText() is not None and len(label.viewText()) >= 511:
                 yield Validation.warning(
                     codes='EDINET.EC5700W.GFM.1.5.6',
                     msg=_("The concept of '%(concept)s' has a label classified as '%(role)s' that is longer than 511 characters: %(label)s"),
                     concept=concept.qname,
                     role=label.role,
                     label=label.viewText(),
+                    modelObject=label
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_7(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.7] A label cannot contain the "<" character or consecutive white space characters including
+                    but not limited to: space, carriage return, line feed or tab.
+    """
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in val.modelXbrl.qnameConcepts.values():
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        for rel in labelRels:
+            label = rel.toModelObject
+            if label.role != XbrlConst.documentationLabel and label.textValue is not None:
+                if '<' in label.textValue:
+                    yield Validation.warning(
+                        codes='EDINET.EC5700W.GFM.1.5.7',
+                        msg=_("The concept of '%(concept)s' has a label classified as '%(role)s that contains the '<' character: %(label)s"),
+                        concept=concept.qname,
+                        role=label.role,
+                        label=label.textValue,
+                        modelObject=label
+                    )
+                elif DISALLOWED_LABEL_WHITE_SPACE_CHARACTERS.search(label.textValue):
+                    yield Validation.warning(
+                        codes='EDINET.EC5700W.GFM.1.5.7',
+                        msg=_("The concept of '%(concept)s' has a label classified as '%(role)s' that contains consecutive white space characters: %(label)s"),
+                        concept=concept.qname,
+                        role=label.role,
+                        label=label.textValue,
+                        modelObject=label
+                    )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_8(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.8] A label should not begin or end with a white space character
+    """
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in val.modelXbrl.qnameConcepts.values():
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        for rel in labelRels:
+            label = rel.toModelObject
+            if label.textValue is not None and label.textValue != label.textValue.strip():
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.5.8',
+                    msg=_("The concept of '%(concept)s' has a label that contains disallowed white space either at the begining or the end: '%(label)s'"),
+                    concept=concept.qname,
+                    label=label.textValue,
                     modelObject=label
                 )

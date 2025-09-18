@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_transitions.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_transitions.py 10198 2025-08-10 12:13:20Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,6 +23,8 @@ from docutils.utils import new_document
 
 
 class ParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)
@@ -146,7 +148,7 @@ Test unexpected transition markers.
     <block_quote>
         <paragraph>
             Block quote.
-        <system_message level="4" line="5" source="test data" type="SEVERE">
+        <system_message level="3" line="5" source="test data" type="ERROR">
             <paragraph>
                 Unexpected section title or transition.
             <literal_block xml:space="preserve">

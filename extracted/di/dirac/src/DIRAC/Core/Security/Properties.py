@@ -26,8 +26,6 @@ class SecurityProperty(str, Enum):
     JOB_MONITOR = "JobMonitor"
     #: Accounting Monitor - can see accounting data for all groups
     ACCOUNTING_MONITOR = "AccountingMonitor"
-    #: Private pilot
-    PILOT = "Pilot"
     #: Generic pilot
     GENERIC_PILOT = "GenericPilot"
     #: Site Manager
@@ -54,14 +52,10 @@ class SecurityProperty(str, Enum):
     PPG_AUTHORITY = "PPGAuthority"
     #: Allow Bookkeeping Management
     BOOKKEEPING_MANAGEMENT = "BookkeepingManagement"
-    #: Allow to set notifications and manage alarms
-    ALARMS_MANAGEMENT = "AlarmsManagement"
     #: Allow FC Management - FC root user
     FC_MANAGEMENT = "FileCatalogManagement"
     #: Allow staging files
     STAGE_ALLOWED = "StageAllowed"
-    #: Allow VMDIRAC Operations via various handlers
-    VM_RPC_OPERATION = "VmRpcOperation"
 
     def __str__(self) -> str:
         return str(self.name)
@@ -145,7 +139,6 @@ SERVICE_ADMINISTRATOR = SecurityProperty.SERVICE_ADMINISTRATOR.value
 JOB_ADMINISTRATOR = SecurityProperty.JOB_ADMINISTRATOR.value
 JOB_MONITOR = SecurityProperty.JOB_MONITOR.value
 ACCOUNTING_MONITOR = SecurityProperty.ACCOUNTING_MONITOR.value
-PILOT = SecurityProperty.PILOT.value
 GENERIC_PILOT = SecurityProperty.GENERIC_PILOT.value
 SITE_MANAGER = SecurityProperty.SITE_MANAGER.value
 USER_MANAGER = SecurityProperty.USER_MANAGER.value
@@ -157,7 +150,5 @@ PROXY_MANAGEMENT = SecurityProperty.PROXY_MANAGEMENT.value
 PRODUCTION_MANAGEMENT = SecurityProperty.PRODUCTION_MANAGEMENT.value
 PPG_AUTHORITY = SecurityProperty.PPG_AUTHORITY.value
 BOOKKEEPING_MANAGEMENT = SecurityProperty.BOOKKEEPING_MANAGEMENT.value
-ALARMS_MANAGEMENT = SecurityProperty.ALARMS_MANAGEMENT.value
 FC_MANAGEMENT = SecurityProperty.FC_MANAGEMENT.value
 STAGE_ALLOWED = SecurityProperty.STAGE_ALLOWED.value
-VM_RPC_OPERATION = SecurityProperty.VM_RPC_OPERATION.value

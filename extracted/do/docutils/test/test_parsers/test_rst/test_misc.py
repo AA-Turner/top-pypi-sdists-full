@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_misc.py 9644 2024-04-15 18:34:05Z milde $
+# $Id: test_misc.py 10205 2025-08-19 15:07:47Z milde $
 # Author: Stefan Rank <strank(AT)strank(DOT)info>
 # Copyright: This module has been placed in the public domain.
 

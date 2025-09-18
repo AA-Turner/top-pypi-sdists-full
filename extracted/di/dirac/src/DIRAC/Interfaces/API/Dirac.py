@@ -13,6 +13,7 @@
     - Local execution of workflows for testing purposes.
 
 """
+import datetime
 import glob
 import io
 import os
@@ -23,40 +24,29 @@ import sys
 import tarfile
 import tempfile
 import time
-import datetime
 from urllib.parse import unquote
 
-
 import DIRAC
-from DIRAC import gConfig, gLogger, S_OK, S_ERROR
+from DIRAC import S_ERROR, S_OK, gConfig
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.ConfigurationSystem.Client.PathFinder import getServiceURL
 from DIRAC.Core.Base.API import API
 from DIRAC.Core.Base.Client import Client
+from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
 from DIRAC.Core.Utilities.File import mkDir
 from DIRAC.Core.Utilities.List import breakListIntoChunks
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
+from DIRAC.Core.Utilities.PrettyPrint import printDict, printTable
 from DIRAC.Core.Utilities.SiteSEMapping import getSEsForSite
-from DIRAC.Core.Utilities.PrettyPrint import printTable, printDict
-from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
 from DIRAC.Core.Utilities.Subprocess import systemCall
-from DIRAC.Core.Utilities.ModuleFactory import ModuleFactory
-from DIRAC.ConfigurationSystem.Client.PathFinder import getSystemSection, getServiceURL
-from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
-from DIRAC.Interfaces.API.JobRepository import JobRepository
 from DIRAC.DataManagementSystem.Client.DataManager import DataManager
-from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.Resources.Catalog.FileCatalog import FileCatalog
+from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.WorkloadManagementSystem.Client import JobStatus
-from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
-from DIRAC.WorkloadManagementSystem.Client.SandboxStoreClient import SandboxStoreClient
 from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
-
-COMPONENT_NAME = "DiracAPI"
-
-try:
-    # Python 2: "file" is built-in
-    file_types = file, io.IOBase
-except NameError:
-    # Python 3: "file" fully replaced with IOBase
-    file_types = (io.IOBase,)
+from DIRAC.WorkloadManagementSystem.Client.SandboxStoreClient import SandboxStoreClient
+from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
+from DIRAC.WorkloadManagementSystem.Utilities.jobAdministration import _filterJobStateTransition
 
 
 def parseArguments(args):
@@ -72,24 +62,19 @@ class Dirac(API):
     """
 
     #############################################################################
-    def __init__(self, withRepo=False, repoLocation="", useCertificates=False, vo=None):
+    def __init__(self, useCertificates=False, vo=None):
         """Internal initialization of the DIRAC API."""
         super().__init__()
 
         self.section = "/LocalSite/"
-
-        self.jobRepo = False
-        if withRepo:
-            self.jobRepo = JobRepository(repoLocation)
-            if not self.jobRepo.isOK():
-                gLogger.error("Unable to write to supplied repository location")
-                self.jobRepo = False
 
         self.useCertificates = useCertificates
 
         # Determine the default file catalog
         self.defaultFileCatalog = gConfig.getValue(self.section + "/FileCatalog", None)
         self.vo = vo
+
+        self.objectLoader = ObjectLoader()
 
     def _checkFileArgument(self, fnList, prefix=None, single=False):
         if prefix is None:
@@ -125,169 +110,6 @@ class Dirac(API):
             return self._errorReport(
                 str(x), f"Expected {'(list of) '} integer or string for existing jobID" if multiple else ""
             )
-
-    #############################################################################
-    # Repository specific methods
-    #############################################################################
-    def getRepositoryJobs(self, printOutput=False):
-        """Retrieve all the jobs in the repository
-
-        Example Usage:
-
-        >>> print(dirac.getRepositoryJobs())
-        {'OK': True, 'Value': [1,2,3,4]}
-
-        :return: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        jobIDs = list(self.jobRepo.readRepository()["Value"])
-        if printOutput:
-            print(self.pPrint.pformat(jobIDs))
-        return S_OK(jobIDs)
-
-    def monitorRepository(self, printOutput=False):
-        """Monitor the jobs present in the repository
-
-        Example Usage:
-
-        >>> print(dirac.monitorRepository())
-        {'OK': True, 'Value': ''}
-
-        :returns: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        jobs = self.jobRepo.readRepository()["Value"]
-        jobIDs = list(jobs)
-        res = self.getJobStatus(jobIDs)
-        if not res["OK"]:
-            return self._errorReport(res["Message"], "Failed to get status of jobs from WMS")
-
-        statusDict = {}
-        for jobDict in jobs.values():
-            state = jobDict.get("State", "Unknown")
-            statusDict[state] = statusDict.setdefault(state, 0) + 1
-        if printOutput:
-            print(self.pPrint.pformat(statusDict))
-        return S_OK(statusDict)
-
-    def retrieveRepositorySandboxes(self, requestedStates=None, destinationDirectory=""):
-        """Obtain the output sandbox for the jobs in requested states in the repository
-
-        Example Usage:
-
-        >>> print(dirac.retrieveRepositorySandboxes(requestedStates=['Done','Failed'],destinationDirectory='sandboxes'))
-        {'OK': True, 'Value': ''}
-
-        :param requestedStates: List of jobs states to be considered
-        :type requestedStates: list of strings
-        :param destinationDirectory: The target directory
-                                     to place sandboxes (each jobID will have a directory created beneath this)
-        :type destinationDirectory: string
-        :returns: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        if requestedStates is None:
-            requestedStates = [
-                JobStatus.DONE,
-                JobStatus.FAILED,
-                JobStatus.COMPLETED,
-            ]  # because users dont care about completed
-        jobs = self.jobRepo.readRepository()["Value"]
-        for jobID in sorted(jobs):
-            jobDict = jobs[jobID]
-            if jobDict.get("State") in requestedStates:
-                # # Value of 'Retrieved' is a string, e.g. '0' when read from file
-                if not int(jobDict.get("Retrieved")):
-                    res = self.getOutputSandbox(jobID, destinationDirectory)
-                    if not res["OK"]:
-                        return res
-        return S_OK()
-
-    def retrieveRepositoryData(self, requestedStates=None, destinationDirectory=""):
-        """Obtain the output data for the jobs in requested states in the repository
-
-        Example Usage:
-
-        >>> print(dirac.retrieveRepositoryData(requestedStates=['Done'],destinationDirectory='outputData'))
-        {'OK': True, 'Value': ''}
-
-        :param requestedStates: List of jobs states to be considered
-        :type requestedStates: list of strings
-        :param destinationDirectory: The target directory to place sandboxes (a directory is created for each JobID)
-        :type destinationDirectory: string
-        :returns: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        if requestedStates is None:
-            requestedStates = ["Done"]
-        jobs = self.jobRepo.readRepository()["Value"]
-        for jobID in sorted(jobs):
-            jobDict = jobs[jobID]
-            if jobDict.get("State") in requestedStates:
-                # # Value of 'OutputData' is a string, e.g. '0' when read from file
-                if not int(jobDict.get("OutputData")):
-                    destDir = jobID
-                    if destinationDirectory:
-                        destDir = f"{destinationDirectory}/{jobID}"
-                    self.getJobOutputData(jobID, destinationDir=destDir)
-        return S_OK()
-
-    def removeRepository(self):
-        """Removes the job repository and all sandboxes and output data retrieved
-
-        Example Usage:
-
-        >>> print(dirac.removeRepository())
-        {'OK': True, 'Value': ''}
-
-        :returns: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        jobs = self.jobRepo.readRepository()["Value"]
-        for jobID in sorted(jobs):
-            jobDict = jobs[jobID]
-            if os.path.exists(jobDict.get("Sandbox", "")):
-                shutil.rmtree(jobDict["Sandbox"], ignore_errors=True)
-            if "OutputFiles" in jobDict:
-                for fileName in eval(jobDict["OutputFiles"]):
-                    if os.path.exists(fileName):
-                        os.remove(fileName)
-        self.deleteJob(sorted(jobs))
-        os.remove(self.jobRepo.getLocation()["Value"])
-        self.jobRepo = False
-        return S_OK()
-
-    def resetRepository(self, jobIDs=None):
-        """Reset all the status of the (optionally supplied) jobs in the repository
-
-        Example Usage:
-
-        >>> print(dirac.resetRepository(jobIDs = [1111,2222,'3333']))
-        {'OK': True, 'Value': ''}
-
-        :returns: S_OK,S_ERROR
-        """
-        if not self.jobRepo:
-            gLogger.warn("No repository is initialised")
-            return S_OK()
-        if jobIDs is None:
-            jobIDs = []
-        if not isinstance(jobIDs, list):
-            return self._errorReport("The jobIDs must be a list of (strings or ints).")
-        self.jobRepo.resetRepository(jobIDs=jobIDs)
-        return S_OK()
-
-    #############################################################################
 
     def submitJob(self, job, mode="wms"):
         """Submit jobs to DIRAC (by default to the Workload Management System).
@@ -333,7 +155,7 @@ class Dirac(API):
                 formulationErrors = {}
 
             if formulationErrors:
-                for method, errorList in formulationErrors.items():  # can be an iterator
+                for method, errorList in formulationErrors.items():
                     self.log.error(">>>> Error in {}() <<<<\n{}".format(method, "\n".join(errorList)))
                 return S_ERROR(formulationErrors)
 
@@ -360,12 +182,6 @@ class Dirac(API):
             result = WMSClient(useCertificates=self.useCertificates).submitJob(jdlAsString, jobDescriptionObject)
             if not result["OK"]:
                 self.log.error("Job submission failure", result["Message"])
-            elif self.jobRepo:
-                jobIDList = result["Value"]
-                if not isinstance(jobIDList, list):
-                    jobIDList = [jobIDList]
-                for jobID in jobIDList:
-                    result = self.jobRepo.addJob(jobID, "Submitted")
 
         return result
 
@@ -446,7 +262,7 @@ class Dirac(API):
         guidDict = self.getLfnMetadata(lfns)
         if not guidDict["OK"]:
             return guidDict
-        for lfn, reps in replicaDict["Value"]["Successful"].items():  # can be an iterator
+        for lfn, reps in replicaDict["Value"]["Successful"].items():
             guidDict["Value"]["Successful"][lfn].update(reps)
         resolvedData = guidDict
         diskSE = gConfig.getValue(self.section + "/DiskSE", ["-disk", "-DST", "-USER", "-FREEZER"])
@@ -466,14 +282,12 @@ class Dirac(API):
         if ignoreMissing:
             argumentsDict["IgnoreMissing"] = True
         self.log.verbose(argumentsDict)
-        moduleFactory = ModuleFactory()
-        self.log.verbose(f"Input Data Policy Module: {inputDataPolicy}")
-        moduleInstance = moduleFactory.getModule(inputDataPolicy, argumentsDict)
-        if not moduleInstance["OK"]:
-            self.log.warn("Could not create InputDataModule")
-            return moduleInstance
 
-        module = moduleInstance["Value"]
+        result = self.objectLoader.loadObject(inputDataPolicy)
+        if not result["OK"]:
+            return result
+        module = result["Value"](argumentsDict)
+
         result = module.execute()
         self.log.debug(result)
         if not result["OK"]:
@@ -482,7 +296,7 @@ class Dirac(API):
 
         if catalogFailed:
             self.log.error("Replicas not found for the following files:")
-            for key, value in catalogFailed.items():  # can be an iterator
+            for key, value in catalogFailed.items():
                 self.log.error(f"{key} {value}")
             if "Failed" in result:
                 result["Failed"] = list(catalogFailed)
@@ -530,7 +344,7 @@ class Dirac(API):
         # Replace argument placeholders for parametric jobs
         # if we have Parameters then we have a parametric job
         if "Parameters" in parameters:
-            for par, value in parameters.items():  # can be an iterator
+            for par, value in parameters.items():
                 if par.startswith("Parameters."):
                     # we just use the first entry in all lists to run one job
                     parameters[par[len("Parameters.") :]] = value[0]
@@ -561,7 +375,7 @@ class Dirac(API):
             guidDict = self.getLfnMetadata(inputData)
             if not guidDict["OK"]:
                 return guidDict
-            for lfn, reps in replicaDict["Value"]["Successful"].items():  # can be an iterator
+            for lfn, reps in replicaDict["Value"]["Successful"].items():
                 guidDict["Value"]["Successful"][lfn].update(reps)
             resolvedData = guidDict
             diskSE = gConfig.getValue(self.section + "/DiskSE", ["-disk", "-DST", "-USER", "-FREEZER"])
@@ -575,13 +389,12 @@ class Dirac(API):
                 "Job": parameters,
             }
             self.log.verbose(argumentsDict)
-            moduleFactory = ModuleFactory()
-            moduleInstance = moduleFactory.getModule(inputDataPolicy, argumentsDict)
-            if not moduleInstance["OK"]:
-                self.log.warn("Could not create InputDataModule")
-                return moduleInstance
 
-            module = moduleInstance["Value"]
+            result = self.objectLoader.loadObject(inputDataPolicy)
+            if not result["OK"]:
+                return result
+            module = result["Value"](argumentsDict)
+
             result = module.execute()
             if not result["OK"]:
                 self.log.warn("Input data resolution failed")
@@ -589,13 +402,11 @@ class Dirac(API):
 
         softwarePolicy = Operations().getValue("SoftwareDistModule")
         if softwarePolicy:
-            moduleFactory = ModuleFactory()
-            moduleInstance = moduleFactory.getModule(softwarePolicy, {"Job": parameters})
-            if not moduleInstance["OK"]:
-                self.log.warn("Could not create SoftwareDistModule")
-                return moduleInstance
+            result = self.objectLoader.loadObject(softwarePolicy)
+            if not result["OK"]:
+                return result
+            module = result["Value"]({"Job": parameters})
 
-            module = moduleInstance["Value"]
             result = module.execute()
             if not result["OK"]:
                 self.log.warn(f"Software installation failed with result:\n{result}")
@@ -611,6 +422,14 @@ class Dirac(API):
                 sandbox = [isFile.strip() for isFile in sandbox.split(",")]
             for isFile in sandbox:
                 self.log.debug(f"Resolving Input Sandbox {isFile}")
+                # If the sandbox is already in the sandbox store, download it
+                if isFile.startswith("SB:"):
+                    result = SandboxStoreClient(useCertificates=self.useCertificates).downloadSandbox(
+                        isFile, destinationDir=os.getcwd()
+                    )
+                    if not result["OK"]:
+                        return S_ERROR(f"Cannot download Input sandbox {isFile}: {result['Message']}")
+                    continue
                 if isFile.lower().startswith("lfn:"):  # isFile is an LFN
                     isFile = isFile[4:]
                 # Attempt to copy into job working directory, unless it is already there
@@ -650,14 +469,6 @@ class Dirac(API):
                         return S_ERROR(f"Could not untar or extract {basefname} with exception {repr(x)}")
 
         self.log.info(f"Attempting to submit job to local site: {DIRAC.siteName()}")
-
-        # DIRACROOT is used for finding dirac-jobexec in python2 installations
-        # (it is normally set by the JobWrapper)
-        # We don't use DIRAC.rootPath as we assume that a DIRAC installation is already done at this point
-        # DIRAC env variable is only set for python2 installations
-        if "DIRAC" in os.environ:
-            os.environ["DIRACROOT"] = os.environ["DIRAC"]
-            self.log.verbose(f"DIRACROOT = {os.environ['DIRACROOT']}")
 
         if "Executable" in parameters:
             executable = os.path.expandvars(parameters["Executable"])
@@ -776,7 +587,7 @@ class Dirac(API):
                     print(message, file=sys.stderr)
                 else:
                     print(message)
-            elif isinstance(fd, file_types):
+            elif isinstance(fd, io.IOBase):
                 print(message, file=fd)
         else:
             print(message)
@@ -860,7 +671,7 @@ class Dirac(API):
     #     directory = directory[:-1]
     #
     #   if printOutput:
-    #     for fileKey, metaDict in listing['Value']['Successful'][directory]['Files'].items():  # can be an iterator
+    #     for fileKey, metaDict in listing['Value']['Successful'][directory]['Files'].items():
     #       print '#' * len( fileKey )
     #       print fileKey
     #       print '#' * len( fileKey )
@@ -911,7 +722,7 @@ class Dirac(API):
             records = []
             for lfn in repsResult["Value"]["Successful"]:
                 lfnPrint = lfn
-                for se, url in repsResult["Value"]["Successful"][lfn].items():  # can be an iterator
+                for se, url in repsResult["Value"]["Successful"][lfn].items():
                     records.append((lfnPrint, se, url))
                     lfnPrint = ""
             for lfn in repsResult["Value"]["Failed"]:
@@ -963,7 +774,7 @@ class Dirac(API):
             records = []
             for lfn in repsResult["Value"]["Successful"]:
                 lfnPrint = lfn
-                for se, url in repsResult["Value"]["Successful"][lfn].items():  # can be an iterator
+                for se, url in repsResult["Value"]["Successful"][lfn].items():
                     records.append((lfnPrint, se, url))
                     lfnPrint = ""
             for lfn in repsResult["Value"]["Failed"]:
@@ -1072,7 +883,7 @@ class Dirac(API):
                 list(replicaDict["Value"]["Failed"].items())[0], "Failed to get replica information"
             )
         siteLfns = {}
-        for lfn, reps in replicaDict["Value"]["Successful"].items():  # can be an iterator
+        for lfn, reps in replicaDict["Value"]["Successful"].items():
             possibleSites = {
                 site
                 for se in reps
@@ -1406,7 +1217,7 @@ class Dirac(API):
 
         Example Usage:
 
-        >>> print(dirac.getPhysicalFileMetadata('srm://srm.grid.sara.nl/pnfs/grid.sara.nl/data)
+        >>> print(dirac.getPhysicalFileMetadata('srm://srm.grid.sara.nl/pnfs/grid.sara.nl/data')
         /lhcb/data/CCRC08/RAW/LHCb/CCRC/23341/023341_0000039571.raw','NIKHEF-RAW')
         {'OK': True, 'Value': {'Successful': {'srm://...': {'SRM2': 'rfio://...'}}, 'Failed': {}}}
 
@@ -1577,14 +1388,10 @@ class Dirac(API):
         )
         if result["OK"]:
             self.log.info(f"Files retrieved and extracted in {dirPath}")
-            if self.jobRepo:
-                self.jobRepo.updateJob(jobID, {"Retrieved": 1, "Sandbox": os.path.realpath(dirPath)})
             return result
         self.log.warn(result["Message"])
 
         if not oversized:
-            if self.jobRepo:
-                self.jobRepo.updateJob(jobID, {"Retrieved": 1, "Sandbox": os.path.realpath(dirPath)})
             return result
 
         params = self.getJobParameters(int(jobID))
@@ -1625,9 +1432,6 @@ class Dirac(API):
             os.unlink(fileName)
 
         os.chdir(start)
-        if result["OK"]:
-            if self.jobRepo:
-                self.jobRepo.updateJob(jobID, {"Retrieved": 1, "Sandbox": os.path.realpath(dirPath)})
         return result
 
     #############################################################################
@@ -1655,17 +1459,15 @@ class Dirac(API):
         # Remove any job IDs that can't change to the Killed or Deleted states
         filteredJobs = set()
         for filterState in (JobStatus.KILLED, JobStatus.DELETED):
-            filterRes = JobStatus.filterJobStateTransition(jobIDs, filterState)
-            if not filterRes["OK"]:
-                return filterRes
-            filteredJobs.update(filterRes["Value"])
+            # get a dictionary of jobID:status
+            res = JobMonitoringClient().getJobsStatus(jobIDs)
+            if not res["OK"]:
+                return res
+            js = {k: v["Status"] for k, v in res["Value"].items()}
+            # then filter
+            filteredJobs.update(_filterJobStateTransition(js, filterState))
 
-        result = WMSClient(useCertificates=self.useCertificates).deleteJob(list(filteredJobs))
-        if result["OK"]:
-            if self.jobRepo:
-                for jID in result["Value"]:
-                    self.jobRepo.removeJob(jID)
-        return result
+        return WMSClient(useCertificates=self.useCertificates).deleteJob(list(filteredJobs))
 
     #############################################################################
 
@@ -1690,20 +1492,15 @@ class Dirac(API):
             return ret
         jobIDs = ret["Value"]
 
-        # Remove any job IDs that can't change to the rescheduled state
-        filterRes = JobStatus.filterJobStateTransition(jobIDs, JobStatus.RESCHEDULED)
-        if not filterRes["OK"]:
-            return filterRes
-        jobIDsToReschedule = filterRes["Value"]
+        # get a dictionary of jobID:status
+        res = JobMonitoringClient().getJobsStatus(jobIDs)
+        if not res["OK"]:
+            return res
+        js = {k: v["Status"] for k, v in res["Value"].items()}
+        # then filter
+        jobIDsToReschedule = _filterJobStateTransition(js, JobStatus.RESCHEDULED)
 
-        result = WMSClient(useCertificates=self.useCertificates).rescheduleJob(jobIDsToReschedule)
-        if result["OK"]:
-            if self.jobRepo:
-                repoDict = {}
-                for jID in result["Value"]:
-                    repoDict[jID] = {"State": "Submitted"}
-                self.jobRepo.updateJobs(repoDict)
-        return result
+        return WMSClient(useCertificates=self.useCertificates).rescheduleJob(jobIDsToReschedule)
 
     def killJob(self, jobID):
         """Issue a kill signal to a running job.  If a job has already completed this
@@ -1718,7 +1515,6 @@ class Dirac(API):
         :param jobID: JobID
         :type jobID: int, str
         :returns: S_OK,S_ERROR
-
         """
         ret = self._checkJobArgument(jobID, multiple=True)
         if not ret["OK"]:
@@ -1728,17 +1524,15 @@ class Dirac(API):
         # Remove any job IDs that can't change to the Killed or Deleted states
         filteredJobs = set()
         for filterState in (JobStatus.KILLED, JobStatus.DELETED):
-            filterRes = JobStatus.filterJobStateTransition(jobIDs, filterState)
-            if not filterRes["OK"]:
-                return filterRes
-            filteredJobs.update(filterRes["Value"])
+            # get a dictionary of jobID:status
+            res = JobMonitoringClient().getJobsStatus(jobIDs)
+            if not res["OK"]:
+                return res
+            js = {k: v["Status"] for k, v in res["Value"].items()}
+            # then filter
+            filteredJobs.update(_filterJobStateTransition(js, filterState))
 
-        result = WMSClient(useCertificates=self.useCertificates).killJob(list(filteredJobs))
-        if result["OK"]:
-            if self.jobRepo:
-                for jID in result["Value"]:
-                    self.jobRepo.removeJob(jID)
-        return result
+        return WMSClient(useCertificates=self.useCertificates).killJob(list(filteredJobs))
 
     #############################################################################
 
@@ -1776,14 +1570,9 @@ class Dirac(API):
         siteDict = res["Value"]
 
         result = {}
-        repoDict = {}
-        for job, vals in statusDict.items():  # can be an iterator
+        for job, vals in statusDict.items():
             result[job] = vals
-            if self.jobRepo:
-                repoDict[job] = {"State": vals["Status"]}
-        if self.jobRepo:
-            self.jobRepo.updateJobs(repoDict)
-        for job, vals in siteDict.items():  # can be an iterator
+        for job, vals in siteDict.items():
             result[job].update(vals)
 
         return S_OK(result)
@@ -1923,8 +1712,6 @@ class Dirac(API):
                 localPath = f"{destinationDir}/{os.path.basename(outputFile)}"
                 obtainedFiles.append(os.path.realpath(localPath))
 
-        if self.jobRepo:
-            self.jobRepo.updateJob(jobID, {"OutputData": 1, "OutputFiles": obtainedFiles})
         return S_OK(outputData)
 
     #############################################################################
@@ -2076,10 +1863,10 @@ class Dirac(API):
                 for i in headers:
                     line += i.ljust(35)
                 fopen.write(line + "\n")
-                for jobID, params in summary.items():  # can be an iterator
+                for jobID, params in summary.items():
                     line = str(jobID).ljust(12)
                     for header in headers:
-                        for key, value in params.items():  # can be an iterator
+                        for key, value in params.items():
                             if header == key:
                                 line += value.ljust(35)
                     fopen.write(line + "\n")
@@ -2261,9 +2048,9 @@ class Dirac(API):
         Example Usage:
 
         >>> print(dirac.getJobAttributes(79241))
-        {'AccountedFlag': 'False','ApplicationNumStatus': '0',
+        {'AccountedFlag': 'False',
         'ApplicationStatus': 'Job Finished Successfully',
-        'CPUTime': '0.0','DIRACSetup': 'LHCb-Production'}
+        'CPUTime': '0.0'}
 
         :param jobID: JobID
         :type jobID: int, str or python:list
@@ -2435,7 +2222,7 @@ class Dirac(API):
         result = S_ERROR()
         try:
             if not url:
-                systemSection = getSystemSection(system + "/")
+                systemSection = f"/Systems/{system}"
                 self.log.verbose(f"System section is: {systemSection}")
                 section = f"{systemSection}/{service}"
                 self.log.verbose(f"Requested service should have CS path: {section}")
@@ -2518,7 +2305,7 @@ class Dirac(API):
                 jdl = "[" + jdl + "]"
             classAdJob = ClassAd(jdl)
             paramsDict = classAdJob.contents
-            for param, value in paramsDict.items():  # can be an iterator
+            for param, value in paramsDict.items():
                 if re.search("{", value):
                     self.log.debug(f"Found list type parameter {param}")
                     rawValues = value.replace("{", "").replace("}", "").replace('"', "").replace("LFN:", "").split()
@@ -2541,7 +2328,7 @@ class Dirac(API):
     def __printInfo(self):
         """Internal function to print the DIRAC API version and related information."""
         self.log.verbose(f"<====={self.diracInfo}=====>")
-        self.log.verbose(f"DIRAC is running at {DIRAC.siteName()} in setup {self.setup}")
+        self.log.verbose(f"DIRAC is running at {DIRAC.siteName()}")
 
     def getConfigurationValue(self, option, default):
         """Export the configuration client getValue() function"""

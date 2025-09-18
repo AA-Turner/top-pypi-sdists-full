@@ -5,6 +5,7 @@ import time
 import pickle
 import tempfile
 
+from DIRAC import gLogger
 from DIRAC.Core.Base.Script import Script
 from DIRAC.Core.Utilities.File import secureOpenForWrite
 from DIRAC.ConfigurationSystem.Client.ConfigurationData import gConfigurationData
@@ -20,12 +21,7 @@ class ConfigCache:
     def __init__(self, forceRefresh=False):
         self.newConfig = True
         self.configCacheLifetime = 600.0  # ten minutes
-
-        if "DCOMMANDS_PPID" in os.environ:
-            self.pid = int(os.environ["DCOMMANDS_PPID"])
-        else:
-            self.pid = os.getppid()
-
+        self.pid = os.getppid()
         self.configCacheName = os.path.join(self.cacheDir, self.cacheFilePrefix() + ".%d.%d" % (os.getuid(), self.pid))
 
         if not forceRefresh:
@@ -74,4 +70,4 @@ class ConfigCache:
                 with open(self.configCacheName, "rb") as fh:
                     gConfigurationData.mergedCFG = pickle.load(fh)
             except:
-                print("Warning: Cache corrupt or unreadable")
+                gLogger.error("Cache corrupt or unreadable")

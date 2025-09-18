@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: flask-dapr
-Version: 1.15.0
+Version: 1.16.0
 Summary: The official release of Dapr Python SDK Flask Extension.
 Home-page: https://dapr.io/
 Author: Dapr Authors

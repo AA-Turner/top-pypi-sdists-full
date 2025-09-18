@@ -6,20 +6,24 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable, TYPE_CHECKING
+from typing import Any, Iterable, TYPE_CHECKING, cast
 
 import regex
 
-from arelle import UrlUtil
+from arelle import UrlUtil, XbrlConst
 from arelle.Cntlr import Cntlr
 from arelle.FileSource import FileSource
+from arelle.ModelInstanceObject import ModelFact
 from arelle.ValidateXbrl import ValidateXbrl
+from arelle.XmlValidateConst import VALID
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
 from .. import Constants
+from ..CoverPageRequirements import CoverPageItemStatus
 from ..DisclosureSystems import (DISCLOSURE_SYSTEM_EDINET)
+from ..FilingFormat import FILING_FORMATS
 from ..ReportFolderType import ReportFolderType, HTML_EXTENSIONS, IMAGE_EXTENSIONS
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
@@ -631,6 +635,11 @@ def rules_cover_page(
 ) -> Iterable[Validation]:
     """
     EDINET.EC1000E: Cover page must contain "【表紙】".
+    EDINET.EC1001E: A required item is missing from the cover page.
+    EDINET.EC1002E: A duplicate item is included on the cover page.
+    EDINET.EC1003E: An unnecessary item is included on the cover page.
+    EDINET.EC1004E: An item on the cover page is out of order.
+    EDINET.EC1005E: A required item on the cover page is missing a valid value.
     """
     uploadContents = pluginData.getUploadContents(val.modelXbrl)
     if uploadContents is None:
@@ -645,7 +654,7 @@ def rules_cover_page(
         for elt in rootElt.iterdescendants():
             if not coverPageTextFound and elt.text and '【表紙】' in elt.text:
                 coverPageTextFound = True
-            # TODO: Other checks related to the cover page will be implemented here.
+                break
         if not coverPageTextFound:
             yield Validation.error(
                 codes='EDINET.EC1000E',
@@ -654,6 +663,85 @@ def rules_cover_page(
                       "Please add '【表紙】' to the relevant file."),
                 file=doc.basename,
             )
+        filingFormat = pluginData.getFilingFormat(val.modelXbrl)
+        if filingFormat is None:
+            return
+        coverPageRequirements = pluginData.getCoverPageRequirements(val.modelXbrl)
+        currentLineNumber = 0
+        for qname in pluginData.coverPageItems:
+            foundFacts = []
+            validNonNilFacts = []
+            for fact in pluginData.iterFacts(val.modelXbrl, qname):
+                if fact.modelDocument != doc:
+                    continue
+                if fact.qname.prefix is not None and filingFormat.includesTaxonomyPrefix(fact.qname.prefix):
+                    foundFacts.append(fact)
+                if fact.xValid >= VALID and not fact.isNil:
+                    validNonNilFacts.append(fact)
+
+            for fact in sorted(foundFacts, key=lambda f: cast(int, f.sourceline)):
+                if (sourceLine := cast(int, fact.sourceline)) <= currentLineNumber:
+                    yield Validation.error(
+                        codes='EDINET.EC1004E',
+                        msg=_("Cover item %(localName)s is not in the correct order. "
+                              "File name: '%(file)s'. "
+                              "Please correct the order of cover items in the appropriate file."),
+                        localName=qname.localName,
+                        file=doc.basename,
+                        modelObject=fact,
+                    )
+                else:
+                    currentLineNumber = sourceLine
+
+            if len(foundFacts) > 1:
+                yield Validation.error(
+                    codes='EDINET.EC1002E',
+                    msg=_("Cover item %(localName)s is duplicated. "
+                          "File name: '%(file)s'. "
+                          "Please check the cover item %(localName)s of the relevant file "
+                          "and make sure there are no duplicates."),
+                    localName=qname.localName,
+                    file=doc.basename,
+                    modelObject=foundFacts,
+                )
+
+            status = coverPageRequirements.get(qname, filingFormat)
+            if status is None:
+                continue
+            if status == CoverPageItemStatus.REQUIRED:
+                if len(foundFacts) == 0:
+                    yield Validation.error(
+                        codes='EDINET.EC1001E',
+                        msg=_("Cover item %(localName)s is missing. "
+                              "File name: '%(file)s'. "
+                              "Please add the cover item %(localName)s to the relevant file."),
+                        localName=qname.localName,
+                        file=doc.basename,
+                    )
+                elif len(validNonNilFacts) == 0:
+                    yield Validation.error(
+                        codes='EDINET.EC1005E',
+                        msg=_("Cover item %(localName)s is missing a valid value. "
+                              "File name: '%(file)s'. "
+                              "Please enter a valid value for %(localName)s in the relevant file."),
+                        localName=qname.localName,
+                        file=doc.basename,
+                        modelObject=foundFacts,
+                    )
+            elif status == CoverPageItemStatus.PROHIBITED:
+                for fact in foundFacts:
+                    if fact.isNil:
+                        continue  # Prohibited cover pages facts are allowed, only if nil.
+                    yield Validation.error(
+                        codes='EDINET.EC1003E',
+                        msg=_("Cover item %(localName)s is not necessary. "
+                              "File name: '%(file)s' (line %(line)s). "
+                              "Please add the cover item %(localName)s to the relevant file."),
+                        localName=qname.localName,
+                        file=doc.basename,
+                        line=fact.sourceline,
+                        modelObject=fact,
+                    )
 
 
 @validation(
@@ -770,6 +858,77 @@ def rule_uri_references(
     hook=ValidationHook.FILESOURCE,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_EC1009R(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC1009R: The HTML file size must be 2.5MB (megabytes) or less.
+    """
+    for path, size in pluginData.getUploadFileSizes(fileSource).items():
+        if path.suffix not in HTML_EXTENSIONS:
+            continue
+        if size > 2_500_000:
+            yield Validation.warning(
+                codes='EDINET.EC1009R',
+                msg=_("The HTML file size exceeds the maximum limit. "
+                      "File name: '%(path)s'. "
+                      "Please split the file so that the file size is 2.5MB or less."),
+                path=str(path),
+            )
+
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC1010E(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC1010E: The charset specification in the content attribute of the HTML <meta> tag must be UTF-8.
+    """
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        path = Path(modelDocument.uri)
+        if path.suffix not in HTML_EXTENSIONS:
+            continue
+        rootElt = modelDocument.xmlRootElement
+        matchingElt = None
+        missingElts = []
+        for metaElt in rootElt.iterdescendants(tag=XbrlConst.qnXhtmlMeta.clarkNotation):
+            if metaElt.qname.localName != 'meta':
+                continue
+            content = metaElt.get('content')
+            if content is None:
+                continue
+            charset = content.split('charset=')[-1].strip().lower()
+            if charset == 'utf-8':
+                matchingElt = metaElt
+            else:
+                missingElts.append(metaElt)
+
+        if matchingElt is None or len(missingElts) > 0:
+            yield Validation.error(
+                codes='EDINET.EC1010E',
+                msg=_("The charset specification in the content attribute of the HTML <meta> tag is not UTF-8. "
+                      "File name: '%(path)s'. "
+                      "Please change the character code of the file to UTF-8."),
+                path=str(path),
+                modelObject=missingElts
+            )
+
+
+@validation(
+    hook=ValidationHook.FILESOURCE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_EC1016E(
         pluginData: ControllerPluginData,
         cntlr: Cntlr,
@@ -833,20 +992,22 @@ def rule_EC1017E(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
-def rule_EC1020E(
+def rule_html_elements(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
+    EDINET.EC1011E: The HTML lang attribute is not Japanese.
     EDINET.EC1020E: When writing a DOCTYPE declaration, do not define it multiple times.
-    Also, please modify the relevant file so that there is only one html tag, one head tag, and one body tag each.
+        Also, please modify the relevant file so that there is only one html tag, one head tag, and one body tag each.
 
-    Note: Some violations of this rule (such as multiple DOCTYPE declarations) prevent Arelle from parsing
+    Note: Some violations of EC1020E (such as multiple DOCTYPE declarations) prevent Arelle from parsing
     the XML at all, and thus an XML schema error will be triggered rather than this validation error.
     """
     checkNames = frozenset({'body', 'head', 'html'})
+    langAttributeValues = frozenset({'ja', 'jp', 'ja-jp', 'JA', 'JP', 'JA-JP'})
     for modelDocument in val.modelXbrl.urlDocs.values():
         path = Path(modelDocument.uri)
         if path.suffix not in HTML_EXTENSIONS:
@@ -857,10 +1018,22 @@ def rule_EC1020E(
         }
         for elt in rootElt.iterdescendants():
             name = elt.qname.localName
-            if name not in checkNames:
-                continue
-            eltCounts[name] = eltCounts.get(name, 0) + 1
-            pass
+            if name in checkNames:
+                eltCounts[name] = eltCounts.get(name, 0) + 1
+            if not isinstance(elt, ModelFact):
+                lang = elt.get(XbrlConst.qnXmlLang.clarkNotation)
+                if lang is not None and lang not in langAttributeValues:
+                    yield Validation.error(
+                        codes='EDINET.EC1011E',
+                        msg=_("The language setting is not Japanese. "
+                              "File name: %(file)s (line %(line)s). "
+                              "Please set the lang attribute on the given line of the "
+                              "relevant file to one of the following: %(langValues)s."),
+                        file=modelDocument.basename,
+                        line=elt.sourceline,
+                        langValues=', '.join(langAttributeValues),
+                    )
+
         if any(count > 1 for count in eltCounts.values()):
             yield Validation.error(
                 codes='EDINET.EC1020E',

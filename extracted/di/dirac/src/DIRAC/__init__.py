@@ -1,67 +1,67 @@
 """
-   DIRAC - Distributed Infrastructure with Remote Agent Control
+DIRAC - Distributed Infrastructure with Remote Agent Control
 
-   The distributed data production and analysis system of LHCb and other VOs.
+The distributed data production and analysis system of LHCb and other VOs.
 
-   DIRAC is a software framework for distributed computing which
-   allows to integrate various computing resources in a single
-   system. At the same time it integrates all kinds of computing
-   activities like Monte Carlo simulations, data processing, or
-   final user analysis.
+DIRAC is a software framework for distributed computing which
+allows to integrate various computing resources in a single
+system. At the same time it integrates all kinds of computing
+activities like Monte Carlo simulations, data processing, or
+final user analysis.
 
-   It is build as number of cooperating systems:
-    - Accounting
-    - Configuration
-    - Core
-      - Base
-      - Security
-      - Utilities
-      - Workflow
-    - Framework
-    - RequestManagement
-    - Resources
-    - Transformation
+It is build as number of cooperating systems:
+ - Accounting
+ - Configuration
+ - Core
+   - Base
+   - Security
+   - Utilities
+   - Workflow
+ - Framework
+ - RequestManagement
+ - Resources
+ - Transformation
 
-    Which are used by other system providing functionality to
-    the end user:
-    - DataManagement
-    - Interfaces
-    - ResourceStatus
-    - StorageManagement
-    - WorkloadManagement
+ Which are used by other system providing functionality to
+ the end user:
+ - DataManagement
+ - Interfaces
+ - ResourceStatus
+ - StorageManagement
+ - WorkloadManagement
 
-    It defines the following data members:
-    - version:       DIRAC version string
+ It defines the following data members:
+ - version:       DIRAC version string
 
-    - errorMail:     mail address for important errors
-    - alarmMail:     mail address for important alarms
+ - errorMail:     mail address for important errors
+ - alarmMail:     mail address for important alarms
 
-    It loads Modules from :
-    - DIRAC.Core.Utililies
+ It loads Modules from :
+ - DIRAC.Core.Utililies
 
-    It loads:
-    - S_OK:           OK return structure
-    - S_ERROR:        ERROR return structure
-    - gLogger:        global Logger object
-    - gConfig:        global Config object
+ It loads:
+ - S_OK:           OK return structure
+ - S_ERROR:        ERROR return structure
+ - gLogger:        global Logger object
+ - gConfig:        global Config object
 
-    It defines the following functions:
-    - abort:          aborts execution
-    - exit:           finish execution using callbacks
-    - siteName:       returns DIRAC name for current site
+ It defines the following functions:
+ - abort:          aborts execution
+ - exit:           finish execution using callbacks
+ - siteName:       returns DIRAC name for current site
 
-    - getPlatform():      DIRAC platform string for current host
-    - getPlatformTuple(): DIRAC platform tuple for current host
+ - getPlatform():      DIRAC platform string for current host
+ - getPlatformTuple(): DIRAC platform tuple for current host
 
 """
+
+import importlib.metadata
 import os
 import re
 import sys
-import warnings
+from collections.abc import Sequence
 from pkgutil import extend_path
 from typing import Any, Optional, Union
-from pkg_resources import get_distribution, DistributionNotFound
-
 
 __path__ = extend_path(__path__, __name__)
 
@@ -81,9 +81,9 @@ import _strptime
 
 # Define Version
 try:
-    __version__ = get_distribution(__name__).version
+    __version__ = importlib.metadata.version(__name__)
     version = __version__
-except DistributionNotFound:
+except importlib.metadata.PackageNotFoundError:
     # package is not installed
     version = "Unknown"
 
@@ -181,7 +181,7 @@ def initialize(
     log_level: Optional[LogLevel] = None,
     extra_config_files: Optional[list[os.PathLike]] = None,
     extra_config: Optional[dict[str, Any]] = None,
-    host_credentials: Optional[tuple[os.PathLike, os.PathLike]] = None,
+    host_credentials: Optional[Union[Sequence[os.PathLike], bool]] = None,
 ) -> None:
     """Prepare the global state so that DIRAC clients can be used.
 
@@ -227,8 +227,9 @@ def initialize(
 
     if host_credentials:
         gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "yes")
-        gConfigurationData.setOptionInCFG("/DIRAC/Security/CertFile", str(host_credentials[0]))
-        gConfigurationData.setOptionInCFG("/DIRAC/Security/KeyFile", str(host_credentials[1]))
+        if isinstance(host_credentials, Sequence) and len(host_credentials) == 2:
+            gConfigurationData.setOptionInCFG("/DIRAC/Security/CertFile", str(host_credentials[0]))
+            gConfigurationData.setOptionInCFG("/DIRAC/Security/KeyFile", str(host_credentials[1]))
 
     if log_level:
         gLogger.setLevel(log_level)
@@ -237,16 +238,10 @@ def initialize(
         log_level = getattr(LogLevel, gLogger.getLevel())
         gLogger.setLevel(LogLevel.ALWAYS)
     try:
-        returnValueOrRaise(localCfg.initialize())
+        returnValueOrRaise(localCfg.initialize(requireSuccessfulSync=require_auth))
     finally:
         # Restore the pre-existing log level
         gLogger.setLevel(log_level)
-
-    if not gConfigurationData.extractOptionFromCFG("/DIRAC/Setup"):
-        message = '/DIRAC/Setup is not defined. Have you ran "dirac-configure"?'
-        if require_auth:
-            raise exceptions.NotConfiguredError(message)
-        warnings.warn(message, exceptions.DiracWarning)
 
     if require_auth:
         retVal = S_ERROR("No configuration servers found")
@@ -323,5 +318,6 @@ def extension_metadata():
         "priority": 0,
         "setups": {
             "DIRAC-Certification": "https://lbcertifdirac70.cern.ch:9135/Configuration/Server",
+            "DIRAC-CI": "https://server:9135/Configuration/Server",
         },
     }

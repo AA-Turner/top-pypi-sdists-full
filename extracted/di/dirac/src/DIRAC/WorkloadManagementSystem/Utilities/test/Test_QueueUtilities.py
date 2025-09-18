@@ -1,13 +1,11 @@
 """ Test class for QueueUtilities
 """
-import pytest
 import copy
 from unittest.mock import MagicMock
 
-
+import pytest
 from DIRAC import S_OK
 from DIRAC.WorkloadManagementSystem.Utilities.QueueUtilities import *
-
 
 siteDict1 = {
     "Site1": {
@@ -22,12 +20,10 @@ expectedQueueDict1 = {
     "CE1_Queue1": {
         "CEName": "CE1",
         "CEType": "Type1",
-        "QueryCEFlag": False,
         "QueueName": "Queue1",
         "Site": "Site1",
         "ParametersDict": {
             "GridCE": "CE1",
-            "GridEnv": None,
             "Queue": "Queue1",
             "RequiredTag": [],
             "Setup": None,
@@ -39,12 +35,10 @@ expectedQueueDict1 = {
     "CE1_Queue2": {
         "CEName": "CE1",
         "CEType": "Type1",
-        "QueryCEFlag": False,
         "QueueName": "Queue2",
         "Site": "Site1",
         "ParametersDict": {
             "GridCE": "CE1",
-            "GridEnv": None,
             "Queue": "Queue2",
             "RequiredTag": [],
             "Setup": None,
@@ -56,12 +50,10 @@ expectedQueueDict1 = {
     "CE2_Queue1": {
         "CEName": "CE2",
         "CEType": "Type2",
-        "QueryCEFlag": False,
         "QueueName": "Queue1",
         "Site": "Site1",
         "ParametersDict": {
             "GridCE": "CE2",
-            "GridEnv": None,
             "Queue": "Queue1",
             "RequiredTag": [],
             "Setup": None,
@@ -73,12 +65,10 @@ expectedQueueDict1 = {
     "CE3_Queue1": {
         "CEName": "CE3",
         "CEType": "Type2",
-        "QueryCEFlag": False,
         "QueueName": "Queue1",
         "Site": "Site2",
         "ParametersDict": {
             "GridCE": "CE3",
-            "GridEnv": None,
             "Queue": "Queue1",
             "RequiredTag": [],
             "Setup": None,

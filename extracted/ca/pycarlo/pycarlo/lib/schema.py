@@ -2202,6 +2202,17 @@ class FacetType(sgqlc.types.Enum):
     )
 
 
+class FieldConfigType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `FIRST`None
+    * `LAST`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FIRST", "LAST")
+
+
 class FieldHealthMetrics(sgqlc.types.Enum):
     """Field Health monitor opt-in metrics.
 
@@ -6933,6 +6944,16 @@ class ExtendedDataSourceInput(sgqlc.types.Input):
     """Timeout for the SQL query."""
 
 
+class FieldConfigInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "count", "field")
+    type = sgqlc.types.Field(sgqlc.types.non_null(FieldConfigType), graphql_name="type")
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+
+
 class FieldMetricFilterInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("field_name", "operator", "value")
@@ -9828,6 +9849,7 @@ class TransformInput(sgqlc.types.Input):
         "categories",
         "model_connection_id",
         "output_type",
+        "field_config_list",
         "function",
         "field",
         "id",
@@ -9844,6 +9866,10 @@ class TransformInput(sgqlc.types.Input):
     model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
 
     output_type = sgqlc.types.Field(String, graphql_name="outputType")
+
+    field_config_list = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FieldConfigInput)), graphql_name="fieldConfigList"
+    )
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -15397,6 +15423,7 @@ class ConversionResult(sgqlc.types.Type):
         "monitored_tables_count",
         "selected_tables_count",
         "top_multicovered_mcons_by_monitor_count",
+        "mcon_coverage_distribution",
         "sample_covered_not_monitored",
         "sample_monitored_not_covered",
         "mcons_covered_by_table_monitor_audiences",
@@ -15470,6 +15497,11 @@ class ConversionResult(sgqlc.types.Type):
     top_multicovered_mcons_by_monitor_count = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconCountPair"))),
         graphql_name="topMulticoveredMconsByMonitorCount",
+    )
+
+    mcon_coverage_distribution = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconCountPair"))),
+        graphql_name="mconCoverageDistribution",
     )
 
     sample_covered_not_monitored = sgqlc.types.Field(
@@ -20471,6 +20503,16 @@ class FieldChange(sgqlc.types.Type):
     """Change to M2M field"""
 
 
+class FieldConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("type", "count", "field")
+    type = sgqlc.types.Field(sgqlc.types.non_null(FieldConfigType), graphql_name="type")
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+
+
 class FieldDistRcaData(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("time_field", "anom_time", "explanatory_field", "val")
@@ -24899,6 +24941,7 @@ class Mutation(sgqlc.types.Type):
         "update_monitor_description",
         "update_monitor_notes",
         "update_monitor_labels",
+        "run_monitor",
         "update_monitors_priorities",
         "update_monitors_schedules",
         "pause_monitors",
@@ -24948,6 +24991,7 @@ class Mutation(sgqlc.types.Type):
         "update_custom_metric_rule_notes",
         "update_custom_metric_severity",
         "trigger_circuit_breaker_rule",
+        "trigger_custom_rule",
         "create_or_update_volume_rule",
         "create_or_update_custom_sql_rule",
         "create_or_update_comparison_rule",
@@ -24959,7 +25003,6 @@ class Mutation(sgqlc.types.Type):
         "unsnooze_custom_rules",
         "delete_custom_rule",
         "restore_custom_rule",
-        "trigger_custom_rule",
         "trigger_circuit_breaker_rule_v2",
         "run_sql_rule",
         "run_custom_rules",
@@ -31202,6 +31245,27 @@ class Mutation(sgqlc.types.Type):
       rule
     """
 
+    run_monitor = sgqlc.types.Field(
+        "RunMonitor",
+        graphql_name="runMonitor",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Run a monitor manually
+
+    Arguments:
+
+    * `monitor_uuid` (`UUID!`): Monitor UUID to run
+    """
+
     update_monitors_priorities = sgqlc.types.Field(
         "UpdateMonitorsPriorities",
         graphql_name="updateMonitorsPriorities",
@@ -33265,6 +33329,34 @@ class Mutation(sgqlc.types.Type):
     * `rule_uuid` (`UUID`): Rule UUID
     """
 
+    trigger_custom_rule = sgqlc.types.Field(
+        "TriggerCustomRule",
+        graphql_name="triggerCustomRule",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "custom_sql_contains",
+                    sgqlc.types.Arg(String, graphql_name="customSqlContains", default=None),
+                ),
+                (
+                    "description_contains",
+                    sgqlc.types.Arg(String, graphql_name="descriptionContains", default=None),
+                ),
+                ("rule_id", sgqlc.types.Arg(UUID, graphql_name="ruleId", default=None)),
+            )
+        ),
+    )
+    """Run a custom rule immediately
+
+    Arguments:
+
+    * `custom_sql_contains` (`String`): String to completely or
+      partially match the rule SQL, case-insensitive
+    * `description_contains` (`String`): String to completely or
+      partially match the rule description, case-insensitive
+    * `rule_id` (`UUID`): Rule id
+    """
+
     create_or_update_volume_rule = sgqlc.types.Field(
         CreateOrUpdateVolumeRule,
         graphql_name="createOrUpdateVolumeRule",
@@ -34070,34 +34162,6 @@ class Mutation(sgqlc.types.Type):
 
     * `uuid` (`UUID`): UUID for rule to restore
     * `warehouse_uuid` (`UUID`): Deprecated
-    """
-
-    trigger_custom_rule = sgqlc.types.Field(
-        "TriggerCustomRule",
-        graphql_name="triggerCustomRule",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "custom_sql_contains",
-                    sgqlc.types.Arg(String, graphql_name="customSqlContains", default=None),
-                ),
-                (
-                    "description_contains",
-                    sgqlc.types.Arg(String, graphql_name="descriptionContains", default=None),
-                ),
-                ("rule_id", sgqlc.types.Arg(UUID, graphql_name="ruleId", default=None)),
-            )
-        ),
-    )
-    """Run a custom rule immediately
-
-    Arguments:
-
-    * `custom_sql_contains` (`String`): String to completely or
-      partially match the rule SQL, case-insensitive
-    * `description_contains` (`String`): String to completely or
-      partially match the rule description, case-insensitive
-    * `rule_id` (`UUID`): Rule id
     """
 
     trigger_circuit_breaker_rule_v2 = sgqlc.types.Field(
@@ -46344,6 +46408,10 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
                     ),
                 ),
+                (
+                    "mandatory_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="mandatoryOnly", default=None),
+                ),
             )
         ),
     )
@@ -46352,6 +46420,8 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `integration_id` (`UUID!`): The integration ID
+    * `mandatory_only` (`Boolean`): If true, return only mandatory
+      fields
     """
 
     get_servicenow_users = sgqlc.types.Field(
@@ -46462,7 +46532,7 @@ class Query(sgqlc.types.Type):
     * `username` (`String`): The ServiceNow username for basic
       authentication. DEPRECATED: Use credentials instead.
     * `password` (`String`): The user's password for basic
-      authentication.DEPRECATED: Use credentials instead.
+      authentication. DEPRECATED: Use credentials instead.
     * `credentials` (`ServiceNowCredentialsUnionInput`): The
       ServiceNow credentials
     * `options` (`ServiceNowIntegrationOptionsInput`): Options for
@@ -61012,6 +61082,14 @@ class RunDailyCount(sgqlc.types.Type):
     """The run count"""
 
 
+class RunMonitor(sgqlc.types.Type):
+    """Run a monitor manually"""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class RunMonitors(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -65350,6 +65428,7 @@ class Transform(sgqlc.types.Type):
         "categories",
         "model_connection_id",
         "output_type",
+        "field_config_list",
         "function",
         "field",
         "id",
@@ -65366,6 +65445,10 @@ class Transform(sgqlc.types.Type):
     model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
 
     output_type = sgqlc.types.Field(String, graphql_name="outputType")
+
+    field_config_list = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FieldConfig)), graphql_name="fieldConfigList"
+    )
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -65388,6 +65471,8 @@ class TransformFunction(sgqlc.types.Type):
         "prompt",
         "score_field",
         "output_type",
+        "supports_field_range",
+        "supported_output_types",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -65418,6 +65503,15 @@ class TransformFunction(sgqlc.types.Type):
     score_field = sgqlc.types.Field(String, graphql_name="scoreField")
 
     output_type = sgqlc.types.Field(String, graphql_name="outputType")
+
+    supports_field_range = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsFieldRange"
+    )
+
+    supported_output_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="supportedOutputTypes",
+    )
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):

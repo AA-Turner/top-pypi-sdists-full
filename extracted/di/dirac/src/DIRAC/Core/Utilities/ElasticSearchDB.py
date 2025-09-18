@@ -1,6 +1,6 @@
 """
-This class a wrapper around elasticsearch-py.
-It is used to query Elasticsearch instances.
+This class a wrapper around opensearchpy
+It is used to query Opensearch instances.
 """
 
 import copy
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from urllib import parse as urlparse
 
 import certifi
-from opensearchpy import OpenSearch as Elasticsearch
+from opensearchpy import OpenSearch
 from opensearchpy.exceptions import (
     ConflictError,
     NotFoundError,
@@ -88,7 +88,7 @@ class ElasticSearchDB:
 
     :param str url: the url to the database for example: el.cern.ch:9200
     :param str gDebugFile: is used to save the debug information to a file
-    :param int timeout: the default time out to Elasticsearch
+    :param int timeout: the default time out to OpenSearch
     :param int RESULT_SIZE: The number of data points which will be returned by the query.
     """
 
@@ -125,7 +125,6 @@ class ElasticSearchDB:
         :param str client_cert: Client certificate.
         """
 
-        self.__indexPrefix = indexPrefix
         self._connected = False
         if user and password:
             sLog.debug("Specified username and password")
@@ -160,12 +159,12 @@ class ElasticSearchDB:
                 else:
                     casFile = retVal["Value"]
 
-            self.client = Elasticsearch(
+            self.client = OpenSearch(
                 self.__url, timeout=self.__timeout, use_ssl=True, verify_certs=True, ca_certs=casFile
             )
         elif useCRT:
             self.__url = "https" + self.__url
-            self.client = Elasticsearch(
+            self.client = OpenSearch(
                 self.__url,
                 timeout=self.__timeout,
                 use_ssl=True,
@@ -176,7 +175,7 @@ class ElasticSearchDB:
             )
         else:
             self.__url = "http" + self.__url
-            self.client = Elasticsearch(self.__url, timeout=self.__timeout)
+            self.client = OpenSearch(self.__url, timeout=self.__timeout)
 
         # Before we use the database we try to connect
         # and retrieve the cluster name
@@ -189,15 +188,34 @@ class ElasticSearchDB:
                 sLog.debug("Database info\n", json.dumps(result, indent=4))
                 self._connected = True
             else:
-                sLog.error("Cannot ping ElasticsearchDB!")
+                sLog.error("Cannot ping OpensearchDB!")
         except ElasticConnectionError as e:
             sLog.error(repr(e))
 
-    def getIndexPrefix(self):
+    @ifConnected
+    def addIndexTemplate(
+        self, name: str, index_patterns: list, mapping: dict, priority: int = 1, settings: dict = None
+    ) -> dict:
+        """Adds an index template.
+
+        :param self: self reference
+        :param str name: index name
+        :param list index_patterns: list of index patterns to match
+        :param dict mapping: it is the mapping of the index
         """
-        It returns the DIRAC setup.
-        """
-        return self.__indexPrefix
+        if settings is None:
+            settings = {"index": {"number_of_shards": 1, "number_of_replicas": 1}}
+        body = {
+            "index_patterns": index_patterns,
+            "priority": priority,
+            "template": {"settings": settings, "mappings": {"properties": mapping}},
+        }
+        try:
+            res = self.client.indices.put_index_template(name=name, body=body)
+            return S_OK(res)
+        except Exception as e:  # pylint: disable=broad-except
+            sLog.exception()
+            return S_ERROR(e)
 
     @ifConnected
     def query(self, index: str, query):
@@ -205,7 +223,7 @@ class ElasticSearchDB:
 
         :param self: self reference
         :param str index: index name
-        :param dict query: It is the query in ElasticSearch DSL language
+        :param dict query: It is the query in OpenSearch DSL language
 
         """
         try:
@@ -219,7 +237,7 @@ class ElasticSearchDB:
         """Executes an update of a document, and returns S_OK/S_ERROR
 
         :param index: index name
-        :param query: It is the query in ElasticSearch DSL language
+        :param query: It is the query in OpenSearch DSL language
         :param updateByQuery: A bool to determine update by query or index values using index function.
         :param docID: ID for the document to be created.
 
@@ -256,14 +274,14 @@ class ElasticSearchDB:
             return S_ERROR(re)
 
     @ifConnected
-    def getDocs(self, indexFunc, docIDs: list[str]) -> list[dict]:
+    def getDocs(self, indexFunc, docIDs: list[str], vo: str) -> list[dict]:
         """Efficiently retrieve many documents from an index.
 
         :param index: name of the index
         :param docIDs: document IDs
         """
         sLog.debug(f"Retrieving documents {docIDs}")
-        docs = [{"_index": indexFunc(docID), "_id": docID} for docID in docIDs]
+        docs = [{"_index": indexFunc(docID, vo), "_id": docID} for docID in docIDs]
         try:
             response = self.client.mget({"docs": docs})
         except RequestError as re:
@@ -345,7 +363,7 @@ class ElasticSearchDB:
         It returns the available indexes...
         """
         if not indexName:
-            indexName = self.__indexPrefix
+            indexName = ""
         sLog.debug(f"Getting indices alias of {indexName}")
         # we only return indexes which belong to a specific prefix for example 'lhcb-production' or 'dirac-production etc.
         return list(self.client.indices.get_alias(f"{indexName}*"))
@@ -412,19 +430,14 @@ class ElasticSearchDB:
             sLog.warn("The period is not provided, so using non-periodic indexes names")
             fullIndex = indexPrefix
 
-        res = self.existingIndex(fullIndex)
-        if not res["OK"]:
-            return res
-        elif res["Value"]:
-            return S_OK(fullIndex)
-
         try:
-            sLog.info("Create index: ", fullIndex + str(mapping))
-            self.client.indices.create(index=fullIndex, body={"mappings": mapping})  # ES7
-
+            if not mapping:
+                self.client.indices.create(index=fullIndex)
+            else:
+                self.client.indices.create(index=fullIndex, body={"mappings": mapping})
             return S_OK(fullIndex)
-        except Exception as e:  # pylint: disable=broad-except
-            sLog.error("Can not create the index:", repr(e))
+        except Exception:  # pylint: disable=broad-except
+            sLog.exception()
             return S_ERROR("Can not create the index")
 
     @ifConnected
@@ -479,13 +492,13 @@ class ElasticSearchDB:
         """
         :param str indexPrefix: index name.
         :param list data: contains a list of dictionary
-        :param dict mapping: the mapping used by elasticsearch
+        :param dict mapping: the mapping used by Opensearch
         :param str period: Accepts 'day' and 'month'. We can specify which kind of indexes will be created.
         :param bool withTimeStamp: add timestamp to data, if not there already.
 
         :returns: S_OK/S_ERROR
         """
-        sLog.verbose("Bulk indexing", f"{len(data)} records will be inserted")
+        sLog.verbose("Bulk indexing", f"{len(data)} records will be inserted in {indexPrefix}")
         if mapping is None:
             mapping = {}
 

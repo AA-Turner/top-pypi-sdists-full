@@ -1261,6 +1261,10 @@ class ToProtoConverter:
             #       until we absolutely must need the Arrow type to be serialized.
             maybe_output_type = None
 
+        underscore_expr: expr_pb.LogicalExprNode | None = None
+        if info.parse_expression is not None:
+            underscore_expr = ToProtoConverter.convert_underscore(info.parse_expression)
+
         return pb.ParseInfo(
             parse_function_input_type=maybe_input_type,
             parse_function_output_type=maybe_output_type,
@@ -1268,6 +1272,7 @@ class ToProtoConverter:
             is_parse_function_output_optional=info.output_is_optional,
             parse_function_input_type_name=info.input_type.__name__,
             parse_function_output_type_name=info.output_type.__name__,
+            underscore_expr=underscore_expr,
         )
 
     @classmethod

@@ -19,7 +19,6 @@ classifiers = [
 dependencies = [
     "aiohttp",
     "aiorun",
-    "async-timeout",
     "coloredlogs",
     "orjson",
     "home-assistant-chip-clusters==2025.7.0",
@@ -28,7 +27,7 @@ description = "Open Home Foundation Matter Server"
 name = "python-matter-server"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "8.1.0"
+version = "8.1.1"
 
 [project.license]
 text = "Apache-2.0"
@@ -37,27 +36,26 @@ text = "Apache-2.0"
 server = [
     "aiohttp==3.12.15",
     "aiorun==2025.1.1",
-    "async-timeout==5.0.1",
     "atomicwrites==1.4.1",
     "coloredlogs==15.0.1",
-    "cryptography==45.0.6",
-    "orjson==3.11.1",
-    "zeroconf==0.147.0",
+    "cryptography==45.0.7",
+    "orjson==3.11.3",
+    "zeroconf==0.147.2",
     "home-assistant-chip-core==2025.7.0",
 ]
 test = [
     "aioresponses==0.7.8",
     "codespell==2.4.1",
     "isort==6.0.1",
-    "mypy==1.17.1",
+    "mypy==1.18.1",
     "pre-commit==4.3.0",
     "pre-commit-hooks==6.0.0",
     "pylint==3.3.8",
-    "pytest==8.4.1",
-    "pytest-asyncio==1.1.0",
+    "pytest==8.4.2",
+    "pytest-asyncio==1.2.0",
     "pytest-aiohttp==1.1.0",
-    "pytest-cov==6.2.1",
-    "ruff==0.12.8",
+    "pytest-cov==7.0.0",
+    "ruff==0.13.0",
     "tomli==2.2.1",
 ]
 

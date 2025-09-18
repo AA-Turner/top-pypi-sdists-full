@@ -27,7 +27,6 @@ def main():
         mainName = "Framework/MultiExecutor"
 
     localCfg.setConfigurationForExecutor(mainName)
-    localCfg.addMandatoryEntry("/DIRAC/Setup")
     localCfg.addDefaultEntry("/DIRAC/Security/UseServerCertificate", "yes")
     localCfg.addDefaultEntry("LogColor", True)
     resultDict = localCfg.loadUserData()

@@ -4,41 +4,37 @@
   The Job Agent constructs a classAd based on the local resource description in the CS
   and the current resource status that is used for matching.
 """
-
-# ## This agent might potentially still need to be run in python2, so leave this
-
-# #############################
-
 import os
-import sys
 import re
+import sys
 import time
+from pathlib import Path
 
 from diraccfg import CFG
 
-from DIRAC import S_OK, S_ERROR, gConfig, rootPath, siteName
-from DIRAC.Core.Utilities.ModuleFactory import ModuleFactory
-from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
+from DIRAC import S_ERROR, S_OK, gConfig, rootPath, siteName
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername
 from DIRAC.Core.Base.AgentModule import AgentModule
-from DIRAC.Core.Security.ProxyInfo import getProxyInfo
 from DIRAC.Core.Security import Properties
+from DIRAC.Core.Security.ProxyFile import writeChainToTemporaryFile
+from DIRAC.Core.Security.ProxyInfo import getProxyInfo
 from DIRAC.Core.Utilities import DErrno
 from DIRAC.Core.Utilities.CGroups2 import CG2Manager
+from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
+from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
+from DIRAC.RequestManagementSystem.Client.Request import Request
+from DIRAC.RequestManagementSystem.private.RequestValidator import RequestValidator
 from DIRAC.Resources.Computing.BatchSystems.TimeLeft.TimeLeft import TimeLeft
 from DIRAC.Resources.Computing.ComputingElementFactory import ComputingElementFactory
-from DIRAC.RequestManagementSystem.Client.Request import Request
-from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
-from DIRAC.RequestManagementSystem.private.RequestValidator import RequestValidator
-from DIRAC.WorkloadManagementSystem.Client.MatcherClient import MatcherClient
-from DIRAC.WorkloadManagementSystem.Client.PilotManagerClient import PilotManagerClient
+from DIRAC.WorkloadManagementSystem.Client import JobStatus, PilotStatus
 from DIRAC.WorkloadManagementSystem.Client.JobManagerClient import JobManagerClient
 from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
-from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
 from DIRAC.WorkloadManagementSystem.Client.JobReport import JobReport
-from DIRAC.WorkloadManagementSystem.Client import JobStatus
+from DIRAC.WorkloadManagementSystem.Client.MatcherClient import MatcherClient
+from DIRAC.WorkloadManagementSystem.Client.PilotManagerClient import PilotManagerClient
 from DIRAC.WorkloadManagementSystem.Utilities.Utils import createJobWrapper
-from DIRAC.WorkloadManagementSystem.Client import PilotStatus
 
 
 class JobAgent(AgentModule):
@@ -220,7 +216,7 @@ class JobAgent(AgentModule):
         self.matchFailedCount = 0
 
         # Check matcher information returned
-        matcherParams = ["JDL", "DN", "Group"]
+        matcherParams = ["JDL", "Owner", "Group"]
         matcherInfo = jobRequest["Value"]
         jobID = str(matcherInfo["JobID"])
 
@@ -238,9 +234,8 @@ class JobAgent(AgentModule):
 
         jobJDL = matcherInfo["JDL"]
         jobGroup = matcherInfo["Group"]
-        ownerDN = matcherInfo["DN"]
+        owner = matcherInfo["Owner"]
         ceDict = matcherInfo["CEDict"]
-        matchTime = matcherInfo["matchTime"]
 
         optimizerParams = {}
         for key in matcherInfo:
@@ -265,20 +260,11 @@ class JobAgent(AgentModule):
         jobType = submissionParams["jobType"]
 
         self.log.verbose("Job request successful: \n", jobRequest["Value"])
-        self.log.info("Received", f"JobID={jobID}, JobType={jobType}, OwnerDN={ownerDN}, JobGroup={jobGroup}")
+        self.log.info("Received", f"JobID={jobID}, JobType={jobType}, Owner={owner}, JobGroup={jobGroup}")
         self.jobCount += 1
-        self.jobs[jobID]["JobReport"].setJobParameter(
-            par_name="MatcherServiceTime", par_value=str(matchTime), sendFlag=False
-        )
-        if "BOINC_JOB_ID" in os.environ:
-            # Report BOINC environment
-            for thisp in ("BoincUserID", "BoincHostID", "BoincHostPlatform", "BoincHostName"):
-                self.jobs[jobID]["JobReport"].setJobParameter(
-                    par_name=thisp, par_value=gConfig.getValue(f"/LocalSite/{thisp}", "Unknown"), sendFlag=False
-                )
 
         self.jobs[jobID]["JobReport"].setJobStatus(minorStatus="Job Received by Agent", sendFlag=False)
-        result_setupProxy = self._setupProxy(ownerDN, jobGroup)
+        result_setupProxy = self._setupProxy(owner, jobGroup)
         if not result_setupProxy["OK"]:
             result = self._rescheduleFailedJob(jobID, result_setupProxy["Message"])
             return self._finish(result["Message"], self.stopOnApplicationFailure)
@@ -477,36 +463,35 @@ class JobAgent(AgentModule):
         localCfg.writeToFile(localConfigFile)
 
     #############################################################################
-    def _setupProxy(self, ownerDN, ownerGroup):
+    def _setupProxy(self, owner, ownerGroup):
         """
         Retrieve a proxy for the execution of the job
         """
+        ownerDN = getDNForUsername(owner)["Value"][0]
         if gConfig.getValue("/DIRAC/Security/UseServerCertificate", False):
             proxyResult = self._requestProxyFromProxyManager(ownerDN, ownerGroup)
             if not proxyResult["OK"]:
                 self.log.error("Failed to setup proxy", proxyResult["Message"])
                 return S_ERROR(f"Failed to setup proxy: {proxyResult['Message']}")
             return S_OK(proxyResult["Value"])
-        else:
-            ret = getProxyInfo(disableVOMS=True)
-            if not ret["OK"]:
-                self.log.error("Invalid Proxy", ret["Message"])
-                return S_ERROR("Invalid Proxy")
 
-            proxyChain = ret["Value"]["chain"]
-            if "groupProperties" not in ret["Value"]:
-                print(ret["Value"])
-                print(proxyChain.dumpAllToString())
-                self.log.error("Invalid Proxy", "Group has no properties defined")
-                return S_ERROR("Proxy has no group properties defined")
+        ret = getProxyInfo(disableVOMS=True)
+        if not ret["OK"]:
+            self.log.error("Invalid Proxy", ret["Message"])
+            return S_ERROR("Invalid Proxy")
 
-            groupProps = ret["Value"]["groupProperties"]
-            if Properties.GENERIC_PILOT in groupProps or Properties.PILOT in groupProps:
-                proxyResult = self._requestProxyFromProxyManager(ownerDN, ownerGroup)
-                if not proxyResult["OK"]:
-                    self.log.error("Invalid Proxy", proxyResult["Message"])
-                    return S_ERROR(f"Failed to setup proxy: {proxyResult['Message']}")
-                proxyChain = proxyResult["Value"]
+        proxyChain = ret["Value"]["chain"]
+        if "groupProperties" not in ret["Value"]:
+            self.log.error("Invalid Proxy", "Group has no properties defined")
+            return S_ERROR("Proxy has no group properties defined")
+
+        groupProps = ret["Value"]["groupProperties"]
+        if Properties.GENERIC_PILOT in groupProps:
+            proxyResult = self._requestProxyFromProxyManager(ownerDN, ownerGroup)
+            if not proxyResult["OK"]:
+                self.log.error("Invalid Proxy", proxyResult["Message"])
+                return S_ERROR(f"Failed to setup proxy: {proxyResult['Message']}")
+            proxyChain = proxyResult["Value"]
 
         return S_OK(proxyChain)
 
@@ -516,11 +501,7 @@ class JobAgent(AgentModule):
         """
 
         self.log.info(f"Requesting proxy', 'for {ownerDN}@{ownerGroup}")
-        token = gConfig.getValue("/Security/ProxyToken", "")
-        if not token:
-            self.log.verbose("No token defined. Trying to download proxy without token")
-            token = False
-        retVal = gProxyManager.getPayloadProxyFromDIRACGroup(ownerDN, ownerGroup, self.defaultProxyLength, token)
+        retVal = gProxyManager.getPayloadProxyFromDIRACGroup(ownerDN, ownerGroup, self.defaultProxyLength)
         if not retVal["OK"]:
             self.log.error("Could not retrieve payload proxy", retVal["Message"])
             os.system("dirac-proxy-info")
@@ -543,12 +524,12 @@ class JobAgent(AgentModule):
         softwareDist = jobParams["SoftwareDistModule"]
         self.log.verbose("Found VO Software Distribution module", f": {softwareDist}")
         argumentsDict = {"Job": jobParams, "CE": resourceParams}
-        moduleFactory = ModuleFactory()
-        moduleInstance = moduleFactory.getModule(softwareDist, argumentsDict)
-        if not moduleInstance["OK"]:
-            return moduleInstance
 
-        module = moduleInstance["Value"]
+        result = ObjectLoader().loadObject(softwareDist)
+        if not result["OK"]:
+            return result
+        module = result["Value"](argumentsDict)
+
         return module.execute()
 
     #############################################################################
@@ -562,7 +543,7 @@ class JobAgent(AgentModule):
             jobRequest = MatcherClient().requestJob(ceDict)
             matchTime = time.time() - start
 
-            self.log.info("MatcherTime", f"= {matchTime:.2f} (s)")
+            self.log.verbose("MatcherTime", f"= {matchTime:.2f} (s)")
             if jobRequest["OK"]:
                 jobRequest["Value"]["matchTime"] = matchTime
                 jobRequest["Value"]["CEDict"] = ceDict
@@ -643,19 +624,21 @@ class JobAgent(AgentModule):
         if not result["OK"]:
             return result
 
-        wrapperFile = result["Value"][0]
-        inputs = list(result["Value"][1:])
+        wrapperFile = result["Value"]["JobExecutablePath"]
+        inputs = [result["Value"]["JobWrapperPath"], result["Value"]["JobWrapperConfigPath"]]
         self.jobs[jobID]["JobReport"].setJobStatus(minorStatus="Submitting To CE")
 
         self.log.info("Submitting JobWrapper", f"{os.path.basename(wrapperFile)} to {self.ceName}CE")
 
-        # Pass proxy to the CE
-        proxy = proxyChain.dumpAllToString()
-        if not proxy["OK"]:
-            self.log.error("Invalid proxy", proxy)
-            return S_ERROR("Payload Proxy Not Found")
+        # Pass proxy to the CE, writing it to a temporary file to ensure the DiracX token is included
+        retVal = writeChainToTemporaryFile(proxyChain)
+        if not retVal["OK"]:
+            self.log.error("Invalid proxy", retVal["Message"])
+            return S_ERROR("Failed to write proxy to temporary file")
+        proxyLocation = Path(retVal["Value"])
+        payloadProxy = proxyLocation.read_text()
+        proxyLocation.unlink()
 
-        payloadProxy = proxy["Value"]
         try:
             result = self.computingElement.submitJob(
                 wrapperFile,

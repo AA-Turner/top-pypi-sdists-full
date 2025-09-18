@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 7.0.5
+Version: 7.1.0
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
@@ -84,7 +84,7 @@ Requires-Dist: unstructured.pytesseract (>=0.3.12) ; extra == "file-based"
 Requires-Dist: unstructured[docx,pptx] (==0.10.27) ; extra == "file-based"
 Requires-Dist: uvicorn (>=0.35.0) ; extra == "manifest-server"
 Requires-Dist: wcmatch (==10.0)
-Requires-Dist: whenever (>=0.6.16,<0.7.0)
+Requires-Dist: whenever (>=0.7.3,<0.9.0)
 Requires-Dist: xmltodict (>=0.13,<0.15)
 Project-URL: Documentation, https://docs.airbyte.io/
 Project-URL: Repository, https://github.com/airbytehq/airbyte-python-cdk

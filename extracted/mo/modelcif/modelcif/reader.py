@@ -505,7 +505,7 @@ class _TargetRefDBHandler(Handler):
                     ir.isoform = ir.ncbi_taxonomy_id = None
                     ir.organism_scientific = ir.sequence_version_date = None
                     ir.sequence_crc64 = None
-                    ir.align_begin = ir.align_end = None
+                    ir.align_begin = ir.align_end = ir.is_primary = None
                 else:
                     # Add struct_ref info to corresponding modelcif object
                     mr.sequence = ir.sequence
@@ -1130,6 +1130,7 @@ class ModelCIFVariant(Variant):
         _AlignmentHandler, _AlignmentInfoHandler, _AlignmentDetailsHandler,
         _TargetTemplatePolyMappingHandler,
         _AssemblyHandler, _AssemblyDetailsHandler, ihm.reader._AtomSiteHandler,
+        ihm.reader._PolySeqSchemeHandler, ihm.reader._NonPolySchemeHandler,
         _ModelListHandler, _ModelGroupHandler, _ModelGroupLinkHandler,
         _ProtocolHandler, _AssociatedHandler, _AssociatedArchiveHandler,
         _FeatureListHandler, _AtomFeatureHandler,

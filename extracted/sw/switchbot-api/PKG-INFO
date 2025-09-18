@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: switchbot_api
-Version: 2.7.0
+Version: 2.8.0
 Summary: An asynchronous library to use Switchbot API
 License: MIT
+License-File: LICENSE
 Author: Ravaka Razafimanantsoa
 Author-email: contact@ravaka.dev
 Requires-Python: >=3.10,<4.0
@@ -12,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aiohttp (>=3.0.0)
 Project-URL: Repository, https://github.com/SeraphicCorp/py-switchbot-api
 Description-Content-Type: text/markdown

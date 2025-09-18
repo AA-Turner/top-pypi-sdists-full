@@ -80,7 +80,7 @@ def sync(
     object_id: str,
     json_body: AuditLogExport,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
-    """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task. The `ExportAuditLogAsyncTask` response contains a link to download the exported audit log file from Amazon S3. This endpoint is subject to a rate limit of 500 requests per hour, in conjuction with the global request rate limit. Export throughput will additionally be rate limited around the scale of 70,000 total audit events exported in csv format or 30,000 total audit events exported in pdf format per hour."""
+    """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task. The `ExportAuditLogAsyncTask` response contains a link to download the exported audit log file from Amazon S3. This endpoint is subject to a rate limit of 500 requests per hour, in conjunction with the global request rate limit. Export throughput will additionally be rate limited around the scale of 70,000 total audit events exported in csv format or 30,000 total audit events exported in pdf format per hour."""
 
     return sync_detailed(
         client=client,
@@ -113,7 +113,7 @@ async def asyncio(
     object_id: str,
     json_body: AuditLogExport,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
-    """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task. The `ExportAuditLogAsyncTask` response contains a link to download the exported audit log file from Amazon S3. This endpoint is subject to a rate limit of 500 requests per hour, in conjuction with the global request rate limit. Export throughput will additionally be rate limited around the scale of 70,000 total audit events exported in csv format or 30,000 total audit events exported in pdf format per hour."""
+    """This endpoint launches a [long-running task](#/Tasks/getTask) and returns the Task ID of the launched task. The `ExportAuditLogAsyncTask` response contains a link to download the exported audit log file from Amazon S3. This endpoint is subject to a rate limit of 500 requests per hour, in conjunction with the global request rate limit. Export throughput will additionally be rate limited around the scale of 70,000 total audit events exported in csv format or 30,000 total audit events exported in pdf format per hour."""
 
     return (
         await asyncio_detailed(

@@ -719,7 +719,7 @@ pub struct ResolverInstallerSchema {
     ///   to all versions of the package.
     /// - (Optional) `requires-dist`: The dependencies of the package (e.g., `werkzeug>=0.14`).
     /// - (Optional) `requires-python`: The Python version required by the package (e.g., `>=3.10`).
-    /// - (Optional) `provides-extras`: The extras provided by the package.
+    /// - (Optional) `provides-extra`: The extras provided by the package.
     #[option(
         default = r#"[]"#,
         value_type = "list[dict]",
@@ -1427,7 +1427,7 @@ pub struct PipOptions {
     ///   to all versions of the package.
     /// - (Optional) `requires-dist`: The dependencies of the package (e.g., `werkzeug>=0.14`).
     /// - (Optional) `requires-python`: The Python version required by the package (e.g., `>=3.10`).
-    /// - (Optional) `provides-extras`: The extras provided by the package.
+    /// - (Optional) `provides-extra`: The extras provided by the package.
     #[option(
         default = r#"[]"#,
         value_type = "list[dict]",
@@ -2308,11 +2308,12 @@ pub struct PublishOptions {
     )]
     pub publish_url: Option<DisplaySafeUrl>,
 
-    /// Configure trusted publishing via GitHub Actions.
+    /// Configure trusted publishing.
     ///
-    /// By default, uv checks for trusted publishing when running in GitHub Actions, but ignores it
-    /// if it isn't configured or the workflow doesn't have enough permissions (e.g., a pull request
-    /// from a fork).
+    /// By default, uv checks for trusted publishing when running in a supported environment, but
+    /// ignores it if it isn't configured.
+    ///
+    /// uv's supported environments for trusted publishing include GitHub Actions and GitLab CI/CD.
     #[option(
         default = "automatic",
         value_type = "str",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.5.5
+Version: 9.6.0
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License: MIT License
@@ -25,11 +25,12 @@ License-File: LICENSE.md
 Requires-Dist: click>=8.1.8
 Requires-Dist: primp>=0.15.0
 Requires-Dist: lxml>=6.0.0
+Requires-Dist: httpx[brotli,http2,socks]>=0.28.1
 Provides-Extra: dev
 Requires-Dist: mypy>=1.17.1; extra == "dev"
 Requires-Dist: pytest>=8.4.1; extra == "dev"
 Requires-Dist: pytest-dependency>=0.6.0; extra == "dev"
-Requires-Dist: ruff>=0.12.9; extra == "dev"
+Requires-Dist: ruff>=0.13.0; extra == "dev"
 Dynamic: license-file
 
 ![Python >= 3.9](https://img.shields.io/badge/python->=3.9-red.svg) [![](https://badgen.net/github/release/deedy5/ddgs)](https://github.com/deedy5/ddgs/releases) [![](https://badge.fury.io/py/ddgs.svg)](https://pypi.org/project/ddgs) [![](https://pepy.tech/badge/ddgs/month)](https://pypistats.org/packages/ddgs)
@@ -193,7 +194,7 @@ ___
 | text()        | `bing`, `brave`, `duckduckgo`, `google`, `mojeek`, `mullvad_brave`, `mullvad_google`, `yandex`, `yahoo`, `wikipedia`|
 | images()      | `duckduckgo` |
 | videos()      | `duckduckgo` |
-| news()        | `duckduckgo`, `yahoo` |
+| news()        | `bing`, `duckduckgo`, `yahoo` |
 | books()       | `annasarchive` |
 
 [Go To TOP](#TOP)

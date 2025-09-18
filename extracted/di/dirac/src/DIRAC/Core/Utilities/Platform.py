@@ -4,6 +4,7 @@ Compile the externals
 import platform
 
 
+# Command line interface
 def getPlatformString():
     # Modified to return our desired platform string, R. Graciani
     platformTuple = (platform.system(), platform.machine())
@@ -11,8 +12,6 @@ def getPlatformString():
         platformTuple += ("-".join(platform.libc_ver()),)
     elif platformTuple[0] == "Darwin":
         platformTuple += (".".join(platform.mac_ver()[0].split(".")[:2]),)
-    elif platformTuple[0] == "Windows":
-        platformTuple += (platform.win32_ver()[0],)
     else:
         platformTuple += platform.release()
 

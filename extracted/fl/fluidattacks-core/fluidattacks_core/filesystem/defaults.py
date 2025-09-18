@@ -5,6 +5,8 @@ class Language(Enum):
     Swift = "swift"
     CSharp = "csharp"
     Go = "golang"
+    Rust = "rust"
+    Dart = "dart"
     FuzzyTestLang = "fuzzy_test_lang"
     Java = "Java"
     Python = "Python"
@@ -36,20 +38,42 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "mvnw.cmd",
             "application.properties",
             "application.yml",
+            "application.yaml",
             "log4j.properties",
+            "log4j2.xml",
+            "logback.xml",
             "web.xml",
             "hibernate.cfg.xml",
             "persistence.xml",
             "sonar-project.properties",
             "checkstyle.xml",
+            "spotbugs.xml",
+            "pmd.xml",
+            "findbugs.xml",
+            "junit-platform.properties",
+            "testng.xml",
+            "spring.factories",
+            "spring.profiles",
+            "bootstrap.properties",
+            "bootstrap.yml",
         },
-        "globs": [],
+        "globs": [
+            "*.gradle",
+            "*.gradle.kts",
+            "application-*.properties",
+            "application-*.yml",
+            "application-*.yaml",
+            "logback-*.xml",
+            "log4j2-*.xml",
+        ],
     },
     Language.Python: {
         "names": {
             "pyproject.toml",
             "requirements.txt",
             "requirements.in",
+            "requirements-dev.txt",
+            "requirements-test.txt",
             "constraints.txt",
             "setup.py",
             "setup.cfg",
@@ -58,6 +82,8 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "poetry.lock",
             "poetry.toml",
             "hatch.toml",
+            "uv.lock",
+            "uv.toml",
             "tox.ini",
             "pytest.ini",
             "mypy.ini",
@@ -68,10 +94,20 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "ruff.toml",
             ".ruff.toml",
             ".coveragerc",
+            "coverage.ini",
             "noxfile.py",
-            "config.yaml",
+            "pyrightconfig.json",
+            "MANIFEST.in",
+            "py.typed",
+            "tox.toml",
         },
-        "globs": [],
+        "globs": [
+            "requirements*.txt",
+            "requirements*.in",
+            "constraints*.txt",
+            "setup.cfg",
+            "*.ini",
+        ],
     },
     Language.JavaScript: {
         "names": {
@@ -89,6 +125,18 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "gulpfile.js",
             "gulpfile.ts",
             "gruntfile.js",
+            "gruntfile.coffee",
+            "karma.conf.js",
+            "karma.conf.coffee",
+            "protractor.conf.js",
+            "cypress.json",
+            "cypress.config.js",
+            "playwright.config.js",
+            "playwright.config.ts",
+            "vitest.config.js",
+            "vitest.config.ts",
+            "storybook",
+            ".storybook",
         },
         "globs": [
             "vite.config.*",
@@ -105,6 +153,15 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             ".prettierrc*",
             "prettier.config.*",
             "jest.config.*",
+            "vitest.config.*",
+            "cypress.config.*",
+            "playwright.config.*",
+            "karma.conf.*",
+            "protractor.conf.*",
+            "*.config.js",
+            "*.config.ts",
+            "*.config.mjs",
+            "*.config.cjs",
         ],
     },
     Language.TypeScript: {
@@ -114,11 +171,16 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "tsconfig.app.json",
             "tsconfig.build.json",
             "tsconfig.node.json",
+            "tsconfig.lib.json",
+            "tsconfig.spec.json",
+            "tsconfig.test.json",
             "deno.json",
             "deno.jsonc",
+            "tsconfig.eslint.json",
         },
         "globs": [
             "tsconfig.*.json",
+            "tsconfig-*.json",
         ],
     },
     Language.PHP: {
@@ -142,7 +204,6 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "symfony.lock",
             "artisan",
             "wp-config.php",
-            ".env",
         },
         "globs": [
             "phpspec.yml*",
@@ -181,8 +242,14 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
             "Gopkg.lock",
             "glide.yaml",
             "glide.lock",
+            ".air.toml",
+            "air.toml",
+            "goreleaser.yml",
+            "goreleaser.yaml",
         },
-        "globs": [],
+        "globs": [
+            "*.mk",
+        ],
     },
     Language.Ruby: {
         "names": {
@@ -228,8 +295,48 @@ CONFIG_MARKERS: dict[Language, dict[str, set[str] | list[str]]] = {
     Language.Scala: {
         "names": {
             "build.sbt",
+            "build.scala",
+            "project/build.properties",
+            "project/plugins.sbt",
+            "project/Dependencies.scala",
+            "project/Assembly.scala",
+            "mill",
+            "mill.bat",
+            "millw",
+            "millw.bat",
+        },
+        "globs": [
+            "*.sbt",
+            "project/*.scala",
+            "project/*.sbt",
+        ],
+    },
+    Language.Rust: {
+        "names": {
+            "Cargo.toml",
+            "Cargo.lock",
+            "rust-toolchain",
+            "rust-toolchain.toml",
+            "rustfmt.toml",
+            "clippy.toml",
+            "Cargo.toml.orig",
         },
         "globs": [],
+    },
+    Language.Dart: {
+        "names": {
+            "pubspec.yaml",
+            "pubspec.lock",
+            "analysis_options.yaml",
+            "dart_test.yaml",
+            "build.yaml",
+            "melos.yaml",
+            "melos.yml",
+        },
+        "globs": [
+            "pubspec*.yaml",
+            "pubspec*.yml",
+        ],
     },
 }
 

@@ -1,20 +1,23 @@
 Metadata-Version: 2.1
 Name: django-template-partials
-Version: 25.1
+Version: 25.2
 Summary: Reusable named inline-partials for the Django Template Language
 Author-email: Carlton Gibson <carlton.gibson@noumenal.es>
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Requires-Dist: Django
 Requires-Dist: Sphinx ; extra == "docs"
 Requires-Dist: coverage ; extra == "tests"

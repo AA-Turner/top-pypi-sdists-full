@@ -26,21 +26,22 @@ set a timeout.
        should be used to wrap third party python functions
 
 """
-from multiprocessing import Process, Manager
-import threading
-import time
 import os
 import selectors
-import sys
-import subprocess
 import signal
+import subprocess
+import sys
+import threading
+import time
+from multiprocessing import Manager, Process
+
 import psutil
 
 # Very Important:
 #  Here we can not import directly from DIRAC, since this file it is imported
 #  at initialization time therefore the full path is necessary
 # from DIRAC import S_OK, S_ERROR
-from DIRAC.Core.Utilities.ReturnValues import S_OK, S_ERROR
+from DIRAC.Core.Utilities.ReturnValues import S_ERROR, S_OK
 
 # from DIRAC import gLogger
 from DIRAC.FrameworkSystem.Client.Logger import gLogger
@@ -265,40 +266,35 @@ class Subprocess:
     def killChild(self, recursive=True):
         """kill child process
 
-        FIXME: this can easily be rewritten just using this recipe:
-        https://psutil.readthedocs.io/en/latest/index.html#kill-process-tree
-
         :param boolean recursive: flag to kill all descendants
         """
-        if self.childPID < 1:
-            self.log.error("Could not kill child", f"Child PID is {self.childPID}")
-            return -1
-        os.kill(self.childPID, signal.SIGSTOP)
-        if recursive:
-            for gcpid in getChildrenPIDs(self.childPID, lambda cpid: os.kill(cpid, signal.SIGSTOP)):
+        pgid = os.getpgid(self.childPID)
+        if pgid != os.getpgrp():
+            try:
+                # Child is in its own group: kill the group
+                os.killpg(pgid, signal.SIGTERM)
+            except OSError:
+                # Process is already dead
+                pass
+        else:
+            # No separate group: walk the tree
+            parent = psutil.Process(self.childPID)
+            procs = parent.children(recursive=recursive)
+            procs.append(parent)
+            for p in procs:
                 try:
-                    os.kill(gcpid, signal.SIGKILL)
-                    self.__poll(gcpid)
-                except Exception:
+                    p.terminate()
+                except psutil.NoSuchProcess:
                     pass
-        self.__killPid(self.childPID)
+            _gone, alive = psutil.wait_procs(procs, timeout=10)
+            # Escalate any survivors
+            for p in alive:
+                try:
+                    p.kill()
+                except psutil.NoSuchProcess:
+                    pass
 
-        # HACK to avoid python bug
-        # self.child.wait()
-        exitStatus = self.__poll(self.childPID)
-        i = 0
-        while exitStatus is None and i < 1000:
-            i += 1
-            time.sleep(0.000001)
-            exitStatus = self.__poll(self.childPID)
-        try:
-            exitStatus = os.waitpid(self.childPID, 0)
-        except os.error:
-            pass
         self.childKilled = True
-        if exitStatus is None:
-            return exitStatus
-        return exitStatus[1]
 
     def pythonCall(self, function, *stArgs, **stKeyArgs):
         """call python function :function: with :stArgs: and :stKeyArgs:"""
@@ -421,10 +417,12 @@ class Subprocess:
                     pass
             return S_OK()
         else:  # buffer size limit reached killing process (see comment on __readFromFile)
-            exitStatus = self.killChild()
-            return self.__generateSystemCommandError(exitStatus, f"{retDict['Message']} for '{self.cmdSeq}' call")
+            self.killChild()
+            return self.__generateSystemCommandError(1, f"{retDict['Message']} for '{self.cmdSeq}' call")
 
-    def systemCall(self, cmdSeq, callbackFunction=None, shell=False, env=None, preexec_fn=None):
+    def systemCall(
+        self, cmdSeq, callbackFunction=None, shell=False, env=None, preexec_fn=None, start_new_session=False
+    ):
         """system call (no shell) - execute :cmdSeq:"""
 
         if shell:
@@ -445,6 +443,7 @@ class Subprocess:
                 env=env,
                 universal_newlines=True,
                 preexec_fn=preexec_fn,
+                start_new_session=start_new_session,
             )
             self.childPID = self.child.pid
         except OSError as v:
@@ -473,10 +472,10 @@ class Subprocess:
                     return retDict
 
                 if self.timeout and time.time() - initialTime > self.timeout:
-                    exitStatus = self.killChild()
+                    self.killChild()
                     self.__readFromCommand()
                     return self.__generateSystemCommandError(
-                        exitStatus, "Timeout (%d seconds) for '%s' call" % (self.timeout, cmdSeq)
+                        1, "Timeout (%d seconds) for '%s' call" % (self.timeout, cmdSeq)
                     )
                 time.sleep(0.01)
                 exitStatus = self.__poll(self.child.pid)

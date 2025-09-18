@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: juliapkg
-Version: 0.1.18
+Version: 0.1.19
 Summary: Julia version manager and package manager
 Project-URL: Homepage, http://github.com/JuliaPy/pyjuliapkg
 Project-URL: Repository, http://github.com/JuliaPy/pyjuliapkg.git
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
 Requires-Dist: filelock<4.0,>=3.16
 Requires-Dist: semver<4.0,>=3.0
+Provides-Extra: cli
+Requires-Dist: click<9.0,>=8.0; extra == 'cli'
 Description-Content-Type: text/markdown
 
 # JuliaPkg
@@ -70,6 +72,18 @@ Julia v1.*.* and the Example package v0.5.*:
         }
     }
 }
+```
+
+### Command line interface
+
+You can also use the CLI, some examples:
+```sh
+python -m juliapkg --help
+python -m juliapkg add Example --uuid=7876af07-990d-54b4-ab0e-23690620f79a --version=0.5
+python -m juliapkg resolve
+python -m juliapkg status
+python -m juliapkg run -E 'using Example; Example.hello("world")'
+python -m juliapkg remove Example
 ```
 
 ## Using Julia

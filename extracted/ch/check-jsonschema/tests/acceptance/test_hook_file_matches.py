@@ -80,6 +80,23 @@ _HOOKID_PATH_MAP = {
             "bamboo-specs/README.md",
         ),
     },
+    "check-codecov": {
+        "good": (
+            "codecov.yml",
+            "codecov.yaml",
+            ".codecov.yml",
+            ".codecov.yaml",
+            ".github/codecov.yml",
+            ".github/codecov.yaml",
+            ".github/.codecov.yml",
+            ".github/.codecov.yaml",
+            "dev/codecov.yml",
+            "dev/codecov.yaml",
+            "dev/.codecov.yml",
+            "dev/.codecov.yaml",
+        ),
+        "bad": (".gitlab/codecov.yml",),
+    },
     "check-compose-spec": {
         "good": (
             "compose.yml",
@@ -122,6 +139,23 @@ _HOOKID_PATH_MAP = {
             ".github/actions/path with spaces/action.yml",
         ),
         "bad": (".github/actions/foo/other.yaml",),
+    },
+    "check-github-issue-config": {
+        "good": (".github/ISSUE_TEMPLATE/config.yml",),
+        "bad": (
+            ".github/ISSUE_TEMPLATE/config.yaml",
+            ".github/ISSUE_TEMPLATE/bug.yml",
+        ),
+    },
+    "check-github-issue-forms": {
+        "good": (
+            ".github/ISSUE_TEMPLATE/feature.yaml",
+            ".github/ISSUE_TEMPLATE/bug.yml",
+        ),
+        "bad": (
+            ".github/ISSUE_TEMPLATE/config.yaml",
+            ".github/ISSUE_TEMPLATE/config.yml",
+        ),
     },
     "check-github-workflows": {
         "good": (

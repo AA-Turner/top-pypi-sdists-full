@@ -146,6 +146,11 @@ Here:
 						'exec':lambda: areaCircleDiameter(),
 					},
 					f'{uuid1()}':{
+						'cmds':[i for i in generate_cmds(startcmd=['sudoku',],endCmd=['candidates','cd'])],
+						'desc':f'obtain candidates for sudoku cell',
+						'exec':lambda: sudokuCandidates(),
+					},
+					f'{uuid1()}':{
 						'cmds':['herons formula','hrns fmla'],
 						'desc':f'''
 Heron's formula calculates the area of any 

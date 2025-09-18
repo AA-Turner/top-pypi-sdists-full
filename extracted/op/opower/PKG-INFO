@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opower
-Version: 0.15.4
+Version: 0.15.5
 Summary: A Python library for getting historical and forecasted usage/cost from utilities that use opower.com such as PG&E
 Author-email: tronikos <tronikos@gmail.com>
 License: Apache-2.0

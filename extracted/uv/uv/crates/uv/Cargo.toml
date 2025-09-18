@@ -1,6 +1,6 @@
 [package]
 name = "uv"
-version = "0.8.17"
+version = "0.8.18"
 edition = { workspace = true }
 rust-version = { workspace = true }
 homepage = { workspace = true }
@@ -121,6 +121,8 @@ self-replace = { workspace = true }
 windows = { workspace = true }
 
 [dev-dependencies]
+uv-publish = { workspace = true, features = ["test"] }
+
 assert_cmd = { workspace = true }
 assert_fs = { workspace = true }
 backon = { workspace = true }

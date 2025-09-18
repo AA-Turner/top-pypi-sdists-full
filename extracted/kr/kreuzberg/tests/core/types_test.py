@@ -91,6 +91,14 @@ def test_image_ocr_config_post_init_allowed_formats() -> None:
     assert isinstance(config_frozenset.allowed_formats, frozenset)
     assert config_frozenset.allowed_formats == frozenset(["png", "gif"])
 
+    config_list = ImageOCRConfig(
+        enabled=True,
+        allowed_formats=["png", "webp", "tiff"],  # type: ignore[arg-type]
+    )
+
+    assert isinstance(config_list.allowed_formats, frozenset)
+    assert config_list.allowed_formats == frozenset(["png", "webp", "tiff"])
+
 
 def test_spacy_entity_config_post_init_conversions() -> None:
     from pathlib import Path
@@ -401,3 +409,57 @@ def test_normalize_metadata_function() -> None:
     result_with_none = normalize_metadata(metadata_with_none)
     assert "authors" not in result_with_none
     assert result_with_none["subject"] == ""
+
+
+def test_extraction_config_post_init_custom_entity_patterns_dict() -> None:
+    from kreuzberg._types import ExtractionConfig
+
+    config = ExtractionConfig(custom_entity_patterns={"PERSON": r"\b[A-Z][a-z]+\b", "EMAIL": r"\S+@\S+"})  # type: ignore[arg-type]
+
+    assert isinstance(config.custom_entity_patterns, frozenset)
+    expected_frozenset = frozenset([("PERSON", r"\b[A-Z][a-z]+\b"), ("EMAIL", r"\S+@\S+")])
+    assert config.custom_entity_patterns == expected_frozenset
+
+
+def test_extraction_config_post_init_image_ocr_formats_list() -> None:
+    from kreuzberg._types import ExtractionConfig
+
+    config = ExtractionConfig(image_ocr_formats=["png", "jpg", "webp"])  # type: ignore[arg-type]
+
+    assert isinstance(config.image_ocr_formats, frozenset)
+    assert config.image_ocr_formats == frozenset(["png", "jpg", "webp"])
+
+
+def test_extraction_config_nested_to_dict_calls() -> None:
+    from kreuzberg._types import ExtractionConfig, HTMLToMarkdownConfig, TesseractConfig
+
+    html_config = HTMLToMarkdownConfig(autolinks=False, wrap=True)
+    tesseract_config = TesseractConfig(language="deu")
+
+    config = ExtractionConfig(
+        ocr_backend="tesseract",
+        ocr_config=tesseract_config,
+        html_to_markdown_config=html_config,
+    )
+
+    result = config.to_dict(include_none=True)
+
+    assert isinstance(result["ocr_config"], dict)
+    assert isinstance(result["html_to_markdown_config"], dict)
+    assert result["ocr_config"]["language"] == "deu"
+    assert result["html_to_markdown_config"]["autolinks"] is False
+
+
+def test_extraction_result_to_dict_with_nested_config() -> None:
+    from kreuzberg._types import ExtractionResult, PSMMode, TesseractConfig
+
+    config = TesseractConfig(language="eng", psm=PSMMode.SINGLE_BLOCK)
+
+    result = ExtractionResult(content="Test content", mime_type="text/plain", metadata={"ocr_config": config})  # type: ignore[typeddict-unknown-key]
+
+    result_dict = result.to_dict(include_none=False)
+
+    assert "metadata" in result_dict
+    assert "ocr_config" in result_dict["metadata"]
+    assert isinstance(result_dict["metadata"]["ocr_config"], dict)
+    assert result_dict["metadata"]["ocr_config"]["language"] == "eng"

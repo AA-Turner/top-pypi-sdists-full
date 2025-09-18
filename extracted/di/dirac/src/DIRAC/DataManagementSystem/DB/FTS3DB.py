@@ -1,5 +1,5 @@
-""" Frontend to FTS3 MySQL DB. Written using sqlalchemy
-"""
+"""Frontend to FTS3 MySQL DB. Written using sqlalchemy"""
+
 # We disable the no-member error because
 # they are constructed by SQLAlchemy for all
 # the objects mapped to a table.
@@ -9,34 +9,35 @@ import datetime
 import errno
 from urllib.parse import quote_plus
 
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.expression import and_
-from sqlalchemy.orm import relationship, sessionmaker, registry
-from sqlalchemy.sql import update, delete, select
 from sqlalchemy import (
-    create_engine,
-    Table,
+    BigInteger,
     Column,
-    MetaData,
-    ForeignKey,
-    Integer,
-    String,
     DateTime,
     Enum,
-    BigInteger,
-    SmallInteger,
     Float,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    SmallInteger,
+    String,
+    Table,
+    create_engine,
     func,
     text,
 )
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import registry, relationship, sessionmaker
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import delete, select, update
+from sqlalchemy.sql.expression import and_
 
 # # from DIRAC
-from DIRAC import S_OK, S_ERROR, gLogger
-from DIRAC.DataManagementSystem.Client.FTS3Operation import FTS3Operation, FTS3TransferOperation, FTS3StagingOperation
+from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC.ConfigurationSystem.Client.Utilities import getDBParameters
 from DIRAC.DataManagementSystem.Client.FTS3File import FTS3File
 from DIRAC.DataManagementSystem.Client.FTS3Job import FTS3Job
-from DIRAC.ConfigurationSystem.Client.Utilities import getDBParameters
+from DIRAC.DataManagementSystem.Client.FTS3Operation import FTS3Operation, FTS3StagingOperation, FTS3TransferOperation
 
 metadata = MetaData()
 mapper_registry = registry()
@@ -85,6 +86,7 @@ fts3JobTable = Table(
     Column("error", String(2048)),
     Column("status", Enum(*FTS3Job.ALL_STATES), server_default=FTS3Job.INIT_STATE, index=True),
     Column("assignment", String(255), server_default=None),
+    Index("idx_jobs_lastupdate_assignment", "lastUpdate", "assignment"),
     mysql_engine="InnoDB",
 )
 
@@ -110,6 +112,7 @@ fts3OperationTable = Table(
     Column("error", String(1024)),
     Column("type", String(255)),
     Column("assignment", String(255), server_default=None),
+    Index("idx_operations_lastupdate_assignment", "lastUpdate", "assignment"),
     mysql_engine="InnoDB",
 )
 
@@ -371,7 +374,7 @@ class FTS3DB:
         # This here is inneficient as we update every files, even if it did not change, and we commit every time.
         # It would probably be best to update only the files that changed.
         # However, commiting every time is the recommendation of MySQL
-        # (https://dev.mysql.com/doc/refman/5.7/en/innodb-deadlocks-handling.html)
+        # (https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks-handling.html)
 
         for fileID, valueDict in fileStatusDict.items():
             session = self.dbSession()

@@ -48,26 +48,30 @@ When using a local condor_schedd look at the HTCondor documentation for enabling
 # created documentation, there should only be one slash when setting the option,
 # but "\n" gets rendered as a linebreak in sphinx
 
-import os
-import tempfile
-
-import subprocess
 import datetime
 import errno
-import threading
+import json
+import os
+import subprocess
+import tempfile
 import textwrap
+import threading
 import uuid
 
-from DIRAC import S_OK, S_ERROR, gConfig
-from DIRAC.Resources.Computing.ComputingElement import ComputingElement
-from DIRAC.Core.Utilities.Grid import executeGridCommand
+from DIRAC import S_ERROR, S_OK, gConfig
+from DIRAC.Core.Security.Locations import getCAsLocation
 from DIRAC.Core.Utilities.File import mkDir
 from DIRAC.Core.Utilities.List import breakListIntoChunks
-from DIRAC.WorkloadManagementSystem.Client import PilotStatus
-from DIRAC.WorkloadManagementSystem.Client.PilotManagerClient import PilotManagerClient
+from DIRAC.Core.Utilities.Subprocess import systemCall
 from DIRAC.FrameworkSystem.private.authorization.utils.Tokens import writeToTokenFile
-from DIRAC.Core.Security.Locations import getCAsLocation
-from DIRAC.Resources.Computing.BatchSystems.Condor import HOLD_REASON_SUBCODE, subTemplate, parseCondorStatus
+from DIRAC.Resources.Computing.BatchSystems.Condor import (
+    HOLD_REASON_SUBCODE,
+    STATE_ATTRIBUTES,
+    getCondorStatus,
+    subTemplate,
+)
+from DIRAC.Resources.Computing.ComputingElement import ComputingElement
+from DIRAC.WorkloadManagementSystem.Client import PilotStatus
 
 MANDATORY_PARAMETERS = ["Queue"]
 DEFAULT_WORKINGDIRECTORY = "/opt/dirac/pro/runit/WorkloadManagement/SiteDirectorHT"
@@ -96,7 +100,6 @@ class HTCondorCEComputingElement(ComputingElement):
         self.pilotProxy = ""
         self.queue = ""
         self.outputURL = "gsiftp://localhost"
-        self.gridEnv = ""
         self.proxyRenewal = 0
         self.daysToKeepLogs = DEFAULT_DAYSTOKEEPLOGS
         self.daysToKeepRemoteLogs = DEFAULT_DAYSTOKEEPREMOTELOGS
@@ -211,7 +214,6 @@ class HTCondorCEComputingElement(ComputingElement):
     def _reset(self):
         self.queue = self.ceParameters["Queue"]
         self.outputURL = self.ceParameters.get("OutputURL", "gsiftp://localhost")
-        self.gridEnv = self.ceParameters.get("GridEnv")
         self.daysToKeepLogs = self.ceParameters.get("DaysToKeepLogs", DEFAULT_DAYSTOKEEPLOGS)
         self.extraSubmitString = str(self.ceParameters.get("ExtraSubmitString", "").encode().decode("unicode_escape"))
         self.daysToKeepRemoteLogs = self.ceParameters.get("DaysToKeepRemoteLogs", DEFAULT_DAYSTOKEEPREMOTELOGS)
@@ -237,7 +239,7 @@ class HTCondorCEComputingElement(ComputingElement):
 
         :param list cmd: list of the condor command elements
         :param bool keepTokenFile: flag to reuse or not the previously created token file
-        :return: S_OK/S_ERROR - the stdout parameter of the executeGridCommand() call
+        :return: S_OK/S_ERROR - the stdout parameter of the systemCall() call
         """
         if not self.token and not self.proxy:
             return S_ERROR(f"Cannot execute the command, token and proxy not found: {cmd}")
@@ -285,11 +287,9 @@ class HTCondorCEComputingElement(ComputingElement):
                 htcEnv["_CONDOR_AUTH_SSL_CLIENT_CADIR"] = cas
 
         # Execute the command
-        result = executeGridCommand(
-            cmd,
-            gridEnvScript=self.gridEnv,
-            gridEnvDict=htcEnv,
-        )
+        currentEnv = dict(os.environ)
+        currentEnv.update(htcEnv)
+        result = systemCall(120, cmd, env=currentEnv)
         if not result["OK"]:
             self.tokenFile = None
             self.log.error("Command", f"{cmd} failed with: {result['Message']}")
@@ -391,33 +391,10 @@ class HTCondorCEComputingElement(ComputingElement):
 
     #############################################################################
     def getCEStatus(self):
-        """Method to return information on running and pending jobs.
-
-        Warning: information currently returned depends on the PilotManager and not HTCondor.
-        Results might be wrong if pilots or jobs are submitted manually via the CE.
-        """
-        result = S_OK()
-        result["SubmittedJobs"] = 0
-        result["RunningJobs"] = 0
-        result["WaitingJobs"] = 0
-
-        # getWaitingPilots
-        condDict = {"DestinationSite": self.ceName, "Status": PilotStatus.PILOT_WAITING_STATES}
-        res = PilotManagerClient().countPilots(condDict)
-        if res["OK"]:
-            result["WaitingJobs"] = int(res["Value"])
-        else:
-            self.log.warn(f"Failure getting pilot count for {self.ceName}: {res['Message']} ")
-
-        # getRunningPilots
-        condDict = {"DestinationSite": self.ceName, "Status": PilotStatus.RUNNING}
-        res = PilotManagerClient().countPilots(condDict)
-        if res["OK"]:
-            result["RunningJobs"] = int(res["Value"])
-        else:
-            self.log.warn(f"Failure getting pilot count for {self.ceName}: {res['Message']} ")
-
-        return result
+        """Method to return information on running and pending jobs."""
+        return S_ERROR(
+            "getCEStatus() not supported for HTCondorCEComputingElement: HTCondor does not expose this information"
+        )
 
     def getJobStatus(self, jobIDList):
         """Get the status information for the given list of jobs"""
@@ -429,45 +406,57 @@ class HTCondorCEComputingElement(ComputingElement):
         if isinstance(jobIDList, str):
             jobIDList = [jobIDList]
 
+        self.tokenFile = None
         resultDict = {}
         condorIDs = {}
         # Get all condorIDs so we can just call condor_q and condor_history once
         for jobReference in jobIDList:
             jobReference = jobReference.split(":::")[0]
-            condorIDs[jobReference] = self._jobReferenceToCondorID(jobReference)
+            condorIDs[self._jobReferenceToCondorID(jobReference)] = jobReference
 
-        self.tokenFile = None
-
-        qList = []
-        for _condorIDs in breakListIntoChunks(condorIDs.values(), 100):
-            # This will return a list of 1245.75 3 undefined undefined undefined
+        jobsMetadata = []
+        for _condorIDs in breakListIntoChunks(condorIDs.keys(), 100):
             cmd = ["condor_q"]
             cmd.extend(self.remoteScheddOptions.strip().split(" "))
             cmd.extend(_condorIDs)
-            cmd.extend(["-af:j", "JobStatus", "HoldReasonCode", "HoldReasonSubCode", "HoldReason"])
+            cmd.extend(["-attributes", STATE_ATTRIBUTES])
+            cmd.extend(["-json"])
             result = self._executeCondorCommand(cmd, keepTokenFile=True)
             if not result["OK"]:
                 return result
 
-            qList.extend(result["Value"].split("\n"))
+            if result["Value"]:
+                jobsMetadata.extend(json.loads(result["Value"]))
 
             condorHistCall = ["condor_history"]
             condorHistCall.extend(self.remoteScheddOptions.strip().split(" "))
             condorHistCall.extend(_condorIDs)
-            condorHistCall.extend(["-af:j", "JobStatus", "HoldReasonCode", "HoldReasonSubCode", "HoldReason"])
+            condorHistCall.extend(["-attributes", STATE_ATTRIBUTES])
+            condorHistCall.extend(["-json"])
             result = self._executeCondorCommand(cmd, keepTokenFile=True)
             if not result["OK"]:
                 return result
 
-            qList.extend(result["Value"].split("\n"))
+            if result["Value"]:
+                jobsMetadata.extend(json.loads(result["Value"]))
 
-        for job, jobID in condorIDs.items():
-            jobStatus, reason = parseCondorStatus(qList, jobID)
+        foundJobIDs = set()
+        for jobDict in jobsMetadata:
+            jobStatus, reason = getCondorStatus(jobDict)
+            condorId = f"{jobDict['ClusterId']}.{jobDict['ProcId']}"
+            jobReference = condorIDs.get(condorId)
 
             if jobStatus == PilotStatus.ABORTED:
-                self.log.verbose("Job", f"{jobID} held: {reason}")
+                self.log.verbose("Job", f"{jobReference} held: {reason}")
 
-            resultDict[job] = jobStatus
+            resultDict[jobReference] = jobStatus
+            foundJobIDs.add(jobReference)
+
+        # Check if we have any jobs that were not found in the condor_q or condor_history
+        for jobReference in condorIDs.values():
+            if jobReference not in foundJobIDs:
+                self.log.verbose("Job", f"{jobReference} not found in condor_q or condor_history")
+                resultDict[jobReference] = PilotStatus.UNKNOWN
 
         self.tokenFile = None
 

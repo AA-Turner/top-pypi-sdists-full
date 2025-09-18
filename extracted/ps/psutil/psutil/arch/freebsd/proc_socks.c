@@ -19,8 +19,7 @@
 #include <arpa/inet.h>         // for inet_ntop()
 #include <libutil.h>
 
-#include "../../_psutil_common.h"
-#include "../../_psutil_posix.h"
+#include "../../arch/all/init.h"
 
 
 // The tcplist fetching and walking is borrowed from netstat/inet.c.

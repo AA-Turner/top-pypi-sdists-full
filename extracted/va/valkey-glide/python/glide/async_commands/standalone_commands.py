@@ -4,25 +4,25 @@ from __future__ import annotations
 
 from typing import Dict, List, Mapping, Optional, Union, cast
 
-from glide.async_commands.batch import Batch
-from glide.async_commands.batch_options import BatchOptions
-from glide.async_commands.command_args import ObjectType
-from glide.async_commands.core import (
-    CoreCommands,
+from glide.glide import Script
+from glide_shared.commands.batch import Batch
+from glide_shared.commands.batch_options import BatchOptions
+from glide_shared.commands.command_args import ObjectType
+from glide_shared.commands.core_options import (
     FlushMode,
     FunctionRestorePolicy,
     InfoSection,
 )
-from glide.constants import (
+from glide_shared.constants import (
     TOK,
     TEncodable,
     TFunctionListResponse,
     TFunctionStatsFullResponse,
     TResult,
 )
-from glide.protobuf.command_request_pb2 import RequestType
+from glide_shared.protobuf.command_request_pb2 import RequestType
 
-from ..glide import Script
+from .core import CoreCommands
 
 
 class StandaloneCommands(CoreCommands):
@@ -165,6 +165,28 @@ class StandaloneCommands(CoreCommands):
     async def select(self, index: int) -> TOK:
         """
         Change the currently selected database.
+
+        **WARNING**: This command is NOT RECOMMENDED for production use.
+        Upon reconnection, the client will revert to the database_id specified
+        in the client configuration (default: 0), NOT the database selected
+        via this command.
+
+        **RECOMMENDED APPROACH**: Use the database_id parameter in client
+        configuration instead:
+
+        ```python
+        client = await GlideClient.create_client(
+            GlideClientConfiguration(
+                addresses=[NodeAddress("localhost", 6379)],
+                database_id=5  # Recommended: persists across reconnections
+            )
+        )
+        ```
+
+        **RECONNECTION BEHAVIOR**: After any reconnection (due to network issues,
+        timeouts, etc.), the client will automatically revert to the database_id
+        specified during client creation, losing any database selection made via
+        this SELECT command.
 
         See [valkey.io](https://valkey.io/commands/select/) for details.
 
@@ -871,8 +893,6 @@ class StandaloneCommands(CoreCommands):
             TOK: A simple "OK" response.
 
         Examples:
-            >>> await client.watch("sampleKey")
-                'OK'
             >>> await client.unwatch()
                 'OK'
         """
@@ -1036,7 +1056,7 @@ class StandaloneCommands(CoreCommands):
 
         Examples:
             >>> lua_script = Script("return { KEYS[1], ARGV[1] }")
-            >>> await client.invoke_script(lua_script, keys=["foo"], args=["bar"] );
+            >>> await client.invoke_script(lua_script, keys=["foo"], args=["bar"])
                 [b"foo", b"bar"]
         """
         return await self._execute_script(script.get_hash(), keys, args)

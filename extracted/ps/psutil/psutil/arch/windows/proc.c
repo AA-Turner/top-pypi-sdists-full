@@ -23,11 +23,7 @@
 // Link with Iphlpapi.lib
 #pragma comment(lib, "IPHLPAPI.lib")
 
-#include "../../_psutil_common.h"
-#include "proc.h"
-#include "proc_info.h"
-#include "proc_handles.h"
-#include "proc_utils.h"
+#include "../../arch/all/init.h"
 
 
 // Raised by Process.wait().

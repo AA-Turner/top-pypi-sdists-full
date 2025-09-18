@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.28 09:00:00                  #
+# Updated Date: 2025.09.17 19:00:00                  #
 # ================================================== #
 
 import json
@@ -145,9 +145,14 @@ class Chat:
         if stream:
             response_kwargs['stream_options'] = {"include_usage": True}
 
+        # OpenRouter: add web search remote tool (if enabled)
+        model_id = model.id
+        if model.provider == "open_router":
+            model_id = self.window.core.models.get_openrouter_model(model)
+
         response = client.chat.completions.create(
             messages=messages,
-            model=model.id,
+            model=model_id,
             stream=stream,
             **response_kwargs,
         )

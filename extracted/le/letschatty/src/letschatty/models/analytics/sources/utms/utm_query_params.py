@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote_plus
 import logging
 
 logger, highlights = logging.getLogger("logger"), logging.getLogger("highlights")
@@ -23,7 +23,7 @@ class QueryUTMParams(BaseModel):
     fbclid: str = Field(default="")
     gclid: str = Field(default="")
 
-    model_config = ConfigDict(ignore_extra=True)
+    model_config = ConfigDict(extra='ignore')
 
     @field_validator('base_url')
     @classmethod
@@ -31,6 +31,33 @@ class QueryUTMParams(BaseModel):
         if v.startswith("https://"):
             return v.split("https://")[1]
         return v
+
+    @staticmethod
+    def normalize_utm_value(value: str) -> str:
+        """
+        Normalize URL-encoded UTM parameter values.
+
+        This method:
+        1. Decodes URL encoding (e.g., %F0%9F%9A%80 -> 🚀)
+        2. Converts + signs to spaces
+        3. Strips whitespace
+
+        Args:
+            value: The UTM parameter value to normalize
+
+        Returns:
+            str: The normalized value
+        """
+        if not value:
+            return value
+
+        try:
+            # Use unquote_plus to handle both URL encoding and + as spaces
+            normalized = unquote_plus(value)
+            return normalized.strip()
+        except Exception as e:
+            logger.warning(f"Failed to normalize UTM value '{value}': {e}")
+            return value
 
     @classmethod
     def from_url(cls, url: str) -> QueryUTMParams:
@@ -40,14 +67,22 @@ class QueryUTMParams(BaseModel):
             base_url = parsed_url.netloc + parsed_url.path
             query_params = parse_qs(parsed_url.query)
 
-            # Extract single values from lists returned by parse_qs
+            # Extract single values from lists returned by parse_qs and normalize them
+            normalized_params = {}
+            utm_fields = ['utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content', 'utm_id', 'fbclid', 'gclid']
+
             for key in query_params:
                 if isinstance(query_params[key], list):
-                    query_params[key] = query_params[key][0]
+                    value = query_params[key][0]
+                    # Normalize UTM parameters but keep other parameters as-is
+                    if key in utm_fields:
+                        normalized_params[key] = cls.normalize_utm_value(value)
+                    else:
+                        normalized_params[key] = value
 
-            query_params["base_url"] = base_url
+            normalized_params["base_url"] = base_url
 
-            return cls(**query_params)
+            return cls(**normalized_params)
         except Exception as e:
             logger.error(f"Invalid URL {url}")
             raise ValueError(f"Invalid URL {url}, must follow format 'https://www.example.com/path' - {e}")

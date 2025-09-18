@@ -12,11 +12,10 @@
 import functools
 
 from DIRAC import gLogger
-from DIRAC.ConfigurationSystem.Client.PathFinder import getServiceURL
+from DIRAC.ConfigurationSystem.Client.PathFinder import getServiceURL, useLegacyAdapter
 from DIRAC.Core.DISET.RPCClient import RPCClient
 from DIRAC.Core.DISET.TransferClient import TransferClient
 from DIRAC.Core.Tornado.Client.TornadoClient import TornadoClient
-
 
 sLog = gLogger.getSubLogger(__name__)
 
@@ -54,6 +53,7 @@ def ClientSelector(disetClient, *args, **kwargs):  # We use same interface as RP
     # We detect if we need to use a specific class for the HTTPS client
 
     tornadoClient = kwargs.pop("httpsClient", TornadoClient)
+    diracxClient = kwargs.pop("diracxClient", None)
 
     # We have to make URL resolution BEFORE the RPCClient or TornadoClient to determine which one we want to use
     # URL is defined as first argument (called serviceName) in RPCClient
@@ -65,6 +65,13 @@ def ClientSelector(disetClient, *args, **kwargs):  # We use same interface as RP
         # If we are not already given a URL, resolve it
         if serviceName.startswith(("http", "dip")):
             completeUrl = serviceName
+        elif useLegacyAdapter(serviceName):
+            sLog.debug(f"Using legacy adapter for service {serviceName}")
+            if diracxClient is None:
+                raise NotImplementedError(
+                    "DiracX is enabled but no diracxClient is provided, do you need to update your client?"
+                )
+            return diracxClient()
         else:
             completeUrl = getServiceURL(serviceName)
             sLog.debug(f"URL resolved: {completeUrl}")
@@ -74,6 +81,10 @@ def ClientSelector(disetClient, *args, **kwargs):  # We use same interface as RP
             rpc = tornadoClient(*args, **kwargs)
         else:
             rpc = disetClient(*args, **kwargs)
+    except NotImplementedError as e:
+        # We catch explicitly NotImplementedError to avoid just printing "there's an error"
+        # If we mis-configured the CS for legacy adapted services, we MUST have an error.
+        raise e
     except Exception as e:  # pylint: disable=broad-except
         # If anything went wrong in the resolution, we return default RPCClient
         # So the behaviour is exactly the same as before implementation of Tornado

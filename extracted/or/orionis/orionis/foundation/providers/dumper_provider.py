@@ -26,4 +26,4 @@ class DumperProvider(ServiceProvider):
         # Register the Debug service as a transient binding for the IDebug interface.
         # A new instance of Debug will be created each time it is requested.
         # The alias allows for easy retrieval of the service elsewhere in the application.
-        self.app.transient(IDebug, Debug, alias=f"x-orionis.console.contracts.debug.IDebug")
+        self.app.transient(IDebug, Debug, alias="x-orionis.console.contracts.debug.IDebug")

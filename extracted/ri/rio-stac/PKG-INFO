@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: rio-stac
-Version: 0.11.2
+Version: 0.12.0
 Summary: Create STAC Items from raster datasets.
 Author-email: Vincent Sarago <vincent@developmentseed.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

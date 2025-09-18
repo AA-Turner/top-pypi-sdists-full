@@ -1,12 +1,15 @@
 from kubernetes import client
+import yaml
 
 from adam.commands.command import Command
 from adam.commands.deploy.deploy_utils import deploy_frontend, gen_labels
 from adam.config import Config
+from adam.k8s_utils.config_maps import ConfigMaps
 from adam.k8s_utils.deployment import Deployments
 from adam.k8s_utils.kube_context import KubeContext
 from adam.k8s_utils.pods import Pods
 from adam.k8s_utils.service_accounts import ServiceAccounts
+from adam.k8s_utils.volumes import ConfigMapMount
 from adam.repl_state import ReplState, RequiredState
 from adam.utils import log2
 
@@ -47,6 +50,28 @@ class DeployPod(Command):
         labels = gen_labels(label_selector)
         ServiceAccounts.replicate(sa_name, state.namespace, sa_proto, labels=labels, add_cluster_roles=additional_cluster_roles)
 
+        settings_filename = 'settings.yaml'
+        settings_path = f'/kaqing/{settings_filename}'
+        settings_data = None
+        try:
+            with open(settings_filename, 'r') as file:
+                settings_data = file.read()
+        except:
+            try:
+                with open(settings_path, 'r') as file:
+                    settings_data = file.read()
+            except:
+                pass
+
+        if not settings_data:
+            log2(f'{settings_filename} not found.')
+            return state
+
+        cm_name = Config().get('pod.cm.name', 'ops')
+        ConfigMaps.create(cm_name, state.namespace, {
+            settings_filename : settings_data
+        }, labels=labels)
+
         pod_name = Config().get('pod.name', 'ops')
         image = Config().get('pod.image', 'seanahnsf/kaqing')
         security_context = client.V1SecurityContext(
@@ -54,12 +79,15 @@ class DeployPod(Command):
                 add=["SYS_PTRACE"]
             )
         )
-        Deployments.create(state.namespace, pod_name, image, env={'NAMESPACE': state.namespace}, container_security_context=security_context, labels=labels, sa_name=sa_name)
+        Deployments.create(state.namespace, pod_name, image,
+                           env={'NAMESPACE': state.namespace},
+                           container_security_context=security_context,
+                           labels=labels, sa_name=sa_name,
+                           config_map_mount=ConfigMapMount(cm_name, settings_filename, settings_path))
 
         uri = deploy_frontend(pod_name, state.namespace, label_selector)
 
-        # Pods.wait_for_running(state.namespace, label_selector, msg=f'Ops pod is starting up; it will be available at {uri}.')
-        Pods.wait_for_running(state.namespace, pod_name, msg=f'Ops pod is starting up; it will be available at {uri}.', label_selector=label_selector)
+        Pods.wait_for_running(state.namespace, pod_name, msg=f'In moments, ops pod will be available at {uri}.', label_selector=label_selector)
 
         return state
 

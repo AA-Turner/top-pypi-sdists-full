@@ -9,20 +9,20 @@ Print information about uploaded proxies.
 Example:
   $ dirac-proxy-get-uploaded-info
   Checking for DNs /O=GRID-FR/C=FR/O=CNRS/OU=CPPM/CN=Vanessa Hamar
-  --------------------------------------------------------------------------------------------------------
-  | UserDN                                          | UserGroup   | ExpirationTime      | PersistentFlag |
-  --------------------------------------------------------------------------------------------------------
-  | /O=GRID-FR/C=FR/O=CNRS/OU=CPPM/CN=Vanessa Hamar | dirac_user  | 2011-06-29 12:04:25 | True           |
-  --------------------------------------------------------------------------------------------------------
+  -------------------------------------------------------------------------
+  | UserDN                                          | ExpirationTime      |
+  -------------------------------------------------------------------------
+  | /O=GRID-FR/C=FR/O=CNRS/OU=CPPM/CN=Vanessa Hamar | 2011-06-29 12:04:25 |
+  -------------------------------------------------------------------------
 """
 import sys
 
-from DIRAC import gLogger, S_OK
+from DIRAC import S_OK, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Core.Base.Script import Script
-from DIRAC.FrameworkSystem.Client.ProxyManagerClient import ProxyManagerClient
 from DIRAC.Core.Security import Properties
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.FrameworkSystem.Client.ProxyManagerClient import ProxyManagerClient
 
 userName = False
 

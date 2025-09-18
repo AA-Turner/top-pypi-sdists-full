@@ -1,6 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.deploy.deploy_utils import undeploy_frontend
 from adam.config import Config
+from adam.k8s_utils.config_maps import ConfigMaps
 from adam.k8s_utils.deployment import Deployments
 from adam.k8s_utils.kube_context import KubeContext
 from adam.k8s_utils.pods import Pods
@@ -37,6 +38,10 @@ class UndeployPod(Command):
         label_selector = Config().get('pod.label-selector', 'run=ops')
         try:
             ServiceAccounts.delete(state.namespace, label_selector=label_selector)
+        except Exception as e:
+            log2(e)
+        try:
+            ConfigMaps.delete_with_selector(state.namespace, label_selector)
         except Exception as e:
             log2(e)
         try:

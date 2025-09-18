@@ -1,6 +1,6 @@
 [project]
 name = "juliapkg"
-version = "0.1.18"
+version = "0.1.19"
 description = "Julia version manager and package manager"
 authors = [{ name = "Christopher Doris" }]
 dependencies = ["semver >=3.0,<4.0", "filelock >=3.16,<4.0"]
@@ -10,6 +10,9 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
+
+[project.optional-dependencies]
+cli = ["click >=8.0,<9.0"]
 
 [project.urls]
 Homepage = "http://github.com/JuliaPy/pyjuliapkg"

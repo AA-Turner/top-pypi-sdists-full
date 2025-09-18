@@ -1,6 +1,6 @@
 [project]
 name = "supabase"
-version = "2.18.1" # {x-release-please-version}
+version = "2.19.0" # {x-release-please-version}
 description = "Supabase client for Python."
 authors = [
   { name = "Joel Lee", email = "joel@joellee.org" },
@@ -9,6 +9,9 @@ authors = [
   { name = "Leynier Gutiérrez González", email = "leynier41@gmail.com" },
   { name = "Anand" },
   { name = "Andrew Smith", email = "a.smith@silentworks.co.uk" },
+]
+maintainers = [
+  { name = "Leonardo Santiago", email = "leonardo.santiago@supabase.io" }
 ]
 readme = "README.md"
 license = "MIT"
@@ -19,22 +22,18 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "postgrest == 1.1.1",
-  "realtime == 2.7.0",
-  "supabase_auth == 2.12.3",
-  "storage3 == 0.12.1",
-  "supabase_functions == 0.10.1",
+  "realtime",
+  "supabase_functions",
+  "storage3",
+  "supabase_auth",
+  "postgrest",
   "httpx >=0.26,<0.29",
 ]
 
 [project.urls]
 homepage = "https://github.com/supabase/supabase-py"
 repository = "https://github.com/supabase/supabase-py"
-documentation = "https://github.com/supabase/supabase-py"
-
-[project.scripts]
-tests = "cli_scripts:run_tests"
-build_sync = "cli_scripts:build_sync"
+documentation = "https://github.com/supabase/supabase-py/src/supabase"
 
 [dependency-groups]
 dev = [
@@ -45,32 +44,21 @@ dev = [
 pre-commit = [
   "pre-commit >= 4.1.0",
   "commitizen >=4.8.3",
+  "unasync >=0.6.0",
 ]
 tests = [
   "pytest >= 8.4.1",
   "pytest-cov >= 6.2.1",
-  "pytest-asyncio >=0.24,<1.2",
+  "pytest-asyncio >=0.24,<1.1",
   "python-dotenv >= 1.1.1",
 ]
 lints = [
-  "unasync-cli",
   "ruff >=0.12.1",
 ]
 
 [tool.uv]
 default-groups = [ "dev" ]
 
-
-[tool.uv.sources]
-unasync-cli = { git = "https://github.com/supabase-community/unasync-cli.git", branch = "main" }
-
 [build-system]
 requires = ["uv_build>=0.8.3,<0.9.0"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = "supabase"
-module-root = ""
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"

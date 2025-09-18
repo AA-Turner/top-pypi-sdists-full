@@ -2126,7 +2126,7 @@ class Application(Container, IApplication):
             self.instance(
                 IApplication,
                 self,
-                alias=f"x-orionis.foundation.contracts.application.IApplication",
+                alias="x-orionis.foundation.contracts.application.IApplication",
                 enforce_decoupling=None
             )
 

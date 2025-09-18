@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-pyinstaller"
-version = "6.15.0.20250822"
+version = "6.16.0.20250918"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyinstaller"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`pyinstaller`](https://github.com/pyinstaller/pyinstaller) package. It can be used by type checkers
 to check code that uses `pyinstaller`. This version of
 `types-pyinstaller` aims to provide accurate annotations for
-`pyinstaller==6.15.*`.
+`pyinstaller==6.16.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).
+[`add4e85823fe0a7e45c51d6d4f3ef46041593bc8`](https://github.com/python/typeshed/commit/add4e85823fe0a7e45c51d6d4f3ef46041593bc8).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

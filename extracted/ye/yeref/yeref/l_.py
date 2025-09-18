@@ -4429,778 +4429,513 @@ l_bot_progress_link_default = {
 
 # region FereyChannelBot
 l_chn_btn1 = {
-    'ru': "➕ Канал",
-    'en': "👩🏽‍💻 Channels",
-    'es': "👩🏽‍💻 Canales",
-    'fr': "👩🏽‍💻 Chaînes",
-    'zh': "👩🏽‍💻频道",
-    'ar': "👩🏽‍💻 القنوات",
+    "ru": "➕ Канал",
+    "en": "➕ Channel",
+    "es": "➕ Canal",
+    "fr": "➕ Chaîne",
+    "zh": "➕ 频道",
+    "ar": "➕ القناة"
 }
 l_chn_btn2 = {
-    'ru': "💨 Подписка",
-    'en': "💨 Subscription",
-    'es': "💨 Suscripción",
-    'fr': "💨 Abonnement",
-    'zh': "💨 订阅",
-    'ar': "💨 الاشتراك",
+    "ru": "💨 Подписка",
+    "en": "💨 Subscription",
+    "es": "💨 Suscripción",
+    "fr": "💨 Abonnement",
+    "zh": "💨 订阅",
+    "ar": "💨 الاشتراك"
 }
 l_chn_welcome = {
     "ru": "🌱 <b>{0}</b>, добро пожаловать в <i>@tg-приложение</i> администрирования <b>Telegram</b>-каналов:\n\n<blockquote>▪️монетизация и донаты\n▪️NFT-посты канала\n▪️FT-токен канала\n▪️маркетплейс постов и геймификация\n▪️нейро-генерация постов</blockquote>",
-    "en": "🌱 <b>{0}</b>, welcome to the <i>@tg application</i> for administration of <b>Telegram</b> channels:\n\n<blockquote>▪️monetization and donations\n▪️NFT posts of the channel\n▪️FT token of the channel\n▪️marketplace of posts and gamification\n▪️neuro-generation of posts</blockquote>",
-    "es": "🌱 <b>{0}</b>, bienvenido a la administración de la aplicación <i>@tg</i> para canales de <b>Telegram</b>:\n\n<blockquote>▪️monetización y donaciones\n▪️publicaciones NFT del canal\n▪️token FT del canal\n▪️mercado de publicaciones y gamificación\n▪️neuro-generación de publicaciones</blockquote>",
-    "fr": "🌱 <b>{0}</b>, bienvenue dans l'application <i>@tg</i> d'administration des chaînes <b>Telegram</b> :\n\n<blockquote>▪️monétisation et dons\n▪️publications NFT de la chaîne\n▪️jeton FT de la chaîne\n▪️place de marché des publications et gamification\n▪️neuro-génération des publications</blockquote>",
-    "zh": "🌱 <b>{0}</b>，欢迎使用 <i>@tg 应用</i> 管理 <b>Telegram</b> 频道：\n\n<blockquote>▪️变现和捐赠\n▪️频道的 NFT 帖子\n▪️频道的 FT 代币\n▪️帖子市场和游戏化\n▪️帖子神经生成</blockquote>",
-    "ar": "🌱 <b>{0}</b>، مرحبًا بك في تطبيق <i>@tg</i> لإدارة قنوات <b>Telegram</b>:\n\n<blockquote>▪️التحقيق والتبرعات\n▪️منشورات NFT للقناة\n▪️رمز FT للقناة\n▪️سوق المنشورات والألعاب\n▪️التوليد العصبي للمنشورات</blockquote>",
+    "en": "🌱 <b>{0}</b>, welcome to the <i>@tg-application</i> for administration of <b>Telegram</b>-channels:\n\n<blockquote>▪️monetization and donations\n▪️NFT-posts of the channel\n▪️FT-token of the channel\n▪️marketplace of posts and gamification\n▪️neuro-generation of posts</blockquote>",
+    "es": "🌱 <b>{0}</b>, bienvenido a la administración de la aplicación <i>@tg</i> para la gestión de canales <b>Telegram</b>:\n\n<blockquote>▪️monetización y donaciones\n▪️publicaciones NFT-del canal\n▪️token FT-del canal\n▪️mercado de publicaciones y gamificación\n▪️neuro-generación de publicaciones</blockquote>",
+    "fr": "🌱 <b>{0}</b>, bienvenue dans l'application <i>@tg</i> d'administration des <b>Telegram</b>-chaînes:\n\n<blockquote>▪️monétisation et dons\n▪️publications NFT-de la chaîne\n▪️jeton FT-de la chaîne\n▪️place de marché des publications et gamification\n▪️neuro-génération des publications</blockquote>",
+    "zh": "🌱 <b>{0}</b>，欢迎使用 <i>@tg-应用</i> 管理 <b>Telegram</b>-频道：\n\n<blockquote>▪️变现和捐赠\n▪️频道的 NFT 帖子\n▪️频道的 FT 代币\n▪️帖子市场和游戏化\n▪️帖子神经-生成</blockquote>",
+    "ar": "🌱 <b>{0}</b>، مرحبًا بك في تطبيق <i>@tg</i> لإدارة قنوات <b>Telegram</b>:\n\n<blockquote>▪️تحقيق الدخل والتبرعات\n▪️منشورات NFT للقناة\n▪️رمز FT للقناة\n▪️سوق المنشورات واللعبنة\n▪️التوليد العصبي للمنشورات</blockquote>"
 }
 l_cmd_txt_chn = {
-    'ru': "👩🏽‍💻 <b>Жми</b> [➕ Добавить канал]",
-    'en': "👩🏽‍💻 <b>Click</b> [➕ Add channel]",
-    'es': "👩🏽‍💻 <b>Haz clic</b> [➕ Agregar canal]",
-    'fr': "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter une chaîne]",
-    'zh': "👩🏽‍💻 <b>点击</b> [➕ 添加频道]",
-    'ar': "👩🏽‍💻 <b>انقر</b> [➕ إضافة قناة]",
+    "ru": "👩🏽‍💻 <b>Жми</b> [➕ Добавить канал]",
+    "en": "👩🏽‍💻 <b>Click</b> [➕ Add channel]",
+    "es": "👩🏽‍💻 <b>Haz clic</b> [➕ Agregar canal]",
+    "fr": "👩🏽‍💻 <b>Cliquez</b> [➕ Ajouter une chaîne]",
+    "zh": "👩🏽‍💻 <b>点击</b> [➕ 添加频道]",
+    "ar": "👩🏽‍💻 <b>انقر</b> [➕ إضافة قناة]"
 }
 l_channels = {
-    'ru': "👩🏽‍💻 Каналы",
-    'en': "📰 Channels",
-    'es': "📰 Canales",
-    'fr': "📰 Chaînes",
-    'zh': "📰 频道",
-    'ar': "📰 القنوات",
+    "ru": "👩🏽‍💻 Каналы",
+    "en": "👩🏽‍💻 Channels",
+    "es": "👩🏽‍💻 Canales",
+    "fr": "👩🏽‍💻 Chaînes",
+    "zh": "👩🏽‍💻 频道",
+    "ar": "👩🏽‍💻 القنوات"
+}
+
+l_add_chn_button = {
+    "ru": "➕ Добавить канал",
+    "en": "➕ Add channel",
+    "es": "➕ Agregar canal",
+    "fr": "➕ Ajouter une chaîne",
+    "zh": "➕ 添加频道",
+    "ar": "➕ إضافة قناة"
+}
+l_bot_removed = {
+    "ru": "🚫 @{0}-бот удален из <b>{1}</b> [id=<code>{2}</code>]",
+    "en": "🚫 @{0}-bot removed from <b>{1}</b> [id=<code>{2}</code>]",
+    "es": "🚫 @{0}-bot eliminado de <b>{1}</b> [id=<code>{2}</code>]",
+    "fr": "🚫 @{0}-bot supprimé de <b>{1}</b> [id=<code>{2}</code>]",
+    "zh": "🚫 @{0}-bot 已从 <b>{1}</b> [id=<code>{2}</code>] 中删除",
+    "ar": "🚫 @{0}-تمت إزالة الروبوت من <b>{1}</b> [id=<code>{2}</code>]"
+}
+l_top_hashtags = {
+    "ru": "\n<b>Топ #hashtags</b>:\n{0}\n",
+    "en": "\n<b>Top #hashtags</b>:\n{0}\n",
+    "es": "\n<b>Principales #hashtags</b>:\n{0}\n",
+    "fr": "\n<b>Meilleurs #hashtags</b>:\n{0}\n",
+    "zh": "\n<b>热门#hashtags</b>：\n{0}\n",
+    "ar": "\n<b>أهم #hashtags</b>:\n{0}\n"
+}
+l_info_reactions = {
+    "ru": "Допуск emoji-реакций",
+    "en": "Allowing emoji reactions",
+    "es": "Permitir reacciones emoji",
+    "fr": "Autoriser les réactions emoji",
+    "zh": "允许表情符号反应",
+    "ar": "السماح بتفاعلات الرموز التعبيرية"
+}
+l_admins = {
+    "ru": "Администраторы",
+    "en": "Administrators",
+    "es": "Administradores",
+    "fr": "Administrateurs",
+    "zh": "管理员",
+    "ar": "المسؤولين"
+}
+l_info_invite_admins = {
+    "ru": "Назначение администраторов",
+    "en": "Inviting other admins to",
+    "es": "Invitar a otros administradores a",
+    "fr": "Inviter d'autres administrateurs à",
+    "zh": "邀请其他管理员",
+    "ar": "دعوة المشرفين الآخرين إلى"
+}
+l_info_cmd = {
+    "ru": "⚙️ <b>Команды</b> /cmd",
+    "en": "⚙️ <b>Commands</b> /cmd",
+    "es": "⚙️ <b>Comandos</b> /cmd",
+    "fr": "⚙️ <b>Commandes</b> /cmd",
+    "zh": "⚙️ <b>命令</b> /cmd",
+    "ar": "⚙️ <b>الأوامر</b> /cmd"
+}
+l_info_protect = {
+    "ru": "<b>Сохранение контента</b>: ",
+    "en": "<b>Saving content</b>:",
+    "es": "<b>Guardar contenido</b>:",
+    "fr": "<b>Enregistrement du contenu</b>:",
+    "zh": "<b>保存内容</b>：",
+    "ar": "<b>حفظ المحتوى</b>:"
+}
+l_info_request = {
+    "ru": "<b>Вступление после одобрения</b>: ",
+    "en": "<b>Joining after approval</b>:",
+    "es": "<b>Unirse después de la aprobación</b>:",
+    "fr": "<b>Rejoindre après approbation</b>:",
+    "zh": "<b>批准后加入</b>：",
+    "ar": "<b>الانضمام بعد الموافقة</b>:"
+}
+l_info_send = {
+    "ru": "<b>Возможность писать после вступления</b>: ",
+    "en": "<b>Possibility to write after joining</b>:",
+    "es": "<b>Posibilidad de escribir después de unirse</b>:",
+    "fr": "<b>Possibilité d'écrire après l'adhésion</b>:",
+    "zh": "<b>加入后可以写</b>：",
+    "ar": "<b>إمكانية الكتابة بعد الانضمام</b>:"
+}
+
+l_info_subscribe = {
+    "ru": "<b>Проверка 💨Подписки при вступлении в канал</b>: ",
+    "en": "<b>Checking 💨Subscriptions when joining a channel</b>: ",
+    "es": "<b>Comprobación de 💨Suscripciones al unirse a un canal</b>: ",
+    "fr": "<b>Vérification des 💨abonnements lors de l'adhésion à un canal</b>: ",
+    "zh": "<b>加入频道时检查💨订阅</b>: ",
+    "ar": "<b>التحقق من 💨الاشتراكات عند الانضمام إلى قناة</b>: "
+}
+l_info_restrict = {
+    "ru": "запрещено\n",
+    "en": "prohibited\n",
+    "es": "prohibido\n",
+    "fr": "interdit\n",
+    "zh": "禁止\n",
+    "ar": "محظور\n"
+}
+l_info_allow = {
+    "ru": "разрешено\n",
+    "en": "allowed\n",
+    "es": "permitido\n",
+    "fr": "autorisé\n",
+    "zh": "允许\n",
+    "ar": "مسموح\n"
+}
+l_transfer_start = {
+    "ru": "👩🏽‍💻 <b>Пользователь</b> {0} должен /start-запустить @{1}",
+    "en": "👩🏽‍💻 <b>User</b> {0} must /start-run @{1}",
+    "es": "👩🏽‍💻 <b>Usuario</b> {0} debe /start-ejecutar @{1}",
+    "fr": "👩🏽‍💻 <b>Utilisateur</b> {0} doit /start-lancer @{1}",
+    "zh": "👩🏽‍💻 <b>用户</b> {0} 必须 /start-运行 @{1}",
+    "ar": "👩🏽‍💻 <b>المستخدم</b> {0} يجب /start-تشغيل @{1}"
+}
+l_transfer_admin = {
+    "ru": "👩🏽‍💻 <b>Пользователь</b> {0} должен быть <b>администратором</b> в <b>{1}</b>",
+    "en": "👩🏽‍💻 <b>User</b> {0} must be an <b>administrator</b> in <b>{1}</b>",
+    "es": "👩🏽‍💻 <b>Usuario</b> {0} debe ser un <b>administrador</b> en <b>{1}</b>",
+    "fr": "👩🏽‍💻 <b>Utilisateur</b> {0} doit être un <b>administrateur</b> dans <b>{1}</b>",
+    "zh": "👩🏽‍💻 <b>用户</b> {0} 必须是 <b>{1}</b> 中的 <b>管理员</b>",
+    "ar": "👩🏽‍💻 <b>المستخدم</b> {0} يجب أن يكون <b>مشرفًا</b> في <b>{1}</b>"
+}
+l_transfer_transfer = {
+    "ru": "👩🏽‍💻 <b>Передать</b> <b>admin</b>-права на <b>{0}</b> пользователю {1} в @{2}-боте?",
+    "en": "👩🏽‍💻 <b>Transfer</b> <b>admin</b>-rights on <b>{0}</b> to user {1} in @{2}-bot?",
+    "es": "👩🏽‍💻 ¿<b>Transferir</b> derechos de <b>admin</b> sobre <b>{0}</b> al usuario {1} en @{2}-bot?",
+    "fr": "👩🏽‍💻 <b>Transférer</b> les droits <b>admin</b> sur <b>{0}</b> à l'utilisateur {1} dans @{2}-bot ?",
+    "zh": "👩🏽‍💻 <b>将</b> <b>admin</b>-权限 在 <b>{0}</b> 上 转移 给 @{2}-bot 中的用户 {1}？",
+    "ar": "👩🏽‍💻 <b>نقل</b> حقوق <b>admin</b> على <b>{0}</b> إلى المستخدم {1} في @{2}-bot؟"
+}
+l_transfer_text = {
+    "ru": "👩🏽‍💻 <b>Для</b> передачи admin-прав канала в @{0}-боте используй команду:\n/transfer ID-ПОЛЬЗОВАТЕЛЯ, где пользователь: администратор канала и участник @{0}-бота (/id)\n\n⚙️ <b>Команды</b> /cmd",
+    "en": "👩🏽‍💻 <b>To</b> transfer channel admin rights in @{0}-bot use the command:\n/transfer USER-ID, where user: channel administrator and @{0}-bot member (/id)\n\n⚙️ <b>Commands</b> /cmd",
+    "es": "👩🏽‍💻 <b>Para</b> transferir derechos de admin del canal en @{0}-bot usa el comando:\n/transfer ID-USUARIO, donde usuario: administrador del canal y miembro de @{0}-bot (/id)\n\n⚙️ <b>Comandos</b> /cmd",
+    "fr": "👩🏽‍💻 <b>Pour</b> transférer les droits d'admin du canal vers @{0}-bot, utilisez la commande:\n/transfer ID-UTILISATEUR, où l'utilisateur : administrateur du canal et membre de @{0}-bot (/id)\n\n⚙️ <b>Commandes</b> /cmd",
+    "zh": "👩🏽‍💻 <b>要将频道的 admin 权限 转移 到 @{0}-bot，请使用命令：</b>\n/transfer USER-ID，其中用户：频道管理员且为 @{0}-bot 成员（/id）\n\n⚙️ <b>命令</b> /cmd",
+    "ar": "👩🏽‍💻 <b>لـ</b> نقل حقوق admin القناة في @{0}-bot استخدم الأمر:\n/transfer USER-ID، حيث المستخدم: مسؤول القناة وعضو في @{0}-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd"
+}
+l_transfer_done_to = {
+    "ru": "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно переданы {1}",
+    "en": "👩🏽‍💻 <b>Admin</b>-rights on [<b>{0}</b>] successfully transferred to {1}",
+    "es": "👩🏽‍💻 Los derechos de <b>Admin</b> en [<b>{0}</b>] se transfirieron correctamente a {1}",
+    "fr": "👩🏽‍💻 Les droits <b>Admin</b> sur [<b>{0}</b>] ont été transférés avec succès à {1}",
+    "zh": "👩🏽‍💻 <b>Admin</b> 权限 在 [<b>{0}</b>] 已成功转移 给 {1}",
+    "ar": "👩🏽‍💻 تم نقل حقوق <b>Admin</b> على [<b>{0}</b>] بنجاح إلى {1}"
+}
+l_transfer_done_from = {
+    "ru": "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно получены от {1}",
+    "en": "👩🏽‍💻 <b>Admin</b>-rights on [<b>{0}</b>] successfully obtained from {1}",
+    "es": "👩🏽‍💻 Derechos de <b>Admin</b> en [<b>{0}</b>] obtenidos con éxito de {1}",
+    "fr": "👩🏽‍💻 Les droits <b>Admin</b> sur [<b>{0}</b>] obtenus avec succès de {1}",
+    "zh": "👩🏽‍💻 <b>Admin</b> 权限 在 [<b>{0}</b>] 已成功从 {1} 获取",
+    "ar": "👩🏽‍💻 تم الحصول على حقوق <b>Admin</b> على [<b>{0}</b>] بنجاح من {1}"
 }
 
 l_add_chn_text = {
-    'ru': "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как <b>Administrator</b> через настройки своего канала:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
-    'en': "👮🏽‍♀️ <b>Add</b> @{0}-bot as <b>Administrator</b> through your channel settings: [👤Add Admin]\n\n👮🏽‍♀️ <b>Option</b> [✅ Assigning administrators] will allow you to scrape old subscribers, even if the channel has more than 200 subscribers",
-    'es': "👮🏽‍♀️ <b>Agrega</b> @{0}-bot como <b>Administrador</b> a través de la configuración de tu canal: [👤Agregar administrador]\n\n👮🏽‍♀️ <b>Opción</b> [✅ Asignar administradores] te permitirá eliminar suscriptores antiguos, incluso si el canal tiene más de 200 suscriptores.",
-    'fr': "👮🏽‍♀️ <b>Ajouter</b> @{0}-bot en tant qu'<b>Administrateur</b> via les paramètres de votre chaîne : [👤Ajouter un administrateur]\n\n👮🏽‍♀️ <b>Option</b> [✅ Affectation d'administrateurs] vous permettra de supprimer les anciens abonnés, même si la chaîne compte plus de 200 abonnés",
-    'zh': "👮🏽‍♀️ 通过您的频道设置<b>添加</b> @{0}-bot 作为<b>管理员</b>： [👤添加管理员]\n\n👮🏽‍♀️ <b>选项</b> [✅ 分配管理员] 将允许您抓取旧订阅者，即使该频道有超过 200 名订阅者",
-    'ar': "👮🏽‍♀️ <b>أضف</b> @{0}-bot بصفته <b>مسؤولًا</b> من خلال إعدادات قناتك: [👤إضافة مسؤول]\n\n👮🏽‍♀️ <b>Option</b> [✅ تعيين مسؤولين] سيسمح لك بحذف المشتركين القدامى، حتى لو كانت القناة تضم أكثر من 200 مشترك",
+    "ru": "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как <b>Administrator</b> через настройки своего канала:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
+    "en": "👮🏽‍♀️ <b>Add</b> @{0}-bot as <b>Administrator</b> through your channel settings:\n\n<blockquote>[👤 Add administrator]</blockquote>",
+    "es": "👮🏽‍♀️ <b>Agrega</b> @{0}-bot como <b>Administrador</b> a través de la configuración de tu canal:\n\n<blockquote>[👤 Agregar administrador]</blockquote>",
+    "fr": "👮🏽‍♀️ <b>Ajoutez</b> @{0}-bot en tant qu'<b>Administrateur</b> via les paramètres de votre chaîne :\n\n<blockquote>[👤 Ajouter un administrateur]</blockquote>",
+    "zh": "👮🏽‍♀️ <b>添加</b> @{0}-bot 作为 <b>管理员</b>，通过您的频道设置：\n\n<blockquote>[👤 添加管理员]</blockquote>",
+    "ar": "👮🏽‍♀️ <b>أضف</b> @{0}-bot كـ<b>مسؤول</b> عبر إعدادات قناتك:\n\n<blockquote>[👤 إضافة مسؤول]</blockquote>"
 }
 l_add_chn_txt_call = {
-    'ru': "👮🏽‍♀️ Добавь @{0}-бота как Administrator через настройки своего канала: [👤Add Admin]",
-    'en': "👮🏽‍♀️ Add @{0}-bot as Administrator through your channel settings: [👤Add Admin]",
-    'es': "👮🏽‍♀️ Agrega @{0}-bot como administrador a través de la configuración de tu canal: [👤Agregar administrador]",
-    'fr': "👮🏽‍♀️ Ajoutez @{0}-bot en tant qu'administrateur via les paramètres de votre chaîne : [👤Ajouter un administrateur]",
-    'zh': "👮🏽‍♀️ 通过您的频道设置将@{0}-bot 添加为管理员：<👤添加管理员>>",
-    'ar': "👮🏽‍♀️ أضف @{0}-bot كمسؤول من خلال إعدادات قناتك: [👤Add Admin]",
-}
-l_add_chn_button = {
-    'ru': "➕ Добавить канал",
-    'en': "➕ Add channel",
-    'es': "➕ Agregar canal",
-    'fr': "➕ Ajouter une chaîne",
-    'zh': "➕ 添加频道",
-    'ar': "➕ إضافة قناة",
-}
-l_bot_removed = {
-    'ru': "🚫 @{0}-бот удален из <b>{1}</b> [id=<code>{2}</code>]",
-    'en': "🚫 @{0}-bot removed from <b>{1}</b> [id=<code>{2}</code>]",
-    'es': "🚫 @{0}-bot eliminado de <b>{1}</b> [id=<code>{2}</code>]",
-    'fr': "🚫 @{0}-bot supprimé de <b>{1}</b> [id=<code>{2}</code>]",
-    'zh': "🚫 @{0}-bot 已从 <b>{1}</b> [id=<code>{2}</code>] 中删除",
-    'ar': "🚫 @{0}-تمت إزالة الروبوت من <b>{1}</b> [id=<code>{2}</code>]",
-}
-
-l_chn_config = {
-    ("cban", "🕵🏽", "☑"): {
-        'ru': "Авто-бан",
-        'en': "Auto-ban",
-        'es': "Prohibición automática",
-        'fr': "Interdiction automatique",
-        'zh': "自动禁止",
-        'ar': "الحظر التلقائي",
-    },
-    ("cdecor", "🪄", "☐"): {
-        'ru': "Авто-декор",
-        'en': "Auto-decor",
-        'es': "Autodecoración",
-        'fr': "Décoration automatique",
-        'zh': "自动装饰",
-        'ar': "ديكور تلقائي",
-    },
-    ("csystem", "👣", "☐"): {
-        'ru': "Сообщ системные",
-        'en': "System messages",
-        'es': "Mensajes del sistema",
-        'fr': "Messages système",
-        'zh': "系统消息",
-        'ar': "رسائل النظام",
-    },
-    ("cpost", "🔔", "☐"): {
-        'ru': "Авто-постинг",
-        'en': "Auto-posting",
-        'es': "Publicación automática",
-        'fr': "Publication automatique",
-        'zh': "自动发布",
-        'ar': "النشر التلقائي",
-    },
-    ("cneuro", "🦾", "☐"): {
-        'ru': "Нейро-постинг",
-        'en': "Neuro-posting",
-        'es': "Neuropublicación",
-        'fr': "Neuro-posting",
-        'zh': "神经张贴",
-        'ar': "النشر العصبي",
-    },
-
-    ("cmember", "👥", "☐"): {
-        'ru': "Подписчики",
-        'en': "Subscribers",
-        'es': "Suscriptores",
-        'fr': "Les abonnés",
-        'zh': "订阅者",
-        'ar': "مشتركين",
-    },
-    ("ccheck", "👮🏽", "☐"): {
-        'ru': "Запрос на вступление",
-        'en': "Request to join",
-        'es': "Solicitud de ingreso",
-        'fr': "Demande d'adhésion",
-        'zh': "请求加入",
-        'ar': "طلب الانضمام",
-    },
-}
-l_to_default = {
-    'ru': "✖️Сброс",
-    'en': "✖️Reset",
-    'es': "✖️Restablecer",
-    'fr': "✖️Réinitialiser",
-    'zh': "✖️重置",
-    'ar': "✖️إعادة تعيين",
-}
-l_remove_channel = {
-    'ru': "🚫Убрать канал",
-    'en': "🚫Remove channel",
-    'es': "🚫Eliminar canal",
-    'fr': "🚫Supprimer la chaîne",
-    'zh': "🚫删除频道",
-    'ar': "🚫إزالة القناة",
-}
-l_show_channels = {
-    'ru': "👩🏽‍💻 <b>Добавленные каналы</b>\n\n[команды /cmd]",
-    'en': "👩🏽‍💻 <b>Added channels</b>\n\n[commands/cmd]",
-    'es': "👩🏽‍💻 <b>Canales agregados</b>\n\n[commands/cmd]",
-    'fr': "👩🏽‍💻 <b>Canaux ajoutés</b>\n\n[commands/cmd]",
-    'zh': "👩🏽‍💻 <b>添加频道</b>\n\n[commands/cmd]",
-    'ar': "👩🏽‍💻 <b>القنوات المضافة</b>\n\n[commands/cmd]",
-}
-l_show_settings = {
-    'ru': "⚙️ <b>Выбери</b> опцию для /cmd <i>настройки</i> [<b>{0}</b>] {1}",
-    'en': "⚙️ <b>Select</b> option for /cmd <i>settings</i> [<b>{0}</b>] {1}",
-    'es': "⚙️ <b>Seleccione</b> la opción para /cmd <i>configuración</i> [<b>{0}</b>] {1}",
-    'fr': "⚙️ <b>Sélectionnez</b> l'option pour /cmd <i>paramètres</i> [<b>{0}</b>] {1}",
-    'zh': "⚙️ <b>选择</b> /cmd <i>设置</i>选项 [<b>{0}</b>] {1}",
-    'ar': "⚙️ <b>حدد</b> خيار /cmd <i>الإعدادات</i> [<b>{0}</b>] {1}",
-}
-l_chat_join_request_handler = {
-    'ru': "👮🏽 {0}, ты отправил(а) заявку на вступление в <b>{1}</b>\n\n👩🏽‍💻 <b>Выбери</b> <i>правильный вариант</i> в соответствии с заданием на картинке, чтобы твоя <i>заявка</i> на вступление была <b>одобрена</b>",
-    'en': "👮🏽 {0}, you have sent an application to join <b>{1}</b>\n\n👩🏽‍💻 <b>Choose</b> <i>the correct option</i> in accordance with the task in the picture, so that your <i>application</i> for membership is <b>approved</b>",
-    'es': "👮🏽 {0}, has enviado una solicitud para unirte a <b>{1}</b>\n\n👩🏽‍💻 <b>Elige</b> <i>la opción correcta</i> en de acuerdo con la tarea en la imagen, para que su <i>solicitud</i> de membresía sea <b>aprobada</b>",
-    'fr': "👮🏽 {0}, vous avez envoyé une candidature pour rejoindre <b>{1}</b>\n\n👩🏽‍💻 <b>Choisissez</b> <i>la bonne option</i> dans conformément à la tâche illustrée, afin que votre <i>demande</i> d'adhésion soit <b>approuvée</b>",
-    'zh': "👮🏽 {0}，您已发送加入<b>{1}</b>\n\n👩🏽‍💻<b>选择</b><i>正确选项</i>的申请按照图中的任务，您的<i>会员申请</i>就会<b>获得批准</b>",
-    'ar': "👮🏽 {0}، لقد أرسلت طلبًا للانضمام إلى <b>{1}</b>\n\n👩🏽‍💻 <b>اختر</b> <i>الخيار الصحيح</i> في وفقًا للمهمة الموجودة في الصورة، بحيث يتم <b>الموافقة</b> على <i>طلبك</i> للحصول على العضوية.",
-}
-l_content_types_sub_button = {
-    'ru': "👮🏽 Я подписался",
-    'en': "👮🏽 I subscribed",
-    'es': "👮🏽 Me suscribí",
-    'fr': "👮🏽 Je me suis abonné",
-    'zh': "👮🏽我订阅了",
-    'ar': "👮🏽 لقد اشتركت",
-}
-l_content_types_subscribe = {
-    'ru': "👮🏽 {0}, подпишись на {1}, чтобы твоя заявка на вступление была одобрена",
-    'en': "👮🏽 {0}, subscribe to {1} so that your application to join will be approved",
-    'es': "👮🏽 {0}, suscríbete a {1} para que se apruebe tu solicitud para unirte",
-    'fr': "👮🏽 {0}, abonnez-vous à {1} pour que votre demande d'adhésion soit approuvée",
-    'zh': "👮🏽 {0}，订阅{1}，以便您的加入申请获得批准",
-    'ar': "👮🏽 {0}، اشترك في {1} حتى تتم الموافقة على طلبك للانضمام",
-}
-l_wait_1_min = {
-    'ru': "🕐 Подожди 1мин",
-    'en': "🕐 Wait 1 min",
-    'es': "🕐 Espere 1 minuto",
-    'fr': "🕐 Attendez 1 min",
-    'zh': "🕐等待1分钟",
-    'ar': "🕐 انتظر دقيقة واحدة",
-}
-l_payment_of_post = {
-    'ru': "Оплата поста",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
-}
-
-l_creturn_answer = {
-    'ru': "✖️ <b>Настройки</b> для [<b>{0}</b>] успешно сброшены!",
-    'en': "✖️ <b>Settings</b> for [<b>{0}</b>] successfully reset!",
-    'es': "✖️ ¡La <b>Configuración</b> para [<b>{0}</b>] se restableció correctamente!",
-    'fr': "✖️ Les <b>Paramètres</b> de [<b>{0}</b>] ont été réinitialisés avec succès !",
-    'zh': "✖️ [<b>{0}</b>] 的<b>设置</b>已成功重置！",
-    'ar': "✖️ تمت إعادة تعيين <b>الإعدادات</b> لـ [<b>{0}</b>] بنجاح!",
-}
-l_cdelete_text = {
-    'ru': "🚫 <b>Убрать</b> привязку @{0}-приложения к [<b>{1}</b>]?",
-    'en': "🚫 <b>Remove</b> bot binding to [<b>{0}</b>]?",
-    'es': "🚫 ¿<b>Eliminar</b> el enlace del bot a [<b>{0}</b>]?",
-    'fr': "🚫 <b>Supprimer</b> la liaison du bot à [<b>{0}</b>] ?",
-    'zh': "🚫 <b>删除</b>机器人与 [<b>{0}</b>] 的绑定？",
-    'ar': "🚫 <b>إزالة</b> ربط الروبوت بـ [<b>{0}</b>]؟",
-}
-l_cdelete_answer = {
-    'ru': "🚫 @{0}-приложение отсоединено от [<b>{1}</b>] и не числится его в участниках!",
-    'en': "🚫 <b>Bot</b> has been successfully unlinked from [<b>{0}</b>] and is not listed as a participant!",
-    'es': "🚫 <b>Bot</b> se ha desvinculado correctamente de [<b>{0}</b>] y no figura como participante.",
-    'fr': "🚫 Le <b>Bot</b> a été dissocié avec succès de [<b>{0}</b>] et n'est pas répertorié comme participant !",
-    'zh': "🚫 <b>机器人</b> 已成功取消与 [<b>{0}</b>] 的链接，并且未列为参与者！",
-    'ar': "🚫 تم إلغاء ربط <b>الروبوت</b> بنجاح بـ [<b>{0}</b>] ولم يتم إدراجه كمشارك!",
-}
-
-l_ccheck_btn_name = {
-    'ru': "✔ Я человек",
-    'en': "✔ I'm human",
-    'es': "✔soy humano",
-    'fr': "✔ Je suis humain",
-    'zh': "✔ 我是人类",
-    'ar': "✔ أنا إنسان",
-}
-l_ccheck_hello_txt = {
-    'ru': "🌱 {name}, добро пожаловать в нашу <b>канал</b> {title}!",
-    'en': "🌱 {name}, welcome to our <b>channel</b> {title}!",
-    'es': "🌱 {name}, ¡bienvenido a nuestro <b>canal</b> {title}!",
-    'fr': "🌱 {name}, bienvenue sur notre <b>chaîne</b> {title} !",
-    'zh': "🌱 {name}，欢迎来到我们的<b>频道</b> {title}！",
-    'ar': "🌱 {name}، مرحبًا بك في <b>قناتنا</b> {title}!",
-}
-l_ccheck_add_channel = {
-    'ru': "👮🏽 Для <i>проверки подписки</i> необходимо добавить канал командой:\n\n/channel ССЫЛКА НА КАНАЛ",
-    'en': "👮🏽 To <i>check subscription</i> you need to add a channel with the command:\n\n/channel LINK TO CHANNEL",
-    'es': "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
-    'fr': "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要<i>检查订阅</i>，您需要使用以下命令添加频道：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 <i>للتحقق من الاشتراك</i>، يلزمك إضافة قناة باستخدام الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_chn_already_taken = {
-    'ru': "👮🏽 <b>Канал</b> [<b>{0}</b>] уже <i>администрируется</i> в @{1}-боте",
-    'en': "👮🏽 To <i>check subscription</i> you need to add a channel with the command:\n\n/channel LINK TO CHANNEL",
-    'es': "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
-    'fr': "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要<i>检查订阅</i>，您需要使用以下命令添加频道：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 <i>للتحقق من الاشتراك</i>، يلزمك إضافة قناة باستخدام الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_chn_subscribe_call = {
-    'ru': "👩🏽‍💻 Необходима подписка на канал",
-    'en': "👮🏽 To <i>check subscription</i> you need to add a channel with the command:\n\n/channel LINK TO CHANNEL",
-    'es': "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
-    'fr': "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要<i>检查订阅</i>，您需要使用以下命令添加频道：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 <i>للتحقق من الاشتراك</i>، يلزمك إضافة قناة باستخدام الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_chn_boost_call = {
-    'ru': "👩🏽‍💻 Необходим буст-голос за канал",
-    'en': "👮🏽 To <i>check subscription</i> you need to add a channel with the command:\n\n/channel LINK TO CHANNEL",
-    'es': "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
-    'fr': "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要<i>检查订阅</i>，您需要使用以下命令添加频道：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 <i>للتحقق من الاشتراك</i>، يلزمك إضافة قناة باستخدام الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_chn_for_sub_pay = {
-    'ru': "👩🏽‍💻 Для оплаты подписки",
-    'en': "👩🏽‍💻 For subscription payment",
-    'es': "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
-    'fr': "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要<i>检查订阅</i>，您需要使用以下命令添加频道：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 <i>للتحقق من الاشتراك</i>، يلزمك إضافة قناة باستخدام الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_chn_need_boost_for_story = {
-    'ru': "👩🏽‍💻 <b>Необходимо</b>: {0}-буст-голосов для публикации сториз",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
-}
-l_chn_no_rights_for_media = {
-    'ru': "👩🏽‍💻 <b>Отсутствуют</b> административные права управления ботом: {0}-покидает канал",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
-}
-l_chn_need_sub_for_more_than_1_chn = {
-    'ru': "👩🏽‍💻 <b>Оформи</b> подписку, чтобы добавлять более 1 канала",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
-}
-l_chn_need_sub_for_more_than_2_chn = {
-    'ru': "👩🏽‍💻 <b>Оформи</b> подписку, чтобы добавлять более 2 каналов",
-    'en': "🌏 <b>Select</b> one of the available languages",
-    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
-    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
-    'zh': "🌏<b>选择</b>一种可用语言",
-    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
-}
-
-# region commands
-l_chn_commands_handler = {
-    'ru': "⚙️ <b>Команды</b> /cmd для [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info информация о канале\n/stat статистика\n\n/parse [1] база подписчиков/лайков поста #1\n/random [1] рандомный лайкнувший пост #1\n/podcast 1 1 анонс видео-подкаста\n<code>/clean</code> очистка от deleted/scam-аккаунтов и по [<b>🕵🏽 Авто-бан</b>] правилам\n/delete <code>FROM TO</code> удаление за период\n/channel NAME канал проверки подписки\n/transfer передача ADMIN-прав</blockquote>\n\n💨 <b>Подписка</b>: <i>{3}</i>",
-    'en': "⚙️ <b>Commands</b> /cmd for [<b>{0}</b>] {1}\n\n/info <i>channel information</i>\n/stat <i> statistics</i>\n\n/parse [1] <i>subscriber/click base</i>\n/podcast 1 1 <i>video podcast announcement</i>\n<code>/clean< /code> <i>clearing deleted/scam accounts and [🕵🏽 Auto-ban] rules</i>\n/delete <code>FROM TO</code> <i>delete for a period</i>\n/channel NAME <i>subscription verification channel</i>\n/transfer <i>transfer of admin rights</i>\n\n💨 <b>Subscription</b>: <i>{2}</i>",
-    'es': "⚙️ <b>Comandos</b> /cmd para [<b>{0}</b>] {1}\n\n/info <i>información del canal</i>\n/stat <i> estadísticas </i>\n\n/parse [1] <i>base de suscriptores/clics</i>\n/podcast 1 1 <i>anuncio de podcast en vídeo</i>\n<code>/clean< /code > <i>borrar cuentas eliminadas/estafas y reglas de [🕵🏽 Prohibición automática]</i>\n/eliminar <code>DE HASTA</code> <i>eliminar por un período</i>\n/canal NOMBRE <i>canal de verificación de suscripción</i>\n/transfer <i>transferencia de derechos de administrador</i>\n\n💨 <b>Suscripción</b>: <i>{2}</i>",
-    'fr': "⚙️ <b>Commandes</b> /cmd pour [<b>{0}</b>] {1}\n\n/info <i>informations sur la chaîne</i>\n/stat <i> statistiques </i>\n\n/parse [1] <i>abonné/clic de base</i>\n/podcast 1 1 <i>annonce de podcast vidéo</i>\n<code>/clean< /code > <i>effacer les comptes supprimés/arnaqueurs et les règles de [🕵🏽 Auto-ban]</i>\n/supprimer <code>FROM TO</code> <i>supprimer pendant une période</i>\n/canal NOM <i>canal de vérification d'abonnement</i>\n/transfert <i>transfert des droits d'administrateur</i>\n\n💨 <b>Abonnement</b> : <i>{2}</i>",
-    'zh': "⚙️ <b>命令</b> /cmd 用于 [<b>{0}</b>] {1}\n\n/info <i>频道信息</i>\n/stat <i> 统计信息</i>\n\n/parse [1] <i>订阅者/点击量</i>\n/podcast 1 1 <i>视频播客公告</i>\n<code>/clean</code > <i>清除已删除/诈骗帐户和[🕵🏽自动禁止]规则</i>\n/delete <code>FROM TO</code> <i>删除一段时间</i>\n/channel NAME <i>订阅验证通道</i>\n/transfer <i>管理权限转让</i>\n\n💨 <b>订阅</b>：<i>{2}</i>",
-    'ar': "⚙️ <b>الأوامر</b> /cmd لإحصائيات [<b>{0}</b>] {1}\n\n/info <i>معلومات القناة</i>\n/stat <i> </i>\n\n/parse [1] <i>قاعدة المشترك/النقر</i>\n/podcast 1 1 <i>إعلان بودكاست فيديو</i>\n<code>/clean< /code > <i>مسح الحسابات المحذوفة/المحتالة وقواعد [🕵🏽 الحظر التلقائي]</i>\n/حذف <code>من إلى</code> <i>حذف لفترة</i>\n/channel الاسم <i>قناة التحقق من الاشتراك</i>\n/transfer <i>نقل حقوق المسؤول</i>\n\n💨 <b>الاشتراك</b>: <i>{2}</i>",
-}
-l_update_text = {
-    'ru': "👩🏽‍💻 <b>Данные</b> о канале успешно обновлены:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>Channel data</b> successfully updated:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Datos del canal</b> actualizados correctamente:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}< / i>\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Données de la chaîne</b> mises à jour avec succès :\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}< / i>\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻 <b>频道数据</b>已成功更新：\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</b> i>\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 تم تحديث <b>بيانات القناة</b> بنجاح:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}< /<i>\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_info_restrict = {
-    'ru': "запрещено\n",
-    'en': "prohibited\n",
-    'es': "prohibido\n",
-    'fr': "interdit\n",
-    'zh': "禁止\n",
-    'ar': "محظور\n",
-}
-l_info_allow = {
-    'ru': "разрешено\n",
-    'en': "allowed\n",
-    'es': "permitido\n",
-    'fr': "autorisé\n",
-    'zh': "允许\n",
-    'ar': "مسموح\n",
-}
-l_info_protect = {
-    'ru': "<b>Сохранение контента</b>: ",
-    'en': "<b>Saving content</b>:",
-    'es': "<b>Guardar contenido</b>:",
-    'fr': "<b>Enregistrement du contenu</b> :",
-    'zh': "<b>保存内容</b>：",
-    'ar': "<b>حفظ المحتوى</b>:",
-}
-l_info_request = {
-    'ru': "<b>Вступление после одобрения</b>: ",
-    'en': "<b>Joining after approval</b>:",
-    'es': "<b>Unirse después de la aprobación</b>:",
-    'fr': "<b>Rejoindre après approbation</b> :",
-    'zh': "<b>批准后加入</b>：",
-    'ar': "<b>الانضمام بعد الموافقة</b>:",
-}
-l_info_send = {
-    'ru': "<b>Возможность писать после вступления</b>: ",
-    'en': "<b>Possibility to write after the introduction</b>:",
-    'es': "<b>Posibilidad de escribir después de la introducción</b>:",
-    'fr': "<b>Possibilité d'écrire après l'introduction</b> :",
-    'zh': "<b>可以在介绍后写</b>：",
-    'ar': "<b>إمكانية الكتابة بعد المقدمة</b>:",
-}
-l_info_subscribe = {
-    'ru': "<b>Проверка 💨Подписки при вступлении в канал</b>: ",
-    'en': "<b>Checking 💨Subscriptions when joining a channel</b>:",
-    'es': "<b>Comprobación de 💨Suscripciones al unirse a un canal</b>:",
-    'fr': "<b>Vérification des 💨Abonnements lorsque vous rejoignez une chaîne</b> :",
-    'zh': "<b>加入频道时检查💨订阅</b>：",
-    'ar': "<b>التحقق من 💨الاشتراكات عند الانضمام إلى قناة</b>:",
-}
-l_info_cmd = {
-    'ru': "⚙️ <b>Команды</b> /cmd",
-    'en': "⚙️ <b>Commands</b> /cmd",
-    'es': "⚙️ <b>Comandos</b> /cmd",
-    'fr': "⚙️ <b>Commandes</b> /cmd",
-    'zh': "⚙️ <b>命令</b> /cmd",
-    'ar': "⚙️ <b>الأوامر</b> /cmd",
-}
-
-l_change_chn_info = {
-    'ru': "Изменение профиля канала",
-    'en': "Changing a Channel Profile",
-    'es': "Cambiar el perfil de un canal",
-    'fr': "Modification d'un profil de chaîne",
-    'zh': "更改频道配置文件",
-    'ar': "تغيير ملف تعريف القناة",
-}
-l_send_messages = {
-    'ru': "Отправка сообщений",
-    'en': "Sending messages",
-    'es': "Enviando mensajes",
-    'fr': "Envoi de messages",
-    'zh': "发送消息",
-    'ar': "إرسال الرسائل",
-}
-l_info_reactions = {
-    'ru': "Допуск emoji-реакций",
-    'en': "Allowing emoji reactions",
-    'es': "Permitir reacciones emoji",
-    'fr': "Autoriser les réactions emoji",
-    'zh': "允许表情符号反应",
-    'ar': "السماح بتفاعلات الرموز التعبيرية",
-}
-l_admins = {
-    'ru': "Администраторы",
-    'en': "Administrators",
-    'es': "Administradores",
-    'fr': "Administrateurs",
-    'zh': "管理员",
-    'ar': "المسؤولين",
-}
-
-l_info_invite_admins = {
-    'ru': "Назначение администраторов",
-    'en': "Inviting other admins to",
-    'es': "Invitar a otros administradores a",
-    'fr': "Inviter d'autres administrateurs à",
-    'zh': "邀请其他管理员",
-    'ar': "دعوة المشرفين الآخرين إلى",
-}
-l_chn_info_start1 = {
-    'ru': "👩🏽‍💻 <b>Информация</b>\n\n<b>Название</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> участ.]{5}{6}{7}",
-    'en': "👩🏽‍💻 <b>Information</b>\n\n<b>Name</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participant]{5}{6}{7}",
-    'es': "👩🏽‍💻 <b>Información</b>\n\n<b>Nombre</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participante]{5}{6}{7}",
-    'fr': "👩🏽‍💻 <b>Informations</b>\n\n<b>Nom</b> : {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participant]{5}{6}{7}",
-    'zh': "👩🏽‍💻<b>信息</b>\n\n<b>名称</b>：{0} [id=<code>{1}</code>，<i>{2} {3 }</i>，<u>{4}</u> 参与者]{5}{6}{7}",
-    'ar': "👩🏽‍💻 <b>المعلومات</b>\n\n<b>الاسم</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>، <u>{4}</u> مشارك]{5}{6}{7}",
-}
-l_chn_stat_start1 = {
-    'ru': "👩🏽‍💻 <b>Аналитика</b>\n\n<b>Название</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> участ.]{5}{6}{7}",
-    'en': "👩🏽‍💻 <b>Analytics</b>\n\n<b>Name</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participant]{5}{6}{7}",
-    'es': "👩🏽‍💻 <b>Análisis</b>\n\n<b>Nombre</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participante]{5}{6}{7}",
-    'fr': "👩🏽‍💻 <b>Analytics</b>\n\n<b>Nom</b> : {0} [id=<code>{1}</code>, <i>{2} {3 }</i>, <u>{4}</u> participant]{5}{6}{7}",
-    'zh': "👩🏽‍💻<b>分析</b>\n\n<b>名称</b>：{0} [id=<code>{1}</code>，<i>{2} {3 }</i>，<u>{4}</u> 参与者]{5}{6}{7}",
-    'ar': "👩🏽‍💻 <b>التحليلات</b>\n\n<b>الاسم</b>: {0} [id=<code>{1}</code>, <i>{2} {3 }</i>، <u>{4}</u> مشارك]{5}{6}{7}",
-}
-l_chn_stat_start2 = {
-    'ru': "\n<b>Ссылка</b>: {0}\n<b>Описание</b>: {1}\n<b>Привязанная группа</b>: <code>{2}</code>\n",
-    'en': "\n<b>Link</b>: {0}\n<b>Description</b>: {1}\n<b>Linked group</b>: <code>{2}</code>\n",
-    'es': "\n<b>Enlace</b>: {0}\n<b>Descripción</b>: {1}\n<b>Grupo vinculado</b>: <code>{2}</code>\norte",
-    'fr': "\n<b>Lien</b> : {0}\n<b>Description</b> : {1}\n<b>Groupe lié</b> : <code>{2}</code>\n",
-    'zh': "\n<b>链接</b>：{0}\n<b>说明</b>：{1}\n<b>链接的群组</b>：<code>{2}</code>\n",
-    'ar': "\n<b>الرابط</b>: {0}\n<b>الوصف</b>: {1}\n<b>المجموعة المرتبطة</b>: <code>{2}</code> ",
-}
-l_chn_stat_start3 = {
-    'ru': "\n<b>ID последнего поста</b>: {0}\n<b>Посты</b>: {1}\n<b>Реакции</b>: {2}\n<b>Просмотры</b>: {3}\n<b>кѻмментарии</b>: {4}\n<b>$кэштеги</b>: {5}\n<b>#hashtag</b>: {6}\n",
-    'en': "\n<b>Last post ID</b>: {0}\n<b>Posts</b>: {1}\n<b>Reactions</b>: {2}\n<b>Views </b>: {3}\n<b>Comments</b>: {4}\n<b>$cashtags</b>: {5}\n<b> #hashtags </b>: { 6}\n",
-    'es': "\n<b>ID de la última publicación</b>: {0}\n<b>Publicaciones</b>: {1}\n<b>Reacciones</b>: {2}\n<b>Vistas </b>: {3}\n<b>Comentarios</b>: {4}\n<b>$cashtags</b>: {5}\n<b> #hashtags </b>: { 6}\n",
-    'fr': "\n<b>ID du dernier message</b> : {0}\n<b>Messages</b> : {1}\n<b>Réactions</b> : {2}\n<b>Vues </b> : {3}\n<b>Commentaires</b> : {4}\n<b>$cashtags</b> : {5}\n<b> #hashtags </b> : { 6}\n",
-    'zh': "\n<b>最后帖子 ID</b>：{0}\n<b>帖子</b>：{1}\n<b>反应</b>：{2}\n<b>观看次数</b>：{3}\n<b>评论</b>：{4}\n<b>$cashtags</b>：{5}\n<b> #hashtags </b>：{ 6}\n",
-    'ar': "\n<b>معرف آخر مشاركة</b>: {0}\n<b>المشاركات</b>: {1}\n<b>التفاعلات</b>: {2}\n<b>المشاهدات </b>: {3}\n<b>التعليقات</b>: {4}\n<b>$cashtags</b>: {5}\n<b> #hashtags </b>: {6}",
-}
-l_top_hashtags = {
-    'ru': "\n<b>Топ #hashtags</b>:\n{0}\n",
-    'en': "\n<b>Top #hashtags </b>:\n{0}\n",
-    'es': "\n<b> #hashtags principales </b>:\n{0}\n",
-    'fr': "\n<b>Meilleurs #hashtags </b> :\n{0}\n",
-    'zh': "\n<b>热门#hashtags </b>：\n{0}\n",
-    'ar': "\n<b>أهم #hashtags </b>:\n{0}\n",
-}
-
-l_transfer_start = {
-    'ru': "👩🏽‍💻 <b>Пользователь</b> {0} должен /start-запустить @{1}",
-    'en': "👩🏽‍💻 <b>User</b> {0} must /start-run @{1}",
-    'es': "👩🏽‍💻 El <b>Usuario</b> {0} debe /iniciar-ejecutar @{1}",
-    'fr': "👩🏽‍💻 <b>L'utilisateur</b> {0} doit /start-run @{1}",
-    'zh': "👩🏽‍💻 <b>用户</b> {0} 必须 /start-run @{1}",
-    'ar': "👩🏽‍💻 <b>المستخدم</b> {0} يجب /بدء التشغيل @{1}",
-}
-l_transfer_admin = {
-    'ru': "👩🏽‍💻 <b>Пользователь</b> {0} должен быть <b>администратором</b> в <b>{1}</b>",
-    'en': "👩🏽‍💻 <b>User</b> {0} must be an <b>administrator</b> in <b>{1}</b>",
-    'es': "👩🏽‍💻 El <b>Usuario</b> {0} debe ser un <b>administrador</b> en <b>{1}</b>",
-    'fr': "👩🏽‍💻 <b>Utilisateur</b> {0} doit être un <b>administrateur</b> dans <b>{1}</b>",
-    'zh': "👩🏽‍💻 <b>用户</b> {0} 必须是 <b>{1}</b> 中的<b>管理员</b>",
-    'ar': "👩🏽‍💻 <b>المستخدم</b> {0} يجب أن يكون <b>مسؤولًا</b> في <b>{1}</b>",
-}
-l_transfer_transfer = {
-    'ru': "👩🏽‍💻 <b>Передать</b> <b>admin</b>-права на <b>{0}</b> пользователю {1} в @{2}-боте?",
-    'en': "👩🏽‍💻 <b>Transfer</b> <b>admin</b>-rights to <b>{0}</b> to user {1} in @{2}-bot?",
-    'es': "👩🏽‍💻 ¿<b>Transferir</b> derechos de <b>admin</b> a <b>{0}</b> al usuario {1} en @{2}-bot?",
-    'fr': "👩🏽‍💻 <b>Transférer</b> les droits <b>admin</b> à <b>{0}</b> à l'utilisateur {1} dans @{2}-bot ?",
-    'zh': "👩🏽‍💻 <b>将 <b>{0}</b> 的权限转让给 @{2}-bot 中的用户 {1}？",
-    'ar': "👩🏽‍💻 <b>نقل</b> <b>المشرف</b>-الحقوق إلى <b>{0}</b> إلى المستخدم {1} في @{2}-bot؟",
-}
-l_transfer_text = {
-    'ru': "👩🏽‍💻 <b>Для</b> передачи admin-прав канала в @{0}-боте используй команду:\n/transfer ID-ПОЛЬЗОВАТЕЛЯ, где пользователь: администратор канала и участник @{0}-бота (/id)\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "👩🏽‍💻 <b>To</b> transfer channel admin rights to @{0}-bot, use the command:\n/transfer USER-ID, where user: channel administrator and @{0}-bot member (/ id)\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "👩🏽‍💻 <b>Para</b> transferir derechos de administrador del canal a @{0}-bot, use el comando:\n/transfer USER-ID, donde usuario: administrador del canal y miembro de @{0}-bot ( / id)\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "👩🏽‍💻 <b>Pour</b> transférer les droits d'administrateur de chaîne vers @{0}-bot, utilisez la commande :\n/transfer USER-ID, où utilisateur : administrateur de chaîne et membre de @{0}-bot ( / id)\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "👩🏽‍💻<b>要将频道管理员权限转移给@{0}-bot，请使用命令：\n/transfer USER-ID，其中用户：频道管理员和@{0}-bot成员（ / id)\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "👩🏽‍💻 <b>ل</b> نقل حقوق مسؤول القناة إلى @{0}-bot، استخدم الأمر:\n/transfer USER-ID، حيث المستخدم: مسؤول القناة و@{0}-bot member ( /id)\n\n⚙️ <b>الأوامر</b> /cmd",
-}
-l_transfer_done_to = {
-    'ru': "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно переданы {1}",
-    'en': "👩🏽‍💻 <b>Admin</b>-rights to [<b>{0}</b>] successfully transferred to {1}",
-    'es': "👩🏽‍💻 Los derechos de <b>Administrador</b> de [<b>{0}</b>] se transfirieron correctamente a {1}",
-    'fr': "👩🏽‍💻 <b>Droits d'administrateur</b> sur [<b>{0}</b>] transférés avec succès à {1}",
-    'zh': "👩🏽‍💻 <b>管理员</b>-[<b>{0}</b>] 的权限已成功转移至 {1}",
-    'ar': "👩🏽‍💻 <b>المشرف</b>-تم نقل حقوق [<b>{0}</b>] بنجاح إلى {1}",
-}
-l_transfer_done_from = {
-    'ru': "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно получены от {1}",
-    'en': "👩🏽‍💻 <b>Admin</b>-rights to [<b>{0}</b>] successfully obtained from {1}",
-    'es': "👩🏽‍💻 Derechos de <b>Administrador</b> para [<b>{0}</b>] obtenidos exitosamente de {1}",
-    'fr': "👩🏽‍💻 <b>Droits d'administrateur</b> sur [<b>{0}</b>] obtenus avec succès auprès de {1}",
-    'zh': "👩🏽‍💻<b>管理员</b>-已从 {1} 成功获得 [<b>{0}</b>] 的权限",
-    'ar': "👩🏽‍💻 <b>المشرف</b>-تم الحصول على حقوق [<b>{0}</b>] بنجاح من {1}",
+    "ru": "👮🏽‍♀️ Добавь @{0}-бота как Administrator через настройки своего канала: [👤Add Admin]",
+    "en": "👮🏽‍♀️ Add @{0}-bot as Administrator through your channel settings: [👤Add Admin]",
+    "es": "👮🏽‍♀️ Agrega @{0}-bot como Administrador a través de la configuración de tu canal: [👤Agregar administrador]",
+    "fr": "👮🏽‍♀️ Ajoutez @{0}-bot en tant qu'administrateur via les paramètres de votre chaîne : [👤Ajouter un administrateur]",
+    "zh": "👮🏽‍♀️ 通过您的频道设置将@{0}-bot 添加为管理员： [👤添加管理员]",
+    "ar": "👮🏽‍♀️ أضف @{0}-bot كمسؤول من خلال إعدادات قناتك: [👤إضافة مسؤول]"
 }
 l_chn_check = {
-    'ru': "👩🏽‍💻 <b>Добавь</b> @{0}-бота в канал для проверки подписки на него. Отправь мне корректную ссылку на канал:",
-    'en': "👩🏽‍💻 <b>Add</b> @{0}-bot to the channel to check your subscription to it. Send me the correct link to the channel:",
-    'es': "👩🏽‍💻 <b>Agrega</b> @{0}-bot al canal para verificar tu suscripción. Envíame el enlace correcto al canal:",
-    'fr': "👩🏽‍💻 <b>Ajoutez</b> @{0}-bot à la chaîne pour vérifier votre abonnement. Envoyez-moi le bon lien vers la chaîne :",
-    'zh': "👩🏽‍💻 <b>添加</b> @{0}-bot 到频道以检查您对该频道的订阅。向我发送正确的频道链接：",
-    'ar': "👩🏽‍💻 <b>أضف</b> @{0}-bot إلى القناة للتحقق من اشتراكك فيها. أرسل لي الرابط الصحيح للقناة:",
+    "ru": "👩🏽‍💻 <b>Добавь</b> @{0}-бота в канал для проверки подписки на него. Отправь мне корректную ссылку на канал:",
+    "en": "👩🏽‍💻 <b>Add</b> @{0}-bot to the channel to check subscription to it. Send me the correct link to the channel:",
+    "es": "👩🏽‍💻 <b>Agrega</b> @{0}-bot al canal para verificar tu suscripción. Envíame el enlace correcto al canal:",
+    "fr": "👩🏽‍💻 <b>Ajoutez</b> @{0}-bot à la chaîne pour vérifier votre abonnement. Envoyez-moi le lien correct vers la chaîne :",
+    "zh": "👩🏽‍💻 <b>添加</b> @{0}-bot 到频道以检查您对该频道的订阅。请向我发送正确的频道链接：",
+    "ar": "👩🏽‍💻 <b>أضف</b> @{0}-bot إلى القناة للتحقق من اشتراكك فيها. أرسل لي الرابط الصحيح للقناة:"
 }
 l_podcast_rights = {
-    'ru': "🎥 <b>В настройках</b> [Администраторы] вкл опцию для @{0}-бота:\n[✅ Назначение администраторов]\n[✅ Управление трансляциями]\n\n🕚Подожди 1min",
-    'en': "🎥 <b>In settings</b> [Administrators] enable the option for @{0}-bot:\n[✅ Assigning administrators]\n[✅ Managing broadcasts]\n\n🕚Wait 1min",
-    'es': "🎥 <b>En configuración</b> [Administradores] habilita la opción para @{0}-bot:\n[✅ Asignar administradores]\n[✅ Administrar transmisiones]\n\n🕚Espera 1 minuto",
-    'fr': "🎥 <b>Dans les paramètres</b> [Administrateurs] activez l'option pour @{0}-bot :\n[✅ Attribuer des administrateurs]\n[✅ Gérer les diffusions]\n\n🕚Attendez 1 min",
-    'zh': "🎥 <b>在设置中</b> [管理员]启用@{0}-bot的选项：\n[✅分配管理员]\n[✅管理广播]\n\n🕚等待1分钟",
-    'ar': "🎥 <b>في الإعدادات</b> [المسؤولون] قم بتمكين خيار @{0}-bot:\n[✅ تعيين المسؤولين]\n[✅ إدارة عمليات البث]\n\n🕚انتظر دقيقة واحدة",
+    "ru": "🎥 <b>В настройках</b> [Администраторы] вкл опцию для @{0}-бота:\n[✅ Назначение администраторов]\n[✅ Управление трансляциями]\n\n🕚Подожди 1min",
+    "en": "🎥 <b>In settings</b> [Administrators] enable the option for @{0}-bot:\n[✅ Assigning administrators]\n[✅ Managing broadcasts]\n\n🕚Wait 1min",
+    "es": "🎥 <b>En configuración</b> [Administradores] habilita la opción para @{0}-bot:\n[✅ Asignar administradores]\n[✅ Gestionar transmisiones]\n\n🕚Espera 1min",
+    "fr": "🎥 <b>Dans les paramètres</b> [Administrateurs] activez l'option pour @{0}-bot :\n[✅ Attribution d'administrateurs]\n[✅ Gestion des diffusions]\n\n🕚Attendez 1min",
+    "zh": "🎥 <b>在设置中</b> [管理员] 为 @{0}-bot 启用以下选项：\n[✅ 指定管理员]\n[✅ 管理广播]\n\n🕚等待 1min",
+    "ar": "🎥 <b>في الإعدادات</b> [المسؤولون] فعِّل الخيار لـ @{0}-bot:\n[✅ تعيين المسؤولين]\n[✅ إدارة البث]\n\n🕚انتظر 1min"
 }
 l_podcast_handler = {
-    'ru': "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i> [/podcast d h] каждый <u>d</u>-день (1-31) на <u>h</u>-часов (1-168). Текущее значение: /podcast {0}\n\n<code>/podcast 1 1</code>  ежедневный видео-анонс длительностью 1 час\n<code>/podcast 0</code>    отключение опции\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "🎥 <b>Auto-announcement</b> <i>video podcast</i> [/podcast d h] every <u>d</u>-day (1-31) on <u>h</u >-hours (1-168). Current value: /podcast {0}\n\n<code>/podcast 1 1</code> daily video announcement lasting 1 hour\n<code>/podcast 0</code> disable option\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i> [/podcast d h] cada <u>d</u> día (1-31) el <u>h</u>-horas (1-168). Valor actual: /podcast {0}\n\n<code>/podcast 1 1</code> anuncio de vídeo diario que dura 1 hora\n<code>/podcast 0</code> opción de desactivar\n\n⚙️ < b >Comandos</b> /cmd",
-    'fr': "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> [/podcast d h] tous les <u>jours</u> (1-31) le <u>h</u >-heures (1-168). Valeur actuelle : /podcast {0}\n\n<code>/podcast 1 1</code> annonce vidéo quotidienne d'une durée d'une heure\n<code>/podcast 0</code> option de désactivation\n\n⚙️ < b >Commandes</b> /cmd",
-    'zh': "🎥 <b>自动公告</b> <i>视频播客</i> [/podcast d h] 每 <u>d</u> 天 (1-31) <u>h</u >-小时 (1-168)。当前值：/podcast {0}\n\n<code>/podcast 1 1</code> 每日视频公告，持续 1 小时\n<code>/podcast 0</code> 禁用选项\n\n⚙️ < b >命令</b> /cmd",
-    'ar': "🎥 <b>إعلان تلقائي</b> <i>فيديو بودكاست</i> [/podcast d h] كل <u>d</u>-يوم (1-31) في <u>h</u >-الساعات (1-168). القيمة الحالية: /podcast {0}\n\n<code>/podcast 1 1</code> إعلان فيديو يومي يستمر لمدة ساعة واحدة\n<code>/podcast 0</code> خيار التعطيل\n\n⚙️ < b >الأوامر</b> /cmd",
+    "ru": "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i> [/podcast d h] каждый <u>d</u>-день (1-31) на <u>h</u>-часов (1-168). Текущее значение: /podcast {0}\n\n<code>/podcast 1 1</code>  ежедневный видео-анонс длительностью 1 час\n<code>/podcast 0</code>    отключение опции\n\n⚙️ <b>Команды</b> /cmd",
+    "en": "🎥 <b>Auto-announcement</b> <i>video podcast</i> [/podcast d h] every <u>d</u> day (1-31) for <u>h</u> hours (1-168). Current value: /podcast {0}\n\n<code>/podcast 1 1</code> daily video announcement lasting 1 hour\n<code>/podcast 0</code> disable option\n\n⚙️ <b>Commands</b> /cmd",
+    "es": "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i> [/podcast d h] cada <u>d</u> día (1-31) durante <u>h</u> horas (1-168). Valor actual: /podcast {0}\n\n<code>/podcast 1 1</code> anuncio de vídeo diario que dura 1 hora\n<code>/podcast 0</code> desactivar opción\n\n⚙️ <b>Comandos</b> /cmd",
+    "fr": "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> [/podcast d h] tous les <u>d</u> jours (1-31) à <u>h</u> heures (1-168). Valeur actuelle : /podcast {0}\n\n<code>/podcast 1 1</code> annonce vidéo quotidienne d'une durée d'une heure\n<code>/podcast 0</code> désactiver l'option\n\n⚙️ <b>Commandes</b> /cmd",
+    "zh": "🎥 <b>自动公告</b> <i>视频播客</i> [/podcast d h] 每 <u>d</u> 天 (1-31) 在 <u>h</u> 小时 (1-168)。当前值：/podcast {0}\n\n<code>/podcast 1 1</code> 每日视频公告，持续 1 小时\n<code>/podcast 0</code> 禁用选项\n\n⚙️ <b>命令</b> /cmd",
+    "ar": "🎥 <b>إعلان تلقائي</b> <i>بودكاست فيديو</i> [/podcast d h] كل <u>d</u> يوم (1-31) عند <u>h</u> ساعة (1-168). القيمة الحالية: /podcast {0}\n\n<code>/podcast 1 1</code> إعلان فيديو يومي يدوم ساعة واحدة\n<code>/podcast 0</code> تعطيل الخيار\n\n⚙️ <b>الأوامر</b> /cmd"
 }
 l_podcast_on = {
-    'ru': "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i>: каждый <u>{0}</u> день на <u>{1}</u> часов\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "🎥 <b>Auto-announcement</b> <i>video podcast</i>: every <u>{0}</u> day for <u>{1}</u> hours\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i>: cada <u>{0}</u> día durante <u>{1}</u> horas\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> : tous les <u>{0}</u> jours pendant <u>{1}</u> heures\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "🎥 <b>自动公告</b> <i>视频播客</i>：每天 <u>{0}</u> 一次，持续 <u>{1}</u> 小时\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "🎥 <b>إعلان تلقائي</b> <i>فيديو بودكاست</i>: كل <u>{0}</u> يوم لمدة <u>{1}</u> ساعة\n\n⚙️ <b>الأوامر</b> /cmd",
+    "ru": "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i>: каждый <u>{0}</u> день на <u>{1}</u> часов\n\n⚙️ <b>Команды</b> /cmd",
+    "en": "🎥 <b>Auto-announcement</b> <i>video podcast</i>: every <u>{0}</u> day for <u>{1}</u> hours\n\n⚙️ <b>Commands</b> /cmd",
+    "es": "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i>: cada <u>{0}</u> día durante <u>{1}</u> horas\n\n⚙️ <b>Comandos</b> /cmd",
+    "fr": "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> : tous les <u>{0}</u> jours pendant <u>{1}</u> heures\n\n⚙️ <b>Commandes</b> /cmd",
+    "zh": "🎥 <b>自动公告</b> <i>视频播客</i>：每 <u>{0}</u> 天，持续 <u>{1}</u> 小时\n\n⚙️ <b>命令</b> /cmd",
+    "ar": "🎥 <b>إعلان تلقائي</b> <i>بودكاست فيديو</i>: كل <u>{0}</u> يوم لمدة <u>{1}</u> ساعة\n\n⚙️ <b>الأوامر</b> /cmd"
 }
 l_podcast_off = {
-    'ru': "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i> отключен\n\n⚙️ <b>Команды</b> /cmd",
-    'en': "🎥 <b>Auto-announcement</b> <i>video podcast</i> disabled\n\n⚙️ <b>Commands</b> /cmd",
-    'es': "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i> deshabilitado\n\n⚙️ <b>Comandos</b> /cmd",
-    'fr': "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> désactivé\n\n⚙️ <b>Commandes</b> /cmd",
-    'zh': "🎥 <b>自动播报</b> <i>视频播客</i>已禁用\n\n⚙️ <b>命令</b> /cmd",
-    'ar': "🎥 <b>الإعلان التلقائي</b> <i>فيديو بودكاست</i> معطل\n\n⚙️ <b>الأوامر</b> /cmd",
+    "ru": "🎥 <b>Авто-анонс</b> <i>видео-подкаста</i> отключен\n\n⚙️ <b>Команды</b> /cmd",
+    "en": "🎥 <b>Auto-announcement</b> <i>video podcast</i> disabled\n\n⚙️ <b>Commands</b> /cmd",
+    "es": "🎥 <b>Anuncio automático</b> <i>podcast de vídeo</i> deshabilitado\n\n⚙️ <b>Comandos</b> /cmd",
+    "fr": "🎥 <b>Annonce automatique</b> <i>podcast vidéo</i> désactivé\n\n⚙️ <b>Commandes</b> /cmd",
+    "zh": "🎥 <b>自动公告</b> <i>视频播客</i> 已禁用\n\n⚙️ <b>命令</b> /cmd",
+    "ar": "🎥 <b>الإعلان التلقائي</b> <i>بودكاست فيديو</i> معطل\n\n⚙️ <b>الأوامر</b> /cmd"
 }
 l_podcast_start = {
-    'ru': "👩🏽‍💻 Подкаст",
-    'en': "👩🏽‍💻 Podcast",
-    'es': "👩🏽‍💻 Pódcast",
-    'fr': "👩🏽‍💻Podcast",
-    'zh': "👩🏽‍💻播客",
-    'ar': "👩🏽‍💻 بودكاست",
+    "ru": "👩🏽‍💻 Подкаст",
+    "en": "👩🏽‍💻 Podcast",
+    "es": "👩🏽‍💻 Podcast",
+    "fr": "👩🏽‍💻 Podcast",
+    "zh": "👩🏽‍💻 播客",
+    "ar": "👩🏽‍💻 بودكاست"
+}
+
+l_chn_info_start1 = {
+    "ru": "👩🏽‍💻 <b>Информация</b>\n\n<b>Название</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> участ.]{5}{6}{7}",
+    "en": "👩🏽‍💻 <b>Information</b>\n\n<b>Name</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participants]{5}{6}{7}",
+    "es": "👩🏽‍💻 <b>Información</b>\n\n<b>Nombre</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participantes]{5}{6}{7}",
+    "fr": "👩🏽‍💻 <b>Informations</b>\n\n<b>Nom</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participants]{5}{6}{7}",
+    "zh": "👩🏽‍💻 <b>信息</b>\n\n<b>名称</b>：{0} [id=<code>{1}</code>，<i>{2} {3}</i>，<u>{4}</u> 参与者]{5}{6}{7}",
+    "ar": "👩🏽‍💻 <b>المعلومات</b>\n\n<b>الاسم</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>، <u>{4}</u> مشاركون]{5}{6}{7}",
+}
+l_chn_stat_start1 = {
+    "ru": "👩🏽‍💻 <b>Аналитика</b>\n\n<b>Название</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> участ.]{5}{6}{7}",
+    "en": "👩🏽‍💻 <b>Analytics</b>\n\n<b>Name</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participants]{5}{6}{7}",
+    "es": "👩🏽‍💻 <b>Análisis</b>\n\n<b>Nombre</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participantes]{5}{6}{7}",
+    "fr": "👩🏽‍💻 <b>Analytics</b>\n\n<b>Nom</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>, <u>{4}</u> participants]{5}{6}{7}",
+    "zh": "👩🏽‍💻 <b>分析</b>\n\n<b>名称</b>：{0} [id=<code>{1}</code>，<i>{2} {3}</i>，<u>{4}</u> 参与者]{5}{6}{7}",
+    "ar": "👩🏽‍💻 <b>التحليلات</b>\n\n<b>الاسم</b>: {0} [id=<code>{1}</code>, <i>{2} {3}</i>، <u>{4}</u> مشاركون]{5}{6}{7}",
+}
+l_chn_stat_start2 = {
+    "ru": "\n<b>Ссылка</b>: {0}\n<b>Описание</b>: {1}\n<b>Привязанная группа</b>: <code>{2}</code>\n",
+    "en": "\n<b>Link</b>: {0}\n<b>Description</b>: {1}\n<b>Linked group</b>: <code>{2}</code>\n",
+    "es": "\n<b>Enlace</b>: {0}\n<b>Descripción</b>: {1}\n<b>Grupo vinculado</b>: <code>{2}</code>\n",
+    "fr": "\n<b>Lien</b>: {0}\n<b>Description</b>: {1}\n<b>Groupe lié</b>: <code>{2}</code>\n",
+    "zh": "\n<b>链接</b>：{0}\n<b>说明</b>：{1}\n<b>关联群组</b>：<code>{2}</code>\n",
+    "ar": "\n<b>الرابط</b>: {0}\n<b>الوصف</b>: {1}\n<b>المجموعة المرتبطة</b>: <code>{2}</code>\n",
+}
+l_chn_stat_start3 = {
+    "ru": "\n<b>ID последнего поста</b>: {0}\n<b>Посты</b>: {1}\n<b>Реакции</b>: {2}\n<b>Просмотры</b>: {3}\n<b>кѻмментарии</b>: {4}\n<b>$кэштеги</b>: {5}\n<b>#hashtag</b>: {6}\n",
+    "en": "\n<b>Last post ID</b>: {0}\n<b>Posts</b>: {1}\n<b>Reactions</b>: {2}\n<b>Views</b>: {3}\n<b>Comments</b>: {4}\n<b>$cashtags</b>: {5}\n<b>#hashtags</b>: {6}\n",
+    "es": "\n<b>ID de la última publicación</b>: {0}\n<b>Publicaciones</b>: {1}\n<b>Reacciones</b>: {2}\n<b>Vistas</b>: {3}\n<b>Comentarios</b>: {4}\n<b>$cashtags</b>: {5}\n<b>#hashtags</b>: {6}\n",
+    "fr": "\n<b>ID du dernier post</b>: {0}\n<b>Posts</b>: {1}\n<b>Réactions</b>: {2}\n<b>Vues</b>: {3}\n<b>Commentaires</b>: {4}\n<b>$cashtags</b>: {5}\n<b>#hashtags</b>: {6}\n",
+    "zh": "\n<b>最后帖子 ID</b>：{0}\n<b>帖子</b>：{1}\n<b>反应</b>：{2}\n<b>观看次数</b>：{3}\n<b>评论</b>：{4}\n<b>$cashtags</b>：{5}\n<b>#hashtags</b>：{6}\n",
+    "ar": "\n<b>معرف آخر منشور</b>: {0}\n<b>المنشورات</b>: {1}\n<b>التفاعلات</b>: {2}\n<b>المشاهدات</b>: {3}\n<b>التعليقات</b>: {4}\n<b>$cashtags</b>: {5}\n<b>#hashtags</b>: {6}\n",
+}
+l_chn_commands_handler = {
+    "ru": "⚙️ <b>Команды</b> /cmd для [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info информация о канале\n/stat статистика\n\n/parse [1] база подписчиков/лайков поста #1\n/random [1] рандомный лайкнувший пост #1\n/podcast 1 1 анонс видео-подкаста\n<code>/clean</code> очистка от deleted/scam-аккаунтов и по [<b>🕵🏽 Авто-бан</b>] правилам\n/delete <code>FROM TO</code> удаление за период\n/channel NAME канал проверки подписки\n/transfer передача ADMIN-прав</blockquote>\n\n💨 <b>Подписка</b>: <i>{3}</i>",
+    "en": "⚙️ <b>Commands</b> /cmd for [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info channel information\n/stat statistics\n\n/parse [1] subscriber/likes base for post #1\n/random [1] random user who liked post #1\n/podcast 1 1 video-podcast announcement\n<code>/clean</code> clearing deleted/scam accounts and according to [<b>🕵🏽 Auto-ban</b>] rules\n/delete <code>FROM TO</code> delete for a period\n/channel NAME channel for subscription check\n/transfer transfer of admin rights</blockquote>\n\n💨 <b>Subscription</b>: <i>{3}</i>",
+    "es": "⚙️ <b>Comandos</b> /cmd para [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info información del canal\n/stat estadísticas\n\n/parse [1] base de suscriptores/likes del post #1\n/random [1] usuario aleatorio que dio like al post #1\n/podcast 1 1 anuncio de video-podcast\n<code>/clean</code> limpieza de cuentas eliminadas/estafa y según reglas de [<b>🕵🏽 Prohibición automática</b>]\n/delete <code>FROM TO</code> eliminar por un período\n/channel NAME canal para verificación de suscripción\n/transfer transferencia de derechos de administrador</blockquote>\n\n💨 <b>Suscripción</b>: <i>{3}</i>",
+    "fr": "⚙️ <b>Commandes</b> /cmd pour [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info informations sur la chaîne\n/stat statistiques\n\n/parse [1] base d'abonnés/likes du post #1\n/random [1] utilisateur aléatoire ayant liké le post #1\n/podcast 1 1 annonce du podcast vidéo\n<code>/clean</code> suppression des comptes supprimés/arnaques et selon les règles de [<b>🕵🏽 Auto-ban</b>]\n/delete <code>FROM TO</code> supprimer pour une période\n/channel NAME canal de vérification d'abonnement\n/transfer transfert des droits administrateur</blockquote>\n\n💨 <b>Abonnement</b>: <i>{3}</i>",
+    "zh": "⚙️ <b>命令</b> /cmd 用于 [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info 频道信息\n/stat 统计\n\n/parse [1] 订阅者/点赞 基础（帖子 #1）\n/random [1] 随机点赞帖子 #1 的用户\n/podcast 1 1 视频播客公告\n<code>/clean</code> 清除已删除/诈骗账户并根据 [<b>🕵🏽 自动封禁</b>] 规则\n/delete <code>FROM TO</code> 删除一段时间内的内容\n/channel NAME 订阅验证频道\n/transfer 管理权限转移</blockquote>\n\n💨 <b>订阅</b>: <i>{3}</i>",
+    "ar": "⚙️ <b>الأوامر</b> /cmd لإحصائيات [<b>{0}</b>] {1} [<code>{2}</code>]\n\n<blockquote>/info معلومات القناة\n/stat إحصاءات\n\n/parse [1] قاعدة المشتركين/الإعجابات للمنشور #1\n/random [1] مستخدم عشوائي أعجب بالمنشور #1\n/podcast 1 1 إعلان بودكاست فيديو\n<code>/clean</code> مسح الحسابات المحذوفة/الاحتيالية ووفق قواعد [<b>🕵🏽 الحظر التلقائي</b>]\n/delete <code>FROM TO</code> الحذف لفترة\n/channel NAME قناة للتحقق من الاشتراك\n/transfer نقل حقوق المدير</blockquote>\n\n💨 <b>الاشتراك</b>: <i>{3}</i>",
+}
+l_update_text = {
+    "ru": "👩🏽‍💻 <b>Данные</b> о канале успешно обновлены:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Команды</b> /cmd",
+    "en": "👩🏽‍💻 <b>Channel data</b> successfully updated:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Commands</b> /cmd",
+    "es": "👩🏽‍💻 <b>Datos del canal</b> actualizados correctamente:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Comandos</b> /cmd",
+    "fr": "👩🏽‍💻 <b>Données de la chaîne</b> mises à jour avec succès :\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>Commandes</b> /cmd",
+    "zh": "👩🏽‍💻 <b>频道数据</b>已成功更新：\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>命令</b> /cmd",
+    "ar": "👩🏽‍💻 تم تحديث <b>بيانات القناة</b> بنجاح:\n\n<b>{0}</b> [{1}]\n{2}\n<i>{3}</i>\n\n⚙️ <b>الأوامر</b> /cmd",
+}
+l_change_chn_info = {
+    "ru": "Изменение профиля канала",
+    "en": "Changing channel profile",
+    "es": "Cambio del perfil del canal",
+    "fr": "Modification du profil de la chaîne",
+    "zh": "更改频道配置文件",
+    "ar": "تغيير ملف تعريف القناة",
+}
+l_send_messages = {
+    "ru": "Отправка сообщений",
+    "en": "Sending messages",
+    "es": "Envío de mensajes",
+    "fr": "Envoi de messages",
+    "zh": "发送消息",
+    "ar": "إرسال الرسائل",
+}
+l_chn_graph_yes = {
+    "ru": "👩🏽‍💻 <b>Экстра</b>-статистика канала за неделю [{0}]\n\n▪️ Подписчики: {1} ({2}{3})\n▪️ Просмотры: {4} ({5}{6})\n▪️ Поделиться: {7} ({8}{9})\n▪️ Уведомления у {10}% подписчиков\n",
+    "en": "👩🏽‍💻 <b>Extra</b>-channel statistics for the week [{0}]\n\n▪️ Subscribers: {1} ({2}{3})\n▪️ Views: {4} ({5}{6})\n▪️ Shares: {7} ({8}{9})\n▪️ Notifications enabled for {10}% of subscribers\n",
+    "es": "👩🏽‍💻 Estadísticas <b>extra</b> del canal para la semana [{0}]\n\n▪️ Suscriptores: {1} ({2}{3})\n▪️ Vistas: {4} ({5}{6})\n▪️ Compartidos: {7} ({8}{9})\n▪️ Notificaciones activadas para el {10}% de suscriptores\n",
+    "fr": "👩🏽‍💻 Statistiques <b>extra</b> de la chaîne pour la semaine [{0}]\n\n▪️ Abonnés : {1} ({2}{3})\n▪️ Vues : {4} ({5}{6})\n▪️ Parts : {7} ({8}{9})\n▪️ Notifications activées pour {10}% des abonnés\n",
+    "zh": "👩🏽‍💻 <b>额外</b>-频道周统计 [{0}]\n\n▪️ 订阅者：{1} ({2}{3})\n▪️ 观看次数：{4} ({5}{6})\n▪️ 分享：{7} ({8}{9})\n▪️ 已为 {10}% 订阅者开启通知\n",
+    "ar": "👩🏽‍💻 إحصائيات قناة <b>إضافية</b> للأسبوع [{0}]\n\n▪️ المشتركون: {1} ({2}{3})\n▪️ المشاهدات: {4} ({5}{6})\n▪️ المشاركات: {7} ({8}{9})\n▪️ الإشعارات ممكّنة لدى {10}% من المشتركين\n",
+}
+l_chn_graph_no = {
+    "ru": "👩🏽‍💻 <b>Вкл</b> [✅ Назначение администраторов] для @{0}, чтобы вывести <b>экстра</b>-графику канала за неделю",
+    "en": "👩🏽‍💻 Turn <b>On</b> [✅ Assign administrators] for @{0} to display <b>extra</b> channel graphics for the week",
+    "es": "👩🏽‍💻 Activa <b>Asignar administradores</b> para @{0} para mostrar gráficos <b>adicionales</b> del canal para la semana",
+    "fr": "👩🏽‍💻 Activez <b>Attribution d'administrateurs</b> pour @{0} afin d'afficher les graphiques <b>supplémentaires</b> de la chaîne pour la semaine",
+    "zh": "👩🏽‍💻 为 @{0} <b>开启</b> [✅ 分配管理员]，以显示本周的<b>额外</b>频道图表",
+    "ar": "👩🏽‍💻 قم <b>بتشغيل</b> [✅ تعيين مسؤولين] لـ @{0} لعرض رسومات القناة <b>الإضافية</b> لهذا الأسبوع",
+}
+l_chn_already_taken = {
+    "ru": "👮🏽 <b>Канал</b> [<b>{0}</b>] уже <i>администрируется</i> в @{1}-боте",
+    "en": "👮🏽 <b>Channel</b> [<b>{0}</b>] is already <i>administered</i> in @{1} bot",
+    "es": "👮🏽 <b>Canal</b> [<b>{0}</b>] ya está <i>administrado</i> en @{1} bot",
+    "fr": "👮🏽 <b>Chaîne</b> [<b>{0}</b>] est déjà <i>administrée</i> dans le bot @{1}",
+    "zh": "👮🏽 <b>频道</b> [<b>{0}</b>] 已在 @{1} 机器人中被<i>管理</i>",
+    "ar": "👮🏽 <b>القناة</b> [<b>{0}</b>] مُدارة بالفعل في بوت @{1}",
+}
+l_chn_subscribe_call = {
+    "ru": "👩🏽‍💻 Необходима подписка на канал",
+    "en": "👩🏽‍💻 Subscription to the channel is required",
+    "es": "👩🏽‍💻 Se requiere suscripción al canal",
+    "fr": "👩🏽‍💻 L'abonnement à la chaîne est requis",
+    "zh": "👩🏽‍💻 需要订阅该频道",
+    "ar": "👩🏽‍💻 الاشتراك في القناة مطلوب",
+}
+l_chn_boost_call = {
+    "ru": "👩🏽‍💻 Необходим буст-голос за канал",
+    "en": "👩🏽‍💻 A boost vote for the channel is required",
+    "es": "👩🏽‍💻 Se requiere voto de impulso para el canal",
+    "fr": "👩🏽‍💻 Un vote de boost pour la chaîne est requis",
+    "zh": "👩🏽‍💻 需要为频道投票提升",
+    "ar": "👩🏽‍💻 مطلوب تصويت تعزيز للقناة",
+}
+l_content_types_sub_button = {
+    "ru": "👮🏽 Я подписался",
+    "en": "👮🏽 I subscribed",
+    "es": "👮🏽 Me suscribí",
+    "fr": "👮🏽 Je me suis abonné",
+    "zh": "👮🏽 我已订阅",
+    "ar": "👮🏽 لقد اشتركت",
+}
+l_content_types_subscribe = {
+    "ru": "👮🏽 {0}, подпишись на {1}, чтобы твоя заявка на вступление была одобрена",
+    "en": "👮🏽 {0}, subscribe to {1} so that your application to join will be approved",
+    "es": "👮🏽 {0}, suscríbete a {1} para que tu solicitud de incorporación sea aprobada",
+    "fr": "👮🏽 {0}, abonnez-vous à {1} afin que votre demande d'adhésion soit approuvée",
+    "zh": "👮🏽 {0}，订阅 {1}，以便您的加入申请获得批准",
+    "ar": "👮🏽 {0}، اشترك في {1} حتى تتم الموافقة على طلبك للانضمام",
+}
+l_wait_1_min = {
+    "ru": "🕐 Подожди 1мин",
+    "en": "🕐 Wait 1 min",
+    "es": "🕐 Espera 1 min",
+    "fr": "🕐 Attendez 1 min",
+    "zh": "🕐 等待1分钟",
+    "ar": "🕐 انتظر دقيقة واحدة",
+}
+l_chat_join_request_handler = {
+    "ru": "👮🏽 {0}, ты отправил(а) заявку на вступление в <b>{1}</b>\n\n👩🏽‍💻 <b>Выбери</b> <i>правильный вариант</i> в соответствии с заданием на картинке, чтобы твоя <i>заявка</i> на вступление была <b>одобрена</b>",
+    "en": "👮🏽 {0}, you have sent an application to join <b>{1}</b>\n\n👩🏽‍💻 <b>Choose</b> <i>the correct option</i> according to the task in the picture so that your <i>application</i> to join will be <b>approved</b>",
+    "es": "👮🏽 {0}, has enviado una solicitud para unirte a <b>{1}</b>\n\n👩🏽‍💻 <b>Elige</b> <i>la opción correcta</i> según la tarea en la imagen para que tu <i>solicitud</i> de incorporación sea <b>aprobada</b>",
+    "fr": "👮🏽 {0}, vous avez envoyé une demande pour rejoindre <b>{1}</b>\n\n👩🏽‍💻 <b>Choisissez</b> <i>la bonne option</i> conformément à la tâche sur l'image afin que votre <i>demande</i> d'adhésion soit <b>approuvée</b>",
+    "zh": "👮🏽 {0}，您已向 <b>{1}</b> 发送加入申请\n\n👩🏽‍💻 <b>请选择</b> <i>正确的选项</i>，按照图片中的任务操作，以便您的<i>加入申请</i>获得<b>通过</b>",
+    "ar": "👮🏽 {0}، لقد أرسلت طلبًا للانضمام إلى <b>{1}</b>\n\n👩🏽‍💻 <b>اختر</b> <i>الخيار الصحيح</i> وفقًا للمهمة في الصورة حتى تتم الموافقة على <i>طلبك</i> للانضمام.",
+}
+l_chn_need_sub_for_more_than_1_chn = {
+    "ru": "👩🏽‍💻 <b>Оформи</b> подписку, чтобы добавлять более 1 канала",
+    "en": "👩🏽‍💻 <b>Get</b> a subscription to add more than 1 channel",
+    "es": "👩🏽‍💻 <b>Obtén</b> una suscripción para añadir más de 1 canal",
+    "fr": "👩🏽‍💻 <b>Obtenez</b> un abonnement pour ajouter plus d'1 chaîne",
+    "zh": "👩🏽‍💻 <b>购买</b>订阅以添加超过 1 个频道",
+    "ar": "👩🏽‍💻 <b>اشترك</b> للحصول على إمكانية إضافة أكثر من قناة واحدة",
+}
+l_chn_need_sub_for_more_than_2_chn = {
+    "ru": "👩🏽‍💻 <b>Оформи</b> подписку, чтобы добавлять более 2 каналов",
+    "en": "👩🏽‍💻 <b>Get</b> a subscription to add more than 2 channels",
+    "es": "👩🏽‍💻 <b>Obtén</b> una suscripción para añadir más de 2 canales",
+    "fr": "👩🏽‍💻 <b>Obtenez</b> un abonnement pour ajouter plus de 2 chaînes",
+    "zh": "👩🏽‍💻 <b>购买</b>订阅以添加超过 2 个频道",
+    "ar": "👩🏽‍💻 <b>اشترك</b> للحصول على إمكانية إضافة أكثر من قناتين",
+}
+l_cdelete_answer = {
+    "ru": "🚫 @{0}-приложение отсоединено от [<b>{1}</b>] и не числится его в участниках!",
+    "en": "🚫 @{0} application has been disconnected from [<b>{1}</b>] and is not listed among its participants!",
+    "es": "🚫 La aplicación @{0} se ha desvinculado de [<b>{1}</b>] y no figura entre sus participantes!",
+    "fr": "🚫 L'application @{0} a été dissociée de [<b>{1}</b>] et ne figure pas parmi ses participants !",
+    "zh": "🚫 @{0} 应用已从 [<b>{1}</b>] 断开，并且未列为其参与者！",
+    "ar": "🚫 تم فصل التطبيق @{0} عن [<b>{1}</b>] ولا يظهر ضمن المشاركين فيه!",
 }
 
 l_ban_users_start = {
-    'ru': "👩🏽‍💻 <b>Очистка</b> запущена. <b>Текущее</b> количество пользователей в базе: <u>{0}</u>",
-    'en': "👩🏽‍💻 <b>Cleaning</b> has started. <b>Current</b> number of users in the database: <u>{0}</u>",
-    'es': "👩🏽‍💻 La <b>limpieza</b> ha comenzado. Número <b>actual</b> de usuarios en la base de datos: <u>{0}</u>",
-    'fr': "👩🏽‍💻 Le <b>nettoyage</b> a commencé. <b>Nombre actuel</b> d'utilisateurs dans la base de données : <u>{0}</u>",
-    'zh': "👩🏽‍💻<b>清洁</b>已经开始。数据库中<b>当前</b>用户数：<u>{0}</u>",
-    'ar': "👩🏽‍💻 بدأ <b>التنظيف</b>. <b>العدد الحالي</b> للمستخدمين في قاعدة البيانات: <u>{0}</u>",
+    "ru": "👩🏽‍💻 <b>Очистка</b> запущена. <b>Текущее</b> количество пользователей в базе: <u>{0}</u>",
+    "en": "👩🏽‍💻 <b>Cleaning</b> started. <b>Current</b> number of users in the database: <u>{0}</u>",
+    "es": "👩🏽‍💻 <b>Limpieza</b> iniciada. Número <b>actual</b> de usuarios en la base de datos: <u>{0}</u>",
+    "fr": "👩🏽‍💻 <b>Nettoyage</b> lancé. <b>Nombre actuel</b> d'utilisateurs dans la base de données : <u>{0}</u>",
+    "zh": "👩🏽‍💻 <b>清理</b>已开始。数据库中<b>当前</b>用户数：<u>{0}</u>",
+    "ar": "👩🏽‍💻 <b>التنظيف</b> بدأ. <b>العدد الحالي</b> للمستخدمين في قاعدة البيانات: <u>{0}</u>"
 }
 l_ban_users_stop = {
-    'ru': "👩🏽‍💻 <b>Очистка</b> завершена. <b>Текущее</b> количество пользователей в базе: <u>{0}</u> (-{1})",
-    'en': "👩🏽‍💻 <b>Cleaning</b> is complete. <b>Current</b> number of users in the database: <u>{0}</u> (-{1})",
-    'es': "👩🏽‍💻 La <b>limpieza</b> está completa. Número <b>actual</b> de usuarios en la base de datos: <u>{0}</u> (-{1})",
-    'fr': "👩🏽‍💻 <b>Le nettoyage</b> est terminé. <b>Nombre actuel</b> d'utilisateurs dans la base de données : <u>{0}</u> (-{1})",
-    'zh': "👩🏽‍💻<b>清洁</b>完成。数据库中<b>当前</b>用户数：<u>{0}</u> (-{1})",
-    'ar': "👩🏽‍💻 اكتمل <b>التنظيف</b>. <b>العدد الحالي</b> للمستخدمين في قاعدة البيانات: <u>{0}</u> (-{1})",
-}
-l_chn_ccheck_handler = {
-    'ru': "👮🏽 <b>Жми</b> на ✅/🔘, чтобы <b>переключить</b> тип <i>проверки</i> пользователя при <u>вступлении</u> по сгенерированной ссылке: {0} (только для ЧАСТНЫХ каналов)\n\n<blockquote>👩🏽‍💻 Для <b>проверки подписки</b> на другой канал <i>добавь</i> @{1}-бота в канал и выполни команду: <code>/channel {2}</code>\n\n👩🏽‍💻 Для <i>защиты от атаки</i> на канал включи режим <b>анти-рейд</b> (блокировка <u>всех</u> вступающих)</blockquote>",
-    'en': "👮🏽 <b>Press</b> on ✅/🔘 to <b>switch</b> the type of <i>verification</i> of the user when <u>entering</u> via the generated link: {0} (only for PRIVATE channels)\n\n👩🏽‍💻 To <b>check subscription</b> to another channel <i>add</i> @{1}-bot to the channel and run the command: /channel { 2}\n\n👩🏽‍💻 To <i>protect against attacks</i> on the channel, turn on the <b>anti-raid</b> mode (blocking <u>everyone</u> entering)",
-    'es': "👮🏽 <b>Presiona</b> ✅/🔘 para <b>cambiar</b> el tipo de <i>verificación</i> del usuario al <u>ingresar</u> a través del enlace generado : {0} (solo para canales PRIVADOS)\n\n👩🏽‍💻 Para <b>verificar suscripción</b> a otro canal <i>agregar</i> @{1}-bot al canal y ejecutar el comando: /canal { 2}\n\n👩🏽‍💻 Para <i>proteger contra ataques</i> en el canal, active el modo <b>anti-raid</b> (bloqueando <u> todos</u> entrando)",
-    'fr': "👮🏽 <b>Appuyez</b> sur ✅/🔘 pour <b>changer</b> le type de <i>vérification</i> de l'utilisateur lors de la <u>entrée</u> via le lien généré : {0} (uniquement pour les chaînes PRIVÉES)\n\n👩🏽‍💻 Pour <b>vérifier l'abonnement</b> à une autre chaîne, <i>ajoutez</i> @{1}-bot à la chaîne et exécutez la commande : /channel { 2}\n\n👩🏽‍💻 Pour <i>vous protéger contre les attaques</i> sur la chaîne, activez le mode <b>anti-raid</b> (bloquant <u> tout le monde</u> entrant)",
-    'zh': "👮🏽通过生成的链接<u>进入</u>时<b>按</b>✅/🔘<b>切换</b>用户的<i>验证</i>类型：{0}（仅适用于私人频道）\n\n👩🏽‍💻 要<b>检查订阅</b>另一个频道<i>添加</i>@{1}-bot到频道并运行命令：/channel { 2}\n\n👩🏽‍💻 要<i>防止频道上的攻击</i>，请开启<b>反袭击</b>模式（阻止<u>每个人</u>进入）",
-    'ar': "👮🏽 <b>اضغط</b> على ✅/🔘 <b>لتبديل</b> نوع <i>التحقق</i> للمستخدم عند <u>الدخول</u> عبر الرابط الذي تم إنشاؤه : {0} (للقنوات الخاصة فقط)\n\n👩🏽‍💻 <b>للتحقق من الاشتراك</b> في قناة أخرى <i>أضف</i> @{1}-bot إلى القناة وقم بتشغيله الأمر: /channel { 2}\n\n👩🏽‍💻 <i>للحماية من الهجمات</i> على القناة، قم بتشغيل وضع <b>مكافحة الغارة</b> (حظر <u> الجميع</u> يدخلون)",
-}
-l_ccheck_call = {
-    'ru': "👮🏽 Для проверки подписки необходимо добавить @{0}-бота в дополнительный канал и выполнить команду:\n\n/channel ССЫЛКА НА КАНАЛ",
-    'en': "👮🏽 To check the subscription, you need to add @{0}-bot to an additional channel and run the command:\n\n/channel LINK TO CHANNEL",
-    'es': "👮🏽 Para verificar la suscripción, debe agregar @{0}-bot a un canal adicional y ejecutar el comando:\n\n/channel ENLACE AL CANAL",
-    'fr': "👮🏽 Pour vérifier l'abonnement, vous devez ajouter @{0}-bot à une chaîne supplémentaire et exécuter la commande :\n\n/channel LIEN VERS LA CHAÎNE",
-    'zh': "👮🏽 要检查订阅情况，您需要将 @{0}-bot 添加到其他频道并运行命令：\n\n/channel LINK TO CHANNEL",
-    'ar': "👮🏽 للتحقق من الاشتراك، يلزمك إضافة @{0}-bot إلى قناة إضافية وتشغيل الأمر:\n\n/channel LINK TO CHANNEL",
-}
-l_ccheck_call2 = {
-    'ru': "👮🏽 В настройках [Администраторы] вкл опцию для @{0}-бота:\n[✅ Удаление сообщ]\n[✅ Блокировка польз]\n[✅ Добавление участ]\n\n🕚Подожди 1min",
-    'en': "👮🏽 In the [Administrators] settings, enable the option for @{0}-bot:\n[✅ Deleting messages]\n[✅ Blocking users]\n[✅ Adding a member]\n\n🕚Wait 1min",
-    'es': "👮🏽 En la configuración de [Administradores], habilite la opción para @{0}-bot:\n[✅ Eliminar mensajes]\n[✅ Bloquear usuarios]\n[✅ Agregar un miembro]\n\n🕚Espera 1 minuto",
-    'fr': "👮🏽 Dans les paramètres [Administrateurs], activez l'option pour @{0}-bot :\n[✅ Supprimer des messages]\n[✅ Bloquer des utilisateurs]\n[✅ Ajouter un membre]\n\n🕚Attendez 1 min",
-    'zh': "👮🏽 在[管理员]设置中，启用@{0}-bot选项：\n[✅删除消息]\n[✅阻止用户]\n[✅添加成员]\n\n🕚等待1分钟",
-    'ar': "👮🏽 في إعدادات [المسؤولين]، قم بتمكين خيار @{0}-bot:\n[✅ حذف الرسائل]\n[✅ حظر المستخدمين]\n[✅ إضافة عضو]\n\n🕚انتظر دقيقة واحدة",
-}
-l_ccheck_chn_finish = {
-    'ru': "👮🏽 <b>{0}</b>, <b>добро пожаловать</b>:\n\n{1}",
-    'en': "👮🏽 <b>{0}</b>, <b>welcome</b>:\n\n{1}",
-    'es': "👮🏽 <b>{0}</b>, <b>bienvenido</b>:\n\n{1}",
-    'fr': "👮🏽 <b>{0}</b>, <b>bienvenue</b> :\n\n{1}",
-    'zh': "👮🏽 <b>{0}</b>，<b>欢迎</b>：\n\n{1}",
-    'ar': "👮🏽 <b>{0}</b>، <b>مرحبًا</b>:\n\n{1}",
-}
-l_ccheck_free_on = {
-    'ru': "✅☑Вкл свободный вход",
-    'en': "✅☑Free entry included",
-    'es': "✅☑Entrada gratuita incluida",
-    'fr': "✅☑Entrée gratuite incluse",
-    'zh': "✅☑免费入场",
-    'ar': "✅☑الدخول مجاني",
-}
-l_ccheck_free_off = {
-    'ru': "🔘️☐Выкл свободный вход",
-    'en': "🔘️☐Off free entry",
-    'es': "🔘️☐Entrada gratuita",
-    'fr': "🔘️☐Off entrée gratuite",
-    'zh': "🔘️️免费入场",
-    'ar': "🔘️☐الدخول مجاني",
-}
-l_ccheck_button_on = {
-    'ru': "✅☑Вкл нажатие на кнопку",
-    'en': "✅☑On by pressing a button",
-    'es': "✅☑Encendido presionando un botón",
-    'fr': "✅☑Activé en appuyant sur un bouton",
-    'zh': "✅☑按下按钮即可开启",
-    'ar': "✅☑يتم التشغيل بالضغط على زر",
-}
-l_ccheck_button_off = {
-    'ru': "🔘️☐Выкл нажатие на кнопку",
-    'en': "🔘️☐Turn off by pressing the button",
-    'es': "🔘️☐Apaga presionando el botón",
-    'fr': "🔘️☐Éteignez en appuyant sur le bouton",
-    'zh': "🔘️️按按钮关闭",
-    'ar': "🔘️☐إيقاف التشغيل بالضغط على الزر",
-}
-l_ccheck_subscribe_on = {
-    'ru': "✅☑Вкл подписку",
-    'en': "✅☑Include subscription",
-    'es': "✅☑Incluye suscripción",
-    'fr': "✅☑Inclure l'abonnement",
-    'zh': "✅☑包括订阅",
-    'ar': "✅☑ تضمين الاشتراك",
-}
-l_ccheck_subscribe_off = {
-    'ru': "🔘☐Выкл подписку",
-    'en': "🔘☐Turn off subscription",
-    'es': "🔘☐Desactivar suscripción",
-    'fr': "🔘☐Désactiver l'abonnement",
-    'zh': "🔘☐关闭订阅",
-    'ar': "🔘☐ قم بإيقاف الاشتراك",
-}
-l_ccheck_eq_on = {
-    'ru': "✅☑Вкл решение уравнения",
-    'en': "✅☑Includes solving equations",
-    'es': "✅☑Incluye resolución de ecuaciones",
-    'fr': "✅☑Comprend la résolution d'équations",
-    'zh': "✅☑包括解方程",
-    'ar': "✅☑ يشمل حل المعادلات",
-}
-l_ccheck_eq_off = {
-    'ru': "🔘️☐Выкл решение уравнения",
-    'en': "🔘️☐Off equation solution",
-    'es': "🔘️☐Solución fuera de ecuación",
-    'fr': "🔘️☐Solution hors équation",
-    'zh': "🔘️️Off 方程解",
-    'ar': "🔘️☐حل المعادلة خارج",
-}
-l_ccheck_captcha_on = {
-    'ru': "✅☑Вкл решение капчи",
-    'en': "✅☑Includes captcha solution",
-    'es': "✅☑Incluye solución captcha",
-    'fr': "✅☑Comprend une solution captcha",
-    'zh': "✅☑包括验证码解决方案",
-    'ar': "✅☑يتضمن حل كلمة التحقق",
-}
-l_ccheck_captcha_off = {
-    'ru': "🔘️☐Выкл решение капчи",
-    'en': "🔘️☐Turn off captcha solution",
-    'es': "🔘️☐Desactivar la solución captcha",
-    'fr': "🔘️☐Désactivez la solution captcha",
-    'zh': "🔘️☐关闭验证码解决方案",
-    'ar': "🔘️☐ قم بإيقاف تشغيل حل captcha",
-}
-l_ccheck_request_on = {
-    'ru': "✅☑Вкл подачу заявки",
-    'en': "✅☑Includes application submission",
-    'es': "✅☑Incluye envío de solicitud",
-    'fr': "✅☑Comprend la soumission de la candidature",
-    'zh': "✅☑包括提交申请",
-    'ar': "✅☑يتضمن تقديم الطلب",
-}
-l_ccheck_request_off = {
-    'ru': "🔘️☐Выкл подачу заявки",
-    'en': "🔘️☐Turn off application submission",
-    'es': "🔘️☐Desactivar envío de solicitudes",
-    'fr': "🔘️☐Désactivez la soumission des candidatures",
-    'zh': "🔘️☐关闭申请提交",
-    'ar': "🔘️☐إيقاف تقديم الطلب",
-}
-l_ccheck_antiraid_on = {
-    'ru': "✅☑Вкл анти-рейд",
-    'en': "✅☑Anti-raid on",
-    'es': "✅☑Anti-raid en",
-    'fr': "✅☑Anti-raid activé",
-    'zh': "✅☑防袭",
-    'ar': "✅☑مضاد للغارات",
-}
-l_ccheck_antiraid_off = {
-    'ru': "🔘️☐Выкл анти-рейд",
-    'en': "🔘️☐Disable anti-raid",
-    'es': "🔘️☐Desactivar anti-raid",
-    'fr': "🔘️☐Désactiver l'anti-raid",
-    'zh': "🔘️☐禁用防袭击",
-    'ar': "🔘️☐تعطيل مكافحة الغارة",
-}
-
-l_chn_graph_yes = {
-    'ru': "👩🏽‍💻 <b>Экстра</b>-статистика канала за неделю [{0}]\n\n▪️ Подписчики: {1} ({2}{3})\n▪️ Просмотры: {4} ({5}{6})\n▪️ Поделиться: {7} ({8}{9})\n▪️ Уведомления у {10}% подписчиков\n",
-    'en': "👩🏽‍💻 <b>Extra</b>-channel statistics for the week [{0}]\n\n▪️ Subscribers: {1} ({2}{3})\n▪️ Views: {4} ({ 5}{6})\n▪️ Share: {7} ({8}{9})\n▪️ Notifications for {10}% of subscribers\n",
-    'es': "👩🏽‍💻 Estadísticas del canal <b>extra</b> para la semana [{0}]\n\n▪️ Suscriptores: {1} ({2}{3})\n▪️ Vistas: {4} ( { 5}{6})\n▪️ Compartir: {7} ({8}{9})\n▪️ Notificaciones para el {10}% de los suscriptores\n",
-    'fr': "👩🏽‍💻 Statistiques <b>extra</b> des chaînes pour la semaine [{0}]\n\nwithout { 5}{6})\nnoyer Partage : {7} ({8}{9})\nnoyaux Notifications pour {10} % des abonnés\n",
-    'zh': "👩🏽‍💻 <b>额外</b>-本周 [{0}]\n\n▪️ 订阅者：{1} ({2}{3})\n▪️ 观看次数：{4} ( { 5}{6})\n▪️ 分享：{7} ({8}{9})\n▪️ 针对 {10}% 订阅者的通知\n",
-    'ar': "👩🏽‍💻 <b>إضافية</b>-إحصائيات القناة لهذا الأسبوع [{0}]\n\n▪️ المشتركون: {1} ({2}{3})\n▪️ المشاهدات: {4} ( { 5}{6})\n▪️ مشاركة: {7} ({8}{9})\n▪️ إشعارات لـ {10}% من المشتركين\n",
-}
-l_chn_graph_no = {
-    'ru': "👩🏽‍💻 <b>Вкл</b> [✅ Назначение администраторов] для @{0}, чтобы вывести <b>экстра</b>-графику канала за неделю",
-    'en': "👩🏽‍💻 <b>On</b> [✅ Assigning administrators] for @{0} to display <b>extra</b> channel graphics for the week",
-    'es': "👩🏽‍💻 <b>Activado</b> [✅ Asignar administradores] para que @{0} muestre gráficos de canal <b>adicionales</b> para la semana",
-    'fr': "👩🏽‍💻 <b>Activé</b> [✅ Attribution d'administrateurs] pour que @{0} affiche des graphiques de chaîne <b>supplémentaires</b> pour la semaine.",
-    'zh': "👩🏽‍💻 <b>开启</b> [✅ 分配管理员] @{0} 显示本周<b>额外</b>个频道图形",
-    'ar': "👩🏽‍💻 <b>تشغيل</b> [✅ تعيين مسؤولين] لـ @{0} لعرض <b>رسومات</b> إضافية للقناة لهذا الأسبوع",
+    "ru": "👩🏽‍💻 <b>Очистка</b> завершена. <b>Текущее</b> количество пользователей в базе: <u>{0}</u> (-{1})",
+    "en": "👩🏽‍💻 <b>Cleaning</b> completed. <b>Current</b> number of users in the database: <u>{0}</u> (-{1})",
+    "es": "👩🏽‍💻 <b>Limpieza</b> completada. Número <b>actual</b> de usuarios en la base de datos: <u>{0}</u> (-{1})",
+    "fr": "👩🏽‍💻 <b>Nettoyage</b> terminé. <b>Nombre actuel</b> d'utilisateurs dans la base de données : <u>{0}</u> (-{1})",
+    "zh": "👩🏽‍💻 <b>清理</b>完成。数据库中<b>当前</b>用户数：<u>{0}</u> (-{1})",
+    "ar": "👩🏽‍💻 <b>التنظيف</b> اكتمل. <b>العدد الحالي</b> للمستخدمين في قاعدة البيانات: <u>{0}</u> (-{1})"
 }
 l_chn_delete_parse = {
-    'ru': "👩🏽‍💻 <b>Введи</b> дату начала/конца для удаления подписчиков из /parse-базы:\n<code>/delete {0} {1}</code>",
-    'en': "👩🏽‍💻 <b>Enter</b> the start/end date to delete subscribers from the /parse database:\n<code>/delete {0} {1}</code>",
-    'es': "👩🏽‍💻 <b>Ingrese</b> la fecha de inicio/finalización para eliminar suscriptores de la base de datos /parse:\n<code>/delete {0} {1}</code>",
-    'fr': "👩🏽‍💻 <b>Entrez</b> la date de début/fin pour supprimer les abonnés de la base de données /parse :\n<code>/delete {0} {1}</code>",
-    'zh': "👩🏽‍💻 <b>输入</b>开始/结束日期以从 /parse 数据库中删除订阅者：\n<code>/delete {0} {1}</code>",
-    'ar': "👩🏽‍💻 <b>أدخل</b> تاريخ البدء/الانتهاء لحذف المشتركين من قاعدة البيانات /parse:\n<code>/delete {0} {1}</code>",
+    "ru": "👩🏽‍💻 <b>Введи</b> дату начала/конца для удаления подписчиков из /parse-базы:\n<code>/delete {0} {1}</code>",
+    "en": "👩🏽‍💻 <b>Enter</b> the start/end date to delete subscribers from the /parse database:\n<code>/delete {0} {1}</code>",
+    "es": "👩🏽‍💻 <b>Introduce</b> la fecha de inicio/fin para eliminar suscriptores de la base /parse:\n<code>/delete {0} {1}</code>",
+    "fr": "👩🏽‍💻 <b>Entrez</b> la date de début/fin pour supprimer des abonnés de la base /parse :\n<code>/delete {0} {1}</code>",
+    "zh": "👩🏽‍💻 <b>输入</b>开始/结束日期以从 /parse 数据库中删除订阅者：\n<code>/delete {0} {1}</code>",
+    "ar": "👩🏽‍💻 <b>أدخل</b> تاريخ البدء/الانتهاء لحذف المشتركين من قاعدة /parse:\n<code>/delete {0} {1}</code>"
 }
 l_chn_delete_start = {
-    'ru': "👩🏽‍💻 <b>Начинаем</b> удаление за период:\n<code>{0}</code>\n<code>{1}</code>",
-    'en': "👩🏽‍💻 <b>We begin</b> deletion for the period:\n<code>{0}</code>\n<code>{1}</code>",
-    'es': "👩🏽‍💻 <b>Comenzamos</b> eliminación para el período:\n<code>{0}</code>\n<code>{1}</code>",
-    'fr': "👩🏽‍💻 <b>Nous commençons</b> la suppression pour la période :\n<code>{0}</code>\n<code>{1}</code>",
-    'zh': "👩🏽‍💻 <b>我们开始</b>删除以下时间段：\n<code>{0}</code>\n<code>{1}</code>",
-    'ar': "👩🏽‍💻 <b>نبدأ</b> بحذف الفترة:\n<code>{0}</code>\n<code>{1}</code>",
+    "ru": "👩🏽‍💻 <b>Начинаем</b> удаление за период:\n<code>{0}</code>\n<code>{1}</code>",
+    "en": "👩🏽‍💻 <b>Starting</b> deletion for the period:\n<code>{0}</code>\n<code>{1}</code>",
+    "es": "👩🏽‍💻 <b>Comenzamos</b> eliminación para el período:\n<code>{0}</code>\n<code>{1}</code>",
+    "fr": "👩🏽‍💻 <b>Nous commençons</b> la suppression pour la période :\n<code>{0}</code>\n<code>{1}</code>",
+    "zh": "👩🏽‍💻 <b>开始</b>按期间删除：\n<code>{0}</code>\n<code>{1}</code>",
+    "ar": "👩🏽‍💻 <b>نبدأ</b> بحذف الفترة:\n<code>{0}</code>\n<code>{1}</code>"
 }
 l_chn_delete_finish = {
-    'ru': "👩🏽‍💻 <b>Удаление</b> пользователей завершено:\n<u>{0}</u> [-{1}]",
-    'en': "👩🏽‍💻 <b>Deleting</b> users completed:\n<u>{0}</u> [-{1}]",
-    'es': "👩🏽‍💻 <b>Eliminación</b> de usuarios completada:\n<u>{0}</u> [-{1}]",
-    'fr': "👩🏽‍💻 <b>Suppression</b> des utilisateurs terminée :\n<u>{0}</u> [-{1}]",
-    'zh': "👩🏽‍💻 <b>删除</b>个用户已完成：\n<u>{0}</u> [-{1}]",
-    'ar': "👩🏽‍💻 اكتمل <b>حذف</b> المستخدمين:\n<u>{0}</u> [-{1}]",
+    "ru": "👩🏽‍💻 <b>Удаление</b> пользователей завершено:\n<u>{0}</u> [-{1}]",
+    "en": "👩🏽‍💻 <b>Deletion</b> of users completed:\n<u>{0}</u> [-{1}]",
+    "es": "👩🏽‍💻 <b>Eliminación</b> de usuarios completada:\n<u>{0}</u> [-{1}]",
+    "fr": "👩🏽‍💻 <b>Suppression</b> des utilisateurs terminée :\n<u>{0}</u> [-{1}]",
+    "zh": "👩🏽‍💻 <b>删除</b>用户已完成：\n<u>{0}</u> [-{1}]",
+    "ar": "👩🏽‍💻 <b>حذف المستخدمين</b> اكتمل:\n<u>{0}</u> [-{1}]"
+}
+l_ccheck_btn_name = {
+    "ru": "✔ Я человек",
+    "en": "✔ I'm human",
+    "es": "✔ Soy humano",
+    "fr": "✔ Je suis humain",
+    "zh": "✔ 我是人类",
+    "ar": "✔ أنا إنسان"
+}
+l_ccheck_hello_txt = {
+    "ru": "🌱 {name}, добро пожаловать в нашу <b>канал</b> {title}!",
+    "en": "🌱 {name}, welcome to our <b>channel</b> {title}!",
+    "es": "🌱 {name}, ¡bienvenido a nuestro <b>canal</b> {title}!",
+    "fr": "🌱 {name}, bienvenue sur notre <b>chaîne</b> {title} !",
+    "zh": "🌱 {name}，欢迎来到我们的<b>频道</b> {title}！",
+    "ar": "🌱 {name}، مرحبًا بك في قناتنا <b>{title}</b>!"
+}
+l_ccheck_add_channel = {
+    "ru": "👮🏽 Для <i>проверки подписки</i> необходимо добавить канал командой:\n\n/channel ССЫЛКА НА КАНАЛ",
+    "en": "👮🏽 To <i>check subscription</i> you need to add a channel with the command:\n\n/channel LINK TO CHANNEL",
+    "es": "👮🏽 Para <i>verificar suscripción</i> necesitas agregar un canal con el comando:\n\n/canal ENLACE AL CANAL",
+    "fr": "👮🏽 Pour <i>vérifier l'abonnement</i> vous devez ajouter une chaîne avec la commande :\n\n/channel LIEN VERS LA CHAÎNE",
+    "zh": "👮🏽 要<i>检查订阅</i>，需要使用以下命令添加频道：\n\n/channel 频道链接",
+    "ar": "👮🏽 من أجل <i>التحقق من الاشتراك</i> يجب إضافة قناة باستخدام الأمر:\n\n/channel رابط القناة"
+}
+l_chn_for_sub_pay = {
+    "ru": "👩🏽‍💻 Для оплаты подписки",
+    "en": "👩🏽‍💻 For subscription payment",
+    "es": "👩🏽‍💻 Para el pago de la suscripción",
+    "fr": "👩🏽‍💻 Pour le paiement de l'abonnement",
+    "zh": "👩🏽‍💻 用于订阅付款",
+    "ar": "👩🏽‍💻 لدفع الاشتراك"
+}
+l_chn_need_boost_for_story = {
+    "ru": "👩🏽‍💻 <b>Необходимо</b>: {0}-буст-голосов для публикации сториз",
+    "en": "👩🏽‍💻 <b>Required</b>: {0}-boost-votes to publish stories",
+    "es": "👩🏽‍💻 <b>Necesario</b>: {0}-boost-votos para publicar historias",
+    "fr": "👩🏽‍💻 <b>Nécessaire</b> : {0}-boost-votes pour publier des stories",
+    "zh": "👩🏽‍💻 <b>需要</b>：发布故事需 {0}-boost 投票",
+    "ar": "👩🏽‍💻 <b>مطلوب</b>: {0}-boost-أصوات لنشر الستوري"
+}
+l_chn_no_rights_for_media = {
+    "ru": "👩🏽‍💻 <b>Отсутствуют</b> административные права управления ботом: {0}-покидает канал",
+    "en": "👩🏽‍💻 <b>Missing</b> administrative rights to manage the bot: {0} is leaving the channel",
+    "es": "👩🏽‍💻 <b>No hay</b> derechos administrativos para gestionar el bot: {0} abandona el canal",
+    "fr": "👩🏽‍💻 <b>Absence</b> des droits administratifs pour gérer le bot : {0} quitte le canal",
+    "zh": "👩🏽‍💻 <b>缺少</b> 管理机器人权限：{0} 正在离开频道",
+    "ar": "👩🏽‍💻 <b>لا توجد</b> صلاحيات إدارية لإدارة الروبوت: {0} يغادر القناة"
 }
 # endregion
 

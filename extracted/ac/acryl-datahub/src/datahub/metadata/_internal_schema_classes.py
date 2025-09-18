@@ -23033,7 +23033,7 @@ class VersionBasedRetentionClass(DictWrapper):
     
     
 class ActorsClass(_Aspect):
-    """Provisioned users of a role"""
+    """Provisioned users and groups of a role"""
 
 
     ASPECT_NAME = 'actors'
@@ -23042,13 +23042,16 @@ class ActorsClass(_Aspect):
 
     def __init__(self,
         users: Union[None, List["RoleUserClass"]]=None,
+        groups: Union[None, List["RoleGroupClass"]]=None,
     ):
         super().__init__()
         
         self.users = users
+        self.groups = groups
     
     def _restore_defaults(self) -> None:
         self.users = self.RECORD_SCHEMA.fields_dict["users"].default
+        self.groups = self.RECORD_SCHEMA.fields_dict["groups"].default
     
     
     @property
@@ -23059,6 +23062,41 @@ class ActorsClass(_Aspect):
     @users.setter
     def users(self, value: Union[None, List["RoleUserClass"]]) -> None:
         self._inner_dict['users'] = value
+    
+    
+    @property
+    def groups(self) -> Union[None, List["RoleGroupClass"]]:
+        """List of provisioned groups of a role"""
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: Union[None, List["RoleGroupClass"]]) -> None:
+        self._inner_dict['groups'] = value
+    
+    
+class RoleGroupClass(DictWrapper):
+    """Provisioned groups of a role"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.role.RoleGroup")
+    def __init__(self,
+        group: str,
+    ):
+        super().__init__()
+        
+        self.group = group
+    
+    def _restore_defaults(self) -> None:
+        self.group = str()
+    
+    
+    @property
+    def group(self) -> str:
+        """Link provisioned corp group for a role"""
+        return self._inner_dict.get('group')  # type: ignore
+    
+    @group.setter
+    def group(self, value: str) -> None:
+        self._inner_dict['group'] = value
     
     
 class RolePropertiesClass(_Aspect):
@@ -27551,6 +27589,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.retention.TimeBasedRetention': TimeBasedRetentionClass,
     'com.linkedin.pegasus2avro.retention.VersionBasedRetention': VersionBasedRetentionClass,
     'com.linkedin.pegasus2avro.role.Actors': ActorsClass,
+    'com.linkedin.pegasus2avro.role.RoleGroup': RoleGroupClass,
     'com.linkedin.pegasus2avro.role.RoleProperties': RolePropertiesClass,
     'com.linkedin.pegasus2avro.role.RoleUser': RoleUserClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
@@ -28067,6 +28106,7 @@ __SCHEMA_TYPES = {
     'TimeBasedRetention': TimeBasedRetentionClass,
     'VersionBasedRetention': VersionBasedRetentionClass,
     'Actors': ActorsClass,
+    'RoleGroup': RoleGroupClass,
     'RoleProperties': RolePropertiesClass,
     'RoleUser': RoleUserClass,
     'ArrayType': ArrayTypeClass,

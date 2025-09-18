@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.8.0
+Version: 1.9.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -42,30 +42,22 @@ Provides-Extra: all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
-Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
+Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
-Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
 Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai>=1.8.2; extra == 'all'
-Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'all'
-Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
-Requires-Dist: openai<1.102.0,>=1.68.0; extra == 'all'
+Requires-Dist: openai<1.108.0,>=1.68.0; extra == 'all'
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
-Requires-Dist: pre-commit<4.4.0,>=3.2.0; extra == 'all'
-Requires-Dist: pytest-asyncio<1.2.0,>=1.0.0; extra == 'all'
-Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'all'
-Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'all'
-Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'all'
-Requires-Dist: ruff<0.13.0,>=0.12.0; extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'all'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'all'
 Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
+Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: dev
@@ -75,17 +67,17 @@ Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
 Requires-Dist: pre-commit<4.4.0,>=3.2.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<1.2.0,>=1.0.0; extra == 'dev'
-Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == 'dev'
+Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev'
-Requires-Dist: ruff<0.13.0,>=0.12.0; extra == 'dev'
+Requires-Dist: ruff<0.14.0,>=0.13.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: litellm
 Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'litellm'
-Requires-Dist: openai<1.102.0,>=1.68.0; extra == 'litellm'
+Requires-Dist: openai<1.108.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: mistral
@@ -98,8 +90,6 @@ Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
 Provides-Extra: sagemaker
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'sagemaker'
-Requires-Dist: boto3<2.0.0,>=1.26.0; extra == 'sagemaker'
-Requires-Dist: botocore<2.0.0,>=1.29.0; extra == 'sagemaker'
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'sagemaker'
 Provides-Extra: writer
 Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
@@ -236,7 +226,6 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.models.ollama import OllamaModel
 from strands.models.llamaapi import LlamaAPIModel
-from strands.models.llamacpp import LlamaCppModel
 
 # Bedrock
 bedrock_model = BedrockModel(
@@ -266,12 +255,15 @@ response = agent("Tell me about Agentic AI")
 Built-in providers:
  - [Amazon Bedrock](https://strandsagents.com/latest/user-guide/concepts/model-providers/amazon-bedrock/)
  - [Anthropic](https://strandsagents.com/latest/user-guide/concepts/model-providers/anthropic/)
+ - [Cohere](https://strandsagents.com/latest/user-guide/concepts/model-providers/cohere/)
  - [LiteLLM](https://strandsagents.com/latest/user-guide/concepts/model-providers/litellm/)
  - [llama.cpp](https://strandsagents.com/latest/user-guide/concepts/model-providers/llamacpp/)
  - [LlamaAPI](https://strandsagents.com/latest/user-guide/concepts/model-providers/llamaapi/)
+ - [MistralAI](https://strandsagents.com/latest/user-guide/concepts/model-providers/mistral/)
  - [Ollama](https://strandsagents.com/latest/user-guide/concepts/model-providers/ollama/)
  - [OpenAI](https://strandsagents.com/latest/user-guide/concepts/model-providers/openai/)
- - [Writer](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/model-providers/writer/)
+ - [SageMaker](https://strandsagents.com/latest/user-guide/concepts/model-providers/sagemaker/)
+ - [Writer](https://strandsagents.com/latest/user-guide/concepts/model-providers/writer/)
 
 Custom providers can be implemented using [Custom Providers](https://strandsagents.com/latest/user-guide/concepts/model-providers/custom_model_provider/)
 

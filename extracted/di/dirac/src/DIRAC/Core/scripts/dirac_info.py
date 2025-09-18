@@ -11,7 +11,6 @@ Example:
 
   Option                 Value
   ============================
-  Setup                  Dirac-Production
   ConfigurationServer    dips://ccdiracli08.in2p3.fr:9135/Configuration/Server
   Installation path      /opt/dirac/versions/v7r2-pre33_1613239204
   Installation type      client
@@ -52,7 +51,6 @@ def main():
 
     records = []
 
-    records.append(("Setup", gConfig.getValue("/DIRAC/Setup", "Unknown")))
     records.append(
         (
             "AuthorizationServer",

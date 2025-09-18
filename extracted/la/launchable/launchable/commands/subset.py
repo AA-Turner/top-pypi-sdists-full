@@ -207,6 +207,12 @@ from .test_path_writer import TestPathWriter
     help="get subset list from git managed files",
     is_flag=True,
 )
+@click.option(
+    "--use-case",
+    "use_case",
+    type=click.Choice(["one-commit", "feature-branch", "recurring"]),
+    hidden=True,  # control PTS v2 test selection behavior. Non-committed, so hidden for now.
+)
 @click.pass_context
 def subset(
     context: click.core.Context,
@@ -235,6 +241,7 @@ def subset(
     prioritized_tests_mapping_file: Optional[TextIO] = None,
     test_suite: Optional[str] = None,
     is_get_tests_from_guess: bool = False,
+    use_case: Optional[str] = None,
 ):
     app = context.obj
     tracking_client = TrackingClient(Command.SUBSET, app=app)
@@ -513,6 +520,9 @@ def subset(
             if prioritized_tests_mapping_file:
                 payload['prioritizedTestsMapping'] = json.load(prioritized_tests_mapping_file)
 
+            if use_case:
+                payload["changesUnderTest"] = use_case
+
             return payload
 
         def _collect_potential_test_files(self):
@@ -560,6 +570,7 @@ def subset(
                 # The status code 422 is returned when validation error of the test mapping file occurs.
                 if res.status_code == 422:
                     print_error_and_die("Error: {}".format(res.reason), Tracking.ErrorEvent.USER_ERROR)
+                res.raise_for_status()
 
                 return SubsetResult.from_response(res.json())
             except Exception as e:

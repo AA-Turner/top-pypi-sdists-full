@@ -25,7 +25,7 @@ class Identifiers(BaseModel):
     """
     A list of lusid instrument ids  # noqa: E501
     """
-    lusid_instrument_ids: conlist(StrictStr) = Field(..., alias="lusidInstrumentIds")
+    lusid_instrument_ids: conlist(StrictStr) = Field(..., alias="lusidInstrumentIds", description="The collection of LUSID instrument identifiers")
     __properties = ["lusidInstrumentIds"]
 
     class Config:

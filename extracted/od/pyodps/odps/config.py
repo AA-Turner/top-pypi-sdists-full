@@ -31,6 +31,7 @@ except ImportError:
 
 
 DEFAULT_BLOCK_BUFFER_SIZE = 20 * 1024**2
+DEFAULT_ROW_BATCH_SIZE = 2048
 DEFAULT_CHUNK_SIZE = 65536
 DEFAULT_CONNECT_RETRY_TIMES = 4
 DEFAULT_CONNECT_TIMEOUT = 120
@@ -501,7 +502,7 @@ default_options.register_option("progress_percentage_gap", 5, validator=is_integ
 default_options.register_option("enable_v4_sign", True, validator=is_bool)
 default_options.register_option("align_supported_python_tag", True, validator=is_bool)
 
-# c or python mode, use for UT, in other cases, please do not modify the value
+# c or python mode for UT only. In other cases, please do not modify the value
 default_options.register_option("force_c", False, validator=is_integer)
 default_options.register_option("force_py", False, validator=is_integer)
 
@@ -554,10 +555,10 @@ default_options.register_option(
     "tunnel.pd_cast_mode", None, validator=is_in([None, "numpy", "arrow"])
 )
 default_options.register_option(
-    "tunnel.read_row_batch_size", 1024, validator=is_integer
+    "tunnel.read_row_batch_size", DEFAULT_ROW_BATCH_SIZE, validator=is_integer
 )
 default_options.register_option(
-    "tunnel.write_row_batch_size", 1024, validator=is_integer
+    "tunnel.write_row_batch_size", DEFAULT_ROW_BATCH_SIZE, validator=is_integer
 )
 default_options.register_option(
     "tunnel.batch_merge_threshold", 128, validator=is_integer
@@ -580,6 +581,7 @@ default_options.register_option(
 default_options.register_option(
     "tunnel.enable_client_metrics", False, validator=any_validator(is_null, is_bool)
 )
+default_options.register_option("tunnel.no_decimal_check", False, validator=is_bool)
 default_options.register_option("tunnel.compress.enabled", False, validator=is_bool)
 default_options.register_option(
     "tunnel.compress.algo", None, validator=any_validator(is_null, is_string)
@@ -608,6 +610,14 @@ default_options.register_option(
 default_options.register_option("sql.ignore_fields_not_null", False, validator=is_bool)
 default_options.register_option(
     "sql.use_odps2_extension", None, validator=any_validator(is_null, is_bool)
+)
+
+# Catalog API
+default_options.register_option(
+    "catalog.endpoint", None, validator=any_validator(is_null, is_string)
+)
+default_options.register_option(
+    "catalog.url_prefix", "/api/catalog/v1alpha", validator=is_string
 )
 
 # sqlalchemy

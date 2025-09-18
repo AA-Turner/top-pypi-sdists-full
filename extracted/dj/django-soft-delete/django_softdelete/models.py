@@ -24,7 +24,7 @@ class SoftDeleteModel(models.Model):
         restored_at (models.DateTimeField): Date and time when an instance was
             restored.
         transaction_id (models.UUIDField): UUID field that is used to label all
-            entites that were soft-deleted inside same transaction. Later it is
+            entities that were soft-deleted inside same transaction. Later it is
             used to restore objects. This will prevent situations where related
             objects that were deleted before soft-deletion, are restored.
         objects (SoftDeleteManager): a custom manager that excludes soft deleted objects.
@@ -252,11 +252,12 @@ class SoftDeleteModel(models.Model):
             return
 
         if on_delete == models.CASCADE:
-            if strict:
-                kwargs['strict'] = strict
             if isinstance(related_object, SoftDeleteModel):
+                if strict:
+                    kwargs['strict'] = strict
                 related_object.delete(transaction_id=transaction_id, *args, **kwargs)
             else:
+                kwargs.pop("o2o_model", None)
                 related_object.delete(*args, **kwargs)
         elif on_delete == models.SET_NULL:
             setattr(related_object, field.remote_field.name, None)

@@ -64,11 +64,6 @@ class EmailAgent(AgentModule):
             html_body = ""
             html_elements = ""
 
-            if gConfig.getValue("/DIRAC/Setup"):
-                setup = "(" + gConfig.getValue("/DIRAC/Setup") + ")\n\n"
-            else:
-                setup = ""
-
             html_header = """\
       <!DOCTYPE html>
       <html>
@@ -86,7 +81,7 @@ class EmailAgent(AgentModule):
       <body>
         <p class="setup">{setup}</p>
       """.format(
-                setup=setup
+                setup=""
             )
 
             for row in records:

@@ -8,27 +8,27 @@ site banning and unbanning, WMS proxy uploading etc.
 import os
 from datetime import datetime, timedelta
 
-from DIRAC import gLogger, gConfig, S_OK, S_ERROR
-from DIRAC.Core.Utilities.PromptUser import promptUser
-from DIRAC.Core.Base.API import API
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.ConfigurationSystem.Client.CSAPI import CSAPI
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOForGroup
+from DIRAC.Core.Base.API import API
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
+from DIRAC.Core.Utilities.PromptUser import promptUser
 from DIRAC.FrameworkSystem.Client.NotificationClient import NotificationClient
+from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
 from DIRAC.ResourceStatusSystem.Client.ResourceStatusClient import ResourceStatusClient
-from DIRAC.ResourceStatusSystem.Client.ResourceStatus import ResourceStatus
 from DIRAC.ResourceStatusSystem.Client.SiteStatus import SiteStatus
 from DIRAC.WorkloadManagementSystem.Client.JobManagerClient import JobManagerClient
-from DIRAC.WorkloadManagementSystem.Client.WMSAdministratorClient import WMSAdministratorClient
 from DIRAC.WorkloadManagementSystem.Client.PilotManagerClient import PilotManagerClient
+from DIRAC.WorkloadManagementSystem.Client.WMSAdministratorClient import WMSAdministratorClient
+from DIRAC.WorkloadManagementSystem.Service.WMSUtilities import (
+    killPilotsInQueues,
+)
 
 voName = ""
 ret = getProxyInfo(disableVOMS=True)
 if ret["OK"] and "group" in ret["Value"]:
     voName = getVOForGroup(ret["Value"]["group"])
-
-COMPONENT_NAME = "/Interfaces/API/DiracAdmin"
 
 
 class DiracAdmin(API):
@@ -41,13 +41,7 @@ class DiracAdmin(API):
 
         self.csAPI = CSAPI()
 
-        self.dbg = False
-        if gConfig.getValue(self.section + "/LogLevel", "DEBUG") == "DEBUG":
-            self.dbg = True
-
-        self.scratchDir = gConfig.getValue(self.section + "/ScratchDir", "/tmp")
         self.currentDir = os.getcwd()
-        self.rssFlag = ResourceStatus().rssFlag
         self.sitestatus = SiteStatus()
 
     #############################################################################
@@ -68,31 +62,12 @@ class DiracAdmin(API):
         return gProxyManager.uploadProxy()
 
     #############################################################################
-    def setProxyPersistency(self, userDN, userGroup, persistent=True):
-        """Set the persistence of a proxy in the Proxy Manager
-
-        Example usage:
-
-          >>> gLogger.notice(diracAdmin.setProxyPersistency( 'some DN', 'dirac group', True ))
-          {'OK': True }
-
-        :param userDN: User DN
-        :type userDN: string
-        :param userGroup: DIRAC Group
-        :type userGroup: string
-        :param persistent: Persistent flag
-        :type persistent: boolean
-        :return: S_OK,S_ERROR
-        """
-        return gProxyManager.setPersistency(userDN, userGroup, persistent)
-
-    #############################################################################
     def checkProxyUploaded(self, userDN, userGroup, requiredTime):
-        """Set the persistence of a proxy in the Proxy Manager
+        """Checks that a user has a proxy in the Proxy Manager
 
         Example usage:
 
-          >>> gLogger.notice(diracAdmin.setProxyPersistency( 'some DN', 'dirac group', True ))
+          >>> gLogger.notice(diracAdmin.checkProxyUploaded( 'some DN', 'dirac group', True ))
           {'OK': True, 'Value' : True/False }
 
         :param userDN: User DN
@@ -178,22 +153,22 @@ class DiracAdmin(API):
 
     #############################################################################
     def allowSite(self, site, comment, printOutput=False, days=1):
-        """Adds the site to the site mask.
+        """Adds the site to the site mask. The site must be a valid DIRAC site name
 
         Example usage:
 
-          >>> gLogger.notice(diracAdmin.allowSite())
+          >>> gLogger.notice(diracAdmin.allowSite('LCG.CERN.ch'))
           {'OK': True, 'Value': }
 
+        :param str site: DIRAC site name
+        :param str comment: comment for the site status update
         :return: S_OK,S_ERROR
 
         """
-        result = self._checkSiteIsValid(site)
-        if not result["OK"]:
+        if not (result := self._checkSiteIsValid(site))["OK"]:
             return result
 
-        result = self.getSiteMask(status="Active")
-        if not result["OK"]:
+        if not (result := self.getSiteMask(status="Active"))["OK"]:
             return result
         siteMask = result["Value"]
         if site in siteMask:
@@ -201,16 +176,13 @@ class DiracAdmin(API):
                 gLogger.notice(f"Site {site} is already Active")
             return S_OK(f"Site {site} is already Active")
 
-        if self.rssFlag:
-            tokenLifetime = int(days)
-            if tokenLifetime <= 0:
-                tokenExpiration = datetime.max
-            else:
-                tokenExpiration = datetime.utcnow().replace(microsecond=0) + timedelta(days=tokenLifetime)
-            result = self.sitestatus.setSiteStatus(site, "Active", comment, expiry=tokenExpiration)
+        tokenLifetime = int(days)
+        if tokenLifetime <= 0:
+            tokenExpiration = datetime.max
         else:
-            result = WMSAdministratorClient().allowSite(site, comment)
-        if not result["OK"]:
+            tokenExpiration = datetime.utcnow().replace(microsecond=0) + timedelta(days=tokenLifetime)
+
+        if not (result := self.sitestatus.setSiteStatus(site, "Active", comment, expiry=tokenExpiration))["OK"]:
             return result
 
         if printOutput:
@@ -229,16 +201,10 @@ class DiracAdmin(API):
 
         :return: S_OK,S_ERROR
         """
-        result = self._checkSiteIsValid(site)
-        if not result["OK"]:
+        if not (result := self._checkSiteIsValid(site))["OK"]:
             return result
 
-        if self.rssFlag:
-            result = ResourceStatusClient().selectStatusElement("Site", "History", name=site)
-        else:
-            result = WMSAdministratorClient().getSiteMaskLogging(site)
-
-        if not result["OK"]:
+        if not (result := ResourceStatusClient().selectStatusElement("Site", "History", name=site))["OK"]:
             return result
 
         if printOutput:
@@ -276,8 +242,7 @@ class DiracAdmin(API):
         :return: S_OK,S_ERROR
 
         """
-        result = self._checkSiteIsValid(site)
-        if not result["OK"]:
+        if not (result := self._checkSiteIsValid(site))["OK"]:
             return result
         mask = self.getSiteMask(status="Banned")
         if not mask["OK"]:
@@ -287,81 +252,19 @@ class DiracAdmin(API):
             if printOutput:
                 gLogger.notice(f"Site {site} is already Banned")
             return S_OK(f"Site {site} is already Banned")
-        if self.rssFlag:
-            tokenLifetime = int(days)
-            if tokenLifetime <= 0:
-                tokenExpiration = datetime.max
-            else:
-                tokenExpiration = datetime.utcnow().replace(microsecond=0) + timedelta(days=tokenLifetime)
-            result = self.sitestatus.setSiteStatus(site, "Banned", comment, expiry=tokenExpiration)
+
+        tokenLifetime = int(days)
+        if tokenLifetime <= 0:
+            tokenExpiration = datetime.max
         else:
-            result = WMSAdministratorClient().banSite(site, comment)
-        if not result["OK"]:
+            tokenExpiration = datetime.utcnow().replace(microsecond=0) + timedelta(days=tokenLifetime)
+        if not (result := self.sitestatus.setSiteStatus(site, "Banned", comment, expiry=tokenExpiration))["OK"]:
             return result
 
         if printOutput:
             gLogger.notice(f"Site {site} status is set to Banned")
 
         return result
-
-    #############################################################################
-    def getServicePorts(self, setup="", printOutput=False):
-        """Checks the service ports for the specified setup.  If not given this is
-        taken from the current installation (/DIRAC/Setup)
-
-        Example usage:
-
-          >>> gLogger.notice(diracAdmin.getServicePorts())
-          {'OK': True, 'Value':''}
-
-        :return: S_OK,S_ERROR
-
-        """
-        if not setup:
-            setup = gConfig.getValue("/DIRAC/Setup", "")
-
-        setupList = gConfig.getSections("/DIRAC/Setups", [])
-        if not setupList["OK"]:
-            return S_ERROR("Could not get /DIRAC/Setups sections")
-        setupList = setupList["Value"]
-        if setup not in setupList:
-            return S_ERROR(f"Setup {setup} is not in allowed list: {', '.join(setupList)}")
-
-        serviceSetups = gConfig.getOptionsDict(f"/DIRAC/Setups/{setup}")
-        if not serviceSetups["OK"]:
-            return S_ERROR(f"Could not get /DIRAC/Setups/{setup} options")
-        serviceSetups = serviceSetups["Value"]  # dict
-        systemList = gConfig.getSections("/Systems")
-        if not systemList["OK"]:
-            return S_ERROR("Could not get Systems sections")
-        systemList = systemList["Value"]
-        result = {}
-        for system in systemList:
-            if system in serviceSetups:
-                path = f"/Systems/{system}/{serviceSetups[system]}/Services"
-                servicesList = gConfig.getSections(path)
-                if not servicesList["OK"]:
-                    self.log.warn(f"Could not get sections in {path}")
-                else:
-                    servicesList = servicesList["Value"]
-                    if not servicesList:
-                        servicesList = []
-                    self.log.verbose(f"System: {system} ServicesList: {', '.join(servicesList)}")
-                    for service in servicesList:
-                        spath = f"{path}/{service}/Port"
-                        servicePort = gConfig.getValue(spath, 0)
-                        if servicePort:
-                            self.log.verbose(f"Found port for {system}/{service} = {servicePort}")
-                            result[f"{system}/{service}"] = servicePort
-                        else:
-                            self.log.warn(f"No port found for {spath}")
-            else:
-                self.log.warn(f"{system} is not defined in /DIRAC/Setups/{setup}")
-
-        if printOutput:
-            gLogger.notice(self.pPrint.pformat(result))
-
-        return S_OK(result)
 
     #############################################################################
     def getProxy(self, userDN, userGroup, validity=43200, limited=False):
@@ -394,22 +297,6 @@ class DiracAdmin(API):
         return gProxyManager.downloadVOMSProxy(
             userDN, userGroup, limited=limited, requiredVOMSAttribute=vomsAttr, requiredTimeLeft=validity
         )
-
-    #############################################################################
-    def getPilotProxy(self, userDN, userGroup, validity=43200):
-        """Retrieves a pilot proxy with default 12hr validity and stores
-        this in a file in the local directory by default.
-
-        Example usage:
-
-          >>> gLogger.notice(diracAdmin.getVOMSProxy())
-          {'OK': True, 'Value': }
-
-        :return: S_OK,S_ERROR
-
-        """
-
-        return gProxyManager.getPilotProxyFromDIRACGroup(userDN, userGroup, requiredTimeLeft=validity)
 
     #############################################################################
     def resetJob(self, jobID):
@@ -451,6 +338,7 @@ class DiracAdmin(API):
 
         :param job: JobID
         :type job: integer or string
+        :param str directory: a directory to download logs to.
         :return: S_OK,S_ERROR
         """
         if not directory:
@@ -494,13 +382,13 @@ class DiracAdmin(API):
 
     #############################################################################
     def getPilotOutput(self, gridReference, directory=""):
-        """Retrieve the pilot output  (std.out and std.err) for an existing job in the WMS.
+        """Retrieve the pilot output  (std.out and std.err) for an existing pilot reference.
 
           >>> gLogger.notice(dirac.getJobPilotOutput(12345))
           {'OK': True, 'Value': {}}
 
-        :param job: JobID
-        :type job: integer or string
+        :param str gridReference: pilot reference
+        :param str directory: a directory to download logs to.
         :return: S_OK,S_ERROR
         """
         if not isinstance(gridReference, str):
@@ -563,9 +451,6 @@ class DiracAdmin(API):
         if not isinstance(gridReference, str):
             return self._errorReport("Expected string for pilot reference")
 
-        # TODO: to remove from v9.0
-        gLogger.notice("Notice: 'TaskQueueID' will be removed from the output in v9.0.")
-
         result = PilotManagerClient().getPilotInfo(gridReference)
         return result
 
@@ -579,11 +464,31 @@ class DiracAdmin(API):
         :param gridReference: Pilot Job Reference
         :return: S_OK,S_ERROR
         """
-        if not isinstance(gridReference, str):
-            return self._errorReport("Expected string for pilot reference")
+        if not isinstance(gridReference, (str, list)):
+            return self._errorReport("Expected string or list of strings for pilot reference")
 
-        result = PilotManagerClient().killPilot(gridReference)
-        return result
+        # Make a list if it is not yet
+        if isinstance(gridReference, str):
+            gridReference = [gridReference]
+
+        # Regroup pilots per site
+        pilotRefDict = {}
+        for pilotReference in gridReference:
+            result = PilotManagerClient().getPilotInfo(pilotReference)
+            if not result["OK"] or not result["Value"]:
+                return S_ERROR(f"Failed to get info for pilot {pilotReference}")
+
+            pilotDict = result["Value"][pilotReference]
+            queue = "@@@".join(
+                [pilotDict["VO"], pilotDict["GridSite"], pilotDict["DestinationSite"], pilotDict["Queue"]]
+            )
+            gridType = pilotDict["GridType"]
+            pilotRefDict.setdefault(queue, {})
+            pilotRefDict[queue].setdefault("PilotList", [])
+            pilotRefDict[queue]["PilotList"].append(pilotReference)
+            pilotRefDict[queue]["GridType"] = gridType
+
+        return killPilotsInQueues(pilotRefDict)
 
     #############################################################################
     def getPilotLoggingInfo(self, gridReference):
@@ -612,15 +517,13 @@ class DiracAdmin(API):
         :param job: JobID
         :type job: integer or string
         :return: S_OK,S_ERROR
+
         """
         if isinstance(jobID, str):
             try:
                 jobID = int(jobID)
             except ValueError as x:
                 return self._errorReport(str(x), "Expected integer or string for existing jobID")
-
-        # TODO: remove this comment from v9.0
-        gLogger.notice("Notice: 'TaskQueueID' will be removed from the output in v9.0.")
 
         result = PilotManagerClient().getPilots(jobID)
         if result["OK"]:
@@ -845,18 +748,7 @@ class DiracAdmin(API):
         """
         Send mail to specified address with body.
         """
-        notification = NotificationClient()
-        return notification.sendMail(address, subject, body, fromAddress, localAttempt, html)
-
-    #############################################################################
-    def sendSMS(self, userName, body, fromAddress=None):
-        """
-        Send mail to specified address with body.
-        """
-        if len(body) > 160:
-            return S_ERROR("Exceeded maximum SMS length of 160 characters")
-        notification = NotificationClient()
-        return notification.sendSMS(userName, body, fromAddress)
+        return NotificationClient().sendMail(address, subject, body, fromAddress, localAttempt, html)
 
 
 # EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#EOF#

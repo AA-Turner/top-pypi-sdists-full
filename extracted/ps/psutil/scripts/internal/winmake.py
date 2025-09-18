@@ -15,7 +15,6 @@ that they should be deemed illegal!
 import argparse
 import atexit
 import ctypes
-import errno
 import fnmatch
 import os
 import shutil
@@ -23,21 +22,13 @@ import site
 import subprocess
 import sys
 
-
 PYTHON = os.getenv('PYTHON', sys.executable)
-PYTEST_ARGS = ["-v", "-s", "--tb=short"]
 HERE = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.realpath(os.path.join(HERE, "..", ".."))
 WINDOWS = os.name == "nt"
 
 
 sys.path.insert(0, ROOT_DIR)  # so that we can import setup.py
-
-import setup  # noqa: E402
-
-
-TEST_DEPS = setup.TEST_DEPS
-DEV_DEPS = setup.DEV_DEPS
 
 _cmds = {}
 
@@ -131,16 +122,21 @@ def rm(pattern, directory=False):
 def safe_remove(path):
     try:
         os.remove(path)
-    except OSError as err:
-        if err.errno != errno.ENOENT:
-            raise
+    except FileNotFoundError:
+        pass
+    except PermissionError as err:
+        print(err)
     else:
         safe_print(f"rm {path}")
 
 
 def safe_rmtree(path):
+    def onerror(func, path, err):
+        if not issubclass(err[0], FileNotFoundError):
+            print(err[1])
+
     existed = os.path.isdir(path)
-    shutil.rmtree(path, ignore_errors=True)
+    shutil.rmtree(path, onerror=onerror)
     if existed and not os.path.isdir(path):
         safe_print(f"rmdir -f {path}")
 
@@ -223,7 +219,7 @@ def install_pip():
 def install():
     """Install in develop / edit mode."""
     build()
-    sh([PYTHON, "setup.py", "develop"])
+    sh([PYTHON, "setup.py", "develop", "--user"])
 
 
 def uninstall():
@@ -289,6 +285,7 @@ def clean():
         "*__pycache__",
         ".coverage",
         ".failed-tests.txt",
+        "pytest-cache-files*",
     )
     safe_rmtree("build")
     safe_rmtree(".coverage")
@@ -302,14 +299,14 @@ def install_pydeps_test():
     """Install useful deps."""
     install_pip()
     install_git_hooks()
-    sh([PYTHON, "-m", "pip", "install", "--user", "-U"] + TEST_DEPS)
+    sh([PYTHON, "-m", "pip", "install", "--user", "-U", "-e", ".[test]"])
 
 
 def install_pydeps_dev():
     """Install useful deps."""
     install_pip()
     install_git_hooks()
-    sh([PYTHON, "-m", "pip", "install", "--user", "-U"] + DEV_DEPS)
+    sh([PYTHON, "-m", "pip", "install", "--user", "-U", "-e", ".[dev]"])
 
 
 def test(args=None):
@@ -318,9 +315,20 @@ def test(args=None):
     args = args or []
     sh(
         [PYTHON, "-m", "pytest", "--ignore=psutil/tests/test_memleaks.py"]
-        + PYTEST_ARGS
         + args
     )
+
+
+def test_by_name(arg):
+    """Run specific test by name."""
+    build()
+    sh([PYTHON, "-m", "pytest", arg])
+
+
+def test_by_regex(arg):
+    """Run specific test by name."""
+    build()
+    sh([PYTHON, "-m", "pytest"] + ["-k", arg])
 
 
 def test_parallel():
@@ -331,7 +339,7 @@ def coverage():
     """Run coverage tests."""
     # Note: coverage options are controlled by .coveragerc file
     build()
-    sh([PYTHON, "-m", "coverage", "run", "-m", "pytest"] + PYTEST_ARGS)
+    sh([PYTHON, "-m", "coverage", "run", "-m", "pytest"])
     sh([PYTHON, "-m", "coverage", "report"])
     sh([PYTHON, "-m", "coverage", "html"])
     sh([PYTHON, "-m", "webbrowser", "-t", "htmlcov/index.html"])
@@ -340,61 +348,67 @@ def coverage():
 def test_process():
     """Run process tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_process.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_process.py"])
 
 
 def test_process_all():
     """Run process all tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_process_all.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_process_all.py"])
 
 
 def test_system():
     """Run system tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_system.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_system.py"])
 
 
 def test_platform():
     """Run windows only tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_windows.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_windows.py"])
 
 
 def test_misc():
     """Run misc tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_misc.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_misc.py"])
 
 
 def test_scripts():
     """Run scripts tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_scripts.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_scripts.py"])
 
 
 def test_unicode():
     """Run unicode tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_unicode.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_unicode.py"])
 
 
 def test_connections():
     """Run connections tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_connections.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_connections.py"])
 
 
 def test_contracts():
     """Run contracts tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_contracts.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_contracts.py"])
 
 
 def test_testutils():
     """Run test utilities tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_testutils.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_testutils.py"])
+
+
+def test_sudo():
+    """Run sudo utilities tests."""
+    build()
+    sh([PYTHON, "-m", "pytest", "-k", "test_sudo.py"])
 
 
 def test_last_failed():
@@ -406,7 +420,7 @@ def test_last_failed():
 def test_memleaks():
     """Run memory leaks tests."""
     build()
-    sh([PYTHON, "psutil\\tests\\test_memleaks.py"])
+    sh([PYTHON, "-m", "pytest", "-k", "test_memleaks.py"])
 
 
 def install_git_hooks():
@@ -502,6 +516,9 @@ def parse_args():
     sp.add_parser('test-parallel', help="run tests in parallel")
     test = sp.add_parser('test', help="[ARG] run tests")
     test_by_name = sp.add_parser('test-by-name', help="<ARG> run test by name")
+    test_by_regex = sp.add_parser(
+        'test-by-regex', help="<ARG> run test by regex"
+    )
     sp.add_parser('test-connections', help="run connections tests")
     sp.add_parser('test-contracts', help="run contracts tests")
     sp.add_parser(
@@ -514,13 +531,14 @@ def parse_args():
     sp.add_parser('test-process', help="run process tests")
     sp.add_parser('test-process-all', help="run process all tests")
     sp.add_parser('test-system', help="run system tests")
+    sp.add_parser('test-sudo', help="run sudo tests")
     sp.add_parser('test-unicode', help="run unicode tests")
     sp.add_parser('test-testutils', help="run test utils tests")
     sp.add_parser('uninstall', help="uninstall psutil")
     sp.add_parser('upload-wheels', help="upload wheel files on PyPI")
     sp.add_parser('wheel', help="create wheel file")
 
-    for p in (test, test_by_name):
+    for p in (test, test_by_name, test_by_regex):
         p.add_argument('arg', type=str, nargs='?', default="", help="arg")
 
     args = parser.parse_args()
@@ -548,6 +566,10 @@ def main():
     fun = getattr(sys.modules[__name__], fname)  # err if fun not defined
     if args.command == 'test' and args.arg:
         sh([PYTHON, args.arg])  # test a script
+    elif args.command == 'test-by-name':
+        test_by_name(args.arg)
+    elif args.command == 'test-by-regex':
+        test_by_regex(args.arg)
     else:
         fun()
 

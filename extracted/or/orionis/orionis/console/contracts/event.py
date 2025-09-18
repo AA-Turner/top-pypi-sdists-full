@@ -2768,7 +2768,7 @@ class IEvent(ABC):
     @abstractmethod
     def everyMondayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2783,7 +2783,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -2811,7 +2811,7 @@ class IEvent(ABC):
     @abstractmethod
     def everyTuesdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2826,7 +2826,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -2854,7 +2854,7 @@ class IEvent(ABC):
     @abstractmethod
     def everyWednesdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2869,7 +2869,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -2897,7 +2897,7 @@ class IEvent(ABC):
     @abstractmethod
     def everyThursdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2912,7 +2912,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -2940,7 +2940,7 @@ class IEvent(ABC):
     @abstractmethod
     def everyFridayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2955,7 +2955,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -2983,7 +2983,7 @@ class IEvent(ABC):
     @abstractmethod
     def everySaturdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -2997,8 +2997,8 @@ class IEvent(ABC):
 
         Parameters
         ----------
-        hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+        hour : int
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3026,7 +3026,7 @@ class IEvent(ABC):
     @abstractmethod
     def everySundayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3041,7 +3041,7 @@ class IEvent(ABC):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash_ag_grid
-Version: 32.3.1
+Version: 32.3.2
 Summary: Dash wrapper around AG Grid, the best interactive data grid for the web.
 Home-page: https://dash.plotly.com/dash-ag-grid
 Author: Plotly <chris@plot.ly>

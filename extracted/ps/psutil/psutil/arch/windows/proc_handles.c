@@ -22,8 +22,7 @@
 #include <windows.h>
 #include <Python.h>
 
-#include "../../_psutil_common.h"
-#include "proc_utils.h"
+#include "../../arch/all/init.h"
 
 
 #define THREAD_TIMEOUT 100  // ms

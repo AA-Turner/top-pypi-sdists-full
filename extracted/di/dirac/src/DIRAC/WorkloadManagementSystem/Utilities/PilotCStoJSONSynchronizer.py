@@ -1,21 +1,85 @@
-""" CStoJSONSynchronizer
-  Module that keeps the pilot parameters file synchronized with the information
-  in the Operations/Pilot section of the CS. If there are additions in the CS,
-  these are incorporated to the file.
-  The module uploads to a web server the latest version of the pilot scripts.
+"""CStoJSONSynchronizer
+Module that keeps the pilot parameters file synchronized with the information
+in the Operations/Pilot section of the CS. If there are additions in the CS,
+these are incorporated to the file.
+The module uploads to a web server the latest version of the pilot scripts.
 """
-import os
+
+import datetime
 import glob
+import os
 import shutil
 import tarfile
-import datetime
+from typing import Any
 
 from git import Repo
 
-from DIRAC import gLogger, gConfig, S_OK
+from DIRAC import S_OK, gConfig, gLogger
 from DIRAC.ConfigurationSystem.Client.ConfigurationData import gConfigurationData
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.ConfigurationSystem.Client.Helpers.Path import cfgPath
+from DIRAC.Core.Utilities.ReturnValues import DOKReturnType, DReturnType
+
+import socket
+from urllib.parse import urlparse
+
+
+def exclude_master_cs_aliases(urls: list[str], master_cs_url: str) -> list[str]:
+    """
+    Excludes URLs that are DNS aliases of the given MasterCS server URL.
+
+    This function resolves the IP addresses of the MasterCS server and each URL in the input list.
+    It returns a new list containing only those URLs whose hostnames do not resolve to any of the
+    MasterCS server's IP addresses, effectively excluding all DNS aliases of the MasterCS server.
+
+    Args:
+        urls (list[str]): A list of URLs to filter. Each URL should be a string in a valid URL format.
+        master_cs_url (str): The reference URL (e.g., MasterCS server URL) whose DNS aliases are to be excluded.
+
+    Returns:
+        list[str]: A new list of URLs with all aliases of the MasterCS server removed.
+                  If the MasterCS hostname cannot be resolved, the original list is returned unchanged.
+
+    Example:
+        >>> urls = [
+        ...     'dips://lbvobox303.cern.ch:9135/Configuration/Server',
+        ...     'dips://ccwlcglhcb02.in2p3.fr:9135/Configuration/Server',
+        ...     'dips://lbvobox302.cern.ch:9135/Configuration/Server',
+        ... ]
+        >>> master_cs_url = "dips://mastercs.cern.ch:9135/Configuration/Server"
+        >>> exclude_master_cs_aliases(urls, master_cs_url)
+        ['dips://ccwlcglhcb02.in2p3.fr:9135/Configuration/Server']
+
+    Notes:
+        - If the MasterCS hostname cannot be resolved, the function returns the original list.
+        - If a hostname in the input list cannot be resolved, it is included in the result.
+        - The comparison is based on IP addresses, not hostnames.
+    """
+    master_cs_hostname = urlparse(master_cs_url).hostname
+    if not master_cs_hostname:
+        return urls
+
+    # Resolve IP addresses for the MasterCS hostname
+    try:
+        master_cs_ips = set(socket.gethostbyname_ex(master_cs_hostname)[2])
+    except socket.gaierror:
+        return urls
+
+    # Function to get IPs for a hostname
+    def get_ips(hostname):
+        try:
+            return set(socket.gethostbyname_ex(hostname)[2])
+        except socket.gaierror:
+            return set()
+
+    filtered_urls = []
+    for url in urls:
+        hostname = urlparse(url).hostname
+        ips = get_ips(hostname)
+        if not ips & master_cs_ips:
+            filtered_urls.append(url)
+
+    return filtered_urls
 
 
 class PilotCStoJSONSynchronizer:
@@ -38,7 +102,6 @@ class PilotCStoJSONSynchronizer:
         # pilot sync default parameters
         self.pilotRepo = "https://github.com/DIRACGrid/Pilot.git"  # repository of the pilot
         self.pilotVORepo = ""  # repository of the VO that can contain a pilot extension
-        self.pilotSetup = gConfig.getValue("/DIRAC/Setup", "")
         self.projectDir = ""
         # where the find the pilot scripts in the VO pilot repository
         self.pilotScriptPath = "Pilot"  # where the find the pilot scripts in the pilot repository
@@ -59,8 +122,10 @@ class PilotCStoJSONSynchronizer:
         self.pilotRepoBranch = ops.getValue("Pilot/pilotRepoBranch", self.pilotRepoBranch)
         self.pilotVORepoBranch = ops.getValue("Pilot/pilotVORepoBranch", self.pilotVORepoBranch)
 
-    def getCSDict(self, includeMasterCS=True):
-        """Gets minimal info for running a pilot, from the CS
+    def getCSDict(self, includeMasterCS: bool = True) -> DReturnType[Any]:
+        """
+        Gets minimal info for running a pilot, from the CS. The complete Operations section is
+        dumped to a dictionary. A decision which VO to use will be delegated to a pilot.
 
         :returns: pilotDict (containing pilots run info)
         :rtype: S_OK, S_ERROR, value is pilotDict
@@ -68,41 +133,26 @@ class PilotCStoJSONSynchronizer:
 
         pilotDict = {
             "timestamp": datetime.datetime.utcnow().isoformat(),
-            "Setups": {},
             "CEs": {},
             "GenericPilotDNs": [],
         }
 
         self.log.info("-- Getting the content of the CS --")
 
-        # These are in fact not only setups: they may be "Defaults" sections, or VOs, in multi-VOs installations
-        setupsRes = gConfig.getSections("/Operations/")
-        if not setupsRes["OK"]:
-            self.log.error("Can't get sections from Operations", setupsRes["Message"])
-            return setupsRes
-        setupsInOperations = setupsRes["Value"]
+        # Get the whole Operations section as a dict.
+        self.log.verbose("From Operations (whole section)")
+        opRes = gConfig.getOptionsDictRecursively("/Operations")
+        if not opRes["OK"]:
+            self.log.error("Can't get sections from Operations", opRes["Message"])
+            return opRes
+        pilotDict.update(opRes["Value"])
 
-        # getting the setup(s) in this CS, and comparing with what we found in Operations
-        setupsInDIRACRes = gConfig.getSections("DIRAC/Setups")
-        if not setupsInDIRACRes["OK"]:
-            self.log.error("Can't get sections from DIRAC/Setups", setupsInDIRACRes["Message"])
-            return setupsInDIRACRes
-        setupsInDIRAC = setupsInDIRACRes["Value"]
-
-        # Handling the case of multi-VO CS
-        if not set(setupsInDIRAC).intersection(set(setupsInOperations)):
-            vos = list(setupsInOperations)
-            for vo in vos:
-                setupsFromVOs = gConfig.getSections(f"/Operations/{vo}")
-                if not setupsFromVOs["OK"]:
-                    continue
-                else:
-                    setupsInOperations = setupsFromVOs["Value"]
-
-        self.log.verbose("From Operations/[Setup]/Pilot")
-
-        for setup in setupsInOperations:
-            self._getPilotOptionsPerSetup(setup, pilotDict)
+        # we still need a pilotVOVersion
+        self.opsHelper = Operations()
+        self.pilotVOVersion = self.opsHelper.getValue("/Pilot/Version")
+        # if self.pilotVORepo is defined and self.pilotVOVersion is not, syncScripts is likely to fail.
+        if self.pilotVOVersion is None and self.pilotVORepo:
+            self.log.error("Pilot VO repo is set in the CS but the pilot VO version is not. Expect problems ahead")
 
         self.log.verbose("From Resources/Sites")
         sitesSection = gConfig.getSections("/Resources/Sites/")
@@ -124,7 +174,7 @@ class PilotCStoJSONSynchronizer:
                     continue
 
                 for ce in ceList["Value"]:
-                    # This CEType is like 'HTCondor' or 'ARC' etc.
+                    # This CEType is like 'HTCondor' or 'AREX' etc.
                     ceType = gConfig.getValue(cfgPath("/Resources", "Sites", grid, site, "CEs", ce, "CEType"))
                     if ceType is None:
                         # Skip but log it
@@ -163,92 +213,15 @@ class PilotCStoJSONSynchronizer:
         configurationServers = gConfig.getServersList()
         if not includeMasterCS:
             masterCS = gConfigurationData.getMasterServer()
-            configurationServers = list(set(configurationServers) - {masterCS})
+            configurationServers = exclude_master_cs_aliases(configurationServers, masterCS)
+
         pilotDict["ConfigurationServers"] = configurationServers
 
         self.log.debug("Got pilotDict", str(pilotDict))
 
         return S_OK(pilotDict)
 
-    def _getPilotOptionsPerSetup(self, setup, pilotDict):
-        """Given a setup, returns its pilot options in a dictionary"""
-
-        options = gConfig.getOptionsDict(f"/Operations/{setup}/Pilot")
-        if not options["OK"]:
-            self.log.warn("Section does not exist: skipping", f"/Operations/{setup}/Pilot ")
-            return
-
-        # We include everything that's in the Pilot section for this setup
-        if setup == self.pilotSetup:
-            self.pilotVOVersion = options["Value"]["Version"]
-        pilotDict["Setups"][setup] = options["Value"]
-        # We update separately 'GenericPilotDNs'
-        try:
-            pilotDict["GenericPilotDNs"].append(pilotDict["Setups"][setup]["GenericPilotDN"])
-        except KeyError:
-            pass
-        ceTypesCommands = gConfig.getOptionsDict(f"/Operations/{setup}/Pilot/Commands")
-        if ceTypesCommands["OK"]:
-            # It's ok if the Pilot section doesn't list any Commands too
-            pilotDict["Setups"][setup]["Commands"] = {}
-            for ceType in ceTypesCommands["Value"]:
-                # FIXME: inconsistent that we break Commands down into a proper list but other things are comma-list strings
-                pilotDict["Setups"][setup]["Commands"][ceType] = ceTypesCommands["Value"][ceType].split(", ")
-                # pilotDict['Setups'][setup]['Commands'][ceType] = ceTypesCommands['Value'][ceType]
-        if "CommandExtensions" in pilotDict["Setups"][setup]:
-            # FIXME: inconsistent that we break CommandExtensionss down into a proper
-            # list but other things are comma-list strings
-            pilotDict["Setups"][setup]["CommandExtensions"] = pilotDict["Setups"][setup]["CommandExtensions"].split(
-                ", "
-            )
-            # pilotDict['Setups'][setup]['CommandExtensions'] = pilotDict['Setups'][setup]['CommandExtensions']
-
-        # Getting the details aboout the MQ Services to be used for logging, if any
-        if "LoggingMQService" in pilotDict["Setups"][setup]:
-            loggingMQService = gConfig.getOptionsDict(
-                f"/Resources/MQServices/{pilotDict['Setups'][setup]['LoggingMQService']}"
-            )
-            if not loggingMQService["OK"]:
-                self.log.error(loggingMQService["Message"])
-                return loggingMQService
-            pilotDict["Setups"][setup]["Logging"] = {}
-            pilotDict["Setups"][setup]["Logging"]["Host"] = loggingMQService["Value"]["Host"]
-            pilotDict["Setups"][setup]["Logging"]["Port"] = loggingMQService["Value"]["Port"]
-
-            loggingMQServiceQueuesSections = gConfig.getSections(
-                f"/Resources/MQServices/{pilotDict['Setups'][setup]['LoggingMQService']}/Queues"
-            )
-            if not loggingMQServiceQueuesSections["OK"]:
-                self.log.error(loggingMQServiceQueuesSections["Message"])
-                return loggingMQServiceQueuesSections
-            pilotDict["Setups"][setup]["Logging"]["Queue"] = {}
-
-            for queue in loggingMQServiceQueuesSections["Value"]:
-                loggingMQServiceQueue = gConfig.getOptionsDict(
-                    f"/Resources/MQServices/{pilotDict['Setups'][setup]['LoggingMQService']}/Queues/{queue}"
-                )
-                if not loggingMQServiceQueue["OK"]:
-                    self.log.error(loggingMQServiceQueue["Message"])
-                    return loggingMQServiceQueue
-                pilotDict["Setups"][setup]["Logging"]["Queue"][queue] = loggingMQServiceQueue["Value"]
-
-            queuesRes = gConfig.getSections(
-                f"/Resources/MQServices/{pilotDict['Setups'][setup]['LoggingMQService']}/Queues"
-            )
-            if not queuesRes["OK"]:
-                return queuesRes
-            queues = queuesRes["Value"]
-            queuesDict = {}
-            for queue in queues:
-                queueOptionRes = gConfig.getOptionsDict(
-                    f"/Resources/MQServices/{pilotDict['Setups'][setup]['LoggingMQService']}/Queues/{queue}"
-                )
-                if not queueOptionRes["OK"]:
-                    return queueOptionRes
-                queuesDict[queue] = queueOptionRes["Value"]
-            pilotDict["Setups"][setup]["Logging"]["Queues"] = queuesDict
-
-    def syncScripts(self):
+    def syncScripts(self) -> DOKReturnType[Any]:
         """Clone the pilot scripts from the Pilot repositories (handle also extensions)"""
         tarFiles = []
 

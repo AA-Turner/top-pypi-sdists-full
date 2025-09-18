@@ -70,7 +70,7 @@ ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
 NetworkTypeType = Literal["IPV4", "IPV6"]
-PurchaseOptionType = Literal["ONDEMAND", "SPOT"]
+PurchaseOptionType = Literal["CAPACITY_BLOCK", "ONDEMAND", "SPOT"]
 QueueStatusType = Literal[
     "ACTIVE",
     "CREATE_FAILED",
@@ -453,7 +453,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",

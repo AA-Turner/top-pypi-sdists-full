@@ -3389,15 +3389,15 @@ components:
       type: object
       required:
         - account_id
-        - application_id
+        - application_instance_id
         - status
       properties:
         account_id:
           type: string
           x-semantic: account-id
-        application_id:
+        application_instance_id:
           type: string
-          x-semantic: application-id
+          x-semantic: application-instance-id
         status:
           allOf:
             - $ref: '#/components/schemas/AccountStatus'
@@ -3479,13 +3479,13 @@ components:
     AssignApplication:
       type: object
       required:
-        - application_id
+        - application_instance_id
         - account_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The id of the application to create the account in
-          x-semantic: application-id
+          x-semantic: application-instance-id
         account_id:
           type: string
           description: The integration specific id of the account to assign the application to

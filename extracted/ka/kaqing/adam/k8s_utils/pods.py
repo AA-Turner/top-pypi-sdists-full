@@ -8,6 +8,7 @@ from kubernetes.stream import stream
 from kubernetes.stream.ws_client import ERROR_CHANNEL
 
 from adam.config import Config
+from adam.k8s_utils.volumes import ConfigMapMount
 from adam.pod_exec_result import PodExecResult
 from adam.utils import elapsed_time, log2
 from .kube_context import KubeContext
@@ -175,10 +176,14 @@ class Pods:
     def create_pod_spec(name: str, image: str, image_pull_secret: str,
                         envs: list, container_security_context: client.V1SecurityContext,
                         volume_name: str, pvc_name:str, mount_path:str,
-                        command: list[str]=None, sa_name=None, restart_policy="Never"):
+                        command: list[str]=None, sa_name : str = None, config_map_mount: ConfigMapMount = None,
+                        restart_policy="Never"):
         volume_mounts = []
         if volume_name and pvc_name and mount_path:
             volume_mounts=[client.V1VolumeMount(mount_path=mount_path, name=volume_name)]
+
+        if config_map_mount:
+            volume_mounts.append(client.V1VolumeMount(mount_path=config_map_mount.mount_path, sub_path=config_map_mount.sub_path, name=config_map_mount.name()))
 
         container = client.V1Container(name=name, image=image, env=envs, security_context=container_security_context, command=command,
                                     volume_mounts=volume_mounts)
@@ -190,6 +195,9 @@ class Pods:
         security_context = None
         if not sa_name:
             security_context=client.V1PodSecurityContext(run_as_user=1001, run_as_group=1001, fs_group=1001)
+
+        if config_map_mount:
+            volumes.append(client.V1Volume(name=config_map_mount.name(), config_map=client.V1ConfigMapVolumeSource(name=config_map_mount.config_map_name)))
 
         return client.V1PodSpec(
             restart_policy=restart_policy,
@@ -209,12 +217,14 @@ class Pods:
                volume_name: str = None,
                pvc_name: str = None,
                mount_path: str = None,
-               sa_name=None):
+               sa_name: str = None,
+               config_map_mount: ConfigMapMount = None):
         v1 = client.CoreV1Api()
         envs = []
         for k, v in env.items():
             envs.append(client.V1EnvVar(name=str(k), value=str(v)))
-        pod = Pods.create_pod_spec(pod_name, image, secret, envs, container_security_context, volume_name, pvc_name, mount_path, command=command, sa_name=sa_name)
+        pod = Pods.create_pod_spec(pod_name, image, secret, envs, container_security_context, volume_name, pvc_name, mount_path, command=command,
+                                   sa_name=sa_name, config_map_mount=config_map_mount)
         return v1.create_namespaced_pod(
             namespace=namespace,
             body=client.V1Pod(spec=pod, metadata=client.V1ObjectMeta(

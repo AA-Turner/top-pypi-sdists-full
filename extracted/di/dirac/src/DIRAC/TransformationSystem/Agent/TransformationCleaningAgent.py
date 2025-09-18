@@ -16,14 +16,12 @@ from datetime import datetime, timedelta
 
 # # from DIRAC
 from DIRAC import S_ERROR, S_OK
-from DIRAC.ConfigurationSystem.Client.ConfigurationData import gConfigurationData
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.Core.Base.AgentModule import AgentModule
 from DIRAC.Core.Utilities.DErrno import cmpError
 from DIRAC.Core.Utilities.List import breakListIntoChunks
 from DIRAC.Core.Utilities.Proxy import executeWithUserProxy
 from DIRAC.Core.Utilities.ReturnValues import returnSingleResult
-from DIRAC.DataManagementSystem.Client.DataManager import DataManager
 from DIRAC.RequestManagementSystem.Client.File import File
 from DIRAC.RequestManagementSystem.Client.Operation import Operation
 from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
@@ -34,8 +32,12 @@ from DIRAC.Resources.Catalog.FileCatalogClient import FileCatalogClient
 from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.TransformationSystem.Client import TransformationStatus
 from DIRAC.TransformationSystem.Client.TransformationClient import TransformationClient
-from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
-from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
+from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
+from DIRAC.WorkloadManagementSystem.Service.JobPolicy import (
+    RIGHT_DELETE,
+    RIGHT_KILL,
+)
+from DIRAC.WorkloadManagementSystem.DB.StatusUtils import kill_delete_jobs
 
 # # agent's name
 AGENT_NAME = "Transformation/TransformationCleaningAgent"
@@ -59,12 +61,12 @@ class TransformationCleaningAgent(AgentModule):
 
         # # transformation client
         self.transClient = None
-        # # wms client
-        self.wmsClient = None
         # # request client
         self.reqClient = None
         # # file catalog client
         self.metadataClient = None
+        # # JobDB
+        self.jobDB = None
 
         # # transformations types
         self.transformationTypes = None
@@ -78,7 +80,6 @@ class TransformationCleaningAgent(AgentModule):
         self.logSE = "LogSE"
         # # enable/disable execution
         self.enableFlag = "True"
-        self.cleanWithRMS = False
 
         self.dataProcTTypes = ["MCSimulation", "Merge"]
         self.dataManipTTypes = ["Replication", "Removal"]
@@ -118,17 +119,14 @@ class TransformationCleaningAgent(AgentModule):
         self.logSE = Operations().getValue("/LogStorage/LogSE", self.logSE)
         self.log.info(f"Will remove logs found on storage element: {self.logSE}")
 
-        self.cleanWithRMS = self.am_getOption("CleanWithRMS", self.cleanWithRMS)
         # # transformation client
         self.transClient = TransformationClient()
-        # # wms client
-        self.wmsClient = WMSClient()
         # # request client
         self.reqClient = ReqClient()
         # # file catalog client
         self.metadataClient = FileCatalogClient()
-        # # job monitoring client
-        self.jobMonitoringClient = JobMonitoringClient()
+        # # job DB
+        self.jobDB = JobDB()
 
         return S_OK()
 
@@ -154,10 +152,10 @@ class TransformationCleaningAgent(AgentModule):
                     self._executeClean(transDict)
                 else:
                     self.log.info(
-                        f"Cleaning transformation {transDict['TransformationID']} with {transDict['AuthorDN']}, {transDict['AuthorGroup']}"
+                        f"Cleaning transformation {transDict['TransformationID']} with {transDict['Author']}, {transDict['AuthorGroup']}"
                     )
                     executeWithUserProxy(self._executeClean)(
-                        transDict, proxyUserDN=transDict["AuthorDN"], proxyUserGroup=transDict["AuthorGroup"]
+                        transDict, proxyUserName=transDict["Author"], proxyUserGroup=transDict["AuthorGroup"]
                     )
         else:
             self.log.error("Failed to get transformations", res["Message"])
@@ -170,11 +168,11 @@ class TransformationCleaningAgent(AgentModule):
                     self._executeRemoval(transDict)
                 else:
                     self.log.info(
-                        "Removing files for transformation %(TransformationID)s with %(AuthorDN)s, %(AuthorGroup)s"
+                        "Removing files for transformation %(TransformationID)s with %(Author)s, %(AuthorGroup)s"
                         % transDict
                     )
                     executeWithUserProxy(self._executeRemoval)(
-                        transDict, proxyUserDN=transDict["AuthorDN"], proxyUserGroup=transDict["AuthorGroup"]
+                        transDict, proxyUserName=transDict["Author"], proxyUserGroup=transDict["AuthorGroup"]
                     )
         else:
             self.log.error("Could not get the transformations", res["Message"])
@@ -192,11 +190,11 @@ class TransformationCleaningAgent(AgentModule):
                     self._executeArchive(transDict)
                 else:
                     self.log.info(
-                        "Archiving files for transformation %(TransformationID)s with %(AuthorDN)s, %(AuthorGroup)s"
+                        "Archiving files for transformation %(TransformationID)s with %(Author)s, %(AuthorGroup)s"
                         % transDict
                     )
                     executeWithUserProxy(self._executeArchive)(
-                        transDict, proxyUserDN=transDict["AuthorDN"], proxyUserGroup=transDict["AuthorGroup"]
+                        transDict, proxyUserName=transDict["Author"], proxyUserGroup=transDict["AuthorGroup"]
                     )
         else:
             self.log.error("Could not get the transformations", res["Message"])
@@ -226,7 +224,7 @@ class TransformationCleaningAgent(AgentModule):
         So, we should just clean from time to time.
         What I added here is done only when the agent finalize, and it's quite light-ish operation anyway.
         """
-        res = self.jobMonitoringClient.getJobGroups(None, datetime.utcnow() - timedelta(days=365))
+        res = self.jobDB.getDistinctJobAttributes("JobGroup", None, datetime.utcnow() - timedelta(days=365))
         if not res["OK"]:
             self.log.error("Failed to get job groups", res["Message"])
             return res
@@ -250,10 +248,10 @@ class TransformationCleaningAgent(AgentModule):
                     self._executeClean(transDict)
                 else:
                     self.log.info(
-                        f"Cleaning transformation {transDict['TransformationID']} with {transDict['AuthorDN']}, {transDict['AuthorGroup']}"
+                        f"Cleaning transformation {transDict['TransformationID']} with {transDict['Author']}, {transDict['AuthorGroup']}"
                     )
                     executeWithUserProxy(self._executeClean)(
-                        transDict, proxyUserDN=transDict["AuthorDN"], proxyUserGroup=transDict["AuthorGroup"]
+                        transDict, proxyUserName=transDict["Author"], proxyUserGroup=transDict["AuthorGroup"]
                     )
 
             for transDict in toArchive:
@@ -261,16 +259,16 @@ class TransformationCleaningAgent(AgentModule):
                     self._executeArchive(transDict)
                 else:
                     self.log.info(
-                        "Archiving files for transformation %(TransformationID)s with %(AuthorDN)s, %(AuthorGroup)s"
+                        "Archiving files for transformation %(TransformationID)s with %(Author)s, %(AuthorGroup)s"
                         % transDict
                     )
                     executeWithUserProxy(self._executeArchive)(
-                        transDict, proxyUserDN=transDict["AuthorDN"], proxyUserGroup=transDict["AuthorGroup"]
+                        transDict, proxyUserName=transDict["Author"], proxyUserGroup=transDict["AuthorGroup"]
                     )
 
             # Remove JobIDs that were unknown to the TransformationSystem
             jobGroupsToCheck = [str(transDict["TransformationID"]).zfill(8) for transDict in toClean + toArchive]
-            res = self.jobMonitoringClient.getJobs({"JobGroup": jobGroupsToCheck})
+            res = self.jobDB.selectJobs({"JobGroup": jobGroupsToCheck})
             if not res["OK"]:
                 return res
             jobIDsToRemove = [int(jobID) for jobID in res["Value"]]
@@ -374,7 +372,7 @@ class TransformationCleaningAgent(AgentModule):
     # These are the methods for performing the cleaning of catalogs and storage
     #
 
-    def cleanContent(self, directory):
+    def cleanContent(self, directory, transID):
         """wipe out everything from catalog under folder :directory:
 
         :param self: self reference
@@ -390,32 +388,7 @@ class TransformationCleaningAgent(AgentModule):
             return S_OK()
         self.log.info("Attempting to remove possible remnants from the catalog and storage", f"(n={len(filesFound)})")
 
-        # Executing with shifter proxy
-        gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "false")
-        failed = {}
-        if self.cleanWithRMS:
-            res = self.__submitRemovalRequests(filesFound, 0)
-            gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "true")
-            return res
-
-        for chunkId, filesChunk in enumerate(breakListIntoChunks(filesFound, 500)):
-            self.log.info("Removing chunk", chunkId)
-            res = DataManager().removeFile(filesChunk, force=True)
-            if not res["OK"]:
-                failed.update(dict.fromkeys(filesChunk, res["Message"]))
-            failed.update(res["Value"]["Failed"])
-        gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "true")
-
-        realFailure = False
-        for lfn, reason in failed.items():
-            if "File does not exist" in str(reason):
-                self.log.warn(f"File {lfn} not found in some catalog: ")
-            else:
-                self.log.error("Failed to remove file found in the catalog", f"{lfn} {reason}")
-                realFailure = True
-        if realFailure:
-            return S_ERROR("Failed to remove some files found in the catalog")
-        return S_OK()
+        return self.__submitRemovalRequests(filesFound, transID)
 
     def __getCatalogDirectoryContents(self, directories):
         """get catalog contents under paths :directories:
@@ -479,7 +452,7 @@ class TransformationCleaningAgent(AgentModule):
         directories = res["Value"]
         for directory in directories:
             if not re.search("/LOG/", directory):
-                res = self.cleanContent(directory)
+                res = self.cleanContent(directory, transID)
                 if not res["OK"]:
                     return res
 
@@ -548,7 +521,7 @@ class TransformationCleaningAgent(AgentModule):
                 res = self.cleanTransformationLogFiles(directory)
                 if not res["OK"]:
                     return res
-            res = self.cleanContent(directory)
+            res = self.cleanContent(directory, transID)
             if not res["OK"]:
                 return res
 
@@ -578,22 +551,7 @@ class TransformationCleaningAgent(AgentModule):
             self.log.info("No files found for transID", transID)
             return S_OK()
 
-        if self.cleanWithRMS:
-            return self.__submitRemovalRequests(fileToRemove, transID)
-        else:
-            # Executing with shifter proxy
-            gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "false")
-            res = DataManager().removeFile(fileToRemove, force=True)
-            gConfigurationData.setOptionInCFG("/DIRAC/Security/UseServerCertificate", "true")
-
-        if not res["OK"]:
-            return res
-        for lfn, reason in res["Value"]["Failed"].items():
-            self.log.error("Failed to remove file found in metadata catalog", f"{lfn} {reason}")
-        if res["Value"]["Failed"]:
-            return S_ERROR("Failed to remove all files found in the metadata catalog")
-        self.log.info("Successfully removed all files found in the DFC")
-        return S_OK()
+        return self.__submitRemovalRequests(fileToRemove, transID)
 
     #############################################################################
     #
@@ -652,8 +610,8 @@ class TransformationCleaningAgent(AgentModule):
         # Prevent 0 job IDs
         jobIDs = [int(j) for j in transJobIDs if int(j)]
         allRemove = True
-        for jobList in breakListIntoChunks(jobIDs, 500):
-            res = self.wmsClient.killJob(jobList, force=True)
+        for jobList in breakListIntoChunks(jobIDs, 1000):
+            res = kill_delete_jobs(RIGHT_KILL, jobList, force=True)
             if res["OK"]:
                 self.log.info(f"Successfully killed {len(jobList)} jobs from WMS")
             elif ("InvalidJobIDs" in res) and ("NonauthorizedJobIDs" not in res) and ("FailedJobIDs" not in res):
@@ -665,7 +623,7 @@ class TransformationCleaningAgent(AgentModule):
                 self.log.error("Failed to kill jobs", f"(n={len(res['FailedJobIDs'])})")
                 allRemove = False
 
-            res = self.wmsClient.deleteJob(jobList)
+            res = kill_delete_jobs(RIGHT_DELETE, jobList, force=True)
             if res["OK"]:
                 self.log.info("Successfully deleted jobs from WMS", f"(n={len(jobList)})")
             elif ("InvalidJobIDs" in res) and ("NonauthorizedJobIDs" not in res) and ("FailedJobIDs" not in res):
@@ -726,7 +684,7 @@ class TransformationCleaningAgent(AgentModule):
 
         for index, lfnList in enumerate(breakListIntoChunks(lfns, 300)):
             oRequest = Request()
-            requestName = "TCA_{transID}_{index}_{md5(repr(time.time()).encode()).hexdigest()[:5]}"
+            requestName = f"TCA_{transID}_{index}_{md5(repr(time.time()).encode()).hexdigest()[:5]}"
             oRequest.RequestName = requestName
             oOperation = Operation()
             oOperation.Type = "RemoveFile"

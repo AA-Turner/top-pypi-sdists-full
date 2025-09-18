@@ -100,9 +100,7 @@ class Service:
             "validNames": self._validNames,
             "csPaths": [PathFinder.getServiceSection(svcName) for svcName in self._validNames],
         }
-        self.securityLogging = Operations().getValue("EnableSecurityLogging", True) and getServiceOption(
-            self._serviceInfoDict, "EnableSecurityLogging", True
-        )
+        self.securityLogging = Operations().getValue("EnableSecurityLogging", False)
 
         # Initialize Monitoring
         # The import needs to be here because of the CS must be initialized before importing

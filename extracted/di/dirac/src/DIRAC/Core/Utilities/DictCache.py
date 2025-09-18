@@ -34,7 +34,6 @@ class MockLockRing:
 
     def doNothing(self, *args, **kwargs):
         """Really does nothing !"""
-        pass
 
     acquire = release = doNothing
 
@@ -115,9 +114,9 @@ class DictCache:
                 # If it's valid return True!
                 if expTime > datetime.datetime.now() + datetime.timedelta(seconds=validSeconds):
                     return True
-                else:
-                    # Delete expired
-                    self.delete(cKey)
+
+                # Delete expired
+                self.delete(cKey)
             return False
         finally:
             self.lock.release()
@@ -169,9 +168,9 @@ class DictCache:
                 # If it's valid return True!
                 if expTime > datetime.datetime.now() + datetime.timedelta(seconds=validSeconds):
                     return self.__cache[cKey]["value"]
-                else:
-                    # Delete expired
-                    self.delete(cKey)
+
+                # Delete expired
+                self.delete(cKey)
             return None
         finally:
             self.lock.release()
@@ -184,11 +183,11 @@ class DictCache:
         self.lock.acquire()
         try:
             data = []
-            for cKey in self.__cache:
-                data.append(f"{str(cKey)}:")
-                data.append(f"\tExp: {self.__cache[cKey]['expirationTime']}")
-                if self.__cache[cKey]["value"]:
-                    data.append(f"\tVal: {self.__cache[cKey]['value']}")
+            for cKey, cValue in self.__cache.items():
+                data.append(f"{cKey}:")
+                data.append(f"\tExp: {cValue['expirationTime']}")
+                if cValue["value"]:
+                    data.append(f"\tVal: {cValue['Value']}")
             return "\n".join(data)
         finally:
             self.lock.release()
@@ -204,8 +203,8 @@ class DictCache:
         try:
             keys = []
             limitTime = datetime.datetime.now() + datetime.timedelta(seconds=validSeconds)
-            for cKey in self.__cache:
-                if self.__cache[cKey]["expirationTime"] > limitTime:
+            for cKey, cValue in self.__cache.items():
+                if cValue["expirationTime"] > limitTime:
                     keys.append(cKey)
             return keys
         finally:
@@ -220,13 +219,13 @@ class DictCache:
         try:
             keys = []
             limitTime = datetime.datetime.now() + datetime.timedelta(seconds=expiredInSeconds)
-            for cKey in self.__cache:
-                if self.__cache[cKey]["expirationTime"] < limitTime:
+            for cKey, cValue in self.__cache.items():
+                if cValue["expirationTime"] < limitTime:
                     keys.append(cKey)
-            for cKey in keys:
+            for key in keys:
                 if self.__deleteFunction:
-                    self.__deleteFunction(self.__cache[cKey]["value"])
-                del self.__cache[cKey]
+                    self.__deleteFunction(self.__cache[key]["value"])
+                del self.__cache[key]
         finally:
             self.lock.release()
 

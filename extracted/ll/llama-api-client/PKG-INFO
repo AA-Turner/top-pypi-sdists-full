@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama_api_client
-Version: 0.3.0
+Version: 0.4.0
 Summary: The official Python library for the llama-api-client API
 Project-URL: Homepage, https://github.com/meta-llama/llama-api-python
 Project-URL: Repository, https://github.com/meta-llama/llama-api-python

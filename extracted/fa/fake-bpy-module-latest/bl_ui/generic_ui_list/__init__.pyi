@@ -120,7 +120,7 @@ class UILIST_OT_entry_remove(GenericUIListOperator, _bpy_types.Operator):
 
 def draw_ui_list(
     layout: bpy.types.UILayout,
-    context: _bpy_types.Context,
+    context: bpy.types.Context,
     class_name: str = "UI_UL_list",
     *,
     unique_id: str,
@@ -136,7 +136,7 @@ def draw_ui_list(
         :param layout: UILayout to draw the list in.
         :type layout: bpy.types.UILayout
         :param context: Blender context to get the list data from.
-        :type context: _bpy_types.Context
+        :type context: bpy.types.Context
         :param class_name: Name of the UIList class to draw. The default is the UIList class that ships with Blender.
         :type class_name: str
         :param unique_id: Unique identifier to differentiate this from other UI lists.

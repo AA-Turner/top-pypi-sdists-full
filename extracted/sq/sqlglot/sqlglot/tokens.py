@@ -88,6 +88,7 @@ class TokenType(AutoName):
     QMARK_AMP = auto()
     QMARK_PIPE = auto()
     HASH_DASH = auto()
+    EXCLAMATION = auto()
 
     URI_START = auto()
 
@@ -313,6 +314,7 @@ class TokenType(AutoName):
     INDEX = auto()
     INNER = auto()
     INSERT = auto()
+    INSTALL = auto()
     INTERSECT = auto()
     INTERVAL = auto()
     INTO = auto()
@@ -398,6 +400,7 @@ class TokenType(AutoName):
     SIMILAR_TO = auto()
     SOME = auto()
     SORT_BY = auto()
+    SOUNDS_LIKE = auto()
     START_WITH = auto()
     STORAGE_INTEGRATION = auto()
     STRAIGHT_JOIN = auto()

@@ -1463,6 +1463,7 @@ class FirewallPolicyOutputTypeDef(TypedDict):
     StatefulEngineOptions: NotRequired[StatefulEngineOptionsTypeDef]
     TLSInspectionConfigurationArn: NotRequired[str]
     PolicyVariables: NotRequired[PolicyVariablesOutputTypeDef]
+    EnableTLSSessionHolding: NotRequired[bool]
 
 class FirewallPolicyTypeDef(TypedDict):
     StatelessDefaultActions: Sequence[str]
@@ -1474,6 +1475,7 @@ class FirewallPolicyTypeDef(TypedDict):
     StatefulEngineOptions: NotRequired[StatefulEngineOptionsTypeDef]
     TLSInspectionConfigurationArn: NotRequired[str]
     PolicyVariables: NotRequired[PolicyVariablesTypeDef]
+    EnableTLSSessionHolding: NotRequired[bool]
 
 class DescribeTLSInspectionConfigurationResponseTypeDef(TypedDict):
     UpdateToken: str

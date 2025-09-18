@@ -531,6 +531,7 @@ class Parser(metaclass=_Parser):
         TokenType.LEFT,
         TokenType.LIMIT,
         TokenType.LOAD,
+        TokenType.LOCK,
         TokenType.MERGE,
         TokenType.NATURAL,
         TokenType.NEXT,
@@ -1426,8 +1427,6 @@ class Parser(metaclass=_Parser):
     }
 
     DISTINCT_TOKENS = {TokenType.DISTINCT}
-
-    NULL_TOKENS = {TokenType.NULL}
 
     UNNEST_OFFSET_ALIAS_TOKENS = TABLE_ALIAS_TOKENS - SET_OPERATIONS
 
@@ -6079,6 +6078,9 @@ class Parser(metaclass=_Parser):
             constraint_kind = exp.ComputedColumnConstraint(
                 this=self._parse_assignment(),
                 persisted=persisted or self._match_text_seq("PERSISTED"),
+                data_type=exp.Var(this="AUTO")
+                if self._match_text_seq("AUTO")
+                else self._parse_types(),
                 not_null=self._match_pair(TokenType.NOT, TokenType.NULL),
             )
             constraints.append(self.expression(exp.ColumnConstraint, kind=constraint_kind))
@@ -6974,16 +6976,27 @@ class Parser(metaclass=_Parser):
 
     def _parse_substring(self) -> exp.Substring:
         # Postgres supports the form: substring(string [from int] [for int])
+        # (despite being undocumented, the reverse order also works)
         # https://www.postgresql.org/docs/9.1/functions-string.html @ Table 9-6
 
         args = t.cast(t.List[t.Optional[exp.Expression]], self._parse_csv(self._parse_bitwise))
 
-        if self._match(TokenType.FROM):
-            args.append(self._parse_bitwise())
-        if self._match(TokenType.FOR):
-            if len(args) == 1:
-                args.append(exp.Literal.number(1))
-            args.append(self._parse_bitwise())
+        start, length = None, None
+
+        while self._curr:
+            if self._match(TokenType.FROM):
+                start = self._parse_bitwise()
+            elif self._match(TokenType.FOR):
+                if not start:
+                    start = exp.Literal.number(1)
+                length = self._parse_bitwise()
+            else:
+                break
+
+        if start:
+            args.append(start)
+        if length:
+            args.append(length)
 
         return self.validate_expression(exp.Substring.from_arg_list(args), args)
 
@@ -7274,7 +7287,7 @@ class Parser(metaclass=_Parser):
         return self._parse_primary() or self._parse_var(any_token=True)
 
     def _parse_null(self) -> t.Optional[exp.Expression]:
-        if self._match_set(self.NULL_TOKENS):
+        if self._match_set((TokenType.NULL, TokenType.UNKNOWN)):
             return self.PRIMARY_PARSERS[TokenType.NULL](self, self._prev)
         return self._parse_placeholder()
 
@@ -7308,7 +7321,7 @@ class Parser(metaclass=_Parser):
         if self._match(TokenType.L_PAREN, advance=False):
             return self._parse_wrapped_csv(self._parse_expression)
 
-        expression = self._parse_expression()
+        expression = self._parse_alias(self._parse_assignment(), explicit=True)
         return [expression] if expression else None
 
     def _parse_csv(

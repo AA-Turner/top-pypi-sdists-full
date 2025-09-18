@@ -18,24 +18,95 @@ if TYPE_CHECKING:
 
 
 def _detect_languages_in_dir(files: Iterable[str]) -> list[Language]:
-    """Return programming languages detected in a directory via exact filenames or glob patterns."""
+    """Return programming languages detected in a directory via exact filenames or glob patterns.
+
+    Handles conflicts between similar languages by using a priority system and confidence scoring.
+    """
     names = {f.casefold() for f in files}
     hits: list[Language] = []
+
+    # Language priority mapping (higher number = higher priority)
+    # This helps resolve conflicts between similar languages
+    language_priorities = {
+        Language.TypeScript: 10,  # TypeScript has priority over JavaScript
+        Language.JavaScript: 5,
+        Language.Kotlin: 8,  # Kotlin has priority over Java
+        Language.Java: 6,
+        Language.Rust: 9,  # Rust has priority over C
+        Language.C: 4,
+        Language.Scala: 7,  # Scala has priority over Java
+        Language.Dart: 8,  # Dart has priority over JavaScript
+        Language.Python: 7,
+        Language.Go: 8,
+        Language.PHP: 6,
+        Language.Ruby: 6,
+        Language.CSharp: 7,
+        Language.Swift: 8,
+    }
+
+    # Track confidence scores for each language
+    language_scores: dict[Language, int] = {}
+
     for lang, markers in CONFIG_MARKERS.items():
         exacts: set[str] = {n.casefold() for n in markers["names"]}
         patterns: list[str] = list(markers["globs"])
-        # there is a match by exact name
-        name_hit = any(n in names for n in exacts)
-        if name_hit:
+
+        score = 0
+
+        # Check exact name matches (higher confidence)
+        exact_matches = [n for n in exacts if n in names]
+        if exact_matches:
+            score += len(exact_matches) * 10  # Each exact match adds 10 points
+
+        # Check glob pattern matches (lower confidence)
+        glob_matches = 0
+        for f in names:
+            if any(fnmatch(f, pat) for pat in patterns):
+                glob_matches += 1
+        if glob_matches:
+            score += glob_matches * 5  # Each glob match adds 5 points
+
+        if score > 0:
+            language_scores[lang] = score
             hits.append(lang)
-            continue
-        # there is a match by glob (p. ej., *.sln, *.csproj)?
-        glob_hit = any(any(fnmatch(f, pat) for pat in patterns) for f in names)
-        if glob_hit:
-            hits.append(lang)
-    if Language.TypeScript in hits:
-        hits.remove(Language.JavaScript)
+
+    # Resolve conflicts using priority system
+    if len(hits) > 1:
+        # Sort by priority (descending) and then by confidence score (descending)
+        hits.sort(
+            key=lambda lang: (
+                language_priorities.get(lang, 0),
+                language_scores.get(lang, 0),
+            ),
+            reverse=True,
+        )
+
+        # Remove lower priority languages that conflict with higher priority ones
+        resolved_hits = []
+        for lang in hits:
+            # Check if this language conflicts with any already resolved language
+            conflicts = _get_language_conflicts(lang)
+            if not any(conflict in resolved_hits for conflict in conflicts):
+                resolved_hits.append(lang)
+
+        hits = resolved_hits
+
     return hits
+
+
+def _get_language_conflicts(lang: Language) -> set[Language]:
+    """Return languages that conflict with the given language."""
+    conflicts = {
+        Language.TypeScript: {Language.JavaScript},
+        Language.JavaScript: {Language.TypeScript, Language.Dart},
+        Language.Kotlin: {Language.Java, Language.Scala},
+        Language.Java: {Language.Kotlin, Language.Scala},
+        Language.Scala: {Language.Java, Language.Kotlin},
+        Language.Rust: {Language.C},
+        Language.C: {Language.Rust},
+        Language.Dart: {Language.JavaScript},
+    }
+    return conflicts.get(lang, set())
 
 
 def _optimize_exclusions(exclusions: list[str]) -> list[str]:

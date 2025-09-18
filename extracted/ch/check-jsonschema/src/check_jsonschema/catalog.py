@@ -98,6 +98,16 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
             "types_or": ["json", "yaml"],
         },
     },
+    "codecov": {
+        "url": "https://www.schemastore.org/codecov.json",
+        "hook_config": {
+            "name": "Validate Codecov config",
+            "files": [
+                r"^((\.github|dev)/)?\.?codecov\.ya?ml$",
+            ],
+            "types": "yaml",
+        },
+    },
     "compose-spec": {
         "url": _githubusercontent_url(
             "compose-spec",
@@ -137,6 +147,26 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
             "files": [
                 r"action\.(yml|yaml)",
                 r"\.github/actions/(.+/)?action\.(yml|yaml)",
+            ],
+            "types": "yaml",
+        },
+    },
+    "github-issue-config": {
+        "url": "https://www.schemastore.org/github-issue-config.json",
+        "hook_config": {
+            "name": "Validate GitHub issue config",
+            "files": [
+                r"^\.github/ISSUE_TEMPLATE/config\.yml$",
+            ],
+            "types": "yaml",
+        },
+    },
+    "github-issue-forms": {
+        "url": "https://www.schemastore.org/github-issue-forms.json",
+        "hook_config": {
+            "name": "Validate GitHub issue forms",
+            "files": [
+                r"^\.github/ISSUE_TEMPLATE/(?!config\.ya?ml$).+$",
             ],
             "types": "yaml",
         },

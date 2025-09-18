@@ -5,22 +5,23 @@
 from collections import defaultdict
 
 from diraccfg import CFG
-from DIRAC import S_OK, S_ERROR, gLogger, gConfig
-from DIRAC.Core.Utilities.ReturnValues import returnValueOrRaise, convertToReturnValue
+
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
+from DIRAC.ConfigurationSystem.Client.CSAPI import CSAPI
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import (
+    getAllUsers,
+    getGroupsForUser,
+    getUserOption,
+    getUsersInVO,
+    getVOMSRoleGroupMapping,
+    getVOOption,
+)
 from DIRAC.Core.Security.IAMService import IAMService
 from DIRAC.Core.Security.VOMSService import VOMSService
 from DIRAC.Core.Utilities.List import fromChar
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.Core.Utilities.PrettyPrint import printTable
-from DIRAC.ConfigurationSystem.Client.CSAPI import CSAPI
-from DIRAC.ConfigurationSystem.Client.Helpers.Registry import (
-    getVOOption,
-    getVOMSRoleGroupMapping,
-    getUsersInVO,
-    getAllUsers,
-    getUserOption,
-    getGroupsForUser,
-)
+from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue, returnValueOrRaise
 
 
 def _getUserNameFromMail(mail):
@@ -352,11 +353,6 @@ class VOMS2CSSynchronizer:
 
                 # We have a real new user
                 if not diracName:
-                    # Do not consider users with Suspended status in VOMS
-                    if self.vomsUserDict[dn]["suspended"] or self.vomsUserDict[dn]["certSuspended"]:
-                        resultDict["SuspendedUsers"].append(newDiracName)
-                        continue
-
                     # if we have a nickname, we use the nickname no
                     # matter what so we can have users from different
                     # VOs with the same nickname / username
@@ -372,6 +368,11 @@ class VOMS2CSSynchronizer:
                             # We have a user with the same name but with a different DN
                             newDiracName = "%s_%d" % (trialName, ind)
                             ind += 1
+
+                    # Do not consider users with Suspended status in VOMS
+                    if self.vomsUserDict[dn]["suspended"] or self.vomsUserDict[dn]["certSuspended"]:
+                        resultDict["SuspendedUsers"].append(newDiracName)
+                        continue
 
                     # We now have everything to add the new user
                     userDict = {"DN": dn, "CA": self.vomsUserDict[dn]["CA"], "Email": self.vomsUserDict[dn]["mail"]}
@@ -593,7 +594,7 @@ class VOMS2CSSynchronizer:
 
         # Try to fill in the DiracX section
         if self.useIAM:
-            iam_subs = self.iamSrv.getUsersSub()
+            iam_subs = self.iamSrv.getUsersSub(self.vo)
             diracx_vo_config = {"DiracX": {"CsSync": {"VOs": {self.vo: {"UserSubjects": iam_subs}}}}}
             iam_sub_cfg = CFG()
             iam_sub_cfg.loadFromDict(diracx_vo_config)

@@ -6,25 +6,28 @@
 
 """
 
-import os
-import time
-import random
-import json
 import datetime
+import json
+import os
+import random
+import time
+from functools import cached_property
 
 # # from DIRAC
-from DIRAC import gLogger, S_OK, S_ERROR
-from DIRAC.Core.Utilities.List import randomize, fromChar
-from DIRAC.Core.Utilities.JEncode import strToIntDict
-from DIRAC.Core.Utilities.DEncode import ignoreEncodeWarning
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client import PathFinder
 from DIRAC.Core.Base.Client import Client, createClient
+from DIRAC.Core.Utilities.DEncode import ignoreEncodeWarning
+from DIRAC.Core.Utilities.JEncode import strToIntDict
+from DIRAC.Core.Utilities.List import fromChar, randomize
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
+from DIRAC.Core.Utilities.ReturnValues import returnValueOrRaise
 from DIRAC.RequestManagementSystem.Client.Request import Request
 from DIRAC.RequestManagementSystem.private.RequestValidator import RequestValidator
-from DIRAC.WorkloadManagementSystem.Client import JobStatus
-from DIRAC.WorkloadManagementSystem.Client import JobMinorStatus
-from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
+from DIRAC.WorkloadManagementSystem.Client import JobMinorStatus, JobStatus
 from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
+from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
+from DIRAC.WorkloadManagementSystem.Utilities.JobStatusUtility import JobStatusUtility
 
 
 @createClient("RequestManagement/ReqManager")
@@ -309,8 +312,7 @@ class ReqClient(Client):
         :param str requestID: request id
         :param int jobID: job id
         """
-
-        stateServer = JobStateUpdateClient(useCertificates=useCertificates)
+        stateServer = _JobDBInteraction(useCertificates)
 
         # Checking if to update the job status - we should fail here, so it will be re-tried later
         # Checking the state, first
@@ -603,8 +605,8 @@ def printRequest(request, status=None, full=False, verbose=True, terse=False):
                 (", NotBefore %s" % request.NotBefore) if request.NotBefore else "",
             )
         )
-        if request.OwnerDN:
-            gLogger.always(f"Owner: '{request.OwnerDN}', Group: {request.OwnerGroup}")
+        if request.Owner:
+            gLogger.always(f"Owner: '{request.Owner}', Group: {request.OwnerGroup}")
         for indexOperation in enumerate(request):
             op = indexOperation[1]
             if not terse or op.Status == "Failed":
@@ -632,8 +634,10 @@ def printOperation(indexOperation, verbose=True, onlyFailed=False):
             output = ""
             prettyPrint(decode, offset=10)
             prStr += "\n      Arguments:\n" + output.strip("\n")
-        else:
+        elif isinstance(decode, list):
             prStr += f"\n      Service: {decode[0][0]}"
+        else:
+            prStr += f"\n      Command: {decode['dCls']}.{decode['dMeth']}(*{decode['args']!r})"
     gLogger.always(
         "  [%s] Operation Type='%s' ID=%s Order=%s Status='%s'%s%s"
         % (
@@ -688,3 +692,52 @@ def recoverableRequest(request):
                         return False
                     return True
     return True
+
+
+class _JobDBInteraction:
+    """Class to handle the JobDB interaction.
+
+    This will either connect to the DB directly or use the client depending on
+    if use_certificates is set or not.
+
+    WARNING: This is not intended for use outside of ReqClient!
+    """
+
+    def __init__(self, useCertificates: bool):
+        self._useCertificates = useCertificates
+
+    def setJobParameter(self, jobID: int, key: str, value: str):
+        if self._useCertificates:
+            vo = returnValueOrRaise(self._jobStatusUtility.jobDB.getJobAttribute(jobID, "VO"))
+            return self._elasticJobParametersDB.setJobParameter(int(jobID), key, value, vo=vo)
+        else:
+            return self._client.setJobParameter(jobID, key, value)
+
+    def setJobStatus(self, jobID: int, newStatus: str, minorStatus: str, source: str):
+        if self._useCertificates:
+            return self._jobStatusUtility.setJobStatus(
+                int(jobID), status=newStatus, minorStatus=minorStatus, source=source
+            )
+        else:
+            return self._client.setJobStatus(jobID, newStatus, minorStatus, source)
+
+    def setJobApplicationStatus(self, jobID: int, appStatus: str, source: str):
+        if self._useCertificates:
+            return self._jobStatusUtility.setJobStatus(int(jobID), appStatus=appStatus, source=source)
+        else:
+            return self._client.setJobApplicationStatus(jobID, appStatus, source)
+
+    @cached_property
+    def _client(self):
+        return JobStateUpdateClient(useCertificates=False)
+
+    @cached_property
+    def _jobStatusUtility(self):
+        return JobStatusUtility()
+
+    @cached_property
+    def _elasticJobParametersDB(self):
+        result = ObjectLoader().loadObject("WorkloadManagementSystem.DB.JobParametersDB", "JobParametersDB")
+        if not result["OK"]:
+            return result
+        return result["Value"]()

@@ -1,7 +1,7 @@
 r'''
 # `datadog_cost_budget`
 
-Refer to the Terraform Registry for docs: [`datadog_cost_budget`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget).
+Refer to the Terraform Registry for docs: [`datadog_cost_budget`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CostBudget(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.costBudget.CostBudget",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget datadog_cost_budget}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget datadog_cost_budget}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CostBudget(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget datadog_cost_budget} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget datadog_cost_budget} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param end_month: The month when the budget ends (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#end_month CostBudget#end_month}
-        :param metrics_query: The cost query used to track against the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
-        :param name: The name of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#name CostBudget#name}
-        :param start_month: The month when the budget starts (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#start_month CostBudget#start_month}
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#entries CostBudget#entries}
-        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#id CostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param end_month: The month when the budget ends (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#end_month CostBudget#end_month}
+        :param metrics_query: The cost query used to track against the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
+        :param name: The name of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#name CostBudget#name}
+        :param start_month: The month when the budget starts (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#start_month CostBudget#start_month}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#entries CostBudget#entries}
+        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#id CostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CostBudget(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CostBudget to import.
-        :param import_from_id: The id of the existing CostBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CostBudget that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CostBudget to import is found.
         '''
         if __debug__:
@@ -311,12 +311,12 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param end_month: The month when the budget ends (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#end_month CostBudget#end_month}
-        :param metrics_query: The cost query used to track against the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
-        :param name: The name of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#name CostBudget#name}
-        :param start_month: The month when the budget starts (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#start_month CostBudget#start_month}
-        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#entries CostBudget#entries}
-        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#id CostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param end_month: The month when the budget ends (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#end_month CostBudget#end_month}
+        :param metrics_query: The cost query used to track against the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
+        :param name: The name of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#name CostBudget#name}
+        :param start_month: The month when the budget starts (YYYYMM). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#start_month CostBudget#start_month}
+        :param entries: entries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#entries CostBudget#entries}
+        :param id: The ID of the budget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#id CostBudget#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -428,7 +428,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_month(self) -> jsii.Number:
         '''The month when the budget ends (YYYYMM).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#end_month CostBudget#end_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#end_month CostBudget#end_month}
         '''
         result = self._values.get("end_month")
         assert result is not None, "Required property 'end_month' is missing"
@@ -438,7 +438,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metrics_query(self) -> builtins.str:
         '''The cost query used to track against the budget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#metrics_query CostBudget#metrics_query}
         '''
         result = self._values.get("metrics_query")
         assert result is not None, "Required property 'metrics_query' is missing"
@@ -448,7 +448,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the budget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#name CostBudget#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#name CostBudget#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -458,7 +458,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_month(self) -> jsii.Number:
         '''The month when the budget starts (YYYYMM).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#start_month CostBudget#start_month}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#start_month CostBudget#start_month}
         '''
         result = self._values.get("start_month")
         assert result is not None, "Required property 'start_month' is missing"
@@ -470,7 +470,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CostBudgetEntries"]]]:
         '''entries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#entries CostBudget#entries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#entries CostBudget#entries}
         '''
         result = self._values.get("entries")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CostBudgetEntries"]]], result)
@@ -479,7 +479,7 @@ class CostBudgetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> typing.Optional[builtins.str]:
         '''The ID of the budget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#id CostBudget#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#id CostBudget#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -513,9 +513,9 @@ class CostBudgetEntries:
         tag_filters: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CostBudgetEntriesTagFilters", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#amount CostBudget#amount}.
-        :param month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#month CostBudget#month}.
-        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_filters CostBudget#tag_filters}
+        :param amount: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#amount CostBudget#amount}.
+        :param month: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#month CostBudget#month}.
+        :param tag_filters: tag_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_filters CostBudget#tag_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c6abb02a0745bf03525845858cf9516ae69025177b7f297c0616c1c03faceb3)
@@ -531,14 +531,14 @@ class CostBudgetEntries:
 
     @builtins.property
     def amount(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#amount CostBudget#amount}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#amount CostBudget#amount}.'''
         result = self._values.get("amount")
         assert result is not None, "Required property 'amount' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def month(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#month CostBudget#month}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#month CostBudget#month}.'''
         result = self._values.get("month")
         assert result is not None, "Required property 'month' is missing"
         return typing.cast(jsii.Number, result)
@@ -549,7 +549,7 @@ class CostBudgetEntries:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CostBudgetEntriesTagFilters"]]]:
         '''tag_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_filters CostBudget#tag_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_filters CostBudget#tag_filters}
         '''
         result = self._values.get("tag_filters")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CostBudgetEntriesTagFilters"]]], result)
@@ -771,8 +771,8 @@ class CostBudgetEntriesOutputReference(
 class CostBudgetEntriesTagFilters:
     def __init__(self, *, tag_key: builtins.str, tag_value: builtins.str) -> None:
         '''
-        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_key CostBudget#tag_key}.
-        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_value CostBudget#tag_value}.
+        :param tag_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_key CostBudget#tag_key}.
+        :param tag_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_value CostBudget#tag_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02fedae8e6f288fda0ce87974dc9b98594864cbde25be6c73703b559b93a8bc9)
@@ -785,14 +785,14 @@ class CostBudgetEntriesTagFilters:
 
     @builtins.property
     def tag_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_key CostBudget#tag_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_key CostBudget#tag_key}.'''
         result = self._values.get("tag_key")
         assert result is not None, "Required property 'tag_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tag_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/cost_budget#tag_value CostBudget#tag_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/cost_budget#tag_value CostBudget#tag_value}.'''
         result = self._values.get("tag_value")
         assert result is not None, "Required property 'tag_value' is missing"
         return typing.cast(builtins.str, result)

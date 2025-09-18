@@ -10,7 +10,6 @@ from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOs, getVOOptio
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getDIRACSiteName
 from DIRAC.ConfigurationSystem.Client.PathFinder import getDatabaseSection
 from DIRAC.Core.Utilities.Glue2 import getGlue2CEInfo
-from DIRAC.ConfigurationSystem.Client.PathFinder import getSystemInstance
 
 
 def getGridVOs():
@@ -248,7 +247,7 @@ def getSiteUpdates(vo, bdiiInfo=None, log=None, onecore=False):
                     if newCEType:
                         break
                 if newCEType == "ARC-CE":
-                    newCEType = "ARC"
+                    newCEType = "AREX"
 
                 newRAM = ceInfo.get("GlueHostMainMemoryRAMSize", "").strip()
                 # Protect from unreasonable values
@@ -260,11 +259,7 @@ def getSiteUpdates(vo, bdiiInfo=None, log=None, onecore=False):
                 addToChangeSet((ceSection, "OS", OS, newOS), changeSet)
                 addToChangeSet((ceSection, "SI00", si00, newsi00), changeSet)
 
-                if (newCEType == "ARC6" and ceType in ("AREX",)) or (newCEType == "AREX" and ceType in ("ARC6",)):
-                    # preserve manually chosen AREX or ARC6 setting
-                    pass
-                else:
-                    addToChangeSet((ceSection, "CEType", ceType, newCEType), changeSet)
+                addToChangeSet((ceSection, "CEType", ceType, newCEType), changeSet)
 
                 addToChangeSet((ceSection, "MaxRAM", ram, newRAM), changeSet)
 
@@ -463,7 +458,7 @@ def getElasticDBParameters(fullname):
     parameters = {}
 
     # Check if connection is through certificates and get certificate parameters
-    # Elasticsearch use certs
+    # OpenSearch use certs
     result = gConfig.getOption(cs_path + "/CRT")
     if not result["OK"]:
         # No CRT option found, try at the common place
@@ -487,7 +482,7 @@ def getElasticDBParameters(fullname):
             return S_ERROR("Failed to get the configuration parameter: ca_certs.")
         parameters["ca_certs"] = ca_certs
 
-        # Elasticsearch client_key
+        # OpenSearch client_key
         result = gConfig.getOption(cs_path + "/client_key")
         if not result["OK"]:
             # No client private key found, try at the common place
@@ -500,7 +495,7 @@ def getElasticDBParameters(fullname):
             client_key = result["Value"]
         parameters["client_key"] = client_key
 
-        # Elasticsearch client_cert
+        # OpenSearch client_cert
         result = gConfig.getOption(cs_path + "/client_cert")
         if not result["OK"]:
             # No cient certificate found, try at the common place
@@ -557,7 +552,7 @@ def getElasticDBParameters(fullname):
             dbHost = "localhost"
     parameters["Host"] = dbHost
 
-    # Elasticsearch standard port
+    # OpenSearch standard port
     result = gConfig.getOption(cs_path + "/Port")
     if not result["OK"]:
         # No individual port number found, try at the common place
@@ -626,7 +621,7 @@ def getAuthAPI():
 
     :return: str
     """
-    return gConfig.getValue(f"/Systems/Framework/{getSystemInstance('Framework')}/URLs/AuthAPI")
+    return gConfig.getValue(f"/Systems/Framework/URLs/AuthAPI")
 
 
 def getAuthorizationServerMetadata(issuer=None, ignoreErrors=False):
@@ -665,5 +660,5 @@ def isDownloadProxyAllowed():
 
     :return: S_OK(bool)/S_ERROR()
     """
-    cs_path = f"/Systems/Framework/{getSystemInstance('Framework')}/APIs/Auth"
+    cs_path = f"/Systems/Framework/APIs/Auth"
     return gConfig.getValue(cs_path + "/allowProxyDownload", True)

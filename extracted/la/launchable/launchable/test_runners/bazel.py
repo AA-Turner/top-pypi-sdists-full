@@ -33,7 +33,7 @@ def subset(client):
 split_subset = launchable.CommonSplitSubsetImpls(__name__,
                                                  formatter=lambda x: x[0]['name'] + ":" + x[1]['name']).split_subset()
 
-launchable.CommonFlakeDetectionImpls(__name__, formatter=lambda x: x[0]['name'] + ":" + x[1]['name']).flake_detection()
+launchable.CommonFlakeDetectionImpls(__name__, formatter=lambda x: x[0]['name'] + ":" + x[1]['name']).detect_flakes()
 
 
 @click.argument('workspace', required=True)

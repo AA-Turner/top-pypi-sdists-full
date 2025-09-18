@@ -38,7 +38,8 @@ class HostUpdateParams(object):
         'machine_config_pool_name': 'str',
         'ignition_endpoint_token': 'str',
         'ignition_endpoint_http_headers': 'list[IgnitionEndpointHttpHeadersParams]',
-        'node_labels': 'list[NodeLabelParams]'
+        'node_labels': 'list[NodeLabelParams]',
+        'fencing_credentials': 'FencingCredentialsParams'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class HostUpdateParams(object):
         'machine_config_pool_name': 'machine_config_pool_name',
         'ignition_endpoint_token': 'ignition_endpoint_token',
         'ignition_endpoint_http_headers': 'ignition_endpoint_http_headers',
-        'node_labels': 'node_labels'
+        'node_labels': 'node_labels',
+        'fencing_credentials': 'fencing_credentials'
     }
 
-    def __init__(self, host_role=None, host_name=None, disks_selected_config=None, disks_skip_formatting=None, machine_config_pool_name=None, ignition_endpoint_token=None, ignition_endpoint_http_headers=None, node_labels=None):  # noqa: E501
+    def __init__(self, host_role=None, host_name=None, disks_selected_config=None, disks_skip_formatting=None, machine_config_pool_name=None, ignition_endpoint_token=None, ignition_endpoint_http_headers=None, node_labels=None, fencing_credentials=None):  # noqa: E501
         """HostUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._host_role = None
@@ -63,6 +65,7 @@ class HostUpdateParams(object):
         self._ignition_endpoint_token = None
         self._ignition_endpoint_http_headers = None
         self._node_labels = None
+        self._fencing_credentials = None
         self.discriminator = None
 
         if host_role is not None:
@@ -81,6 +84,8 @@ class HostUpdateParams(object):
             self.ignition_endpoint_http_headers = ignition_endpoint_http_headers
         if node_labels is not None:
             self.node_labels = node_labels
+        if fencing_credentials is not None:
+            self.fencing_credentials = fencing_credentials
 
     @property
     def host_role(self):
@@ -263,6 +268,29 @@ class HostUpdateParams(object):
         """
 
         self._node_labels = node_labels
+
+    @property
+    def fencing_credentials(self):
+        """Gets the fencing_credentials of this HostUpdateParams.  # noqa: E501
+
+        The host's BMC credentials that will be used in TNF.  # noqa: E501
+
+        :return: The fencing_credentials of this HostUpdateParams.  # noqa: E501
+        :rtype: FencingCredentialsParams
+        """
+        return self._fencing_credentials
+
+    @fencing_credentials.setter
+    def fencing_credentials(self, fencing_credentials):
+        """Sets the fencing_credentials of this HostUpdateParams.
+
+        The host's BMC credentials that will be used in TNF.  # noqa: E501
+
+        :param fencing_credentials: The fencing_credentials of this HostUpdateParams.  # noqa: E501
+        :type: FencingCredentialsParams
+        """
+
+        self._fencing_credentials = fencing_credentials
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "daytona_api_client_async"
-version = "0.27.1"
+version = "0.102.0"
 description = "Daytona"
 authors = ["Daytona Platforms Inc. <support@daytona.com>"]
 license = "Apache-2.0"

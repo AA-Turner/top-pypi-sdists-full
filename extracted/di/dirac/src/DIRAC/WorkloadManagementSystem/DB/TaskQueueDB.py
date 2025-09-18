@@ -2,15 +2,17 @@
 """
 import random
 import string
+from collections import defaultdict
+from typing import Any
 
-from DIRAC import gConfig, S_OK, S_ERROR
-from DIRAC.Core.Base.DB import DB
-from DIRAC.Core.Utilities import List
-from DIRAC.Core.Utilities.PrettyPrint import printDict
-from DIRAC.Core.Utilities.DictCache import DictCache
-from DIRAC.Core.Security import Properties
-from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC import S_ERROR, S_OK, gConfig
 from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.Core.Base.DB import DB
+from DIRAC.Core.Security import Properties
+from DIRAC.Core.Utilities import List
+from DIRAC.Core.Utilities.DictCache import DictCache
+from DIRAC.Core.Utilities.PrettyPrint import printDict
 from DIRAC.FrameworkSystem.Client.Logger import contextLogger
 from DIRAC.WorkloadManagementSystem.private.SharesCorrector import SharesCorrector
 
@@ -18,13 +20,13 @@ DEFAULT_GROUP_SHARE = 1000
 TQ_MIN_SHARE = 0.001
 
 # For checks at insertion time, and not only
-singleValueDefFields = ("OwnerDN", "OwnerGroup", "Setup", "CPUTime")
+singleValueDefFields = ("Owner", "OwnerGroup", "CPUTime")
 multiValueDefFields = ("Sites", "GridCEs", "BannedSites", "Platforms", "JobTypes", "Tags")
 
 # Used for matching
 multiValueMatchFields = ("GridCE", "Site", "Platform", "JobType", "Tag")
 bannedJobMatchFields = ("Site",)
-mandatoryMatchFields = ("Setup", "CPUTime")
+mandatoryMatchFields = ("CPUTime",)
 priorityIgnoredFields = ("Sites", "BannedSites")
 
 
@@ -60,7 +62,6 @@ class TaskQueueDB(DB):
         self.__groupShares = {}
         self.__deleteTQWithDelay = DictCache(self.__deleteTQIfEmpty)
         self.__opsHelper = Operations()
-        self.__ensureInsertionIsSingle = False
         self.__sharesCorrector = SharesCorrector(self.__opsHelper)
         result = self.__initializeDB()
         if not result["OK"]:
@@ -91,9 +92,6 @@ class TaskQueueDB(DB):
     def __getCSOption(self, optionName, defValue):
         return self.__opsHelper.getValue(f"JobScheduling/{optionName}", defValue)
 
-    def getValidPilotTypes(self):
-        return self.__getCSOption("AllPilotTypes", ["private"])
-
     def __initializeDB(self):
         """
         Create the tables
@@ -103,21 +101,20 @@ class TaskQueueDB(DB):
             return result
 
         tablesInDB = [t[0] for t in result["Value"]]
-        tablesToCreate = {}
         self.__tablesDesc = {}
 
         self.__tablesDesc["tq_TaskQueues"] = {
             "Fields": {
                 "TQId": "INTEGER(11) UNSIGNED AUTO_INCREMENT NOT NULL",
-                "OwnerDN": "VARCHAR(255) NOT NULL",
+                "Owner": "VARCHAR(255) NOT NULL",
                 "OwnerGroup": "VARCHAR(32) NOT NULL",
-                "Setup": "VARCHAR(32) NOT NULL",
+                "VO": "VARCHAR(32) NOT NULL",
                 "CPUTime": "BIGINT(20) UNSIGNED NOT NULL",
                 "Priority": "FLOAT NOT NULL",
                 "Enabled": "TINYINT(1) NOT NULL DEFAULT 0",
             },
             "PrimaryKey": "TQId",
-            "Indexes": {"TQOwner": ["OwnerDN", "OwnerGroup", "Setup", "CPUTime"]},
+            "Indexes": {"TQOwner": ["Owner", "OwnerGroup", "CPUTime"]},
         }
 
         self.__tablesDesc["tq_Jobs"] = {
@@ -141,9 +138,10 @@ class TaskQueueDB(DB):
                 "ForeignKeys": {"TQId": "tq_TaskQueues.TQId"},
             }
 
-        for tableName in self.__tablesDesc:
+        tablesToCreate = {}
+        for tableName, tableDef in self.__tablesDesc.items():
             if tableName not in tablesInDB:
-                tablesToCreate[tableName] = self.__tablesDesc[tableName]
+                tablesToCreate[tableName] = tableDef
 
         return self._createTables(tablesToCreate)
 
@@ -181,12 +179,16 @@ class TaskQueueDB(DB):
         Check a task queue definition dict is valid
         """
 
+        if "OwnerGroup" in tqDefDict:
+            result = self._escapeString(Registry.getVOForGroup(tqDefDict["OwnerGroup"]))
+            if not result["OK"]:
+                return result
+            tqDefDict["VO"] = result["Value"]
+
         for field in singleValueDefFields:
-            if field not in tqDefDict:
-                return S_ERROR(f"Missing mandatory field '{field}' in task queue definition")
-            if field in ["CPUTime"]:
+            if field == "CPUTime":
                 if not isinstance(tqDefDict[field], int):
-                    return S_ERROR(f"Mandatory field {field} value type is not valid: {type(tqDefDict[field])}")
+                    return S_ERROR(f"Mandatory field 'CPUTime' value type is not valid: {type(tqDefDict['CPUTime'])}")
             else:
                 if not isinstance(tqDefDict[field], str):
                     return S_ERROR(f"Mandatory field {field} value type is not valid: {type(tqDefDict[field])}")
@@ -267,6 +269,8 @@ class TaskQueueDB(DB):
         for field in singleValueDefFields:
             sqlSingleFields.append(field)
             sqlValues.append(tqDefDict[field])
+        sqlSingleFields.append("VO")
+        sqlValues.append(tqDefDict["VO"])
         # Insert the TQ Disabled
         sqlSingleFields.append("Enabled")
         sqlValues.append("0")
@@ -276,7 +280,7 @@ class TaskQueueDB(DB):
         )
         result = self._update(cmd, conn=connObj)
         if not result["OK"]:
-            self.log.error("Can't insert TQ in DB", result["Value"])
+            self.log.error("Can't insert TQ in DB", result["Message"])
             return result
         if "lastRowId" in result:
             tqId = result["lastRowId"]
@@ -296,9 +300,9 @@ class TaskQueueDB(DB):
             cmd += ", ".join([f"( {tqId}, {str(value)} )" for value in values])
             result = self._update(cmd, conn=connObj)
             if not result["OK"]:
-                self.log.error("Failed to insert condition", f"{field} {result['Message']}")
+                self.log.error("Failed to insert condition", f"{field} : {result['Message']}")
                 self.cleanOrphanedTaskQueues(connObj=connObj)
-                return S_ERROR(f"Can't insert values {str(values)} for field {field}: {result['Message']}")
+                return S_ERROR(f"Can't insert values {values} for field {field}: {result['Message']}")
         self.log.info("Created TQ", tqId)
         return S_OK(tqId)
 
@@ -377,7 +381,7 @@ class TaskQueueDB(DB):
             tqDefDict = retVal["Value"]
         tqDefDict["CPUTime"] = self.fitCPUTimeToSegments(tqDefDict["CPUTime"])
         self.log.info("Inserting job with requirements", f"({jobId} : {printDict(tqDefDict)})")
-        retVal = self.__findAndDisableTaskQueue(tqDefDict, skipDefinitionCheck=True, connObj=connObj)
+        retVal = self.__findAndDisableTaskQueue(tqDefDict, connObj=connObj)
         if not retVal["OK"]:
             return retVal
         tqInfo = retVal["Value"]
@@ -398,7 +402,7 @@ class TaskQueueDB(DB):
                 self.log.error("Error inserting job in TQ", f"Job {jobId} TQ {tqId}: {result['Message']}")
                 return result
             if newTQ:
-                self.recalculateTQSharesForEntity(tqDefDict["OwnerDN"], tqDefDict["OwnerGroup"], connObj=connObj)
+                self.recalculateTQSharesForEntity(tqDefDict["Owner"], tqDefDict["OwnerGroup"], connObj=connObj)
         finally:
             self.__setTaskQueueEnabled(tqId, True)
         return S_OK()
@@ -434,20 +438,16 @@ class TaskQueueDB(DB):
             return result
         return S_OK()
 
-    def __generateTQFindSQL(self, tqDefDict, skipDefinitionCheck=False):
+    def __generateTQFindSQL(
+        self,
+        tqDefDict,
+    ):
         """
         Generate the SQL to find a task queue that has exactly the given requirements
 
         :param dict tqDefDict: dict for TQ definition
         :returns: S_OK() / S_ERROR
         """
-        if not skipDefinitionCheck:
-            tqDefDict = dict(tqDefDict)
-            result = self._checkTaskQueueDefinition(tqDefDict)
-            if not result["OK"]:
-                return result
-            tqDefDict = result["Value"]
-
         sqlCondList = []
         for field in singleValueDefFields:
             sqlCondList.append(f"`tq_TaskQueues`.{field} = {tqDefDict[field]}")
@@ -476,14 +476,14 @@ class TaskQueueDB(DB):
         # END MAGIC: That was easy ;)
         return S_OK(" AND ".join(sqlCondList))
 
-    def __findAndDisableTaskQueue(self, tqDefDict, skipDefinitionCheck=False, retries=10, connObj=False):
+    def __findAndDisableTaskQueue(self, tqDefDict, retries=10, connObj=False):
         """Disable and find TQ
 
         :param dict tqDefDict: dict for TQ definition
         :returns: S_OK() / S_ERROR
         """
         for _ in range(retries):
-            result = self.__findSmallestTaskQueue(tqDefDict, skipDefinitionCheck=skipDefinitionCheck, connObj=connObj)
+            result = self.__findSmallestTaskQueue(tqDefDict, connObj=connObj)
             if not result["OK"]:
                 return result
             data = result["Value"]
@@ -496,14 +496,14 @@ class TaskQueueDB(DB):
                 return S_OK(data)
         return S_ERROR("Could not disable TQ")
 
-    def __findSmallestTaskQueue(self, tqDefDict, skipDefinitionCheck=False, connObj=False):
+    def __findSmallestTaskQueue(self, tqDefDict, connObj=False):
         """
         Find a task queue that has at least the given requirements
 
         :param dict tqDefDict: dict for TQ definition
         :returns: S_OK() / S_ERROR
         """
-        result = self.__generateTQFindSQL(tqDefDict, skipDefinitionCheck=skipDefinitionCheck)
+        result = self.__generateTQFindSQL(tqDefDict)
         if not result["OK"]:
             return result
 
@@ -568,7 +568,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
             if not tqList:
                 self.log.info("No TQ matches requirements")
                 return S_OK({"matchFound": False, "tqMatch": tqMatchDict})
-            for tqId, tqOwnerDN, tqOwnerGroup in tqList:
+            for tqId, tqOwner, tqOwnerGroup in tqList:
                 self.log.verbose("Trying to extract jobs from TQ", tqId)
                 retVal = self._query(prioSQL % tqId, conn=connObj)
                 if not retVal["OK"]:
@@ -583,7 +583,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
                 jobTQList = [(row[0], row[1]) for row in retVal["Value"]]
                 if not jobTQList:
                     self.log.info("Task queue seems to be empty, triggering a cleaning of", tqId)
-                    self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwnerDN, tqOwnerGroup))
+                    self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwner, tqOwnerGroup))
                 while jobTQList:
                     jobId, tqId = jobTQList.pop(random.randint(0, len(jobTQList) - 1))
                     self.log.verbose("Trying to extract job from TQ", f"{jobId} : {tqId}")
@@ -667,12 +667,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
                 subList = []
                 for value in valList:
                     value = self._escapeString(value)["Value"]
-                    sql = "{} NOT IN ( SELECT {}.Value FROM {} WHERE {}.TQId = tq.TQId )".format(
-                        value,
-                        fullTableN,
-                        fullTableN,
-                        fullTableN,
-                    )
+                    sql = f"{value} NOT IN ( SELECT {fullTableN}.Value FROM {fullTableN} WHERE {fullTableN}.TQId = tq.TQId )"
                     subList.append(sql)
                 condList.append(f"( {' AND '.join(subList)} )")
             elif field in singleValueDefFields:
@@ -705,34 +700,27 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
         # Only enabled TQs
         sqlCondList = []
         sqlTables = {"tq_TaskQueues": "tq"}
-        # If OwnerDN and OwnerGroup are defined only use those combinations that make sense
-        if "OwnerDN" in tqMatchDict and "OwnerGroup" in tqMatchDict:
+        # If Owner and OwnerGroup are defined only use those combinations that make sense
+        if "Owner" in tqMatchDict and "OwnerGroup" in tqMatchDict:
             groups = tqMatchDict["OwnerGroup"]
             if not isinstance(groups, (list, tuple)):
                 groups = [groups]
-            dns = tqMatchDict["OwnerDN"]
-            if not isinstance(dns, (list, tuple)):
-                dns = [dns]
+            owner = tqMatchDict["Owner"]
             ownerConds = []
             for group in groups:
                 if Properties.JOB_SHARING in Registry.getPropertiesForGroup(group.replace('"', "")):
                     ownerConds.append(f"tq.OwnerGroup = {group}")
                 else:
-                    for dn in dns:
-                        ownerConds.append(f"( tq.OwnerDN = {dn} AND tq.OwnerGroup = {group} )")
+                    ownerConds.append(f"( tq.Owner = {owner} AND tq.OwnerGroup = {group} )")
             sqlCondList.append(" OR ".join(ownerConds))
         else:
             # If not both are defined, just add the ones that are defined
-            for field in ("OwnerGroup", "OwnerDN"):
+            for field in ("OwnerGroup", "Owner"):
                 if field in tqMatchDict:
                     sqlCondList.append(self.__generateSQLSubCond("tq.%s = %%s" % field, tqMatchDict[field]))
         # Type of single value conditions
-        for field in ("CPUTime", "Setup"):
-            if field in tqMatchDict:
-                if field == "CPUTime":
-                    sqlCondList.append(self.__generateSQLSubCond("tq.%s <= %%s" % field, tqMatchDict[field]))
-                else:
-                    sqlCondList.append(self.__generateSQLSubCond("tq.%s = %%s" % field, tqMatchDict[field]))
+        if "CPUTime" in tqMatchDict:
+            sqlCondList.append(self.__generateSQLSubCond("tq.%s <= %%s" % "CPUTime", tqMatchDict["CPUTime"]))
 
         tag_fv = []
 
@@ -846,10 +834,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
 
             sqlCondList.append(
                 self.__generateSQLSubCond(
-                    "%%s not in ( SELECT %s.Value \
-                                                      FROM %s \
-                                                      WHERE %s.TQId = tq.TQId )"
-                    % (fullTableN, fullTableN, fullTableN),
+                    f"%%s not in ( SELECT {fullTableN}.Value FROM {fullTableN} WHERE {fullTableN}.TQId = tq.TQId )",
                     b_fv,
                     boolOp="OR",
                 )
@@ -860,7 +845,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
             sqlCondList.append(self.__generateNotSQL(negativeCond))
 
         # Generate the final query string
-        tqSqlCmd = "SELECT tq.TQId, tq.OwnerDN, tq.OwnerGroup FROM `tq_TaskQueues` tq WHERE %s" % (
+        tqSqlCmd = "SELECT tq.TQId, tq.Owner, tq.OwnerGroup FROM `tq_TaskQueues` tq WHERE %s" % (
             " AND ".join(sqlCondList)
         )
 
@@ -914,7 +899,7 @@ WHERE `tq_Jobs`.TQId = %s ORDER BY RAND() / `tq_Jobs`.RealPriority ASC LIMIT 1"
                 return S_ERROR(f"Can't delete job: {retVal['Message']}")
             connObj = retVal["Value"]
         retVal = self._query(
-            "SELECT t.TQId, t.OwnerDN, t.OwnerGroup \
+            "SELECT t.TQId, t.Owner, t.OwnerGroup \
 FROM `tq_TaskQueues` t, `tq_Jobs` j \
 WHERE j.JobId = %s AND t.TQId = j.TQId"
             % jobId,
@@ -925,7 +910,7 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
         data = retVal["Value"]
         if not data:
             return S_OK(False)
-        tqId, tqOwnerDN, tqOwnerGroup = data[0]
+        tqId, tqOwner, tqOwnerGroup = data[0]
         self.log.verbose("Deleting job", jobId)
         retVal = self._update(f"DELETE FROM `tq_Jobs` WHERE JobId = {jobId}", conn=connObj)
         if not retVal["OK"]:
@@ -934,7 +919,7 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
             # No job deleted
             return S_OK(False)
         # Always return S_OK() because job has already been taken out from the TQ
-        self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwnerDN, tqOwnerGroup))
+        self.__deleteTQWithDelay.add(tqId, 300, (tqId, tqOwner, tqOwnerGroup))
         return S_OK(True)
 
     def getTaskQueueForJob(self, jobId, connObj=False):
@@ -958,34 +943,8 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
 
         return S_OK(retVal["Value"][0][0])
 
-    def getTaskQueueForJobs(self, jobIDs, connObj=False):
-        """
-        Return TaskQueues for a given list of Jobs
-        """
-        if not connObj:
-            retVal = self._getConnection()
-            if not retVal["OK"]:
-                self.log.error("Can't get TQs for a job list", retVal["Message"])
-                return retVal
-            connObj = retVal["Value"]
-
-        cmd = f"SELECT JobId,TQId FROM `tq_Jobs` WHERE JobId IN ({','.join(str(x) for x in jobIDs)}) "
-        retVal = self._query(cmd, conn=connObj)
-
-        if not retVal["OK"]:
-            return retVal
-
-        if not retVal["Value"]:
-            return S_ERROR("Not in TaskQueues")
-
-        resultDict = {}
-        for jobID, tqID in retVal["Value"]:
-            resultDict[int(jobID)] = int(tqID)
-
-        return S_OK(resultDict)
-
     def __getOwnerForTaskQueue(self, tqId, connObj=False):
-        retVal = self._query(f"SELECT OwnerDN, OwnerGroup from `tq_TaskQueues` WHERE TQId={tqId}", conn=connObj)
+        retVal = self._query(f"SELECT Owner, OwnerGroup from `tq_TaskQueues` WHERE TQId={tqId}", conn=connObj)
         if not retVal["OK"]:
             return retVal
         data = retVal["Value"]
@@ -994,16 +953,16 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
         return S_OK(retVal["Value"][0])
 
     def __deleteTQIfEmpty(self, args):
-        (tqId, tqOwnerDN, tqOwnerGroup) = args
+        (tqId, tqOwner, tqOwnerGroup) = args
         retries = 3
         while retries:
             retries -= 1
-            result = self.deleteTaskQueueIfEmpty(tqId, tqOwnerDN, tqOwnerGroup)
+            result = self.deleteTaskQueueIfEmpty(tqId, tqOwner, tqOwnerGroup)
             if result["OK"]:
                 return
         self.log.error("Could not delete TQ", f"{tqId}: {result['Message']}")
 
-    def deleteTaskQueueIfEmpty(self, tqId, tqOwnerDN=False, tqOwnerGroup=False, connObj=False):
+    def deleteTaskQueueIfEmpty(self, tqId, tqOwner=False, tqOwnerGroup=False, connObj=False):
         """
         Try to delete a task queue if its empty
         """
@@ -1013,14 +972,14 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
                 self.log.error("Can't insert job", retVal["Message"])
                 return retVal
             connObj = retVal["Value"]
-        if not tqOwnerDN or not tqOwnerGroup:
+        if not tqOwner or not tqOwnerGroup:
             retVal = self.__getOwnerForTaskQueue(tqId, connObj=connObj)
             if not retVal["OK"]:
                 return retVal
             data = retVal["Value"]
             if not data:
                 return S_OK(False)
-            tqOwnerDN, tqOwnerGroup = data
+            tqOwner, tqOwnerGroup = data
 
         sqlCmd = f"SELECT TQId FROM `tq_TaskQueues` WHERE Enabled >= 1 AND `tq_TaskQueues`.TQId = {tqId} "
         sqlCmd += "AND `tq_TaskQueues`.TQId not in ( SELECT DISTINCT TQId from `tq_Jobs` )"
@@ -1038,45 +997,9 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
             retVal = self._update(f"DELETE FROM `tq_TaskQueues` WHERE TQId = {tqId}", conn=connObj)
             if not retVal["OK"]:
                 return retVal
-            self.recalculateTQSharesForEntity(tqOwnerDN, tqOwnerGroup, connObj=connObj)
+            self.recalculateTQSharesForEntity(tqOwner, tqOwnerGroup, connObj=connObj)
             self.log.info("Deleted empty and enabled TQ", tqId)
             return S_OK()
-        return S_OK(False)
-
-    def deleteTaskQueue(self, tqId, tqOwnerDN=False, tqOwnerGroup=False, connObj=False):
-        """
-        Try to delete a task queue even if it has jobs
-        """
-        self.log.info("Deleting TQ", tqId)
-        if not connObj:
-            retVal = self._getConnection()
-            if not retVal["OK"]:
-                return S_ERROR(f"Can't insert job: {retVal['Message']}")
-            connObj = retVal["Value"]
-        if not tqOwnerDN or not tqOwnerGroup:
-            retVal = self.__getOwnerForTaskQueue(tqId, connObj=connObj)
-            if not retVal["OK"]:
-                return retVal
-            data = retVal["Value"]
-            if not data:
-                return S_OK(False)
-            tqOwnerDN, tqOwnerGroup = data
-        sqlCmd = f"DELETE FROM `tq_TaskQueues` WHERE `tq_TaskQueues`.TQId = {tqId}"
-        retVal = self._update(sqlCmd, conn=connObj)
-        if not retVal["OK"]:
-            return S_ERROR(f"Could not delete task queue {tqId}: {retVal['Message']}")
-        delTQ = retVal["Value"]
-        sqlCmd = f"DELETE FROM `tq_Jobs` WHERE `tq_Jobs`.TQId = {tqId}"
-        retVal = self._update(sqlCmd, conn=connObj)
-        if not retVal["OK"]:
-            return S_ERROR(f"Could not delete task queue {tqId}: {retVal['Message']}")
-        for field in multiValueDefFields:
-            retVal = self._update(f"DELETE FROM `tq_TQTo{field}` WHERE TQId = {tqId}", conn=connObj)
-            if not retVal["OK"]:
-                return retVal
-        if delTQ > 0:
-            self.recalculateTQSharesForEntity(tqOwnerDN, tqOwnerGroup, connObj=connObj)
-            return S_OK(True)
         return S_OK(False)
 
     def getMatchingTaskQueues(self, tqMatchDict, negativeCond=False):
@@ -1085,16 +1008,6 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
         if not result["OK"]:
             return result
         return self.retrieveTaskQueues([tqTuple[0] for tqTuple in result["Value"]])
-
-    def getNumTaskQueues(self):
-        """
-        Get the number of task queues in the system
-        """
-        sqlCmd = "SELECT COUNT( TQId ) FROM `tq_TaskQueues`"
-        retVal = self._query(sqlCmd)
-        if not retVal["OK"]:
-            return retVal
-        return S_OK(retVal["Value"][0][0])
 
     def retrieveTaskQueues(self, tqIdList=None):
         """
@@ -1196,22 +1109,20 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
             self.recalculateTQSharesForEntity("all", group)
         return S_OK()
 
-    def recalculateTQSharesForEntity(self, userDN, userGroup, connObj=False):
+    def recalculateTQSharesForEntity(self, user, userGroup, connObj=False):
         """
-        Recalculate the shares for a userDN/userGroup combo
+        Recalculate the shares for a user/userGroup combo
         """
-        self.log.info("Recalculating shares", f"for {userDN}@{userGroup} TQs")
+        self.log.info("Recalculating shares", f"for {user}@{userGroup} TQs")
         if userGroup in self.__groupShares:
             share = self.__groupShares[userGroup]
         else:
             share = float(DEFAULT_GROUP_SHARE)
         if Properties.JOB_SHARING in Registry.getPropertiesForGroup(userGroup):
-            # If group has JobSharing just set prio for that entry, userDN is irrelevant
-            return self.__setPrioritiesForEntity(userDN, userGroup, share, connObj=connObj)
+            # If group has JobSharing just set prio for that entry, user is irrelevant
+            return self.__setPrioritiesForEntity(user, userGroup, share, connObj=connObj)
 
-        selSQL = "SELECT OwnerDN, COUNT(OwnerDN) FROM `tq_TaskQueues` WHERE OwnerGroup='%s' GROUP BY OwnerDN" % (
-            userGroup
-        )
+        selSQL = f"SELECT Owner, COUNT(Owner) FROM `tq_TaskQueues` WHERE OwnerGroup='{userGroup}' GROUP BY Owner"
         result = self._query(selSQL, conn=connObj)
         if not result["OK"]:
             return result
@@ -1231,26 +1142,26 @@ WHERE j.JobId = %s AND t.TQId = j.TQId"
         owners = dict(data)
         # IF the user is already known and has more than 1 tq, the rest of the users don't need to be modified
         # (The number of owners didn't change)
-        if userDN in owners and owners[userDN] > 1:
-            return self.__setPrioritiesForEntity(userDN, userGroup, entitiesShares[userDN], connObj=connObj)
+        if user in owners and owners[user] > 1:
+            return self.__setPrioritiesForEntity(user, userGroup, entitiesShares[user], connObj=connObj)
         # Oops the number of owners may have changed so we recalculate the prio for all owners in the group
-        for userDN in owners:
-            self.__setPrioritiesForEntity(userDN, userGroup, entitiesShares[userDN], connObj=connObj)
+        for user in owners:
+            self.__setPrioritiesForEntity(user, userGroup, entitiesShares[user], connObj=connObj)
         return S_OK()
 
-    def __setPrioritiesForEntity(self, userDN, userGroup, share, connObj=False, consolidationFunc="AVG"):
+    def __setPrioritiesForEntity(self, user, userGroup, share, connObj=False, consolidationFunc="AVG"):
         """
-        Set the priority for a userDN/userGroup combo given a splitted share
+        Set the priority for a user/userGroup combo given a splitted share
         """
-        self.log.info("Setting priorities", f"to {userDN}@{userGroup} TQs")
+        self.log.info("Setting priorities", f"to {user}@{userGroup} TQs")
         tqCond = [f"t.OwnerGroup='{userGroup}'"]
         allowBgTQs = gConfig.getValue(f"/Registry/Groups/{userGroup}/AllowBackgroundTQs", False)
         if Properties.JOB_SHARING not in Registry.getPropertiesForGroup(userGroup):
-            res = self._escapeString(userDN)
+            res = self._escapeString(user)
             if not res["OK"]:
                 return res
-            userDN = res["Value"]
-            tqCond.append(f"t.OwnerDN= {userDN} ")
+            user = res["Value"]
+            tqCond.append(f"t.Owner= {user} ")
         tqCond.append("t.TQId = j.TQId")
         if consolidationFunc == "AVG":
             selectSQL = "SELECT j.TQId, SUM( j.RealPriority )/COUNT(j.RealPriority) \
@@ -1268,61 +1179,17 @@ FROM `tq_TaskQueues` t, `tq_Jobs` j WHERE "
         tqDict = dict(result["Value"])
         if not tqDict:
             return S_OK()
-        # Calculate Sum of priorities
-        totalPrio = 0
-        for k in tqDict:
-            if tqDict[k] > 0.1 or not allowBgTQs:
-                totalPrio += tqDict[k]
-        # Update prio for each TQ
-        for tqId in tqDict:
-            if tqDict[tqId] > 0.1 or not allowBgTQs:
-                prio = (share / totalPrio) * tqDict[tqId]
-            else:
-                prio = TQ_MIN_SHARE
-            prio = max(prio, TQ_MIN_SHARE)
-            tqDict[tqId] = prio
 
-        # Generate groups of TQs that will have the same prio=sum(prios) maomenos
         result = self.retrieveTaskQueues(list(tqDict))
         if not result["OK"]:
             return result
         allTQsData = result["Value"]
-        tqGroups = {}
-        for tqid in allTQsData:
-            tqData = allTQsData[tqid]
-            for field in ("Jobs", "Priority") + priorityIgnoredFields:
-                if field in tqData:
-                    tqData.pop(field)
-            tqHash = []
-            for f in sorted(tqData):
-                tqHash.append(f"{f}:{tqData[f]}")
-            tqHash = "|".join(tqHash)
-            if tqHash not in tqGroups:
-                tqGroups[tqHash] = []
-            tqGroups[tqHash].append(tqid)
-        tqGroups = [tqGroups[td] for td in tqGroups]
 
-        # Do the grouping
-        for tqGroup in tqGroups:
-            totalPrio = 0
-            if len(tqGroup) < 2:
-                continue
-            for tqid in tqGroup:
-                totalPrio += tqDict[tqid]
-            for tqid in tqGroup:
-                tqDict[tqid] = totalPrio
-
-        # Group by priorities
-        prioDict = {}
-        for tqId in tqDict:
-            prio = tqDict[tqId]
-            if prio not in prioDict:
-                prioDict[prio] = []
-            prioDict[prio].append(tqId)
+        prioDict = calculate_priority(tqDict, allTQsData, share, allowBgTQs)
 
         # Execute updates
-        for prio in prioDict:
-            tqList = ", ".join([str(tqId) for tqId in prioDict[prio]])
+        for prio, tqs in prioDict.items():
+            tqList = ", ".join([str(tqId) for tqId in tqs])
             updateSQL = f"UPDATE `tq_TaskQueues` SET Priority={prio:.4f} WHERE TQId in ( {tqList} )"
             self._update(updateSQL, conn=connObj)
         return S_OK()
@@ -1341,3 +1208,61 @@ FROM `tq_TaskQueues` t, `tq_Jobs` j WHERE "
         for group in groups:
             shares[group] = gConfig.getValue(f"/Registry/Groups/{group}/JobShare", DEFAULT_GROUP_SHARE)
         return shares
+
+
+def calculate_priority(
+    tq_dict: dict[int, float], all_tqs_data: dict[int, dict[str, Any]], share: float, allow_bg_tqs: bool
+) -> dict[float, list[int]]:
+    """
+    Calculate the priority for each TQ given a share
+
+    :param tq_dict: dict of {tq_id: prio}
+    :param all_tqs_data: dict of {tq_id: {tq_data}}, where tq_data is a dict of {field: value}
+    :param share: share to be distributed among TQs
+    :param allow_bg_tqs: allow background TQs to be used
+    :return: dict of {priority: [tq_ids]}
+    """
+
+    def is_background(tq_priority: float, allow_bg_tqs: bool) -> bool:
+        """
+        A TQ is background if its priority is below a threshold and background TQs are allowed
+        """
+        return tq_priority <= 0.1 and allow_bg_tqs
+
+    # Calculate Sum of priorities of non background TQs
+    total_prio = sum([prio for prio in tq_dict.values() if not is_background(prio, allow_bg_tqs)])
+
+    # Update prio for each TQ
+    for tq_id, tq_priority in tq_dict.items():
+        if is_background(tq_priority, allow_bg_tqs):
+            prio = TQ_MIN_SHARE
+        else:
+            prio = max((share / total_prio) * tq_priority, TQ_MIN_SHARE)
+        tq_dict[tq_id] = prio
+
+    # Generate groups of TQs that will have the same prio=sum(prios) maomenos
+    tq_groups: dict[str, list[int]] = defaultdict(list)
+    for tq_id, tq_data in all_tqs_data.items():
+        for field in ("Jobs", "Priority") + priorityIgnoredFields:
+            if field in tq_data:
+                tq_data.pop(field)
+        tq_hash = []
+        for f in sorted(tq_data):
+            tq_hash.append(f"{f}:{tq_data[f]}")
+        tq_hash = "|".join(tq_hash)
+        # if tq_hash not in tq_groups:
+        #     tq_groups[tq_hash] = []
+        tq_groups[tq_hash].append(tq_id)
+
+    # Do the grouping
+    for tq_group in tq_groups.values():
+        total_prio = sum(tq_dict[tq_id] for tq_id in tq_group)
+        for tq_id in tq_group:
+            tq_dict[tq_id] = total_prio
+
+    # Group by priorities
+    result: dict[float, list[int]] = defaultdict(list)
+    for tq_id, tq_priority in tq_dict.items():
+        result[tq_priority].append(tq_id)
+
+    return result

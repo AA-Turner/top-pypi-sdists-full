@@ -7,7 +7,7 @@ from DIRAC.FrameworkSystem.DB.UserProfileDB import UserProfileDB
 from DIRAC.Core.Security import Properties
 
 
-class UserProfileManagerHandler(RequestHandler):
+class UserProfileManagerHandlerMixin:
     @classmethod
     def initializeHandler(cls, serviceInfo):
         """Handler initialization"""
@@ -129,10 +129,7 @@ class UserProfileManagerHandler(RequestHandler):
         """
         credDict = self.getRemoteCredentials()
         requesterUserName = credDict["username"]
-        if Properties.SERVICE_ADMINISTRATOR in credDict["properties"]:
-            admin = True
-        else:
-            admin = False
+        admin = Properties.SERVICE_ADMINISTRATOR in credDict["properties"]
         for entry in userList:
             userName = entry
             if admin or userName == requesterUserName:
@@ -148,3 +145,7 @@ class UserProfileManagerHandler(RequestHandler):
         it returns the available profile names by not taking account the permission: ReadAccess and PublishAccess
         """
         return self.upDB.getUserProfileNames(permission)
+
+
+class UserProfileManagerHandler(UserProfileManagerHandlerMixin, RequestHandler):
+    pass

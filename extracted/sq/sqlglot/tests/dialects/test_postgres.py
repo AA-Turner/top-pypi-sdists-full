@@ -159,6 +159,10 @@ class TestPostgres(Validator):
             "ORDER BY 2, 3"
         )
         self.validate_identity(
+            "SELECT SUBSTRING('Thomas' FOR 3 FROM 2)",
+            "SELECT SUBSTRING('Thomas' FROM 2 FOR 3)",
+        )
+        self.validate_identity(
             "SELECT ARRAY[1, 2, 3] <@ ARRAY[1, 2]",
             "SELECT ARRAY[1, 2] @> ARRAY[1, 2, 3]",
         )
@@ -955,6 +959,10 @@ FROM json_data, field_ids""",
         self.validate_identity(
             """SELECT '["a", {"b":1}]'::jsonb #- '{1,b}'""",
             """SELECT CAST('["a", {"b":1}]' AS JSONB) #- '{1,b}'""",
+        )
+
+        self.validate_identity(
+            "SELECT JSON_AGG(c1 ORDER BY c1) FROM (VALUES ('c'), ('b'), ('a')) AS t(c1)"
         )
 
     def test_ddl(self):

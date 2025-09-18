@@ -22,30 +22,31 @@
 
    Note that several executables can be provided and wil be executed sequentially.
 """
-import re
 import os
+import re
 import shlex
-
 from io import StringIO
 from urllib.parse import quote
 
 from DIRAC import S_OK, gLogger
-from DIRAC.Core.Base.API import API
-from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.Core.Workflow.Parameter import Parameter
-from DIRAC.Core.Workflow.Workflow import Workflow
-from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
-from DIRAC.Core.Utilities.Subprocess import systemCall
-from DIRAC.Core.Utilities.List import uniqueElements
-from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOForGroup
-from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getCESiteMapping
+from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getCESiteMapping, getDIRACPlatforms
+from DIRAC.Core.Base.API import API
+from DIRAC.Core.Security.ProxyInfo import getProxyInfo
+from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
+from DIRAC.Core.Utilities.List import uniqueElements
+from DIRAC.Core.Utilities.Subprocess import systemCall
+from DIRAC.Core.Workflow.Parameter import Parameter
+from DIRAC.Core.Workflow.Workflow import Workflow
 from DIRAC.Interfaces.API.Dirac import Dirac
-from DIRAC.Workflow.Utilities.Utils import getStepDefinition, addStepToWorkflow
+from DIRAC.Workflow.Utilities.Utils import addStepToWorkflow, getStepDefinition
 
 
-COMPONENT_NAME = "/Interfaces/API/Job"
+class BadJobParameterError(ValueError):
+    """Exception to indicate a bad job parameter name."""
+
+    pass
 
 
 class Job(API):
@@ -81,12 +82,6 @@ class Job(API):
         self.parameterSeqs = {}
         self.wfArguments = {}
         self.parametricWFArguments = {}
-
-        # loading the function that will be used to determine the platform (it can be VO specific)
-        res = ObjectLoader().loadObject("ConfigurationSystem.Client.Helpers.Resources", "getDIRACPlatforms")
-        if not res["OK"]:
-            self.log.fatal(res["Message"])
-        self.getDIRACPlatforms = res["Value"]
 
         self.script = script
         if not script:
@@ -451,7 +446,7 @@ class Job(API):
             return self._reportError("Expected string for platform", **kwargs)
 
         if not platform.lower() == "any":
-            availablePlatforms = self.getDIRACPlatforms()
+            availablePlatforms = getDIRACPlatforms()
             if not availablePlatforms["OK"]:
                 return self._reportError("Can't check for platform", **kwargs)
             if platform in availablePlatforms["Value"]:
@@ -510,20 +505,23 @@ class Job(API):
         else:
             description = "List of sites selected by user"
         if isinstance(destination, list):
-            sites = {site for site in destination if site.lower() != "any"}
+            sites = {site for site in destination if site.lower() not in ("any", "")}
             if sites:
                 result = self._checkSiteIsValid(sites)
                 if not result["OK"]:
-                    return self._reportError(f"{destination} is not a valid destination site", **kwargs)
-            destSites = ";".join(destination)
-            self._addParameter(self.workflow, "Site", "JDL", destSites, description)
+                    return result
+                destSites = ";".join(sites)
+                self._addParameter(self.workflow, "Site", "JDL", destSites, description)
         else:
             return self._reportError("Invalid destination site, expected string or list", **kwargs)
         return S_OK()
 
     #############################################################################
     def setNumberOfProcessors(self, numberOfProcessors=None, minNumberOfProcessors=None, maxNumberOfProcessors=None):
-        """Helper function.
+        """Helper function to set the number of processors required by the job.
+
+        The DIRAC_JOB_PROCESSORS environment variable can be used by the job to
+        determine how many processors are actually assigned.
 
         Example usage:
 
@@ -557,75 +555,50 @@ class Job(API):
 
         >>> job = Job()
         >>> job.setNumberOfProcessors(numberOfProcessors=3, maxNumberOfProcessors=4)
-        will lead to ignore the second parameter
+        will result in a BadJobParameterError
 
         >>> job = Job()
         >>> job.setNumberOfProcessors(numberOfProcessors=3, minNumberOfProcessors=2)
-        will lead to ignore the second parameter
+        will result in a BadJobParameterError
 
         :param int processors: number of processors required by the job (exact number, unless a min/max are set)
         :param int minNumberOfProcessors: optional min number of processors the job applications can use
         :param int maxNumberOfProcessors: optional max number of processors the job applications can use
 
-        :return: S_OK/S_ERROR
+        :return: S_OK
+
+        :raises ~DIRAC.Interfaces.API.Job.BadJobParameterError: If the function arguments are not valid.
         """
-        if numberOfProcessors:
-            if not minNumberOfProcessors:
-                nProc = numberOfProcessors
-            else:
-                nProc = max(numberOfProcessors, minNumberOfProcessors)
-            if nProc > 1:
-                self._addParameter(
-                    self.workflow, "NumberOfProcessors", "JDL", nProc, "Exact number of processors requested"
-                )
-                self._addParameter(
-                    self.workflow,
-                    "MaxNumberOfProcessors",
-                    "JDL",
-                    nProc,
-                    "Max Number of processors the job applications may use",
-                )
-            return S_OK()
+        # If min and max are the same then that's the same as setting numberOfProcessors
+        if minNumberOfProcessors and maxNumberOfProcessors and minNumberOfProcessors == maxNumberOfProcessors:
+            numberOfProcessors = minNumberOfProcessors
+            minNumberOfProcessors = maxNumberOfProcessors = None
 
-        if maxNumberOfProcessors and not minNumberOfProcessors:
-            minNumberOfProcessors = 1
+        if numberOfProcessors is not None:
+            if minNumberOfProcessors is not None:
+                raise BadJobParameterError("minNumberOfProcessors cannot be used with numberOfProcessors")
+            if maxNumberOfProcessors is not None:
+                raise BadJobParameterError("maxNumberOfProcessors cannot be used with numberOfProcessors")
 
-        if minNumberOfProcessors and maxNumberOfProcessors and minNumberOfProcessors >= maxNumberOfProcessors:
-            minNumberOfProcessors = maxNumberOfProcessors
-
-        if (
-            minNumberOfProcessors
-            and maxNumberOfProcessors
-            and minNumberOfProcessors == maxNumberOfProcessors
-            and minNumberOfProcessors > 1
-        ):
             self._addParameter(
-                self.workflow,
-                "NumberOfProcessors",
-                "JDL",
-                minNumberOfProcessors,
-                "Exact number of processors requested",
+                self.workflow, "NumberOfProcessors", "JDL", numberOfProcessors, "Exact number of processors requested"
             )
             self._addParameter(
                 self.workflow,
                 "MaxNumberOfProcessors",
                 "JDL",
-                minNumberOfProcessors,
+                numberOfProcessors,
                 "Max Number of processors the job applications may use",
             )
             return S_OK()
 
-        # By this point there should be a min
-        self._addParameter(
-            self.workflow,
-            "MinNumberOfProcessors",
-            "JDL",
-            minNumberOfProcessors,
-            "Min Number of processors the job applications may use",
-        )
+        if minNumberOfProcessors is None and maxNumberOfProcessors is None:
+            return S_OK()
 
-        # If not set, will be "all"
-        if maxNumberOfProcessors:
+        minNumberOfProcessors = minNumberOfProcessors or 1
+        if maxNumberOfProcessors is not None:
+            if maxNumberOfProcessors < minNumberOfProcessors:
+                raise BadJobParameterError("minNumberOfProcessors must be less than or equal to maxNumberOfProcessors")
             self._addParameter(
                 self.workflow,
                 "MaxNumberOfProcessors",
@@ -633,6 +606,14 @@ class Job(API):
                 maxNumberOfProcessors,
                 "Max Number of processors the job applications may use",
             )
+
+        self._addParameter(
+            self.workflow,
+            "MinNumberOfProcessors",
+            "JDL",
+            minNumberOfProcessors,
+            "Min Number of processors the job applications may use",
+        )
 
         return S_OK()
 
@@ -706,18 +687,6 @@ class Job(API):
             return self._reportError("Expected string for job owner group", **{"ownerGroup": ownerGroup})
 
         self._addParameter(self.workflow, "OwnerGroup", "JDL", ownerGroup, "User specified owner group.")
-        return S_OK()
-
-    #############################################################################
-    def setOwnerDN(self, ownerDN):
-        """Developer function.
-
-        Allows to force expected owner DN of proxy.
-        """
-        if not isinstance(ownerDN, str):
-            return self._reportError("Expected string for job owner DN", **{"ownerGroup": ownerDN})
-
-        self._addParameter(self.workflow, "OwnerDN", "JDL", ownerDN, "User specified owner DN.")
         return S_OK()
 
     #############################################################################
@@ -1111,11 +1080,6 @@ class Job(API):
                 arguments.append(f"-o LogLevel={paramsDict['LogLevel']['value']}")
             else:
                 self.log.warn("Job LogLevel defined with null value")
-        if "DIRACSetup" in paramsDict:
-            if paramsDict["DIRACSetup"]["value"]:
-                arguments.append(f"-o DIRAC/Setup={paramsDict['DIRACSetup']['value']}")
-            else:
-                self.log.warn("Job DIRACSetup defined with null value")
         if "JobConfigArgs" in paramsDict:
             if paramsDict["JobConfigArgs"]["value"]:
                 arguments.append(f"--cfg {paramsDict['JobConfigArgs']['value']}")
@@ -1141,6 +1105,7 @@ class Job(API):
                 uniqueInputSandbox = uniqueElements(finalInputSandbox.split(";"))
                 paramsDict["InputSandbox"]["value"] = ";".join(uniqueInputSandbox)
                 self.log.verbose(f"Final unique Input Sandbox {';'.join(uniqueInputSandbox)}")
+                paramsDict["InputSandbox"]["type"] = "JDL"
             else:
                 paramsDict["InputSandbox"] = {}
                 paramsDict["InputSandbox"]["value"] = extraFiles

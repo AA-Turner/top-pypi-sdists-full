@@ -452,6 +452,7 @@ __all__ = [
     'DowntimeScheduleOneTimeSchedule',
     'DowntimeScheduleRecurringSchedule',
     'DowntimeScheduleRecurringScheduleRecurrence',
+    'IncidentNotificationRuleCondition',
     'IpAllowlistEntry',
     'LogsArchiveAzureArchive',
     'LogsArchiveGcsArchive',
@@ -1302,6 +1303,7 @@ __all__ = [
     'SecurityMonitoringDefaultRuleQuery',
     'SecurityMonitoringDefaultRuleQueryAgentRule',
     'SecurityMonitoringFilterExclusionFilter',
+    'SecurityMonitoringRuleCalculatedField',
     'SecurityMonitoringRuleCase',
     'SecurityMonitoringRuleCaseAction',
     'SecurityMonitoringRuleCaseActionOptions',
@@ -1314,6 +1316,7 @@ __all__ = [
     'SecurityMonitoringRuleQuery',
     'SecurityMonitoringRuleQueryAgentRule',
     'SecurityMonitoringRuleReferenceTable',
+    'SecurityMonitoringRuleSchedulingOptions',
     'SecurityMonitoringRuleSignalQuery',
     'SecurityMonitoringRuleThirdPartyCase',
     'SecurityNotificationRuleSelectors',
@@ -1413,6 +1416,7 @@ __all__ = [
     'GetHostsHostListResult',
     'GetHostsHostListMetaResult',
     'GetHostsHostListMetricsResult',
+    'GetIncidentNotificationRuleConditionResult',
     'GetLogsIndexesLogsIndexResult',
     'GetLogsIndexesLogsIndexDailyLimitResetResult',
     'GetLogsIndexesLogsIndexExclusionFilterResult',
@@ -1436,6 +1440,7 @@ __all__ = [
     'GetSecurityMonitoringFiltersFilterResult',
     'GetSecurityMonitoringFiltersFilterExclusionFilterResult',
     'GetSecurityMonitoringRulesRuleResult',
+    'GetSecurityMonitoringRulesRuleCalculatedFieldResult',
     'GetSecurityMonitoringRulesRuleCaseResult',
     'GetSecurityMonitoringRulesRuleCaseActionResult',
     'GetSecurityMonitoringRulesRuleCaseActionOptionsResult',
@@ -1448,6 +1453,7 @@ __all__ = [
     'GetSecurityMonitoringRulesRuleQueryResult',
     'GetSecurityMonitoringRulesRuleQueryAgentRuleResult',
     'GetSecurityMonitoringRulesRuleReferenceTableResult',
+    'GetSecurityMonitoringRulesRuleSchedulingOptionsResult',
     'GetSecurityMonitoringRulesRuleSignalQueryResult',
     'GetSecurityMonitoringRulesRuleThirdPartyCaseResult',
     'GetSecurityMonitoringSuppressionsSuppressionResult',
@@ -34793,6 +34799,35 @@ class DowntimeScheduleRecurringScheduleRecurrence(dict):
         ISO-8601 Datetime to start the downtime. Must not include a UTC offset. If not provided, the downtime starts the moment it is created.
         """
         return pulumi.get(self, "start")
+
+
+@pulumi.output_type
+class IncidentNotificationRuleCondition(dict):
+    def __init__(__self__, *,
+                 field: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str field: The incident field to evaluate. Common values include: state, severity, services, teams. Custom fields are also supported.
+        :param Sequence[_builtins.str] values: The value(s) to compare against. Multiple values are ORed together.
+        """
+        pulumi.set(__self__, "field", field)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> _builtins.str:
+        """
+        The incident field to evaluate. Common values include: state, severity, services, teams. Custom fields are also supported.
+        """
+        return pulumi.get(self, "field")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The value(s) to compare against. Multiple values are ORed together.
+        """
+        return pulumi.get(self, "values")
 
 
 @pulumi.output_type
@@ -91755,6 +91790,8 @@ class SecurityMonitoringDefaultRuleQuery(dict):
             suggest = "distinct_fields"
         elif key == "groupByFields":
             suggest = "group_by_fields"
+        elif key == "hasOptionalGroupByFields":
+            suggest = "has_optional_group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringDefaultRuleQuery. Access the value via the '{suggest}' property getter instead.")
@@ -91774,6 +91811,7 @@ class SecurityMonitoringDefaultRuleQuery(dict):
                  data_source: Optional[_builtins.str] = None,
                  distinct_fields: Optional[Sequence[_builtins.str]] = None,
                  group_by_fields: Optional[Sequence[_builtins.str]] = None,
+                 has_optional_group_by_fields: Optional[_builtins.bool] = None,
                  metric: Optional[_builtins.str] = None,
                  metrics: Optional[Sequence[_builtins.str]] = None,
                  name: Optional[_builtins.str] = None,
@@ -91785,6 +91823,7 @@ class SecurityMonitoringDefaultRuleQuery(dict):
         :param _builtins.str data_source: Source of events. Valid values are `logs`, `audit`, `app_sec_spans`, `spans`, `security_runtime`, `network`, `events`.
         :param Sequence[_builtins.str] distinct_fields: Field for which the cardinality is measured. Sent as an array.
         :param Sequence[_builtins.str] group_by_fields: Fields to group by.
+        :param _builtins.bool has_optional_group_by_fields: When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values.
         :param _builtins.str metric: The target field to aggregate over when using the `sum`, `max`, or `geo_data` aggregations. **Deprecated.** Configure `metrics` instead. This attribute will be removed in the next major version of the provider.
         :param Sequence[_builtins.str] metrics: Group of target fields to aggregate over when using the `sum`, `max`, `geo_data`, or `new_value` aggregations. The `sum`, `max`, and `geo_data` aggregations only accept one value in this list, whereas the `new_value` aggregation accepts up to five values.
         :param _builtins.str name: Name of the query. Not compatible with `new_value` aggregations.
@@ -91802,6 +91841,8 @@ class SecurityMonitoringDefaultRuleQuery(dict):
             pulumi.set(__self__, "distinct_fields", distinct_fields)
         if group_by_fields is not None:
             pulumi.set(__self__, "group_by_fields", group_by_fields)
+        if has_optional_group_by_fields is not None:
+            pulumi.set(__self__, "has_optional_group_by_fields", has_optional_group_by_fields)
         if metric is not None:
             pulumi.set(__self__, "metric", metric)
         if metrics is not None:
@@ -91859,6 +91900,14 @@ class SecurityMonitoringDefaultRuleQuery(dict):
         Fields to group by.
         """
         return pulumi.get(self, "group_by_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="hasOptionalGroupByFields")
+    def has_optional_group_by_fields(self) -> Optional[_builtins.bool]:
+        """
+        When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values.
+        """
+        return pulumi.get(self, "has_optional_group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -91967,6 +92016,35 @@ class SecurityMonitoringFilterExclusionFilter(dict):
         Exclusion filter query. Logs that match this query are excluded from the security filter.
         """
         return pulumi.get(self, "query")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleCalculatedField(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 name: _builtins.str):
+        """
+        :param _builtins.str expression: Expression.
+        :param _builtins.str name: Field name.
+        """
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Expression.
+        """
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -92496,6 +92574,8 @@ class SecurityMonitoringRuleQuery(dict):
             suggest = "distinct_fields"
         elif key == "groupByFields":
             suggest = "group_by_fields"
+        elif key == "hasOptionalGroupByFields":
+            suggest = "has_optional_group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in SecurityMonitoringRuleQuery. Access the value via the '{suggest}' property getter instead.")
@@ -92515,6 +92595,8 @@ class SecurityMonitoringRuleQuery(dict):
                  data_source: Optional[_builtins.str] = None,
                  distinct_fields: Optional[Sequence[_builtins.str]] = None,
                  group_by_fields: Optional[Sequence[_builtins.str]] = None,
+                 has_optional_group_by_fields: Optional[_builtins.bool] = None,
+                 indexes: Optional[Sequence[_builtins.str]] = None,
                  metric: Optional[_builtins.str] = None,
                  metrics: Optional[Sequence[_builtins.str]] = None,
                  name: Optional[_builtins.str] = None):
@@ -92525,6 +92607,8 @@ class SecurityMonitoringRuleQuery(dict):
         :param _builtins.str data_source: Source of events. Valid values are `logs`, `audit`, `app_sec_spans`, `spans`, `security_runtime`, `network`, `events`. Defaults to `"logs"`.
         :param Sequence[_builtins.str] distinct_fields: Field for which the cardinality is measured. Sent as an array.
         :param Sequence[_builtins.str] group_by_fields: Fields to group by.
+        :param _builtins.bool has_optional_group_by_fields: When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values. Defaults to `false`.
+        :param Sequence[_builtins.str] indexes: List of indexes to run the query on when the data source is `logs`. Supports only one element. Used only for scheduled rules (in other words, when `scheduling_options` is defined).
         :param _builtins.str metric: The target field to aggregate over when using the `sum`, `max`, or `geo_data` aggregations. **Deprecated.** Configure `metrics` instead. This attribute will be removed in the next major version of the provider.
         :param Sequence[_builtins.str] metrics: Group of target fields to aggregate over when using the `sum`, `max`, `geo_data`, or `new_value` aggregations. The `sum`, `max`, and `geo_data` aggregations only accept one value in this list, whereas the `new_value` aggregation accepts up to five values.
         :param _builtins.str name: Name of the query. Not compatible with `new_value` aggregations.
@@ -92540,6 +92624,10 @@ class SecurityMonitoringRuleQuery(dict):
             pulumi.set(__self__, "distinct_fields", distinct_fields)
         if group_by_fields is not None:
             pulumi.set(__self__, "group_by_fields", group_by_fields)
+        if has_optional_group_by_fields is not None:
+            pulumi.set(__self__, "has_optional_group_by_fields", has_optional_group_by_fields)
+        if indexes is not None:
+            pulumi.set(__self__, "indexes", indexes)
         if metric is not None:
             pulumi.set(__self__, "metric", metric)
         if metrics is not None:
@@ -92595,6 +92683,22 @@ class SecurityMonitoringRuleQuery(dict):
         Fields to group by.
         """
         return pulumi.get(self, "group_by_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="hasOptionalGroupByFields")
+    def has_optional_group_by_fields(self) -> Optional[_builtins.bool]:
+        """
+        When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values. Defaults to `false`.
+        """
+        return pulumi.get(self, "has_optional_group_by_fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def indexes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of indexes to run the query on when the data source is `logs`. Supports only one element. Used only for scheduled rules (in other words, when `scheduling_options` is defined).
+        """
+        return pulumi.get(self, "indexes")
 
     @_builtins.property
     @pulumi.getter
@@ -92753,6 +92857,46 @@ class SecurityMonitoringRuleReferenceTable(dict):
         The name of the reference table.
         """
         return pulumi.get(self, "table_name")
+
+
+@pulumi.output_type
+class SecurityMonitoringRuleSchedulingOptions(dict):
+    def __init__(__self__, *,
+                 rrule: _builtins.str,
+                 start: _builtins.str,
+                 timezone: _builtins.str):
+        """
+        :param _builtins.str rrule: Schedule for the rule queries, written in RRULE syntax. See [RFC](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for syntax reference.
+        :param _builtins.str start: Start date for the schedule, in ISO 8601 format without timezone.
+        :param _builtins.str timezone: Time zone of the start date, in the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) format.
+        """
+        pulumi.set(__self__, "rrule", rrule)
+        pulumi.set(__self__, "start", start)
+        pulumi.set(__self__, "timezone", timezone)
+
+    @_builtins.property
+    @pulumi.getter
+    def rrule(self) -> _builtins.str:
+        """
+        Schedule for the rule queries, written in RRULE syntax. See [RFC](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for syntax reference.
+        """
+        return pulumi.get(self, "rrule")
+
+    @_builtins.property
+    @pulumi.getter
+    def start(self) -> _builtins.str:
+        """
+        Start date for the schedule, in ISO 8601 format without timezone.
+        """
+        return pulumi.get(self, "start")
+
+    @_builtins.property
+    @pulumi.getter
+    def timezone(self) -> _builtins.str:
+        """
+        Time zone of the start date, in the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) format.
+        """
+        return pulumi.get(self, "timezone")
 
 
 @pulumi.output_type
@@ -93918,6 +94062,7 @@ class SyntheticsTestApiStep(dict):
                  exit_if_succeed: Optional[_builtins.bool] = None,
                  extracted_values: Optional[Sequence['outputs.SyntheticsTestApiStepExtractedValue']] = None,
                  extracted_values_from_script: Optional[_builtins.str] = None,
+                 id: Optional[_builtins.str] = None,
                  is_critical: Optional[_builtins.bool] = None,
                  request_basicauth: Optional['outputs.SyntheticsTestApiStepRequestBasicauth'] = None,
                  request_client_certificate: Optional['outputs.SyntheticsTestApiStepRequestClientCertificate'] = None,
@@ -93937,6 +94082,7 @@ class SyntheticsTestApiStep(dict):
         :param _builtins.bool exit_if_succeed: Determines whether or not to exit the test if the step succeeds.
         :param Sequence['SyntheticsTestApiStepExtractedValueArgs'] extracted_values: Values to parse and save as variables from the response.
         :param _builtins.str extracted_values_from_script: Generate variables using JavaScript.
+        :param _builtins.str id: ID of the step.
         :param _builtins.bool is_critical: Determines whether or not to consider the entire test as failed if this step fails. Can be used only if `allow_failure` is `true`.
         :param 'SyntheticsTestApiStepRequestBasicauthArgs' request_basicauth: The HTTP basic authentication credentials. Exactly one nested block is allowed with the structure below.
         :param 'SyntheticsTestApiStepRequestClientCertificateArgs' request_client_certificate: Client certificate to use when performing the test request. Exactly one nested block is allowed with the structure below.
@@ -93960,6 +94106,8 @@ class SyntheticsTestApiStep(dict):
             pulumi.set(__self__, "extracted_values", extracted_values)
         if extracted_values_from_script is not None:
             pulumi.set(__self__, "extracted_values_from_script", extracted_values_from_script)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
         if is_critical is not None:
             pulumi.set(__self__, "is_critical", is_critical)
         if request_basicauth is not None:
@@ -94032,6 +94180,14 @@ class SyntheticsTestApiStep(dict):
         Generate variables using JavaScript.
         """
         return pulumi.get(self, "extracted_values_from_script")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        ID of the step.
+        """
+        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter(name="isCritical")
@@ -99589,6 +99745,35 @@ class GetHostsHostListMetricsResult(dict):
 
 
 @pulumi.output_type
+class GetIncidentNotificationRuleConditionResult(dict):
+    def __init__(__self__, *,
+                 field: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str field: The incident field to evaluate. Common values include: state, severity, services, teams. Custom fields are also supported.
+        :param Sequence[_builtins.str] values: The value(s) to compare against.
+        """
+        pulumi.set(__self__, "field", field)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> _builtins.str:
+        """
+        The incident field to evaluate. Common values include: state, severity, services, teams. Custom fields are also supported.
+        """
+        return pulumi.get(self, "field")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        The value(s) to compare against.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class GetLogsIndexesLogsIndexResult(dict):
     def __init__(__self__, *,
                  daily_limit: _builtins.int,
@@ -100457,6 +100642,7 @@ class GetSecurityMonitoringRulesRuleResult(dict):
                  message: _builtins.str,
                  name: _builtins.str,
                  tags: Sequence[_builtins.str],
+                 calculated_fields: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleCalculatedFieldResult']] = None,
                  cases: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleCaseResult']] = None,
                  enabled: Optional[_builtins.bool] = None,
                  filters: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleFilterResult']] = None,
@@ -100465,6 +100651,7 @@ class GetSecurityMonitoringRulesRuleResult(dict):
                  options: Optional['outputs.GetSecurityMonitoringRulesRuleOptionsResult'] = None,
                  queries: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleQueryResult']] = None,
                  reference_tables: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleReferenceTableResult']] = None,
+                 scheduling_options: Optional['outputs.GetSecurityMonitoringRulesRuleSchedulingOptionsResult'] = None,
                  signal_queries: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleSignalQueryResult']] = None,
                  third_party_cases: Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleThirdPartyCaseResult']] = None,
                  type: Optional[_builtins.str] = None):
@@ -100472,6 +100659,7 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         :param _builtins.str message: Message for generated signals.
         :param _builtins.str name: The name of the rule.
         :param Sequence[_builtins.str] tags: Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource.
+        :param Sequence['GetSecurityMonitoringRulesRuleCalculatedFieldArgs'] calculated_fields: One or more calculated fields. Available only for scheduled rules (in other words, when `scheduling_options` is defined).
         :param Sequence['GetSecurityMonitoringRulesRuleCaseArgs'] cases: Cases for generating signals.
         :param _builtins.bool enabled: Whether the rule is enabled.
         :param Sequence['GetSecurityMonitoringRulesRuleFilterArgs'] filters: Additional queries to filter matched events before they are processed. **Note**: This field is deprecated for log detection, signal correlation, and workload security rules.
@@ -100480,6 +100668,7 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         :param 'GetSecurityMonitoringRulesRuleOptionsArgs' options: Options on rules.
         :param Sequence['GetSecurityMonitoringRulesRuleQueryArgs'] queries: Queries for selecting logs which are part of the rule.
         :param Sequence['GetSecurityMonitoringRulesRuleReferenceTableArgs'] reference_tables: Reference tables for filtering query results.
+        :param 'GetSecurityMonitoringRulesRuleSchedulingOptionsArgs' scheduling_options: Options for scheduled rules. When this field is present, the rule runs based on the schedule. When absent, it runs in real time on ingested logs.
         :param Sequence['GetSecurityMonitoringRulesRuleSignalQueryArgs'] signal_queries: Queries for selecting logs which are part of the rule.
         :param Sequence['GetSecurityMonitoringRulesRuleThirdPartyCaseArgs'] third_party_cases: Cases for generating signals for third-party rules. Only required and accepted for third-party rules
         :param _builtins.str type: The rule type.
@@ -100487,6 +100676,8 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         pulumi.set(__self__, "message", message)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "tags", tags)
+        if calculated_fields is not None:
+            pulumi.set(__self__, "calculated_fields", calculated_fields)
         if cases is not None:
             pulumi.set(__self__, "cases", cases)
         if enabled is not None:
@@ -100503,6 +100694,8 @@ class GetSecurityMonitoringRulesRuleResult(dict):
             pulumi.set(__self__, "queries", queries)
         if reference_tables is not None:
             pulumi.set(__self__, "reference_tables", reference_tables)
+        if scheduling_options is not None:
+            pulumi.set(__self__, "scheduling_options", scheduling_options)
         if signal_queries is not None:
             pulumi.set(__self__, "signal_queries", signal_queries)
         if third_party_cases is not None:
@@ -100533,6 +100726,14 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource.
         """
         return pulumi.get(self, "tags")
+
+    @_builtins.property
+    @pulumi.getter(name="calculatedFields")
+    def calculated_fields(self) -> Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleCalculatedFieldResult']]:
+        """
+        One or more calculated fields. Available only for scheduled rules (in other words, when `scheduling_options` is defined).
+        """
+        return pulumi.get(self, "calculated_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -100599,6 +100800,14 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         return pulumi.get(self, "reference_tables")
 
     @_builtins.property
+    @pulumi.getter(name="schedulingOptions")
+    def scheduling_options(self) -> Optional['outputs.GetSecurityMonitoringRulesRuleSchedulingOptionsResult']:
+        """
+        Options for scheduled rules. When this field is present, the rule runs based on the schedule. When absent, it runs in real time on ingested logs.
+        """
+        return pulumi.get(self, "scheduling_options")
+
+    @_builtins.property
     @pulumi.getter(name="signalQueries")
     def signal_queries(self) -> Optional[Sequence['outputs.GetSecurityMonitoringRulesRuleSignalQueryResult']]:
         """
@@ -100621,6 +100830,35 @@ class GetSecurityMonitoringRulesRuleResult(dict):
         The rule type.
         """
         return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleCalculatedFieldResult(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 name: _builtins.str):
+        """
+        :param _builtins.str expression: Expression.
+        :param _builtins.str name: Field name.
+        """
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Expression.
+        """
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Field name.
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -101036,6 +101274,8 @@ class GetSecurityMonitoringRulesRuleQueryResult(dict):
                  data_source: Optional[_builtins.str] = None,
                  distinct_fields: Optional[Sequence[_builtins.str]] = None,
                  group_by_fields: Optional[Sequence[_builtins.str]] = None,
+                 has_optional_group_by_fields: Optional[_builtins.bool] = None,
+                 indexes: Optional[Sequence[_builtins.str]] = None,
                  metric: Optional[_builtins.str] = None,
                  name: Optional[_builtins.str] = None):
         """
@@ -101046,6 +101286,8 @@ class GetSecurityMonitoringRulesRuleQueryResult(dict):
         :param _builtins.str data_source: Source of events.
         :param Sequence[_builtins.str] distinct_fields: Field for which the cardinality is measured. Sent as an array.
         :param Sequence[_builtins.str] group_by_fields: Fields to group by.
+        :param _builtins.bool has_optional_group_by_fields: When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values.
+        :param Sequence[_builtins.str] indexes: List of indexes to run the query on when the data source is `logs`. Supports only one element. Used only for scheduled rules (in other words, when `scheduling_options` is defined).
         :param _builtins.str metric: The target field to aggregate over when using the `sum`, `max`, or `geo_data` aggregations.
         :param _builtins.str name: Name of the query. Not compatible with `new_value` aggregations.
         """
@@ -101061,6 +101303,10 @@ class GetSecurityMonitoringRulesRuleQueryResult(dict):
             pulumi.set(__self__, "distinct_fields", distinct_fields)
         if group_by_fields is not None:
             pulumi.set(__self__, "group_by_fields", group_by_fields)
+        if has_optional_group_by_fields is not None:
+            pulumi.set(__self__, "has_optional_group_by_fields", has_optional_group_by_fields)
+        if indexes is not None:
+            pulumi.set(__self__, "indexes", indexes)
         if metric is not None:
             pulumi.set(__self__, "metric", metric)
         if name is not None:
@@ -101122,6 +101368,22 @@ class GetSecurityMonitoringRulesRuleQueryResult(dict):
         Fields to group by.
         """
         return pulumi.get(self, "group_by_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="hasOptionalGroupByFields")
+    def has_optional_group_by_fields(self) -> Optional[_builtins.bool]:
+        """
+        When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with `N/A`, replacing the missing values.
+        """
+        return pulumi.get(self, "has_optional_group_by_fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def indexes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of indexes to run the query on when the data source is `logs`. Supports only one element. Used only for scheduled rules (in other words, when `scheduling_options` is defined).
+        """
+        return pulumi.get(self, "indexes")
 
     @_builtins.property
     @pulumi.getter
@@ -101230,6 +101492,46 @@ class GetSecurityMonitoringRulesRuleReferenceTableResult(dict):
         The name of the reference table.
         """
         return pulumi.get(self, "table_name")
+
+
+@pulumi.output_type
+class GetSecurityMonitoringRulesRuleSchedulingOptionsResult(dict):
+    def __init__(__self__, *,
+                 rrule: _builtins.str,
+                 start: _builtins.str,
+                 timezone: _builtins.str):
+        """
+        :param _builtins.str rrule: Schedule for the rule queries, written in RRULE syntax. See [RFC](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for syntax reference.
+        :param _builtins.str start: Start date for the schedule, in ISO 8601 format without timezone.
+        :param _builtins.str timezone: Time zone of the start date, in the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) format.
+        """
+        pulumi.set(__self__, "rrule", rrule)
+        pulumi.set(__self__, "start", start)
+        pulumi.set(__self__, "timezone", timezone)
+
+    @_builtins.property
+    @pulumi.getter
+    def rrule(self) -> _builtins.str:
+        """
+        Schedule for the rule queries, written in RRULE syntax. See [RFC](https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html) for syntax reference.
+        """
+        return pulumi.get(self, "rrule")
+
+    @_builtins.property
+    @pulumi.getter
+    def start(self) -> _builtins.str:
+        """
+        Start date for the schedule, in ISO 8601 format without timezone.
+        """
+        return pulumi.get(self, "start")
+
+    @_builtins.property
+    @pulumi.getter
+    def timezone(self) -> _builtins.str:
+        """
+        Time zone of the start date, in the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) format.
+        """
+        return pulumi.get(self, "timezone")
 
 
 @pulumi.output_type

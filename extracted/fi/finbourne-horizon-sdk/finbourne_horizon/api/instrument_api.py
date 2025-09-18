@@ -20,7 +20,7 @@ from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
 from typing_extensions import Annotated
-from pydantic.v1 import Field, StrictBool, StrictInt, StrictStr
+from pydantic.v1 import Field, StrictBool, StrictInt, constr, validator
 
 from typing import List, Optional
 

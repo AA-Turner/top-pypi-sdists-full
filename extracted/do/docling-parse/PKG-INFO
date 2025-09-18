@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-parse
-Version: 4.4.0
+Version: 4.5.0
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 Author-email: Peter Staar <taa@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>
 License-Expression: MIT
@@ -23,6 +23,10 @@ Requires-Dist: pillow<12.0.0,>=10.0.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: docling-core>=2.44.1
 Requires-Dist: pywin32>=305; sys_platform == "win32"
+Provides-Extra: perf-tools
+Requires-Dist: pdfplumber>=0.11.7; extra == "perf-tools"
+Requires-Dist: pymupdf>=1.26.4; extra == "perf-tools"
+Requires-Dist: pypdfium2>=4.30.0; extra == "perf-tools"
 Dynamic: license-file
 
 # Docling Parse
@@ -218,7 +222,8 @@ uv sync
 The latter will only work after a clean `git clone`. If you are developing and updating C++ code, please use,
 
 ```sh
-uv pip install --force-reinstall --no-deps -e .
+# uv pip install --force-reinstall --no-deps -e .
+rm -rf .venv; uv venv; uv pip install --force-reinstall --no-deps -e ".[perf-tools]"
 ```
 
 To test the package, run:

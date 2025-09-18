@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-datadog",
-    "version": "12.7.0",
+    "version": "12.8.0",
     "description": "Prebuilt datadog Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-datadog.git",
@@ -57,6 +57,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.data_datadog_dashboard",
         "cdktf_cdktf_provider_datadog.data_datadog_dashboard_list",
         "cdktf_cdktf_provider_datadog.data_datadog_hosts",
+        "cdktf_cdktf_provider_datadog.data_datadog_incident_notification_rule",
+        "cdktf_cdktf_provider_datadog.data_datadog_incident_notification_template",
         "cdktf_cdktf_provider_datadog.data_datadog_incident_type",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_available_logs_services",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_available_namespaces",
@@ -104,6 +106,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.domain_allowlist",
         "cdktf_cdktf_provider_datadog.downtime",
         "cdktf_cdktf_provider_datadog.downtime_schedule",
+        "cdktf_cdktf_provider_datadog.incident_notification_rule",
+        "cdktf_cdktf_provider_datadog.incident_notification_template",
         "cdktf_cdktf_provider_datadog.incident_type",
         "cdktf_cdktf_provider_datadog.integration_aws",
         "cdktf_cdktf_provider_datadog.integration_aws_account",
@@ -188,7 +192,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_datadog._jsii": [
-            "provider-datadog@12.7.0.jsii.tgz"
+            "provider-datadog@12.8.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_datadog": [
             "py.typed"
@@ -198,7 +202,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.113.0, <2.0.0",
+        "jsii>=1.114.1, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

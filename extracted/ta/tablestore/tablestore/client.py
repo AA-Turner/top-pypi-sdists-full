@@ -1022,6 +1022,8 @@ class AsyncOTSClient(BaseOTSClient):
         return self._connection
 
     async def close(self):
+        if self._connection is None:
+            return
         connection = self._connection # prevent concurrency issues in coroutines, if after close, set this value to None, other coroutine may get a closed connection
         self._connection = None
         await connection.close()

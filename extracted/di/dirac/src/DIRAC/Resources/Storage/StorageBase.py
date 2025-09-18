@@ -1,4 +1,4 @@
-""" Base Storage Class provides the base interface for all storage plug-ins
+"""Base Storage Class provides the base interface for all storage plug-ins
 
       exists()
 
@@ -33,6 +33,7 @@ These are the methods for getting information about the Storage:
       getOccupancy()
 
 """
+
 import errno
 import json
 import os
@@ -113,7 +114,8 @@ class StorageBase:
 
     def getParameters(self):
         """Get the parameters with which the storage was instantiated"""
-        parameterDict = dict(self.protocolParameters)
+        parameterDict = dict(self._allProtocolParameters)
+        parameterDict.update(self.protocolParameters)
         parameterDict["StorageName"] = self.name
         parameterDict["PluginName"] = self.pluginName
         parameterDict["URLBase"] = self.getURLBase().get("Value", "")
@@ -326,7 +328,7 @@ class StorageBase:
 
     def constructURLFromLFN(self, lfn, withWSUrl=False):
         """Construct URL from the given LFN according to the VO convention for the
-        primary protocol of the storage plagin
+        primary protocol of the storage plugin
 
         :param str lfn: file LFN
         :param boolean withWSUrl: flag to include the web service part into the resulting URL
@@ -338,9 +340,7 @@ class StorageBase:
         # 2. VO name must not appear as any subdirectory or file name
         lfnSplitList = lfn.split("/")
         voLFN = lfnSplitList[1]
-        # TODO comparison to Sandbox below is for backward compatibility, should
-        # be removed in the next release
-        if voLFN != self.se.vo and voLFN != "SandBox" and voLFN != "Sandbox":
+        if voLFN != self.se.vo and voLFN != "SandBox" and voLFN != "S3":
             return S_ERROR(f"LFN ({lfn}) path must start with VO name ({self.se.vo})")
 
         urlDict = dict(self.protocolParameters)

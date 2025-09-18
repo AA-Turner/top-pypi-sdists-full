@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-aer
-Version: 0.17.1
+Version: 0.17.2
 Summary: Aer - High performance simulators for Qiskit
 Home-page: https://github.com/Qiskit/qiskit-aer
 Author: AER Development Team

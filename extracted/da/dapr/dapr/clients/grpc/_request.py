@@ -15,23 +15,22 @@ limitations under the License.
 
 import io
 from enum import Enum
-from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from google.protobuf.any_pb2 import Any as GrpcAny
 from google.protobuf.message import Message as GrpcMessage
-from dapr.proto import api_v1, common_v1
 
-from dapr.clients.base import DEFAULT_JSON_CONTENT_TYPE
-from dapr.clients.grpc._crypto import EncryptOptions, DecryptOptions
+from dapr.clients._constants import DEFAULT_JSON_CONTENT_TYPE
+from dapr.clients.grpc._crypto import DecryptOptions, EncryptOptions
 from dapr.clients.grpc._helpers import (
     MetadataDict,
     MetadataTuple,
-    tuple_to_dict,
     to_bytes,
     to_str,
+    tuple_to_dict,
     unpack,
 )
+from dapr.proto import api_v1, common_v1
 
 
 class DaprRequest:
@@ -109,7 +108,7 @@ class InvokeMethodRequest(DaprRequest):
         super(InvokeMethodRequest, self).__init__(())
 
         self._content_type = content_type
-        self._http_verb = None
+        self._http_verb: Optional[str] = None
         self._http_querystring: Dict[str, str] = {}
 
         self.set_data(data)
@@ -127,7 +126,7 @@ class InvokeMethodRequest(DaprRequest):
     @http_verb.setter
     def http_verb(self, val: Optional[str]) -> None:
         """Sets HTTP method to Dapr invocation request."""
-        if val not in self.HTTP_METHODS:
+        if val is not None and val not in self.HTTP_METHODS:
             raise ValueError(f'{val} is the invalid HTTP verb.')
         self._http_verb = val
 
@@ -285,6 +284,7 @@ class TransactionalStateOperation:
         data: Optional[Union[bytes, str]] = None,
         etag: Optional[str] = None,
         operation_type: TransactionOperationType = TransactionOperationType.upsert,
+        metadata: Optional[Dict[str, str]] = None,
     ):
         """Initializes TransactionalStateOperation item from
         :obj:`runtime_v1.TransactionalStateOperation`.
@@ -305,6 +305,7 @@ class TransactionalStateOperation:
         self._data = data  # type: ignore
         self._etag = etag
         self._operation_type = operation_type
+        self._metadata = metadata
 
     @property
     def key(self) -> str:
@@ -325,6 +326,11 @@ class TransactionalStateOperation:
     def operation_type(self) -> TransactionOperationType:
         """Gets etag."""
         return self._operation_type
+
+    @property
+    def metadata(self) -> Dict[str, str]:
+        """Gets metadata."""
+        return {} if self._metadata is None else self._metadata
 
 
 class EncryptRequestIterator(DaprRequest):
@@ -421,10 +427,28 @@ class DecryptRequestIterator(DaprRequest):
         return request_proto
 
 
-@dataclass
-class ConversationInput:
-    """A single input message for the conversation."""
+class JobEvent:
+    """Represents a job event received from Dapr runtime.
 
-    content: str
-    role: Optional[str] = None
-    scrub_pii: Optional[bool] = None
+    This matches the Go SDK's common.JobEvent structure and represents
+    a job that is currently being executed, not a job definition.
+
+    Args:
+        name (str): The name/type of the job being executed.
+        data (bytes): The raw job data payload.
+    """
+
+    def __init__(self, name: str, data: bytes = b''):
+        self.name = name
+        self.data = data
+
+    def get_data_as_string(self, encoding: str = 'utf-8') -> str:
+        """Get the job data as a string.
+
+        Args:
+            encoding (str): The encoding to use for decoding bytes. Defaults to 'utf-8'.
+
+        Returns:
+            str: The job data as a string, or empty string if no data.
+        """
+        return self.data.decode(encoding) if self.data else ''

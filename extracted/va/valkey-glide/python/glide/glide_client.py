@@ -11,7 +11,6 @@ from typing import (
     Optional,
     Set,
     Tuple,
-    Type,
     Union,
     cast,
 )
@@ -19,31 +18,7 @@ from typing import (
 import anyio
 import sniffio
 from anyio import to_thread
-
-from glide.async_commands.cluster_commands import ClusterCommands
-from glide.async_commands.command_args import ObjectType
-from glide.async_commands.core import CoreCommands
-from glide.async_commands.standalone_commands import StandaloneCommands
-from glide.config import BaseClientConfiguration, ServerCredentials
-from glide.constants import DEFAULT_READ_BYTES_SIZE, OK, TEncodable, TRequest, TResult
-from glide.exceptions import (
-    ClosingError,
-    ConfigurationError,
-    ConnectionError,
-    ExecAbortError,
-    RequestError,
-    TimeoutError,
-)
-from glide.logger import Level as LogLevel
-from glide.logger import Logger as ClientLogger
-from glide.opentelemetry import OpenTelemetry
-from glide.protobuf.command_request_pb2 import Command, CommandRequest, RequestType
-from glide.protobuf.connection_request_pb2 import ConnectionRequest
-from glide.protobuf.response_pb2 import RequestErrorType, Response
-from glide.protobuf_codec import PartialMessageException, ProtobufCodec
-from glide.routes import Route, set_protobuf_route
-
-from .glide import (
+from glide.glide import (
     DEFAULT_TIMEOUT_IN_MILLISECONDS,
     MAX_REQUEST_ARGS_LEN,
     ClusterScanCursor,
@@ -54,6 +29,38 @@ from .glide import (
     start_socket_listener_external,
     value_from_pointer,
 )
+from glide_shared.commands.command_args import ObjectType
+from glide_shared.commands.core_options import PubSubMsg
+from glide_shared.config import BaseClientConfiguration, ServerCredentials
+from glide_shared.constants import (
+    DEFAULT_READ_BYTES_SIZE,
+    OK,
+    TEncodable,
+    TRequest,
+    TResult,
+)
+from glide_shared.exceptions import (
+    ClosingError,
+    ConfigurationError,
+    ConnectionError,
+    get_request_error_class,
+)
+from glide_shared.protobuf.command_request_pb2 import (
+    Command,
+    CommandRequest,
+    RequestType,
+)
+from glide_shared.protobuf.connection_request_pb2 import ConnectionRequest
+from glide_shared.protobuf.response_pb2 import Response
+from glide_shared.protobuf_codec import PartialMessageException, ProtobufCodec
+from glide_shared.routes import Route, set_protobuf_route
+
+from .async_commands.cluster_commands import ClusterCommands
+from .async_commands.core import CoreCommands
+from .async_commands.standalone_commands import StandaloneCommands
+from .logger import Level as LogLevel
+from .logger import Logger as ClientLogger
+from .opentelemetry import OpenTelemetry
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -67,20 +74,6 @@ if TYPE_CHECKING:
 
     TTask = Union[asyncio.Task[None], trio.lowlevel.Task]
     TFuture = Union[asyncio.Future[Any], "_CompatFuture"]
-
-
-def get_request_error_class(
-    error_type: Optional[RequestErrorType.ValueType],
-) -> Type[RequestError]:
-    if error_type == RequestErrorType.Disconnect:
-        return ConnectionError
-    if error_type == RequestErrorType.ExecAbort:
-        return ExecAbortError
-    if error_type == RequestErrorType.Timeout:
-        return TimeoutError
-    if error_type == RequestErrorType.Unspecified:
-        return RequestError
-    return RequestError
 
 
 class _CompatFuture:
@@ -524,7 +517,7 @@ class BaseClient(CoreCommands):
         set_protobuf_route(request, route)
         return await self._write_request_await_response(request)
 
-    async def get_pubsub_message(self) -> CoreCommands.PubSubMsg:
+    async def get_pubsub_message(self) -> PubSubMsg:
         if self._is_closed:
             raise ClosingError(
                 "Unable to execute requests; the client is closed. Please create a new client."
@@ -551,7 +544,7 @@ class BaseClient(CoreCommands):
         await response_future
         return response_future.result()
 
-    def try_get_pubsub_message(self) -> Optional[CoreCommands.PubSubMsg]:
+    def try_get_pubsub_message(self) -> Optional[PubSubMsg]:
         if self._is_closed:
             raise ClosingError(
                 "Unable to execute requests; the client is closed. Please create a new client."
@@ -568,7 +561,7 @@ class BaseClient(CoreCommands):
             )
 
         # locking might not be required
-        msg: Optional[CoreCommands.PubSubMsg] = None
+        msg: Optional[PubSubMsg] = None
         try:
             self._pubsub_lock.acquire()
             self._complete_pubsub_futures_safe()
@@ -586,7 +579,7 @@ class BaseClient(CoreCommands):
 
     def _notification_to_pubsub_message_safe(
         self, response: Response
-    ) -> Optional[CoreCommands.PubSubMsg]:
+    ) -> Optional[PubSubMsg]:
         pubsub_message = None
         push_notification = cast(
             Dict[str, Any], value_from_pointer(response.resp_pointer)
@@ -605,11 +598,11 @@ class BaseClient(CoreCommands):
         ):
             values: List = push_notification["values"]
             if message_kind == "PMessage":
-                pubsub_message = BaseClient.PubSubMsg(
+                pubsub_message = PubSubMsg(
                     message=values[2], channel=values[1], pattern=values[0]
                 )
             else:
-                pubsub_message = BaseClient.PubSubMsg(
+                pubsub_message = PubSubMsg(
                     message=values[1], channel=values[0], pattern=None
                 )
         elif (

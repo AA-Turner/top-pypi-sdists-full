@@ -16,15 +16,3 @@ def getPilotAgentsDB():
         pass
 
     return Client(url="WorkloadManagement/PilotManager")
-
-
-def getVirtualMachineDB():
-    try:
-        from DIRAC.WorkloadManagementSystem.DB.VirtualMachineDB import gVirtualMachineDB
-
-        if gVirtualMachineDB and gVirtualMachineDB._connected:
-            return gVirtualMachineDB
-    except Exception:
-        pass
-
-    return Client(url="WorkloadManagement/VirtualMachineManager")

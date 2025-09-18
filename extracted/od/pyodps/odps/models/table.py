@@ -30,7 +30,7 @@ from ..compat import Enum, dir2, six
 from ..config import options
 from ..expressions import parse as parse_expression
 from .cluster_info import ClusterInfo
-from .core import JSONRemoteModel, LazyLoad
+from .core import JSONRemoteModel, XMLLazyLoad
 from .partitions import Partitions
 from .record import Record
 from .storage_tier import StorageTier, StorageTierInfo
@@ -181,7 +181,7 @@ class TableSchema(odps_types.OdpsSchema, JSONRemoteModel):
         return sorted(set(dir2(self)) - set(type(self)._parent_attrs))
 
 
-class Table(LazyLoad):
+class Table(XMLLazyLoad):
     """
     Table means the same to the RDBMS table, besides, a table can consist of partitions.
 
@@ -1012,6 +1012,9 @@ class Table(LazyLoad):
 
         from ..tunnel.tabletunnel import TableDownloadSession
 
+        on_exception = kw.pop("on_exception", None)
+        buffered = kw.pop("buffered", False)
+
         if self.is_transactional and self.primary_key:
             # currently acid 2.0 table can only be read through select statement
             sql_stmt = "SELECT * FROM %s" % self.full_table_name
@@ -1063,7 +1066,15 @@ class Table(LazyLoad):
             if append_partitions is not None
             else {}
         )
-        return reader_cls(self, download_session, partition, columns=columns, **kw)
+        return reader_cls(
+            self,
+            download_session,
+            partition,
+            columns=columns,
+            on_exception=on_exception,
+            buffered=buffered,
+            **kw
+        )
 
     def open_writer(
         self,
@@ -1078,6 +1089,7 @@ class Table(LazyLoad):
         quota_name=None,
         tags=None,
         mp_context=None,
+        on_exception=None,
         **kw
     ):
         """
@@ -1173,6 +1185,7 @@ class Table(LazyLoad):
             commit=commit,
             on_close=_writer_on_close,
             mp_context=mp_context,
+            on_exception=on_exception,
         )
 
     def to_pandas(

@@ -7,7 +7,23 @@ from DIRAC.ConfigurationSystem.Client import ConfigurationData
 from DIRAC.Resources.Computing.BatchSystems.TimeLeft.TimeLeft import TimeLeft
 
 
-CONFIG = """
+CONFIG_UNKNOWN = """
+LocalSite {
+    BatchSystemInfo
+    {
+        Type = Unknown
+        JobID = 12345
+        Parameters {
+            BinaryPath = Unknown
+            Host = Unknown
+            InfoPath = Unknown
+            Queue = Unknown
+        }
+    }
+}
+"""
+
+CONFIG_SLURM = """
 LocalSite {
     BatchSystemInfo
     {
@@ -25,15 +41,24 @@ LocalSite {
 
 
 @pytest.fixture
-def config():
+def configUnknown():
     """Load a fake configuration"""
     ConfigurationData.localCFG = CFG()
     cfg = CFG()
-    cfg.loadFromBuffer(CONFIG)
+    cfg.loadFromBuffer(CONFIG_UNKNOWN)
     gConfig.loadCFG(cfg)
 
 
-def test_cpuPowerNotDefined(config):
+@pytest.fixture
+def configSlurm():
+    """Load a fake configuration"""
+    ConfigurationData.localCFG = CFG()
+    cfg = CFG()
+    cfg.loadFromBuffer(CONFIG_SLURM)
+    gConfig.loadCFG(cfg)
+
+
+def test_cpuPowerNotDefined(configSlurm):
     """Test cpuPower not defined"""
     tl = TimeLeft()
     res = tl.getTimeLeft()
@@ -41,10 +66,21 @@ def test_cpuPowerNotDefined(config):
     assert "/LocalSite/CPUNormalizationFactor not defined" in res["Message"]
 
 
-def test_batchSystemNotDefined(mocker):
-    """Test batch system not defined"""
-    mocker.patch("DIRAC.gConfig.getOptionsDictRecursively", return_value=S_ERROR({}))
+def test_batchSystemInfoNotDefined(mocker):
+    """Test batch system info not defined"""
+    mocker.patch(
+        "DIRAC.gConfig.getOptionsDictRecursively", return_value=S_ERROR("Path does not exist or it's not a section")
+    )
 
+    tl = TimeLeft()
+    tl.cpuPower = 10
+    res = tl.getTimeLeft()
+    assert not res["OK"]
+    assert "Path does not exist or it's not a section" in res["Message"]
+
+
+def test_batchSystemTypeNotDefined(mocker, configUnknown):
+    """Test batch system type not defined"""
     tl = TimeLeft()
     tl.cpuPower = 10
     res = tl.getTimeLeft()
@@ -52,24 +88,7 @@ def test_batchSystemNotDefined(mocker):
     assert "Current batch system is not supported" in res["Message"]
 
 
-def test_batchSystemNotDefinedInConfigButInEnvironmentVariables(mocker, monkeypatch):
-    """Test batch system not defined but present in environment variables (should fail from v9.0)"""
-    mocker.patch(
-        "DIRAC.Resources.Computing.BatchSystems.TimeLeft.HTCondorResourceUsage.runCommand",
-        return_value=S_OK("9000 800"),
-    )
-    mocker.patch("DIRAC.gConfig.getOptionsDictRecursively", return_value=S_ERROR({}))
-    monkeypatch.setenv("HTCONDOR_JOBID", "12345.0")
-    monkeypatch.setenv("_CONDOR_JOB_AD", "/path/to/config")
-
-    tl = TimeLeft()
-    tl.cpuPower = 10
-    res = tl.getTimeLeft()
-    assert res["OK"]
-    assert res["Value"] == 82000
-
-
-def test_getScaledCPU(mocker, config):
+def test_getScaledCPU(mocker, configSlurm):
     """Test getScaledCPU()"""
     mocker.patch(
         "DIRAC.Resources.Computing.BatchSystems.TimeLeft.SLURMResourceUsage.runCommand",
@@ -88,7 +107,7 @@ def test_getScaledCPU(mocker, config):
     assert res == 45000
 
 
-def test_getTimeLeft(mocker, config):
+def test_getTimeLeft(mocker, configSlurm):
     """Test getTimeLeft()"""
     mocker.patch(
         "DIRAC.Resources.Computing.BatchSystems.TimeLeft.SLURMResourceUsage.runCommand",

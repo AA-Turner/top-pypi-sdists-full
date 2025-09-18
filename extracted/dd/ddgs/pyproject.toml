@@ -31,6 +31,7 @@ dependencies = [
     "click>=8.1.8",  # click 8.2.0 drops python 3.9
     "primp>=0.15.0",
     "lxml>=6.0.0",
+    "httpx[http2,socks,brotli]>=0.28.1",  # temporarily
 ]
 dynamic = ["version"]
 
@@ -48,7 +49,7 @@ dev = [
     "mypy>=1.17.1",
     "pytest>=8.4.1",
     "pytest-dependency>=0.6.0",
-    "ruff>=0.12.9",
+    "ruff>=0.13.0",
 ]
 
 [tool.ruff]

@@ -474,6 +474,9 @@ impl EnvVars {
     /// General proxy for all network requests.
     pub const ALL_PROXY: &'static str = "ALL_PROXY";
 
+    /// Comma-separated list of hostnames (e.g., `example.com`) and/or patterns (e.g., `192.168.1.0/24`) that should bypass the proxy.
+    pub const NO_PROXY: &'static str = "NO_PROXY";
+
     /// Timeout (in seconds) for HTTP requests. (default: 30 s)
     pub const UV_HTTP_TIMEOUT: &'static str = "UV_HTTP_TIMEOUT";
 
@@ -494,11 +497,14 @@ impl EnvVars {
     /// Used to detect an activated virtual environment.
     pub const VIRTUAL_ENV: &'static str = "VIRTUAL_ENV";
 
-    /// Used to detect an activated Conda environment.
+    /// Used to detect the path of an active Conda environment.
     pub const CONDA_PREFIX: &'static str = "CONDA_PREFIX";
 
-    /// Used to determine if an active Conda environment is the base environment or not.
+    /// Used to determine the name of the active Conda environment.
     pub const CONDA_DEFAULT_ENV: &'static str = "CONDA_DEFAULT_ENV";
+
+    /// Used to determine the root install path of Conda.
+    pub const CONDA_ROOT: &'static str = "_CONDA_ROOT";
 
     /// If set to `1` before a virtual environment is activated, then the
     /// virtual environment name will not be prepended to the terminal prompt.
@@ -621,14 +627,17 @@ impl EnvVars {
     #[attr_hidden]
     pub const GIT_CEILING_DIRECTORIES: &'static str = "GIT_CEILING_DIRECTORIES";
 
-    /// Used for trusted publishing via `uv publish`.
+    /// Indicates that the current process is running in GitHub Actions.
+    ///
+    /// `uv publish` may attempt trusted publishing flows when set
+    /// to `true`.
     pub const GITHUB_ACTIONS: &'static str = "GITHUB_ACTIONS";
 
-    /// Used for trusted publishing via `uv publish`. Contains the oidc token url.
-    pub const ACTIONS_ID_TOKEN_REQUEST_URL: &'static str = "ACTIONS_ID_TOKEN_REQUEST_URL";
-
-    /// Used for trusted publishing via `uv publish`. Contains the oidc request token.
-    pub const ACTIONS_ID_TOKEN_REQUEST_TOKEN: &'static str = "ACTIONS_ID_TOKEN_REQUEST_TOKEN";
+    /// Indicates that the current process is running in GitLab CI.
+    ///
+    /// `uv publish` may attempt trusted publishing flows when set
+    /// to `true`.
+    pub const GITLAB_CI: &'static str = "GITLAB_CI";
 
     /// Sets the encoding for standard I/O streams (e.g., PYTHONIOENCODING=utf-8).
     #[attr_hidden]
@@ -765,16 +774,12 @@ impl EnvVars {
     #[attr_hidden]
     pub const KEYRING_TEST_CREDENTIALS: &'static str = "KEYRING_TEST_CREDENTIALS";
 
-    /// Used to set the vendor links url for tests.
-    #[attr_hidden]
-    pub const UV_TEST_VENDOR_LINKS_URL: &'static str = "UV_TEST_VENDOR_LINKS_URL";
-
     /// Used to disable delay for HTTP retries in tests.
     pub const UV_TEST_NO_HTTP_RETRY_DELAY: &'static str = "UV_TEST_NO_HTTP_RETRY_DELAY";
 
-    /// Used to set an index url for tests.
+    /// Used to set a packse index url for tests.
     #[attr_hidden]
-    pub const UV_TEST_INDEX_URL: &'static str = "UV_TEST_INDEX_URL";
+    pub const UV_TEST_PACKSE_INDEX: &'static str = "UV_TEST_PACKSE_INDEX";
 
     /// Used for testing named indexes in tests.
     #[attr_hidden]

@@ -2,7 +2,9 @@ from __future__ import annotations
 from typing import Dict, Type, TYPE_CHECKING
 import logging
 
-from .....models.analytics.sources import WhatsAppDefaultSource, TopicDefaultSource, PureAd, Source, TemplateSource, OtherSource
+from letschatty.models.company.empresa import EmpresaModel
+
+from .....models.analytics.sources import GoogleAdUtmSource, PureAdUtmSource, SourceBase, WhatsAppDefaultSource, TopicDefaultSource, PureAd, Source, TemplateSource, OtherSource
 from .....models.company.assets.ai_agents_v2.chatty_ai_agent_config_for_automation import ChattyAIConfigForAutomation
 from .....models.company.assets.ai_agents_v2.chatty_ai_agent_config_for_automation import ChattyAIMode
 from .....models.utils.types.identifier import StrObjectId
@@ -17,7 +19,10 @@ from bson import ObjectId
 if TYPE_CHECKING:
     from .....models.messages import ChattyMessage
     from .....models.analytics.smart_messages.topic import Topic
+    from .....models.analytics.sources.utm_source import UTMSource
+    from .....models.analytics.sources.utms.utm_query_params import QueryUTMParams
 
+    from .....models.execution.execution import ExecutionContext
 logger = logging.getLogger(__name__)
 
 class SourceFactory:
@@ -49,7 +54,7 @@ class SourceFactory:
     def create_topic_default_source(topic: Topic, company_id: str, whatsapp_default_source: WhatsAppDefaultSource) -> TopicDefaultSource:
         return TopicDefaultSource(
             topic_id=topic.id,
-            name = f"{topic.name} Topic Default Source",
+            name = f"Orgánico {{smart_message_topic_name}}",
             _id = topic.default_source_id,
             description= "Message matched the Topic but there was no direct source to attribute it to.",
             created_at=topic.created_at,
@@ -139,3 +144,21 @@ class SourceFactory:
                 only_for_new_chats=False
             ),
         )
+
+    @staticmethod
+    def create_utm_source(query_params: QueryUTMParams, empresa_model: EmpresaModel, whatsapp_default_source: WhatsAppDefaultSource) -> SourceBase:
+        new_source = {
+            "name": f"{query_params.utm_source} - {query_params.utm_campaign} - {query_params.utm_medium} - {query_params.utm_term} - {query_params.utm_content}",
+            "description": f"Usuario vino desde {query_params.base_url}",
+            "type": SourceType.UTM_SOURCE,
+            "category": query_params.utm_source if query_params.utm_source else None,
+            "flow": whatsapp_default_source.flow,
+            "products": whatsapp_default_source.products,
+            "tags": whatsapp_default_source.tags,
+            "company_id": empresa_model.id,
+            "chatty_ai_agent_config": whatsapp_default_source.chatty_ai_agent_config
+
+        }
+
+        source_to_insert = SourceFactory.instantiate_source(source_data=new_source)
+        return source_to_insert

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grab
-Version: 1.0.1
+Version: 1.1.0
 Summary: Web scraping framework
 Author-email: Gregory Petukhov <lorien@lorien.name>
 License-Expression: MIT
@@ -41,6 +41,7 @@ Requires-Dist: lxml; platform_system != "Windows" or python_version >= "3.13"
 Requires-Dist: pycurl; platform_system != "Windows" or python_version >= "3.13"
 Requires-Dist: defusedxml
 Requires-Dist: typing-extensions; python_version <= "2.7"
+Requires-Dist: unicodec>=0.2.0
 Provides-Extra: full
 Requires-Dist: urllib3; extra == "full"
 Requires-Dist: certifi; extra == "full"
@@ -75,7 +76,7 @@ exceptions anymore. Now Grab uses DataNotFound and InvalidResponseError exceptio
 So, if your code imports `DataNotFound` or `ResponseNotValid` from weblib, you should fix such imports. Also, if
 your code explicitly catches these weblib exceptions then you should convert it to catch new `grab.error` exceptions.
 
-The new release has version 1.0.0. If you use Grab in your project and you want to keep old release to be sure
+The major version of new release is 1. If you use Grab in your project and you want to keep old release to be sure
 there is no backward-compatility bugs, then use this specification in your requirements file  `grab<1.0`.
 
 

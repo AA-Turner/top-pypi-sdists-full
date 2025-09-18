@@ -19,13 +19,13 @@ import json
 
 
 from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictStr 
+from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, constr 
 
 class PermIdData(BaseModel):
     """
     PermId Data Structure  # noqa: E501
     """
-    figi:  StrictStr = Field(...,alias="figi", description=">FIGI assigned to the instrument.") 
+    figi:  StrictStr = Field(...,alias="figi", description="FIGI assigned to the instrument.") 
     ticker:  StrictStr = Field(...,alias="ticker", description="Ticker assigned to the instrument") 
     mic:  StrictStr = Field(...,alias="mic", description="ISO market identification code(MIC) of the desired instrument(s)") 
     quote_perm_id:  StrictStr = Field(...,alias="quotePermId", description="QuotePermId of the instrument") 

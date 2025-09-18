@@ -2903,6 +2903,7 @@ fn sync_dev() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 5 packages in [TIME]
     Prepared 3 packages in [TIME]
     Installed 3 packages in [TIME]
@@ -2917,6 +2918,7 @@ fn sync_dev() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 5 packages in [TIME]
     Prepared 1 package in [TIME]
     Uninstalled 3 packages in [TIME]
@@ -2933,6 +2935,7 @@ fn sync_dev() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 5 packages in [TIME]
     Installed 3 packages in [TIME]
      + anyio==4.3.0
@@ -2947,6 +2950,7 @@ fn sync_dev() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 5 packages in [TIME]
     Uninstalled 3 packages in [TIME]
      - anyio==4.3.0
@@ -3439,6 +3443,7 @@ fn sync_dev_group() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 6 packages in [TIME]
     Prepared 5 packages in [TIME]
     Installed 5 packages in [TIME]
@@ -5612,6 +5617,95 @@ fn virtual_no_build() -> Result<()> {
 }
 
 #[test]
+fn virtual_empty() -> Result<()> {
+    // testing how `uv sync` reacts to a pyproject with no `[project]` and nothing useful to it
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [tool.mycooltool]
+        wow = "someconfig"
+    "#})?;
+
+    uv_snapshot!(context.filters(), context.sync(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved in [TIME]
+    Audited in [TIME]
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn virtual_dependency_group() -> Result<()> {
+    // testing basic `uv sync --group` functionality
+    // when the pyproject.toml is fully virtual (no `[project]`)
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [dependency-groups]
+        foo = ["sortedcontainers"]
+        bar = ["iniconfig"]
+        dev = ["sniffio"]
+    "#})?;
+
+    // default groups
+    uv_snapshot!(context.filters(), context.sync(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 3 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + sniffio==1.3.1
+    ");
+
+    // explicit --group
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--group").arg("bar"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 3 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    ");
+
+    // explicit --only-group
+    uv_snapshot!(context.filters(), context.sync()
+        .arg("--only-group").arg("foo"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 3 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 2 packages in [TIME]
+    Installed 1 package in [TIME]
+     - iniconfig==2.0.0
+     - sniffio==1.3.1
+     + sortedcontainers==2.4.0
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn virtual_no_build_dynamic_cached() -> Result<()> {
     let context = TestContext::new("3.12");
 
@@ -7582,6 +7676,7 @@ fn transitive_dev() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
+    warning: The `tool.uv.dev-dependencies` field (used in `child/pyproject.toml`, `pyproject.toml`) is deprecated and will be removed in a future release; use `dependency-groups.dev` instead
     Resolved 6 packages in [TIME]
     Prepared 4 packages in [TIME]
     Installed 4 packages in [TIME]
@@ -14089,6 +14184,158 @@ fn workspace_editable_conflict() -> Result<()> {
 
     ----- stderr -----
     error: Workspace member `child1` was requested as both `editable = true` and `editable = false`
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn only_group_and_extra_conflict() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [project.optional-dependencies]
+        test = ["pytest"]
+
+        [dependency-groups]
+        dev = ["ruff"]
+        "#,
+    )?;
+
+    // Using --only-group and --extra together should error.
+    uv_snapshot!(context.filters(), context.sync().arg("--only-group").arg("dev").arg("--extra").arg("test"), @r###"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: the argument '--only-group <ONLY_GROUP>' cannot be used with '--extra <EXTRA>'
+
+    Usage: uv sync --cache-dir [CACHE_DIR] --only-group <ONLY_GROUP> --exclude-newer <EXCLUDE_NEWER>
+
+    For more information, try '--help'.
+    "###);
+
+    // Using --only-group and --all-extras together should also error.
+    uv_snapshot!(context.filters(), context.sync().arg("--only-group").arg("dev").arg("--all-extras"), @r###"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: the argument '--only-group <ONLY_GROUP>' cannot be used with '--all-extras'
+
+    Usage: uv sync --cache-dir [CACHE_DIR] --only-group <ONLY_GROUP> --exclude-newer <EXCLUDE_NEWER>
+
+    For more information, try '--help'.
+    "###);
+
+    Ok(())
+}
+
+/// `uv sync --no-sources` should consistently switch from editable to package installation.
+///
+/// See: <https://github.com/astral-sh/uv/issues/15190>
+#[test]
+fn sync_no_sources_editable_to_package_switch() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    // Create a local package that will be used as editable dependency.
+    let local_dep = context.temp_dir.child("local_dep");
+    local_dep.create_dir_all()?;
+
+    let local_dep_pyproject = local_dep.child("pyproject.toml");
+    local_dep_pyproject.write_str(
+        r#"
+        [project]
+        name = "anyio"
+        version = "4.3.0"
+        description = "Local test package mimicking anyio"
+        requires-python = ">=3.8"
+
+        [build-system]
+        requires = ["setuptools>=61", "wheel"]
+        build-backend = "setuptools.build_meta"
+        "#,
+    )?;
+
+    // Create main project with editable source for the local dependency.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "test_no_sources"
+        version = "0.0.1"
+        requires-python = ">=3.12"
+        dependencies = ["anyio"]
+
+        [tool.uv.sources]
+        anyio = { path = "./local_dep", editable = true }
+
+        [build-system]
+        requires = ["setuptools>=67"]
+        build-backend = "setuptools.build_meta"
+
+        [tool.setuptools.packages.find]
+        exclude = ["local_dep*"]
+        "#,
+    )?;
+
+    // Step 1: `uv sync --no-sources` should install `anyio` from PyPI.
+    uv_snapshot!(context.filters(), context.sync().arg("--no-sources"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Prepared 4 packages in [TIME]
+    Installed 4 packages in [TIME]
+     + anyio==4.3.0
+     + idna==3.6
+     + sniffio==1.3.1
+     + test-no-sources==0.0.1 (from file://[TEMP_DIR]/)
+    ");
+
+    // Step 2: `uv sync` should switch to an editable installation.
+    uv_snapshot!(context.filters(), context.sync(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 1 package in [TIME]
+    Uninstalled 3 packages in [TIME]
+    Installed 1 package in [TIME]
+     - anyio==4.3.0
+     + anyio==4.3.0 (from file://[TEMP_DIR]/local_dep)
+     - idna==3.6
+     - sniffio==1.3.1
+    ");
+
+    // Step 3: `uv sync --no-sources` again should switch back to PyPI package.
+    uv_snapshot!(context.filters(), context.sync().arg("--no-sources"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Uninstalled 1 package in [TIME]
+    Installed 3 packages in [TIME]
+     - anyio==4.3.0 (from file://[TEMP_DIR]/local_dep)
+     + anyio==4.3.0
+     + idna==3.6
+     + sniffio==1.3.1
     ");
 
     Ok(())

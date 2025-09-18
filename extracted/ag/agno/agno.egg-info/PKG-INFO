@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.0.5
+Version: 2.0.6
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 Project-URL: homepage, https://agno.com
@@ -161,6 +161,8 @@ Requires-Dist: opencv-python; extra == "opencv"
 Provides-Extra: psycopg
 Requires-Dist: psycopg-binary; extra == "psycopg"
 Requires-Dist: psycopg; extra == "psycopg"
+Provides-Extra: reportlab
+Requires-Dist: reportlab; extra == "reportlab"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: valyu
@@ -306,6 +308,7 @@ Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[memori]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
 Requires-Dist: agno[psycopg]; extra == "tools"
+Requires-Dist: agno[reportlab]; extra == "tools"
 Requires-Dist: agno[trafilatura]; extra == "tools"
 Requires-Dist: agno[neo4j]; extra == "tools"
 Provides-Extra: storage

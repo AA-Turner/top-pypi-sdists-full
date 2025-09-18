@@ -1,24 +1,25 @@
 """
   Base class for all agent modules
 """
-import os
-import threading
-import time
-import signal
+import datetime
 import importlib.metadata
 import inspect
-import datetime
+import os
+import signal
+import threading
+import time
+
 import psutil
 
 import DIRAC
-from DIRAC import S_OK, S_ERROR, gConfig, gLogger, rootPath
-from DIRAC.Core.Utilities.File import mkDir
-from DIRAC.Core.Utilities import Network, TimeUtilities
-from DIRAC.Core.Utilities.Shifter import setupShifterProxyInEnv
-from DIRAC.Core.Utilities.ReturnValues import isReturnStructure
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger, rootPath
 from DIRAC.ConfigurationSystem.Client import PathFinder
-from DIRAC.Core.Utilities.ThreadScheduler import gThreadScheduler
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.Core.Utilities import Network, TimeUtilities
+from DIRAC.Core.Utilities.File import mkDir
+from DIRAC.Core.Utilities.ReturnValues import isReturnStructure
+from DIRAC.Core.Utilities.Shifter import setupShifterProxyInEnv
+from DIRAC.Core.Utilities.ThreadScheduler import gThreadScheduler
 
 
 class AgentModule:
@@ -68,7 +69,6 @@ class AgentModule:
         They are used to populate __codeProperties
 
         The following Options are used from the Configuration:
-        - /DIRAC/Setup
         - Status
         - Enabled
         - PollingTime            default = 120
@@ -113,13 +113,12 @@ class AgentModule:
             "loadSection": PathFinder.getAgentSection(loadName),
             "cyclesDone": 0,
             "totalElapsedTime": 0,
-            "setup": gConfig.getValue("/DIRAC/Setup", "Unknown"),
             "alive": True,
         }
         self.__moduleProperties["system"], self.__moduleProperties["agentName"] = agentName.split("/")
         self.__configDefaults = {}
         self.__configDefaults["MonitoringEnabled"] = self.am_getOption("MonitoringEnabled", True)
-        self.__configDefaults["Enabled"] = self.am_getOption("Status", "Active").lower() in ("active")
+        self.__configDefaults["Enabled"] = self.am_getOption("Status", "Active").lower() == "active"
         self.__configDefaults["PollingTime"] = self.am_getOption("PollingTime", 120)
         self.__configDefaults["MaxCycles"] = self.am_getOption("MaxCycles", 500)
         self.__configDefaults["WatchdogTime"] = self.am_getOption("WatchdogTime", 0)
@@ -154,15 +153,21 @@ class AgentModule:
         except Exception:
             self.log.exception(f"Failed to find version for {self!r}")
             self.__codeProperties["version"] = "unset"
+
         try:
-            self.__agentModule = __import__(self.__class__.__module__, globals(), locals(), "__doc__")
-        except Exception as excp:
-            self.log.exception("Cannot load agent module", lException=excp)
-        try:
-            self.__codeProperties["description"] = getattr(self.__agentModule, "__doc__")
-        except Exception:
-            self.log.error("Missing property __doc__")
+            try:
+                self.__agentModule = importlib.import_module(self.__class__.__module__)
+            except ImportError as e:
+                self.log.exception("Cannot load agent module", lException=e)
+                raise e
+            try:
+                self.__codeProperties["description"] = getattr(self.__agentModule, "__doc__")
+            except AttributeError as e:
+                self.log.error("Missing property __doc__", lException=e)
+                raise e
+        except (ImportError, AttributeError):
             self.__codeProperties["description"] = "unset"
+
         self.__codeProperties["DIRACVersion"] = DIRAC.version
         self.__codeProperties["platform"] = DIRAC.getPlatform()
 
@@ -195,7 +200,6 @@ class AgentModule:
         self.log.notice("=" * 40)
         self.log.notice(f"Loaded agent module {self.__moduleProperties['fullName']}")
         self.log.notice(f" Site: {DIRAC.siteName()}")
-        self.log.notice(f" Setup: {gConfig.getValue('/DIRAC/Setup')}")
         self.log.notice(f" Agent version: {self.__codeProperties['version']}")
         self.log.notice(f" DIRAC version: {DIRAC.version}")
         self.log.notice(f" DIRAC platform: {DIRAC.getPlatform()}")

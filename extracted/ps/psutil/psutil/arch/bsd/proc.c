@@ -16,14 +16,13 @@
     #include <libutil.h>  // kinfo_getfile()
 #endif
 
-#include "../../_psutil_common.h"
-#include "../../_psutil_posix.h"
+#include "../../arch/all/init.h"
 #ifdef PSUTIL_FREEBSD
-    #include "../../arch/freebsd/proc.h"
+    #include "../../arch/freebsd/init.h"  // TODO: refactor this
 #elif PSUTIL_OPENBSD
-    #include "../../arch/openbsd/proc.h"
+    #include "../../arch/openbsd/init.h"  // TODO: refactor this
 #elif PSUTIL_NETBSD
-    #include "../../arch/netbsd/proc.h"
+    #include "../../arch/netbsd/init.h"  // TODO: refactor this
 #endif
 
 
@@ -33,6 +32,32 @@
 #if defined(PSUTIL_OPENBSD) || defined (PSUTIL_NETBSD)
     #define PSUTIL_KPT2DOUBLE(t) (t ## _sec + t ## _usec / 1000000.0)
 #endif
+
+
+// Mimic's FreeBSD kinfo_file call, taking a pid and a ptr to an
+// int as arg and returns an array with cnt struct kinfo_file.
+#ifdef PSUTIL_HASNT_KINFO_GETFILE
+struct kinfo_file *
+kinfo_getfile(pid_t pid, int *cnt) {
+    int mib[6];
+    size_t len;
+    struct kinfo_file *kf = NULL;
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_FILE;
+    mib[2] = KERN_FILE_BYPID;
+    mib[3] = pid;
+    mib[4] = sizeof(struct kinfo_file);
+    mib[5] = 0;
+
+    if (psutil_sysctl_malloc(mib, 6, (char **)&kf, &len) != 0) {
+        return NULL;
+    }
+
+    *cnt = (int)(len / sizeof(struct kinfo_file));
+    return kf;
+}
+#endif  // PSUTIL_HASNT_KINFO_GETFILE
 
 
 /*
@@ -334,11 +359,7 @@ psutil_proc_environ(PyObject *self, PyObject *args) {
     // On NetBSD, we cannot call kvm_getenvv2() for a zombie process.
     // To make unittest suite happy, return an empty environment.
 #if defined(PSUTIL_FREEBSD)
-#if (defined(__FreeBSD_version) && __FreeBSD_version >= 700000)
     if (!((p)->ki_flag & P_INMEM) || ((p)->ki_flag & P_SYSTEM)) {
-#else
-    if ((p)->ki_flag & P_SYSTEM) {
-#endif
 #elif defined(PSUTIL_NETBSD)
     if ((p)->p_stat == SZOMB) {
 #elif defined(PSUTIL_OPENBSD)
@@ -417,7 +438,6 @@ error:
  * utility has the same problem see:
  * https://github.com/giampaolo/psutil/issues/595
  */
-#if (defined(__FreeBSD_version) && __FreeBSD_version >= 800000) || PSUTIL_OPENBSD || defined(PSUTIL_NETBSD)
 PyObject *
 psutil_proc_open_files(PyObject *self, PyObject *args) {
     pid_t pid;
@@ -500,4 +520,3 @@ error:
         free(freep);
     return NULL;
 }
-#endif

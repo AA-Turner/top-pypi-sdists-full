@@ -1,6 +1,5 @@
 """Utilities to help Computing Element Queues manipulation
 """
-import os
 import hashlib
 
 from DIRAC import S_OK, S_ERROR
@@ -9,13 +8,10 @@ from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getDIRACPlatform
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.Core.Utilities.File import mkDir
 from DIRAC.Resources.Computing.ComputingElementFactory import ComputingElementFactory
 
 
-def getQueuesResolved(
-    siteDict, queueCECache, gridEnv=None, setup=None, workingDir="", checkPlatform=False, instantiateCEs=False
-):
+def getQueuesResolved(siteDict, queueCECache, vo=None, checkPlatform=False, instantiateCEs=False):
     """Get the list of relevant CEs (what is in siteDict) and their descriptions.
     The main goal of this method is to return a dictionary of queues
     """
@@ -26,7 +22,6 @@ def getQueuesResolved(
         for ce in siteDict[site]:
             ceDict = siteDict[site][ce]
             pilotRunDirectory = ceDict.get("PilotRunDirectory", "")
-            # ceMaxRAM = ceDict.get('MaxRAM', None)
             qDict = ceDict.pop("Queues")
             for queue in qDict:
                 queueName = f"{ce}_{queue}"
@@ -35,8 +30,8 @@ def getQueuesResolved(
                 queueDict[queueName]["ParametersDict"]["Queue"] = queue
                 queueDict[queueName]["ParametersDict"]["GridCE"] = ce
                 queueDict[queueName]["ParametersDict"]["Site"] = site
-                queueDict[queueName]["ParametersDict"]["GridEnv"] = gridEnv
-                queueDict[queueName]["ParametersDict"]["Setup"] = setup
+                if vo:
+                    queueDict[queueName]["ParametersDict"]["Community"] = vo
 
                 # Evaluate the CPU limit of the queue according to the Glue convention
                 computeQueueCPULimit(queueDict[queueName]["ParametersDict"])
@@ -82,7 +77,6 @@ def getQueuesResolved(
                 queueDict[queueName]["CEType"] = ceDict["CEType"]
                 queueDict[queueName]["Site"] = site
                 queueDict[queueName]["QueueName"] = queue
-                queueDict[queueName]["QueryCEFlag"] = ceDict.get("QueryCEFlag", "false")
 
                 if checkPlatform:
                     setPlatform(ceDict, queueDict[queueName]["ParametersDict"])

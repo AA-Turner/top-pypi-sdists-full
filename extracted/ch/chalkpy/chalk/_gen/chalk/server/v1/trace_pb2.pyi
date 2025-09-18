@@ -189,10 +189,12 @@ class ChalkTrace(_message.Message):
     ) -> None: ...
 
 class GetTraceRequest(_message.Message):
-    __slots__ = ("operation_id",)
+    __slots__ = ("operation_id", "trace_id")
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
-    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+    trace_id: str
+    def __init__(self, operation_id: _Optional[str] = ..., trace_id: _Optional[str] = ...) -> None: ...
 
 class GetTraceResponse(_message.Message):
     __slots__ = ("trace",)

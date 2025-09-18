@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 import logistro
 import simplejson
-from simplejson.errors import JSONDecodeError
 
 from ._errors import JSONError
 
@@ -12,6 +12,13 @@ if TYPE_CHECKING:
     from typing import Any
 
 _logger = logistro.getLogger(__name__)
+
+_custom_encoder: type[json.JSONEncoder] | None = None
+
+
+def register_custom_encoder(e: type[json.JSONEncoder]) -> None:
+    global _custom_encoder  # noqa: PLW0603 what other choice do we have
+    _custom_encoder = e
 
 
 class MultiEncoder(simplejson.JSONEncoder):
@@ -35,13 +42,16 @@ class MultiEncoder(simplejson.JSONEncoder):
 
 def serialize(obj: Any) -> bytes:
     try:
-        message = simplejson.dumps(
-            obj,
-            ensure_ascii=False,
-            ignore_nan=True,
-            cls=MultiEncoder,
-        )
-    except JSONDecodeError as e:
+        if not _custom_encoder:
+            message = simplejson.dumps(
+                obj,
+                ensure_ascii=False,
+                ignore_nan=True,
+                cls=MultiEncoder,
+            )
+        else:
+            message = json.dumps(obj, cls=_custom_encoder)
+    except (json.JSONDecodeError, simplejson.JSONDecodeError) as e:
         raise JSONError from e
     _logger.debug(f"Serialized: {message[:15]}...{message[-15:]}, size: {len(message)}")
     _logger.debug2(f"Whole message: {message}")

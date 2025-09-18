@@ -16,7 +16,7 @@ import errno
 import getpass
 import math
 import os
-import re
+import signal
 import socket
 import time
 from pathlib import Path
@@ -25,14 +25,33 @@ import psutil
 
 from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Config import gConfig
-from DIRAC.ConfigurationSystem.Client.PathFinder import getSystemSection
-from DIRAC.Core.Utilities import MJF
 from DIRAC.Core.Utilities.Os import getDiskSpace
 from DIRAC.Core.Utilities.Profiler import Profiler
-from DIRAC.Core.Utilities.Subprocess import getChildrenPIDs
 from DIRAC.Resources.Computing.BatchSystems.TimeLeft.TimeLeft import TimeLeft
 from DIRAC.WorkloadManagementSystem.Client import JobMinorStatus
 from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
+
+
+def kill_proc_tree(pid, sig=signal.SIGTERM, includeParent=True):
+    """Kill a process tree (including grandchildren) with signal
+    "sig" and return a (gone, still_alive) tuple.
+    called as soon as a child terminates.
+
+    Taken from https://psutil.readthedocs.io/en/latest/index.html#kill-process-tree
+    """
+    assert pid != os.getpid(), "won't kill myself"
+    parent = psutil.Process(pid)
+    children = parent.children(recursive=True)
+    if includeParent:
+        children.append(parent)
+    for p in children:
+        try:
+            p.send_signal(sig)
+        except psutil.NoSuchProcess:
+            pass
+    _gone, alive = psutil.wait_procs(children, timeout=10)
+    for p in alive:
+        p.kill()
 
 
 class Watchdog:
@@ -81,8 +100,8 @@ class Watchdog:
         self.minDiskSpace = 10  # MB
         self.loadAvgLimit = 1000  # > 1000 and jobs killed
         self.sampleCPUTime = 30 * 60  # e.g. up to 20mins sample
-        self.jobCPUMargin = 20  # %age buffer before killing job
-        self.minCPUWallClockRatio = 5  # ratio %age
+        self.jobCPUMargin = 20  # age buffer before killing job
+        self.minCPUWallClockRatio = 5  # ratio age
         self.nullCPULimit = 5  # After 5 sample times return null CPU consumption kill job
         self.checkCount = 0
         self.wallClockCheckCount = 0
@@ -104,7 +123,7 @@ class Watchdog:
         else:
             self.initialized = True
 
-        self.section = f"{getSystemSection('WorkloadManagement')}/JobWrapper"
+        self.section = f"/Systems/WorkloadManagement/JobWrapper"
 
         self.log.verbose("Watchdog initialization")
         # Test control flags
@@ -124,8 +143,8 @@ class Watchdog:
         self.minDiskSpace = gConfig.getValue(self.section + "/MinDiskSpace", 10)  # MB
         self.loadAvgLimit = gConfig.getValue(self.section + "/LoadAverageLimit", 1000)  # > 1000 and jobs killed
         self.sampleCPUTime = gConfig.getValue(self.section + "/CPUSampleTime", 30 * 60)  # e.g. up to 20mins sample
-        self.jobCPUMargin = gConfig.getValue(self.section + "/JobCPULimitMargin", 20)  # %age buffer before killing job
-        self.minCPUWallClockRatio = gConfig.getValue(self.section + "/MinCPUWallClockRatio", 5)  # ratio %age
+        self.jobCPUMargin = gConfig.getValue(self.section + "/JobCPULimitMargin", 20)  # age buffer before killing job
+        self.minCPUWallClockRatio = gConfig.getValue(self.section + "/MinCPUWallClockRatio", 5)  # ratio age
         # After 5 sample times return null CPU consumption kill job
         self.nullCPULimit = gConfig.getValue(self.section + "/NullCPUCountLimit", 5)
         if self.checkingTime < self.minCheckingTime:
@@ -187,7 +206,6 @@ class Watchdog:
             and (time.time() - self.initialValues["StartTime"]) > self.wallClockCheckSeconds * self.wallClockCheckCount
         ):
             self.wallClockCheckCount += 1
-            self._performWallClockChecks()
 
         if self.littleTimeLeft:
             # if we have gone over enough iterations query again
@@ -196,8 +214,8 @@ class Watchdog:
                 self.log.error(self.checkError, self.timeLeft)
                 self.__killRunningThread()
                 return S_OK()
-            else:
-                self.littleTimeLeftCount -= 1
+
+            self.littleTimeLeftCount -= 1
 
         # Note: need to poll regularly to see if the thread is alive
         #      but only perform checks with a certain frequency
@@ -211,51 +229,6 @@ class Watchdog:
         else:
             # self.log.debug('Application thread is alive: checking count is %s' %(self.checkCount))
             return S_OK()
-
-    #############################################################################
-    def _performWallClockChecks(self):
-        """Watchdog performs the wall clock checks based on MJF. Signals are sent
-        to processes if we need to stop, but function always returns S_OK()
-        """
-        mjf = MJF.MJF()
-
-        try:
-            wallClockSecondsLeft = mjf.getWallClockSecondsLeft()
-        except Exception:
-            # Just stop if we can't get the wall clock seconds left
-            return S_OK()
-
-        jobstartSeconds = mjf.getIntJobFeature("jobstart_secs")
-        if jobstartSeconds is None:
-            # Just stop if we don't know when the job started
-            return S_OK()
-
-        if (int(time.time()) > jobstartSeconds + self.stopSigStartSeconds) and (
-            wallClockSecondsLeft < self.stopSigFinishSeconds + self.wallClockCheckSeconds
-        ):
-            # Need to send the signal! Assume it works to avoid sending the signal more than once
-            self.log.info("Sending signal to JobWrapper children", f"({self.stopSigNumber})")
-            self.stopSigSent = True
-
-            try:
-                for childPid in getChildrenPIDs(self.wrapperPID):
-                    try:
-                        cmdline = open("/proc/%d/cmdline" % childPid).read().replace("\0", " ").strip()
-                    except OSError:
-                        # Process gone away? Not running on Linux? Skip anyway
-                        continue
-
-                    if re.search(self.stopSigRegex, cmdline) is not None:
-                        self.log.info(
-                            'Sending signal %d to process ID %d, cmdline = "%s"'
-                            % (self.stopSigNumber, childPid, cmdline)
-                        )
-                        os.kill(childPid, self.stopSigNumber)
-
-            except Exception as e:
-                self.log.error("Failed to send signals to JobWrapper children!", repr(e))
-
-        return S_OK()
 
     #############################################################################
     def _performChecks(self):
@@ -892,10 +865,8 @@ class Watchdog:
     #############################################################################
     def __killRunningThread(self):
         """Will kill the running thread process and any child processes."""
-        self.log.info(f"Sending kill signal to application PID {self.spObject.getChildPID()}")
-        result = self.spObject.killChild()
-        self.applicationKilled = True
-        self.log.info(f"Subprocess.killChild() returned:{result} ")
+        self.log.info("Sending kill signal to application PID", self.spObject.getChildPID())
+        self.spObject.killChild()
         return S_OK("Thread killed")
 
     #############################################################################

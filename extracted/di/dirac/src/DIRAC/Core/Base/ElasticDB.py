@@ -1,15 +1,15 @@
-""" ElasticDB is a base class used to connect an Elasticsearch database and manages queries.
+""" ElasticDB is a base class used to connect an Opensearch database and manages queries.
 """
+from DIRAC.ConfigurationSystem.Client.Utilities import getElasticDBParameters
 from DIRAC.Core.Base.DIRACDB import DIRACDB
 from DIRAC.Core.Utilities.ElasticSearchDB import ElasticSearchDB
-from DIRAC.ConfigurationSystem.Client.Utilities import getElasticDBParameters
 
 
 class ElasticDB(DIRACDB, ElasticSearchDB):
     """Class for interfacing DIRAC ES DB definitions to ES clusters"""
 
     ########################################################################
-    def __init__(self, dbname, fullName, indexPrefix="", parentLogger=None):
+    def __init__(self, fullName, indexPrefix="", parentLogger=None):
         """c'tor
 
         :param self: self reference
@@ -52,7 +52,7 @@ class ElasticDB(DIRACDB, ElasticSearchDB):
         if not self._connected:
             raise RuntimeError(f"Can not connect to ES cluster {self.clusterName}, exiting...")
 
-        self.log.debug("================= ElasticSearch ==================")
+        self.log.debug("================= OpenSearch ==================")
         self.log.debug(f"Host: {self._dbHost} ")
         if self._dbPort:
             self.log.debug("Port: %d " % self._dbPort)

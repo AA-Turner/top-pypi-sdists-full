@@ -1010,10 +1010,17 @@ class TagSortField(betterproto.Enum):
     TAG_SORT_FIELD_UPDATED_AT = 3
 
 
+class TableProfileStatus(betterproto.Enum):
+    TABLE_PROFILE_STATUS_UNSPECIFIED = 0
+    TABLE_PROFILE_STATUS_SUCCESS = 1
+    TABLE_PROFILE_STATUS_FAILED = 2
+
+
 class SampleMethod(betterproto.Enum):
     SAMPLE_METHOD_UNSPECIFIED = 0
     SAMPLE_METHOD_SIMPLE_LIMIT = 1
     SAMPLE_METHOD_FULL_TABLE_SCAN = 2
+    SAMPLE_METHOD_STRONGLY_RANDOM_SAMPLE = 3
 
 
 class TopLevelCategory(betterproto.Enum):
@@ -1371,6 +1378,7 @@ class MetricConfiguration(betterproto.Message):
     is_lookback_using_current_time: bool = betterproto.bool_field(22)
     bigconfig_namespace: str = betterproto.string_field(23)
     dimension: "IdAndDisplayName" = betterproto.message_field(24)
+    profiling_suggestion_for_column: "IdAndDisplayName" = betterproto.message_field(25)
 
 
 @dataclass
@@ -2186,6 +2194,7 @@ class DataNode(betterproto.Message):
     integration_type: "IntegrationPartner" = betterproto.enum_field(
         11, group="source_type"
     )
+    node_container_entity_id: int = betterproto.int32_field(12)
 
 
 @dataclass
@@ -2196,6 +2205,7 @@ class CreateDataNodeRequest(betterproto.Message):
     node_container_name: str = betterproto.string_field(4)
     workspace_id: int = betterproto.int32_field(5)
     rebuild_graph: bool = betterproto.bool_field(6)
+    node_container_entity_id: int = betterproto.int32_field(7)
 
 
 @dataclass
@@ -2219,6 +2229,7 @@ class CreateLineageNodeV2Request(betterproto.Message):
     node_container_name: str = betterproto.string_field(5)
     rebuild_graph: bool = betterproto.bool_field(6)
     icon_url: str = betterproto.string_field(7)
+    node_container_entity_id: int = betterproto.int32_field(8)
 
 
 @dataclass
@@ -3657,6 +3668,7 @@ class GetIssuesRequest(betterproto.Message):
     issue_type: List["IssueType"] = betterproto.enum_field(32)
     is_root_cause: "ThreeLeggedBoolean" = betterproto.enum_field(33)
     dimension_ids: List[int] = betterproto.int32_field(34)
+    include_companion_metrics: bool = betterproto.bool_field(35)
 
 
 @dataclass
@@ -3839,6 +3851,7 @@ class VirtualTableRequest(betterproto.Message):
     name: str = betterproto.string_field(1)
     sql: str = betterproto.string_field(2)
     warehouse_id: int = betterproto.int32_field(3)
+    invoking_user: int = betterproto.int32_field(4)
 
 
 @dataclass
@@ -4246,6 +4259,7 @@ class GetSchemaListRequest(betterproto.Message):
     workspace_id: int = betterproto.int32_field(7)
     hidden: bool = betterproto.bool_field(8)
     tag_ids: List[int] = betterproto.int32_field(9)
+    include_virtual: bool = betterproto.bool_field(10)
 
 
 @dataclass
@@ -4427,6 +4441,12 @@ class WorkflowV2StatusResponse(betterproto.Message):
 class BigconfigWorkflowV2StatusResponse(betterproto.Message):
     status_response: "WorkflowV2StatusResponse" = betterproto.message_field(1)
     bigconfig_response: "MetricSuiteResponse" = betterproto.message_field(2)
+
+
+@dataclass
+class VirtualTableWorkflowV2StatusResponse(betterproto.Message):
+    status_response: "WorkflowV2StatusResponse" = betterproto.message_field(1)
+    virtual_table: "VirtualTable" = betterproto.message_field(2)
 
 
 @dataclass
@@ -5219,7 +5239,7 @@ class SinglePathParamDbtJobRunIdRequest(betterproto.Message):
 class DbtJobRun(betterproto.Message):
     id: int = betterproto.int64_field(1)
     status: "DbtJobRunStatus" = betterproto.enum_field(2)
-    dbt_job_run_ext_id: int = betterproto.int32_field(3)
+    dbt_job_run_ext_id: int = betterproto.int64_field(3)
     started_at: int = betterproto.int64_field(4)
     completed_at: int = betterproto.int64_field(5)
     git_sha: str = betterproto.string_field(6)
@@ -5532,6 +5552,7 @@ class CustomRule(betterproto.Message):
     left_select_columns: List["IdAndDisplayName"] = betterproto.message_field(17)
     right_select_columns: List["IdAndDisplayName"] = betterproto.message_field(18)
     dimension: "IdAndDisplayName" = betterproto.message_field(19)
+    profiling_suggestion_for_column: "IdAndDisplayName" = betterproto.message_field(20)
 
 
 @dataclass
@@ -5929,6 +5950,10 @@ class TableProfile(betterproto.Message):
     sample_row_count: int = betterproto.int32_field(7)
     full_column_count: int = betterproto.int32_field(8)
     column_profiles: List["ColumnProfile"] = betterproto.message_field(9)
+    status: "TableProfileStatus" = betterproto.enum_field(10)
+    exception_class: str = betterproto.string_field(11)
+    exception_message: str = betterproto.string_field(12)
+    execution_duration_seconds: int = betterproto.int32_field(13)
 
 
 @dataclass
@@ -5940,6 +5965,7 @@ class ColumnProfile(betterproto.Message):
     metric_profiles: List["MetricProfile"] = betterproto.message_field(5)
     patterns: List["ObservedPattern"] = betterproto.message_field(6)
     extended_type: str = betterproto.string_field(7)
+    suggested_monitors: List["SuggestedMonitor"] = betterproto.message_field(8)
 
 
 @dataclass
@@ -5955,6 +5981,12 @@ class ObservedPattern(betterproto.Message):
 
 
 @dataclass
+class SuggestedMonitor(betterproto.Message):
+    metric: "MetricConfiguration" = betterproto.message_field(1, group="monitor")
+    sql_rule: "CustomRule" = betterproto.message_field(2, group="monitor")
+
+
+@dataclass
 class QueueTableProfileRequest(betterproto.Message):
     table_id: int = betterproto.int32_field(1)
     sample_selection: "SampleSelection" = betterproto.message_field(2)
@@ -5967,6 +5999,12 @@ class QueueTableProfileRequest(betterproto.Message):
 class SampleSelection(betterproto.Message):
     row_limit: int = betterproto.int32_field(1)
     sample_method: "SampleMethod" = betterproto.enum_field(2)
+
+
+@dataclass
+class GetTableProfileResponse(betterproto.Message):
+    successful_profile: "TableProfile" = betterproto.message_field(1)
+    failed_profile: "TableProfile" = betterproto.message_field(2)
 
 
 @dataclass
@@ -6056,6 +6094,24 @@ class DimensionRevision(betterproto.Message):
 @dataclass
 class GetDimensionRevisionsResponse(betterproto.Message):
     revisions: List["DimensionRevision"] = betterproto.message_field(1)
+
+
+@dataclass
+class WorkspaceWithCountsRequest(betterproto.Message):
+    dimension_id: int = betterproto.int32_field(1)
+    instance_type: "DimensionInstanceType" = betterproto.enum_field(2)
+    name: str = betterproto.string_field(3)
+
+
+@dataclass
+class WorkspaceWithCounts(betterproto.Message):
+    workspace: "IdAndDisplayName" = betterproto.message_field(1)
+    count: int = betterproto.int64_field(2)
+
+
+@dataclass
+class WorkspaceWithCountsResponse(betterproto.Message):
+    counts_for_workspace: List["WorkspaceWithCounts"] = betterproto.message_field(1)
 
 
 @dataclass
@@ -6208,6 +6264,12 @@ class QueryError(betterproto.Message):
     class_: str = betterproto.string_field(1)
     message: str = betterproto.string_field(2)
     type: "QueryErrorType" = betterproto.enum_field(3)
+
+
+@dataclass
+class WorkflowError(betterproto.Message):
+    class_: str = betterproto.string_field(1)
+    message: str = betterproto.string_field(2)
 
 
 @dataclass
@@ -6590,6 +6652,17 @@ class GenerateTableProfileRequest(betterproto.Message):
     jdbc_info: "JdbcInfo" = betterproto.message_field(10)
     workspace_id: int = betterproto.int32_field(11)
     minimum_sample_size: int = betterproto.int32_field(12)
+    warehouse_type: str = betterproto.string_field(13)
+    outliers_z_score_threshold: float = betterproto.double_field(14)
+    normal_regex_string_too_long: int = betterproto.int32_field(15)
+    simple_regex_string_too_long: int = betterproto.int32_field(16)
+    threshold_top_pattern_pct_match: float = betterproto.double_field(17)
+    workflow_timeout_seconds: int = betterproto.int64_field(18)
+    oom_prevention_hard_cap_row_count: int = betterproto.int32_field(19)
+    oom_prevention_soft_cap_pct_memory: float = betterproto.double_field(20)
+    sample_query_limit: int = betterproto.int32_field(21)
+    from_clause_has_table_sample: bool = betterproto.bool_field(22)
+    where_clause_has_hash_mod: bool = betterproto.bool_field(23)
 
 
 @dataclass
@@ -6598,6 +6671,7 @@ class ColumnToProfile(betterproto.Message):
     result_set_column_name: str = betterproto.string_field(2)
     stats_to_profile: List["StatToProfile"] = betterproto.message_field(3)
     potential_patterns: List["StatToProfile"] = betterproto.message_field(4)
+    should_compute_min_max_avg_extra_fields: bool = betterproto.bool_field(5)
 
 
 @dataclass
@@ -6606,6 +6680,50 @@ class StatToProfile(betterproto.Message):
     parameters: Dict[str, str] = betterproto.map_field(
         2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
+
+
+@dataclass
+class GenerateTableProfileResponse(betterproto.Message):
+    """
+    These are parallel to the [Table|Column|Metric]Profile and ObservedPattern
+    types to allow extra internal-only fields. Originally created for
+    GenerateColumnProfileResponse for mean, standard_deviation, num_outliers,
+    and observed_regex.
+    """
+
+    table_profile: "TableProfile" = betterproto.message_field(1)
+    column_profiles: List["GenerateColumnProfileResponse"] = betterproto.message_field(
+        2
+    )
+
+
+@dataclass
+class GenerateColumnProfileResponse(betterproto.Message):
+    column_profile: "ColumnProfile" = betterproto.message_field(1)
+    metric_profiles: List["GenerateMetricProfileResponse"] = betterproto.message_field(
+        2
+    )
+    patterns: List["GenerateObservedPatternResponse"] = betterproto.message_field(3)
+    mean: float = betterproto.double_field(4)
+    standard_deviation: float = betterproto.double_field(5)
+    num_outliers: int = betterproto.int32_field(6)
+    observed_regex: "ObservedRegex" = betterproto.message_field(7)
+
+
+@dataclass
+class ObservedRegex(betterproto.Message):
+    regex: str = betterproto.string_field(1)
+    percent_match: float = betterproto.double_field(2)
+
+
+@dataclass
+class GenerateMetricProfileResponse(betterproto.Message):
+    metric_profile: "MetricProfile" = betterproto.message_field(1)
+
+
+@dataclass
+class GenerateObservedPatternResponse(betterproto.Message):
+    observed_pattern: "ObservedPattern" = betterproto.message_field(1)
 
 
 @dataclass
@@ -6938,6 +7056,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         is_lookback_using_current_time: bool = False,
         bigconfig_namespace: str = "",
         dimension: Optional["IdAndDisplayName"] = None,
+        profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
     ) -> MetricConfiguration:
         """Create or update metric"""
 
@@ -6975,6 +7094,8 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.bigconfig_namespace = bigconfig_namespace
         if dimension is not None:
             request.dimension = dimension
+        if profiling_suggestion_for_column is not None:
+            request.profiling_suggestion_for_column = profiling_suggestion_for_column
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/CreateMetric",
@@ -7196,6 +7317,7 @@ class MetricServiceStub(betterproto.ServiceStub):
         is_lookback_using_current_time: bool = False,
         bigconfig_namespace: str = "",
         dimension: Optional["IdAndDisplayName"] = None,
+        profiling_suggestion_for_column: Optional["IdAndDisplayName"] = None,
     ) -> MetricValidationResult:
         """Validate a metric configuration"""
 
@@ -7233,6 +7355,8 @@ class MetricServiceStub(betterproto.ServiceStub):
         request.bigconfig_namespace = bigconfig_namespace
         if dimension is not None:
             request.dimension = dimension
+        if profiling_suggestion_for_column is not None:
+            request.profiling_suggestion_for_column = profiling_suggestion_for_column
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.MetricService/ValidateMetric",
@@ -7908,6 +8032,7 @@ class SchemaServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         hidden: bool = False,
         tag_ids: List[int] = [],
+        include_virtual: bool = False,
     ) -> GetSchemaListResponse:
         """Get schemas"""
 
@@ -7921,6 +8046,7 @@ class SchemaServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.hidden = hidden
         request.tag_ids = tag_ids
+        request.include_virtual = include_virtual
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SchemaService/GetSchemas",
@@ -8383,6 +8509,7 @@ class IssueServiceStub(betterproto.ServiceStub):
         issue_type: List["IssueType"] = [],
         is_root_cause: "ThreeLeggedBoolean" = 0,
         dimension_ids: List[int] = [],
+        include_companion_metrics: bool = False,
     ) -> GetIssuesResponse:
         """Get issues"""
 
@@ -8417,6 +8544,7 @@ class IssueServiceStub(betterproto.ServiceStub):
         request.issue_type = issue_type
         request.is_root_cause = is_root_cause
         request.dimension_ids = dimension_ids
+        request.include_companion_metrics = include_companion_metrics
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.IssueService/GetIssues",
@@ -8916,7 +9044,12 @@ class VirtualTableServiceStub(betterproto.ServiceStub):
     """Virtual Tables"""
 
     async def create_virtual_table(
-        self, *, name: str = "", sql: str = "", warehouse_id: int = 0
+        self,
+        *,
+        name: str = "",
+        sql: str = "",
+        warehouse_id: int = 0,
+        invoking_user: int = 0,
     ) -> VirtualTable:
         """Create a Virtual Table"""
 
@@ -8924,11 +9057,49 @@ class VirtualTableServiceStub(betterproto.ServiceStub):
         request.name = name
         request.sql = sql
         request.warehouse_id = warehouse_id
+        request.invoking_user = invoking_user
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.VirtualTableService/CreateVirtualTable",
             request,
             VirtualTable,
+        )
+
+    async def queue_create_virtual_table(
+        self,
+        *,
+        name: str = "",
+        sql: str = "",
+        warehouse_id: int = 0,
+        invoking_user: int = 0,
+    ) -> VirtualTableWorkflowV2StatusResponse:
+        """Queue creation of a Virtual Table"""
+
+        request = VirtualTableRequest()
+        request.name = name
+        request.sql = sql
+        request.warehouse_id = warehouse_id
+        request.invoking_user = invoking_user
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.VirtualTableService/QueueCreateVirtualTable",
+            request,
+            VirtualTableWorkflowV2StatusResponse,
+        )
+
+    async def get_virtual_table_create_status(
+        self, *, workflow_id: str = "", run_id: str = ""
+    ) -> VirtualTableWorkflowV2StatusResponse:
+        """Get status of Virtual Table Creation workflow"""
+
+        request = WorkflowV2Id()
+        request.workflow_id = workflow_id
+        request.run_id = run_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.VirtualTableService/GetVirtualTableCreateStatus",
+            request,
+            VirtualTableWorkflowV2StatusResponse,
         )
 
     async def update_virtual_table(
@@ -9030,6 +9201,7 @@ class LineageServiceStub(betterproto.ServiceStub):
         node_container_name: str = "",
         workspace_id: int = 0,
         rebuild_graph: bool = False,
+        node_container_entity_id: int = 0,
     ) -> DataNode:
         request = CreateDataNodeRequest()
         request.node_type = node_type
@@ -9038,6 +9210,7 @@ class LineageServiceStub(betterproto.ServiceStub):
         request.node_container_name = node_container_name
         request.workspace_id = workspace_id
         request.rebuild_graph = rebuild_graph
+        request.node_container_entity_id = node_container_entity_id
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.LineageService/CreateDataNode",
@@ -9202,6 +9375,7 @@ class LineageV2ServiceStub(betterproto.ServiceStub):
         node_container_name: str = "",
         rebuild_graph: bool = False,
         icon_url: str = "",
+        node_container_entity_id: int = 0,
     ) -> LineageNodeV2:
         """Create custom lineage node"""
 
@@ -9213,6 +9387,7 @@ class LineageV2ServiceStub(betterproto.ServiceStub):
         request.node_container_name = node_container_name
         request.rebuild_graph = rebuild_graph
         request.icon_url = icon_url
+        request.node_container_entity_id = node_container_entity_id
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.LineageV2Service/CreateCustomLineageNode",
@@ -10884,4 +11059,147 @@ class DimensionServiceStub(betterproto.ServiceStub):
             "/com.bigeye.models.generated.DimensionService/BulkUpdateDimensions",
             request,
             GetDimensionsListResponse,
+        )
+
+
+class MetricObservedColumnServiceStub(betterproto.ServiceStub):
+    """Metric Observed Columns"""
+
+    async def create_metric_observed_column(
+        self, *, column_id: int = 0, metric_id: int = 0, comments: str = ""
+    ) -> MetricObservedColumnResponse:
+        """
+        Create a metric observed column relationship This endpoint creates a
+        relationship between a metric and a column that the metric observes
+        """
+
+        request = MetricObservedColumnRequest()
+        request.column_id = column_id
+        request.metric_id = metric_id
+        request.comments = comments
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/CreateMetricObservedColumn",
+            request,
+            MetricObservedColumnResponse,
+        )
+
+    async def delete_metric_observed_column(
+        self, *, column_id: int = 0, metric_id: int = 0
+    ) -> MetricObservedColumnResponse:
+        """
+        Delete a metric observed column relationship This endpoint removes the
+        relationship between a metric and a column
+        """
+
+        request = DeleteMetricObservedColumnRequest()
+        request.column_id = column_id
+        request.metric_id = metric_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/DeleteMetricObservedColumn",
+            request,
+            MetricObservedColumnResponse,
+        )
+
+    async def get_metric_observed_columns_for_metric(
+        self, *, metric_id: int = 0
+    ) -> MetricObservedColumnListResponse:
+        """
+        Get metric observed columns for a specific metric Returns all columns
+        that are observed by the specified metric, along with suggested columns
+        """
+
+        request = SinglePathParamMetricIdRequest()
+        request.metric_id = metric_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/GetMetricObservedColumnsForMetric",
+            request,
+            MetricObservedColumnListResponse,
+        )
+
+    async def backfill_metric_observed_columns(self, *, metric_id: int = 0) -> Empty:
+        """
+        Backfill metric observed columns for a specific metric This endpoint
+        automatically sets default observed columns for a metric based on its
+        configuration
+        """
+
+        request = SinglePathParamMetricIdRequest()
+        request.metric_id = metric_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/BackfillMetricObservedColumns",
+            request,
+            Empty,
+        )
+
+    async def get_metric_observed_columns_for_column(
+        self, *, column_id: int = 0
+    ) -> MetricObservedColumnListResponse:
+        """
+        Get metric observed columns for a specific column Returns all metrics
+        that observe the specified column
+        """
+
+        request = SinglePathParamColumnIdRequest()
+        request.column_id = column_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/GetMetricObservedColumnsForColumn",
+            request,
+            MetricObservedColumnListResponse,
+        )
+
+    async def get_metric_observed_columns_bulk(
+        self,
+        *,
+        metric_ids: List[int] = [],
+        column_ids: List[int] = [],
+        table_ids: List[int] = [],
+        schema_ids: List[int] = [],
+        is_for_custom_rule: bool = False,
+        remove_duplicate_metrics: bool = False,
+        source_ids: List[int] = [],
+        tag_ids: List[int] = [],
+    ) -> MetricObservedColumnListResponse:
+        """
+        Get metric observed columns in bulk This endpoint allows fetching
+        multiple metric observed column relationships based on various filters
+        such as metric IDs, column IDs, table IDs, schema IDs, source IDs, and
+        tag IDs
+        """
+
+        request = GetMetricObservedColumnBulkRequest()
+        request.metric_ids = metric_ids
+        request.column_ids = column_ids
+        request.table_ids = table_ids
+        request.schema_ids = schema_ids
+        request.is_for_custom_rule = is_for_custom_rule
+        request.remove_duplicate_metrics = remove_duplicate_metrics
+        request.source_ids = source_ids
+        request.tag_ids = tag_ids
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/GetMetricObservedColumnsBulk",
+            request,
+            MetricObservedColumnListResponse,
+        )
+
+    async def get_suggested_columns_for_metric(
+        self, *, metric_id: int = 0
+    ) -> GetColumnListResponse:
+        """
+        Get suggested columns for a metric Returns columns that are suggested
+        to be observed by the specified metric based on its configuration
+        """
+
+        request = SinglePathParamMetricIdRequest()
+        request.metric_id = metric_id
+
+        return await self._unary_unary(
+            "/com.bigeye.models.generated.MetricObservedColumnService/GetSuggestedColumnsForMetric",
+            request,
+            GetColumnListResponse,
         )

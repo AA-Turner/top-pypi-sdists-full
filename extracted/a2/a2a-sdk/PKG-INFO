@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.3.5
+Version: 0.3.6
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -26,6 +26,19 @@ Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: protobuf>=5.29.5
 Requires-Dist: pydantic>=2.11.3
+Provides-Extra: all
+Requires-Dist: cryptography>=43.0.0; extra == 'all'
+Requires-Dist: fastapi>=0.115.2; extra == 'all'
+Requires-Dist: grpcio-reflection>=1.7.0; extra == 'all'
+Requires-Dist: grpcio-tools>=1.60; extra == 'all'
+Requires-Dist: grpcio>=1.60; extra == 'all'
+Requires-Dist: opentelemetry-api>=1.33.0; extra == 'all'
+Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'all'
+Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'all'
+Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'all'
+Requires-Dist: sqlalchemy[asyncio,postgresql-asyncpg]>=2.0.0; extra == 'all'
+Requires-Dist: sse-starlette; extra == 'all'
+Requires-Dist: starlette; extra == 'all'
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
 Provides-Extra: grpc
@@ -41,7 +54,9 @@ Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'mysql'
 Provides-Extra: postgresql
 Requires-Dist: sqlalchemy[asyncio,postgresql-asyncpg]>=2.0.0; extra == 'postgresql'
 Provides-Extra: sql
-Requires-Dist: sqlalchemy[aiomysql,aiosqlite,asyncio,postgresql-asyncpg]>=2.0.0; extra == 'sql'
+Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'sql'
+Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'sql'
+Requires-Dist: sqlalchemy[asyncio,postgresql-asyncpg]>=2.0.0; extra == 'sql'
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'sqlite'
 Provides-Extra: telemetry
@@ -98,20 +113,17 @@ Install the core SDK and any desired extras using your preferred package manager
 | Feature                  | `uv` Command                               | `pip` Command                                |
 | ------------------------ | ------------------------------------------ | -------------------------------------------- |
 | **Core SDK**             | `uv add a2a-sdk`                           | `pip install a2a-sdk`                        |
+| **All Extras**           | `uv add a2a-sdk[all]`                      | `pip install a2a-sdk[all]`                   |
 | **HTTP Server**          | `uv add "a2a-sdk[http-server]"`            | `pip install "a2a-sdk[http-server]"`         |
 | **gRPC Support**         | `uv add "a2a-sdk[grpc]"`                   | `pip install "a2a-sdk[grpc]"`                |
 | **OpenTelemetry Tracing**| `uv add "a2a-sdk[telemetry]"`              | `pip install "a2a-sdk[telemetry]"`           |
-
-#### Database Support
-
-Install the necessary drivers for your chosen SQL database.
-
-| Database      | `uv` Command                       | `pip` Command                        |
-| ------------- | ---------------------------------- | ------------------------------------ |
-| **PostgreSQL**| `uv add "a2a-sdk[postgresql]"`     | `pip install "a2a-sdk[postgresql]"`  |
-| **MySQL**     | `uv add "a2a-sdk[mysql]"`          | `pip install "a2a-sdk[mysql]"`       |
-| **SQLite**    | `uv add "a2a-sdk[sqlite]"`         | `pip install "a2a-sdk[sqlite]"`      |
-| **All SQL Drivers** | `uv add "a2a-sdk[sql]"`      | `pip install "a2a-sdk[sql]"`         |
+| **Encryption**           | `uv add "a2a-sdk[encryption]"`             | `pip install "a2a-sdk[encryption]"`          |
+|                          |                                            |                                              |
+| **Database Drivers**     |                                            |                                              |
+| **PostgreSQL**           | `uv add "a2a-sdk[postgresql]"`             | `pip install "a2a-sdk[postgresql]"`          |
+| **MySQL**                | `uv add "a2a-sdk[mysql]"`                  | `pip install "a2a-sdk[mysql]"`               |
+| **SQLite**               | `uv add "a2a-sdk[sqlite]"`                 | `pip install "a2a-sdk[sqlite]"`              |
+| **All SQL Drivers**      | `uv add "a2a-sdk[sql]"`                    | `pip install "a2a-sdk[sql]"`                 |
 
 ## Examples
 

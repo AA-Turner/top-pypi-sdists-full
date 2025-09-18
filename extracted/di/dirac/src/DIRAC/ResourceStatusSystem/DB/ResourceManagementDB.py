@@ -23,8 +23,7 @@ from sqlalchemy import Column, String, DateTime, exc, Text, Integer, Float
 
 from DIRAC import S_OK, S_ERROR
 from DIRAC.Core.Base.SQLAlchemyDB import SQLAlchemyDB
-from DIRAC.ResourceStatusSystem.Utilities import Utils
-
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 
 # Defining the tables
 
@@ -46,7 +45,7 @@ class AccountingCache(rmsBase):
     """AccountingCache table"""
 
     __tablename__ = "AccountingCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     name = Column("Name", String(64), nullable=False, primary_key=True)
     plotname = Column("PlotName", String(64), nullable=False, primary_key=True)
@@ -89,7 +88,7 @@ class DowntimeCache(rmsBase):
     """DowntimeCache table"""
 
     __tablename__ = "DowntimeCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     downtimeid = Column("DowntimeID", String(127), nullable=False, primary_key=True)
     name = Column("Name", String(64), nullable=False)
@@ -151,7 +150,7 @@ class GGUSTicketsCache(rmsBase):
     """GGUSTicketsCache table"""
 
     __tablename__ = "GGUSTicketsCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     gocsite = Column("GocSite", String(64), nullable=False, primary_key=True)
     tickets = Column("Tickets", String(1024), nullable=False)
@@ -187,7 +186,7 @@ class JobCache(rmsBase):
     """JobCache table"""
 
     __tablename__ = "JobCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     site = Column("Site", String(64), nullable=False, primary_key=True)
     status = Column("Status", String(16), nullable=False)
@@ -220,7 +219,7 @@ class PilotCache(rmsBase):
     """PilotCache table"""
 
     __tablename__ = "PilotCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     site = Column("Site", String(64), nullable=False, primary_key=True)
     ce = Column("CE", String(64), nullable=False, primary_key=True)
@@ -262,7 +261,7 @@ class PolicyResult(rmsBase):
     """PolicyResult table"""
 
     __tablename__ = "PolicyResult"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     policyname = Column("PolicyName", String(64), nullable=False, primary_key=True)
     statustype = Column("StatusType", String(16), nullable=False, server_default="", primary_key=True)
@@ -321,7 +320,7 @@ class SpaceTokenOccupancyCache(rmsBase):
     """SpaceTokenOccupancyCache table"""
 
     __tablename__ = "SpaceTokenOccupancyCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     endpoint = Column("Endpoint", String(128), nullable=False, primary_key=True)
     token = Column("Token", String(64), nullable=False, primary_key=True)
@@ -359,7 +358,7 @@ class TransferCache(rmsBase):
     """TransferCache table"""
 
     __tablename__ = "TransferCache"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
     sourcename = Column("SourceName", String(64), nullable=False, primary_key=True)
     destinationname = Column("DestinationName", String(64), nullable=False, primary_key=True)
@@ -404,9 +403,14 @@ class ResourceManagementDB(SQLAlchemyDB):
 
         super().__init__(parentLogger=parentLogger)
 
+        self.objectLoader = ObjectLoader()
+
         # This is the list of tables that will be created.
         # It can be extended in an extension module
-        self.tablesList = getattr(Utils.voimport("DIRAC.ResourceStatusSystem.DB.ResourceManagementDB"), "TABLESLIST")
+        result = self.objectLoader.loadObject(__name__, "TABLESLIST")
+        if not result["OK"]:
+            raise Exception(result["Message"])
+        self.tablesList = result["Value"]
         self._initializeConnection("ResourceStatus/ResourceManagementDB")
 
         # Create required tables
@@ -429,17 +433,10 @@ class ResourceManagementDB(SQLAlchemyDB):
 
         session = self.sessionMaker_o()
 
-        found = False
-        for ext in self.extensions:
-            try:
-                table_c = getattr(__import__(ext + __name__, globals(), locals(), [table]), table)
-                found = True
-                break
-            except (ImportError, AttributeError):
-                continue
-        # If not found in extensions, import it from DIRAC base (this same module).
-        if not found:
-            table_c = getattr(__import__(__name__, globals(), locals(), [table]), table)
+        result = self.objectLoader.loadObject(__name__, table)
+        if not result["OK"]:
+            return result["Message"]
+        table_c = result["Value"]
 
         columns = [key.name for key in class_mapper(table_c).columns]
         primaryKeys = [key.name for key in class_mapper(table_c).primary_key]

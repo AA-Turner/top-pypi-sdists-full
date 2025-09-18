@@ -2,6 +2,7 @@
 """
 import multiprocessing
 import os
+from pathlib import Path
 import pytest
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -259,6 +260,7 @@ def test__checkMatcherInfo(mocker, matcherInfo, matcherParams, expectedResult):
 #############################################################################
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "mockGCReply, mockPMReply, expected",
     [
@@ -284,6 +286,7 @@ def test__setupProxy(mocker, mockGCReply, mockPMReply, expected):
     """Testing JobAgent()._setupProxy()"""
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.AgentModule.__init__")
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.AgentModule")
+    mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.getDNForUsername", return_value=S_OK(["mockedDN"]))
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.gConfig.getValue", return_value=mockGCReply)
     module_str = "DIRAC.WorkloadManagementSystem.Agent.JobAgent.gProxyManager.getPayloadProxyFromDIRACGroup"
     mocker.patch(module_str, return_value=mockPMReply)
@@ -306,6 +309,7 @@ def test__setupProxy(mocker, mockGCReply, mockPMReply, expected):
         assert result["Message"] == expected["Message"]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "mockGCReply, mockPMReply, expected",
     [
@@ -390,7 +394,6 @@ def test__getJDLParameters(mocker):
             Executable = "dirac-jobexec";
             StdError = "std.err";
             LogLevel = "info";
-            Site = "ANY";
             JobName = "helloWorld";
             Priority = "1";
             InputSandbox =
@@ -542,6 +545,27 @@ def test__rescheduleFailedJob_multipleJobIDs(mocker):
 
 
 #############################################################################
+@pytest.fixture
+def manageJobFiles():
+    """Create fake job files and yield their paths."""
+    jobExecutablePath = "testJob.py"
+    with open(jobExecutablePath, "w") as execFile:
+        pass
+    os.chmod(jobExecutablePath, 0o755)
+
+    # Generate fake jobWrapperPath and jobWrapperConfigPath
+    jobWrapperPath = "Wrapper_123"
+    with open(jobWrapperPath, "w") as temp:
+        temp.write("test")
+    jobWrapperConfigPath = "Wrapper_123.json"
+    with open(jobWrapperConfigPath, "w") as temp:
+        temp.write("test")
+
+    yield (jobExecutablePath, jobWrapperPath, jobWrapperConfigPath)
+
+    Path(jobExecutablePath).unlink(missing_ok=True)
+    Path(jobWrapperPath).unlink(missing_ok=True)
+    Path(jobWrapperConfigPath).unlink(missing_ok=True)
 
 
 @pytest.mark.parametrize(
@@ -589,14 +613,12 @@ def test_submitJob(mocker, mockJWInput, expected):
         ("Pool/Singularity", jobScript % "1", (["Failed to find singularity"], []), ([], [])),
     ],
 )
-def test_submitAndCheckJob(monkeypatch, mocker, localCE, job, expectedResult1, expectedResult2):
+def test_submitAndCheckJob(mocker, manageJobFiles, localCE, job, expectedResult1, expectedResult2, tmp_path):
     """Test the submission and the management of the job status."""
-    jobName = "testJob.py"
-    with open(jobName, "w") as execFile:
-        execFile.write(job)
-    os.chmod(jobName, 0o755)
-
     jobID = "123"
+    jobExecutablePath, jobWrapperPath, jobWrapperConfigPath = manageJobFiles
+    with open(jobExecutablePath, "w") as execFile:
+        execFile.write(job)
 
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.AgentModule.__init__")
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.JobAgent.am_stopExecution")
@@ -604,9 +626,23 @@ def test_submitAndCheckJob(monkeypatch, mocker, localCE, job, expectedResult1, e
         "DIRAC.WorkloadManagementSystem.Agent.JobAgent.JobMonitoringClient.getJobsStatus",
         return_value=S_OK({int(jobID): {"Status": JobStatus.RUNNING}}),
     )
-    mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.createJobWrapper", return_value=S_OK([jobName]))
+    mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.JobAgent.createJobWrapper",
+        return_value=S_OK(
+            {
+                "JobExecutablePath": jobExecutablePath,
+                "JobWrapperPath": jobWrapperPath,
+                "JobWrapperConfigPath": jobWrapperConfigPath,
+            }
+        ),
+    )
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.JobAgent._sendFailoverRequest", return_value=S_OK())
-    mocker.patch("DIRAC.Core.Security.X509Chain.X509Chain.dumpAllToString", return_value=S_OK())
+    empty_file_path = tmp_path / "empty_file"
+    empty_file_path.touch()
+    mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.JobAgent.writeChainToTemporaryFile",
+        return_value=S_OK(str(empty_file_path)),
+    )
     mocker.patch(
         "DIRAC.Resources.Computing.SingularityComputingElement.SingularityComputingElement.submitJob",
         return_value=S_ERROR("Failed to find singularity"),
@@ -683,7 +719,7 @@ def test_submitAndCheckJob(monkeypatch, mocker, localCE, job, expectedResult1, e
     assert len(jobAgent.computingElement.taskResults) == 0
 
 
-def test_submitAndCheck2Jobs(mocker):
+def test_submitAndCheck2Jobs(mocker, tmp_path):
     """Test the submission and the management of the job status.
 
     This time, a first job is successfully submitted, but the second submission fails.
@@ -692,9 +728,24 @@ def test_submitAndCheck2Jobs(mocker):
     # Mock the JobAgent
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.AgentModule.__init__")
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.JobAgent.am_stopExecution")
-    mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.createJobWrapper", return_value=S_OK(["jobWrapper.py"]))
+    mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.JobAgent.createJobWrapper",
+        return_value=S_OK(
+            {"JobExecutablePath": "jobName", "JobWrapperPath": "jobName", "JobWrapperConfigPath": "jobName"}
+        ),
+    )
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.JobAgent.JobAgent._sendFailoverRequest", return_value=S_OK())
-    mocker.patch("DIRAC.Core.Security.X509Chain.X509Chain.dumpAllToString", return_value=S_OK())
+
+    def make_empty_file(*args, **kwargs):
+        """Create an empty file and return its path."""
+        empty_file_path = tmp_path / "empty_file"
+        empty_file_path.touch()
+        return S_OK(str(empty_file_path))
+
+    mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.JobAgent.writeChainToTemporaryFile",
+        make_empty_file,
+    )
     mocker.patch(
         "DIRAC.Resources.Computing.InProcessComputingElement.InProcessComputingElement.submitJob",
         side_effect=[S_OK(), S_ERROR("ComputingElement error")],

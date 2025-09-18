@@ -31,7 +31,7 @@ class DBUtils:
 
     It implements few methods used to create the plots.
 
-    param: list __units it is elasticsearch specific unites
+    param: list __units it is opensearch specific unites
     param: list __unitvalues the units in second
     param: list __esunits used to determine the buckets size
 
@@ -58,21 +58,19 @@ class DBUtils:
         "100y": "1w",
     }
 
-    def __init__(self, db, setup):
+    def __init__(self, db):
         """c'tor
 
         :param self: self reference
         :param db: the database module
-        :param str setup: DIRAC setup
         """
         self.__db = db
-        self.__setup = setup
 
     def getKeyValues(self, typeName, condDict):
         """
         Get all valid key values in a type
         """
-        return self.__db.getKeyValues(self.__setup, typeName, condDict)
+        return self.__db.getKeyValues(typeName, condDict)
 
     def _retrieveBucketedData(
         self, typeName, startTime, endTime, interval, selectField, condDict=None, grouping="", metadataDict=None

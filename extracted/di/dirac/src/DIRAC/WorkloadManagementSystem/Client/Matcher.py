@@ -92,7 +92,7 @@ class Matcher:
                 return {}
 
             jobID = result["jobId"]
-            resAtt = self.jobDB.getJobAttributes(jobID, ["OwnerDN", "OwnerGroup", "Status"])
+            resAtt = self.jobDB.getJobAttributes(jobID, ["Status"])
             if not resAtt["OK"]:
                 raise RuntimeError("Could not retrieve job attributes")
             if not resAtt["Value"]:
@@ -122,7 +122,7 @@ class Matcher:
             if resOpt["OK"]:
                 for key, value in resOpt["Value"].items():
                     resultDict[key] = value
-            resAtt = self.jobDB.getJobAttributes(jobID, ["OwnerDN", "OwnerGroup"])
+            resAtt = self.jobDB.getJobAttributes(jobID, ["Owner", "OwnerGroup"])
             if not resAtt["OK"]:
                 raise RuntimeError("Could not retrieve job attributes")
             if not resAtt["Value"]:
@@ -136,7 +136,7 @@ class Matcher:
                 self._updatePilotInfo(resourceDict)
             self._updatePilotJobMapping(resourceDict, jobID)
 
-            resultDict["DN"] = resAtt["Value"]["OwnerDN"]
+            resultDict["Owner"] = resAtt["Value"]["Owner"]
             resultDict["Group"] = resAtt["Value"]["OwnerGroup"]
             resultDict["PilotInfoReportedFlag"] = True
 
@@ -332,13 +332,9 @@ class Matcher:
                 else:
                     raise RuntimeError(result["Message"])
         else:
-            # If it's a private pilot, the DN has to be the same
-            if Properties.PILOT in credDict["properties"]:
-                self.log.notice("Setting the resource DN to the credentials DN")
-                resourceDict["OwnerDN"] = credDict["DN"]
             # If it's a job sharing. The group has to be the same and just check that the DN (if any)
             # belongs to the same group
-            elif Properties.JOB_SHARING in credDict["properties"]:
+            if Properties.JOB_SHARING in credDict["properties"]:
                 resourceDict["OwnerGroup"] = credDict["group"]
                 self.log.notice("Setting the resource group to the credentials group")
                 if "OwnerDN" in resourceDict and resourceDict["OwnerDN"] != credDict["DN"]:

@@ -33,6 +33,13 @@ class TestDependenciesV2Api(unittest.TestCase):
         """
         pass
 
+    def test_get_repository_ids_for_dependency_v2(self) -> None:
+        """Test case for get_repository_ids_for_dependency_v2
+
+        Get the repositories related to a dependency
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

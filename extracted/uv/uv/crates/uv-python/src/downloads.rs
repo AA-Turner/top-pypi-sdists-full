@@ -497,6 +497,11 @@ impl PythonDownloadRequest {
         })
     }
 
+    /// Whether this download request opts-in to a debug Python version.
+    pub fn allows_debug(&self) -> bool {
+        self.version.as_ref().is_some_and(VersionRequest::is_debug)
+    }
+
     /// Whether this download request opts-in to alternative Python implementations.
     pub fn allows_alternative_implementations(&self) -> bool {
         self.implementation
@@ -1723,8 +1728,8 @@ mod tests {
             request.version,
             Some(VersionRequest::from_str("3.13.0rc1").unwrap())
         );
-        assert_eq!(request.os, None,);
-        assert_eq!(request.arch, None,);
+        assert_eq!(request.os, None);
+        assert_eq!(request.arch, None);
         assert_eq!(request.libc, None);
     }
 

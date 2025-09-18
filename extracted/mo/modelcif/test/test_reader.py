@@ -13,6 +13,25 @@ import ihm
 import ihm.reader
 
 
+ASYM_ENTITY = """
+loop_
+_entity_poly_seq.entity_id
+_entity_poly_seq.num
+_entity_poly_seq.mon_id
+_entity_poly_seq.hetero
+1 1 MET .
+1 2 CYS .
+1 3 MET .
+1 4 SER .
+#
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+_struct_asym.details
+A 1 foo
+"""
+
+
 class Tests(unittest.TestCase):
 
     def test_old_file_read_default(self):
@@ -236,9 +255,10 @@ _ma_target_ref_db_details.ncbi_taxonomy_id
 _ma_target_ref_db_details.organism_scientific
 _ma_target_ref_db_details.seq_db_sequence_version_date
 _ma_target_ref_db_details.seq_db_sequence_checksum
+_ma_target_ref_db_details.is_primary
 1 UNP . MED1_YEAST Q12321 test_iso 1 10 test_tax test_org 1996-11-01
-637FEA3E78D915BC
-1 UNP . rd_only_code rd_only_acc rd_only_iso . . . . . .
+637FEA3E78D915BC YES
+1 UNP . rd_only_code rd_only_acc rd_only_iso . . . . . . NO
 """
         s, = modelcif.reader.read(StringIO(cif))
         e, = s.entities
@@ -255,6 +275,7 @@ _ma_target_ref_db_details.seq_db_sequence_checksum
         self.assertEqual(r1.sequence_version_date, date(1996, 11, 1))
         self.assertEqual(r1.sequence, 'DSYVETLDCC')
         self.assertEqual(r1.details, "test details")
+        self.assertTrue(r1.is_primary)
         a, = r1.alignments
         self.assertEqual(a.db_begin, 1)
         self.assertEqual(a.db_end, 10)
@@ -266,6 +287,7 @@ _ma_target_ref_db_details.seq_db_sequence_checksum
         self.assertEqual(r2.accession, 'rd_only_acc')
         self.assertEqual(r2.isoform, 'rd_only_iso')
         self.assertIsNone(r2.sequence)
+        self.assertFalse(r2.is_primary)
         # r3 should contain only struct_ref info
         self.assertIsInstance(r3, modelcif.reference.UniProt)
         self.assertEqual(r3.code, 'sr_only_code')
@@ -273,6 +295,7 @@ _ma_target_ref_db_details.seq_db_sequence_checksum
         self.assertIsNone(r3.isoform)
         self.assertIsNone(r3.ncbi_taxonomy_id)
         self.assertEqual(r3.sequence, 'DSYVETLDPP')
+        self.assertIsNone(r3.is_primary)
         a, = r3.alignments
         self.assertEqual(a.db_begin, 1)
         self.assertEqual(a.db_end, 10)
@@ -1653,6 +1676,327 @@ _pdbx_data_usage.name
         s, = modelcif.reader.read(StringIO(cif))
         d1, = s.data_usage
         self.assertEqual(d1.details, "some license")
+
+    def test_atom_site_handler_water(self):
+        """Test AtomSiteHandler reading water molecules"""
+        fh = StringIO("""
+loop_
+_entity.id
+_entity.type
+1 water
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+_struct_asym.details
+A 1 Water
+B 1 Water
+#
+loop_
+_pdbx_nonpoly_scheme.asym_id
+_pdbx_nonpoly_scheme.entity_id
+_pdbx_nonpoly_scheme.mon_id
+_pdbx_nonpoly_scheme.ndb_seq_num
+_pdbx_nonpoly_scheme.pdb_seq_num
+_pdbx_nonpoly_scheme.auth_seq_num
+_pdbx_nonpoly_scheme.auth_mon_id
+_pdbx_nonpoly_scheme.pdb_strand_id
+_pdbx_nonpoly_scheme.pdb_ins_code
+A 1 HOH 1 50 500 HOH A .
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_seq_id
+_atom_site.auth_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.label_asym_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.label_entity_id
+_atom_site.auth_asym_id
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_PDB_model_num
+_atom_site.ihm_model_id
+HETATM 1 O O . HOH . 40 ? A 10.000 10.000 10.000 . 1 A . 1 1
+HETATM 2 O O . HOH . 50 ? A 10.000 10.000 10.000 . 1 A . 1 1
+HETATM 3 O O . HOH . 60 . A 20.000 20.000 20.000 . 1 A . 1 1
+HETATM 4 O O . HOH . 70 . B 20.000 20.000 20.000 . 1 B . 1 1
+""")
+        s, = modelcif.reader.read(fh)
+        m = s.model_groups[0][0]
+        a1, a2, a3, b1 = m._atoms
+        # Should include info from both atom_site and scheme table
+        self.assertEqual(a1.asym_unit.auth_seq_id_map,
+                         {1: (40, None), 2: (50, None), 3: (60, None)})
+        self.assertEqual(a1.asym_unit.orig_auth_seq_id_map,
+                         {2: 500})
+        self.assertEqual(b1.asym_unit.auth_seq_id_map, {1: (70, None)})
+        self.assertIsNone(b1.asym_unit.orig_auth_seq_id_map)
+        # Should get a WaterAsymUnit, not regular AsymUnit
+        self.assertIsInstance(a1.asym_unit, modelcif.WaterAsymUnit)
+        self.assertIsInstance(b1.asym_unit, modelcif.WaterAsymUnit)
+        # seq_id should be assigned based on atom_site
+        self.assertEqual(a1.seq_id, 1)
+        self.assertEqual(a2.seq_id, 2)
+        self.assertEqual(a3.seq_id, 3)
+        self.assertEqual(b1.seq_id, 1)
+
+    def test_nonpoly_scheme_handler(self):
+        """Test NonPolySchemeHandler"""
+        fh = StringIO("""
+loop_
+_chem_comp.id
+_chem_comp.type
+_chem_comp.name
+CA non-polymer 'CALCIUM ION'
+#
+loop_
+_entity.id
+_entity.type
+_entity.pdbx_description
+1 non-polymer 'CALCIUM ION entity'
+2 non-polymer 'no-chem-comp entity'
+3 water       'no-chem-comp water'
+#
+loop_
+_pdbx_entity_nonpoly.entity_id
+_pdbx_entity_nonpoly.name
+_pdbx_entity_nonpoly.comp_id
+1 'CALCIUM ION'             CA
+#
+loop_
+_struct_asym.id
+_struct_asym.entity_id
+_struct_asym.details
+A 1 foo
+B 2 bar
+C 3 baz
+#
+loop_
+_pdbx_nonpoly_scheme.asym_id
+_pdbx_nonpoly_scheme.entity_id
+_pdbx_nonpoly_scheme.mon_id
+_pdbx_nonpoly_scheme.ndb_seq_num
+_pdbx_nonpoly_scheme.pdb_seq_num
+_pdbx_nonpoly_scheme.auth_seq_num
+_pdbx_nonpoly_scheme.pdb_strand_id
+_pdbx_nonpoly_scheme.pdb_ins_code
+A 1 BAR 1 101 202 . .
+B 2 BAR 1 1 1 Q X
+C 3 HOH . 1 1 . .
+C 3 HOH 2 2 2 . .
+C 3 HOH 3 5 10 . .
+C 3 HOH 4 1 20 . .
+C 3 HOH 5 7 7 . .
+""")
+        s, = modelcif.reader.read(fh)
+        e1, e2, e3 = s.entities
+        # e1 should have sequence filled in by pdbx_entity_nonpoly
+        self.assertEqual([cc.name for cc in e1.sequence], ['CALCIUM ION'])
+        # e2,e3 should have sequence filled in by pdbx_nonpoly_scheme
+        self.assertEqual([(cc.id, cc.name) for cc in e2.sequence],
+                         [('BAR', 'no-chem-comp entity')])
+        self.assertEqual([(cc.id, cc.name) for cc in e3.sequence],
+                         [('HOH', 'WATER')])
+        asym, a2, a3 = s.asym_units
+        # non-polymers have no seq_id_range
+        self.assertEqual(asym.seq_id_range, (None, None))
+        self.assertEqual(asym.auth_seq_id_map, {1: (101, None)})
+        self.assertEqual(asym.residue(1).auth_seq_id, 101)
+        self.assertIsNone(asym.residue(1).ins_code)
+        self.assertEqual(asym.strand_id, asym._id)
+        self.assertIsNone(asym._strand_id)
+        self.assertEqual(asym.orig_auth_seq_id_map, {1: 202})
+
+        self.assertEqual(a2.auth_seq_id_map, {1: (1, 'X')})
+        self.assertEqual(a2.residue(1).auth_seq_id, 1)
+        self.assertEqual(a2.residue(1).ins_code, 'X')
+        self.assertEqual(a2.strand_id, 'Q')
+        self.assertEqual(a2._strand_id, 'Q')
+        self.assertIsNone(a2.orig_auth_seq_id_map)
+
+        self.assertEqual(a3.auth_seq_id_map, {1: (1, None), 2: (2, None),
+                                              3: (5, None), 4: (1, None),
+                                              5: (7, None)})
+        self.assertEqual(a3.orig_auth_seq_id_map, {3: 10, 4: 20})
+
+    def test_poly_seq_scheme_handler_offset(self):
+        """Test PolySeqSchemeHandler with constant offset"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+A 1 1 6 A
+A 1 2 7 A
+A 1 3 8 A
+A 1 4 9 A
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym.auth_seq_id_map, 5)
+        self.assertIsNone(asym._strand_id)
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [6, 7, 8, 9])
+        self.assertIsNone(asym.orig_auth_seq_id_map)
+
+    def test_poly_seq_scheme_handler_offset_ins_code(self):
+        """Test PolySeqSchemeHandler with constant offset but inscodes"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+_pdbx_poly_seq_scheme.pdb_ins_code
+A 1 1 6 A .
+A 1 2 7 A .
+A 1 3 8 A .
+A 1 4 9 A A
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym.auth_seq_id_map,
+                         {1: (6, None), 2: (7, None), 3: (8, None),
+                          4: (9, 'A')})
+        self.assertIsNone(asym._strand_id)
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [6, 7, 8, 9])
+        self.assertIsNone(asym.residue(1).ins_code)
+        self.assertEqual(asym.residue(4).ins_code, 'A')
+        self.assertIsNone(asym.orig_auth_seq_id_map)
+
+    def test_poly_seq_scheme_handler_empty(self):
+        """Test PolySeqSchemeHandler with no poly_seq_scheme"""
+        fh = StringIO(ASYM_ENTITY)
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym.auth_seq_id_map, 0)
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [1, 2, 3, 4])
+        self.assertIsNone(asym.orig_auth_seq_id_map)
+
+    def test_poly_seq_scheme_handler_nop(self):
+        """Test PolySeqSchemeHandler with a do-nothing poly_seq_scheme"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+A 1 1 1
+A 1 2 2
+A 1 3 3
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym.auth_seq_id_map, 0)
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [1, 2, 3, 4])
+        self.assertIsNone(asym.orig_auth_seq_id_map)
+
+    def test_poly_seq_scheme_handler_partial(self):
+        """Test PolySeqSchemeHandler with partial information"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.auth_seq_num
+A 1 1 6 .
+A 1 2 7 9
+A 1 3 8 .
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        # No mapping for residue 4 (and no insertion codes at all)
+        self.assertEqual(asym.auth_seq_id_map, {1: (6, None), 2: (7, None),
+                                                3: (8, None)})
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [6, 7, 8, 4])
+        self.assertIsNone(asym.residue(1).ins_code)
+        self.assertEqual(asym.orig_auth_seq_id_map, {2: 9})
+
+    def test_poly_seq_scheme_handler_incon_off(self):
+        """Test PolySeqSchemeHandler with inconsistent offset"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+A 1 1 6 X
+A 1 2 7 X
+A 1 3 8 X
+A 1 4 10 X
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym._strand_id, 'X')
+        self.assertEqual(asym.auth_seq_id_map, {1: (6, None), 2: (7, None),
+                                                3: (8, None), 4: (10, None)})
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [6, 7, 8, 10])
+        self.assertIsNone(asym.residue(1).ins_code)
+        self.assertIsNone(asym.orig_auth_seq_id_map)
+
+    def test_poly_seq_scheme_handler_unknown_auth_seq(self):
+        """Test PolySeqSchemeHandler with explicit unknown auth_seq_num"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.auth_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+A 1 1 1 1 A
+A 1 2 2 2 A
+A 1 3 3 ? A
+A 1 4 4 4 A
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertEqual(asym.auth_seq_id_map, 0)
+        self.assertEqual(asym.orig_auth_seq_id_map, {3: ihm.unknown})
+
+    def test_poly_seq_scheme_handler_str_seq_id(self):
+        """Test PolySeqSchemeHandler with a non-integer pdb_seq_num"""
+        fh = StringIO(ASYM_ENTITY + """
+loop_
+_pdbx_poly_seq_scheme.asym_id
+_pdbx_poly_seq_scheme.entity_id
+_pdbx_poly_seq_scheme.seq_id
+_pdbx_poly_seq_scheme.pdb_seq_num
+_pdbx_poly_seq_scheme.auth_seq_num
+_pdbx_poly_seq_scheme.pdb_strand_id
+_pdbx_poly_seq_scheme.pdb_ins_code
+A 1 1 6 6 ? .
+A 1 2 7 12 ? .
+A 1 3 8 24 ? .
+A 1 4 9A 48A ? .
+""")
+        s, = modelcif.reader.read(fh)
+        asym, = s.asym_units
+        self.assertIsNone(asym._strand_id)
+        self.assertEqual(asym.auth_seq_id_map, {1: (6, None), 2: (7, None),
+                                                3: (8, None), 4: ('9A', None)})
+        self.assertEqual([asym.residue(i).auth_seq_id for i in range(1, 5)],
+                         [6, 7, 8, '9A'])
+        self.assertIsNone(asym.residue(1).ins_code)
+        self.assertIsNone(asym.residue(3).ins_code)
+        self.assertEqual(asym.orig_auth_seq_id_map, {2: 12, 3: 24, 4: '48A'})
 
 
 if __name__ == '__main__':

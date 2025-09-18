@@ -50,7 +50,7 @@
 #include <libperfstat.h>
 #include <unistd.h>
 
-#include "_psutil_common.h"
+#include "arch/all/init.h"
 #include "_psutil_posix.h"
 #include "arch/aix/ifaddrs.h"
 #include "arch/aix/net_connections.h"
@@ -58,7 +58,6 @@
 
 
 #define TV2DOUBLE(t)   (((t).tv_nsec * 0.000000001) + (t).tv_sec)
-#define INITERROR return NULL
 
 /*
  * Read a file content and fills a C structure with it.
@@ -467,71 +466,6 @@ psutil_proc_num_ctx_switches(PyObject *self, PyObject *args) {
 
 
 /*
- * Return users currently connected on the system.
- */
-static PyObject *
-psutil_users(PyObject *self, PyObject *args) {
-    struct utmpx *ut;
-    PyObject *py_retlist = PyList_New(0);
-    PyObject *py_tuple = NULL;
-    PyObject *py_username = NULL;
-    PyObject *py_tty = NULL;
-    PyObject *py_hostname = NULL;
-    PyObject *py_user_proc = NULL;
-
-    if (py_retlist == NULL)
-        return NULL;
-
-    setutxent();
-    while (NULL != (ut = getutxent())) {
-        if (ut->ut_type == USER_PROCESS)
-            py_user_proc = Py_True;
-        else
-            py_user_proc = Py_False;
-        py_username = PyUnicode_DecodeFSDefault(ut->ut_user);
-        if (! py_username)
-            goto error;
-        py_tty = PyUnicode_DecodeFSDefault(ut->ut_line);
-        if (! py_tty)
-            goto error;
-        py_hostname = PyUnicode_DecodeFSDefault(ut->ut_host);
-        if (! py_hostname)
-            goto error;
-        py_tuple = Py_BuildValue(
-            "(OOOdOi)",
-            py_username,              // username
-            py_tty,                   // tty
-            py_hostname,              // hostname
-            (double)ut->ut_tv.tv_sec,  // tstamp
-            py_user_proc,             // (bool) user process
-            ut->ut_pid                // process id
-        );
-        if (py_tuple == NULL)
-            goto error;
-        if (PyList_Append(py_retlist, py_tuple))
-            goto error;
-        Py_CLEAR(py_username);
-        Py_CLEAR(py_tty);
-        Py_CLEAR(py_hostname);
-        Py_CLEAR(py_tuple);
-    }
-    endutxent();
-
-    return py_retlist;
-
-error:
-    Py_XDECREF(py_username);
-    Py_XDECREF(py_tty);
-    Py_XDECREF(py_hostname);
-    Py_XDECREF(py_tuple);
-    Py_DECREF(py_retlist);
-    if (ut != NULL)
-        endutxent();
-    return NULL;
-}
-
-
-/*
  * Return disk mounted partitions as a list of tuples including device,
  * mount point and filesystem type.
  */
@@ -719,6 +653,7 @@ psutil_boot_time(PyObject *self, PyObject *args) {
     float boot_time = 0.0;
     struct utmpx *ut;
 
+    UTXENT_MUTEX_LOCK();
     setutxent();
     while (NULL != (ut = getutxent())) {
         if (ut->ut_type == BOOT_TIME) {
@@ -727,6 +662,7 @@ psutil_boot_time(PyObject *self, PyObject *args) {
         }
     }
     endutxent();
+    UTXENT_MUTEX_UNLOCK();
     if (boot_time == 0.0) {
         /* could not find BOOT_TIME in getutxent loop */
         PyErr_SetString(PyExc_RuntimeError, "can't determine boot time");
@@ -1010,7 +946,6 @@ PsutilMethods[] =
     {"disk_partitions", psutil_disk_partitions, METH_VARARGS},
     {"per_cpu_times", psutil_per_cpu_times, METH_VARARGS},
     {"swap_mem", psutil_swap_mem, METH_VARARGS},
-    {"users", psutil_users, METH_VARARGS},
     {"virtual_mem", psutil_virtual_mem, METH_VARARGS},
 #if defined(CURR_VERSION_NETINTERFACE) && CURR_VERSION_NETINTERFACE >= 3
     {"net_io_counters", psutil_net_io_counters, METH_VARARGS},
@@ -1064,40 +999,56 @@ static struct PyModuleDef moduledef = {
 
 PyMODINIT_FUNC
 PyInit__psutil_aix(void) {
-    PyObject *module = PyModule_Create(&moduledef);
-    if (module == NULL)
-        INITERROR;
+    PyObject *mod = PyModule_Create(&moduledef);
+    if (mod == NULL)
+        return NULL;
 
 #ifdef Py_GIL_DISABLED
-    PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED);
+    if (PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED))
+        return NULL;
 #endif
-    PyModule_AddIntConstant(module, "version", PSUTIL_VERSION);
 
-    PyModule_AddIntConstant(module, "SIDL", SIDL);
-    PyModule_AddIntConstant(module, "SZOMB", SZOMB);
-    PyModule_AddIntConstant(module, "SACTIVE", SACTIVE);
-    PyModule_AddIntConstant(module, "SSWAP", SSWAP);
-    PyModule_AddIntConstant(module, "SSTOP", SSTOP);
+    if (psutil_setup() != 0)
+        return NULL;
 
-    PyModule_AddIntConstant(module, "TCPS_CLOSED", TCPS_CLOSED);
-    PyModule_AddIntConstant(module, "TCPS_CLOSING", TCPS_CLOSING);
-    PyModule_AddIntConstant(module, "TCPS_CLOSE_WAIT", TCPS_CLOSE_WAIT);
-    PyModule_AddIntConstant(module, "TCPS_LISTEN", TCPS_LISTEN);
-    PyModule_AddIntConstant(module, "TCPS_ESTABLISHED", TCPS_ESTABLISHED);
-    PyModule_AddIntConstant(module, "TCPS_SYN_SENT", TCPS_SYN_SENT);
-    PyModule_AddIntConstant(module, "TCPS_SYN_RCVD", TCPS_SYN_RECEIVED);
-    PyModule_AddIntConstant(module, "TCPS_FIN_WAIT_1", TCPS_FIN_WAIT_1);
-    PyModule_AddIntConstant(module, "TCPS_FIN_WAIT_2", TCPS_FIN_WAIT_2);
-    PyModule_AddIntConstant(module, "TCPS_LAST_ACK", TCPS_LAST_ACK);
-    PyModule_AddIntConstant(module, "TCPS_TIME_WAIT", TCPS_TIME_WAIT);
-    PyModule_AddIntConstant(module, "PSUTIL_CONN_NONE", PSUTIL_CONN_NONE);
+    if (PyModule_AddIntConstant(mod, "version", PSUTIL_VERSION))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "SIDL", SIDL))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "SZOMB", SZOMB))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "SACTIVE", SACTIVE))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "SSWAP", SSWAP))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "SSTOP", SSTOP))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_CLOSED", TCPS_CLOSED))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_CLOSING", TCPS_CLOSING))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_CLOSE_WAIT", TCPS_CLOSE_WAIT))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_LISTEN", TCPS_LISTEN))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_ESTABLISHED", TCPS_ESTABLISHED))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_SYN_SENT", TCPS_SYN_SENT))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_SYN_RCVD", TCPS_SYN_RECEIVED))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_FIN_WAIT_1", TCPS_FIN_WAIT_1))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_FIN_WAIT_2", TCPS_FIN_WAIT_2))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_LAST_ACK", TCPS_LAST_ACK))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "TCPS_TIME_WAIT", TCPS_TIME_WAIT))
+        return NULL;
+    if (PyModule_AddIntConstant(mod, "PSUTIL_CONN_NONE", PSUTIL_CONN_NONE))
+        return NULL;
 
-    psutil_setup();
-
-    if (module == NULL)
-        INITERROR;
-
-    return module;
+    return mod;
 }
 
 #ifdef __cplusplus

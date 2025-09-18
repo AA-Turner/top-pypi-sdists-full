@@ -2,19 +2,19 @@
 from collections import OrderedDict, defaultdict
 from itertools import zip_longest
 
-from DIRAC import gLogger, S_OK
+from DIRAC import S_OK, gLogger
 from DIRAC.Core.Utilities.List import breakListIntoChunks
 from DIRAC.Core.Utilities.Proxy import UserProxy
 from DIRAC.DataManagementSystem.Client.DataManager import DataManager
 from DIRAC.TransformationSystem.Utilities.JobInfo import JobInfo
 from DIRAC.WorkloadManagementSystem.Client import JobStatus
-from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
+from DIRAC.WorkloadManagementSystem.Utilities.JobStatusUtility import JobStatusUtility
 
 
 class TransformationInfo:
     """Hold information about a transformation."""
 
-    def __init__(self, transformationID, transInfoDict, enabled, tClient, fcClient, jobMon):
+    def __init__(self, transformationID, transInfoDict, enabled, tClient, fcClient, jobMon, jobStatusUtility=None):
         """Store clients etc."""
         self.log = gLogger.getSubLogger(__name__ + f"[{transformationID}]")
         self.enabled = enabled
@@ -24,9 +24,9 @@ class TransformationInfo:
         self.jobMon = jobMon
         self.fcClient = fcClient
         self.transType = transInfoDict["Type"]
-        self.authorDN = transInfoDict["AuthorDN"]
+        self.author = transInfoDict["Author"]
         self.authorGroup = transInfoDict["AuthorGroup"]
-        self.jobStateClient = JobStateUpdateClient()
+        self.jobStatusUtility = jobStatusUtility or JobStatusUtility()
 
     def checkTasksStatus(self):
         """Check the status for the task of given transformation and taskID"""
@@ -97,7 +97,9 @@ class TransformationInfo:
         """Update the job status."""
         if self.enabled:
             source = "DataRecoveryAgent"
-            result = self.jobStateClient.setJobStatus(jobID, status, minorstatus, source, None, True)
+            result = self.jobStatusUtility.setJobStatus(
+                int(jobID), status=status, minorStatus=minorstatus, source=source, dateTime=None, force=True
+            )
         else:
             return S_OK("DisabledMode")
         if not result["OK"]:
@@ -140,7 +142,7 @@ class TransformationInfo:
         successfullyRemoved = 0
 
         for lfnList in breakListIntoChunks(filesToDelete, 200):
-            with UserProxy(proxyUserDN=self.authorDN, proxyUserGroup=self.authorGroup) as proxyResult:
+            with UserProxy(proxyUserName=self.author, proxyUserGroup=self.authorGroup) as proxyResult:
                 if not proxyResult["OK"]:
                     raise RuntimeError(f"Failed to get a proxy: {proxyResult['Message']}")
                 result = DataManager().removeFile(lfnList)

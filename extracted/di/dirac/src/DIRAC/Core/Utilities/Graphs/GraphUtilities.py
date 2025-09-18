@@ -70,9 +70,15 @@ def convert_to_datetime(dstring):
         else:
             results = eval(str(dstring), {"__builtins__": None, "time": time, "math": math}, {})
         if isinstance(results, (int, float)):
-            results = datetime.datetime.fromtimestamp(int(results))
+            # Use utcfromtimestamp for UTC time
+            results = datetime.datetime.utcfromtimestamp(int(results))
         elif isinstance(results, datetime.datetime):
-            pass
+            if results.tzinfo is not None:
+                # non-naive datetime: convert to UTC
+                results = results.astimezone(datetime.timezone.utc)
+            else:
+                # DIRAC naive datetimes are UTC everywhere: add tzinfo
+                results = results.replace(tzinfo=datetime.timezone.utc)
         else:
             raise ValueError("Unknown datetime type!")
     except Exception:
@@ -80,8 +86,8 @@ def convert_to_datetime(dstring):
         for dateformat in datestrings:
             try:
                 t = time.strptime(dstring, dateformat)
-                timestamp = calendar.timegm(t)  # -time.timezone
-                results = datetime.datetime.fromtimestamp(timestamp)
+                timestamp = calendar.timegm(t)  # Convert to UTC timestamp
+                results = datetime.datetime.utcfromtimestamp(timestamp)
                 break
             except Exception:
                 pass
@@ -89,12 +95,12 @@ def convert_to_datetime(dstring):
             try:
                 dstring = dstring.split(".", 1)[0]
                 t = time.strptime(dstring, dateformat)
-                timestamp = time.mktime(t)  # -time.timezone
-                results = datetime.datetime.fromtimestamp(timestamp)
+                timestamp = calendar.timegm(t)  # Convert to UTC timestamp
+                results = datetime.datetime.utcfromtimestamp(timestamp)
             except Exception:
                 raise ValueError(
                     "Unable to create time from string!\nExpecting "
-                    "format of: '12/06/06 12:54:67'\nRecieved:%s" % orig_string
+                    "format of: '12/06/06 12:54:67'\nReceived:%s" % orig_string
                 )
     return results
 
@@ -108,8 +114,8 @@ def to_timestamp(val):
         pass
 
     val = convert_to_datetime(val)
-    # return calendar.timegm( val.timetuple() )
-    return time.mktime(val.timetuple())
+    return calendar.timegm(val.timetuple())
+    # return time.mktime(val.timetuple())
 
 
 # If the graph has more than `hour_switch` minutes, we print
@@ -180,8 +186,8 @@ def add_time_to_title(begin, end, metadata={}):
         format_name = "Seconds"
         time_slice = 1
 
-    begin_tuple = time.localtime(begin)
-    end_tuple = time.localtime(end)
+    begin_tuple = time.gmtime(begin)
+    end_tuple = time.gmtime(end)
     added_title = "%i %s from " % (int((end - begin) / time_slice), format_name)
     added_title += time.strftime(f"{format_str} to", begin_tuple)
     if time_slice < 86400:

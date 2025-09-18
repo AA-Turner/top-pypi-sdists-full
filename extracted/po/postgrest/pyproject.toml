@@ -1,11 +1,17 @@
-[tool.poetry]
+[project]
 name = "postgrest"
-version = "1.1.1" # {x-release-please-version}
+version = "2.19.0" # {x-release-please-version}
 description = "PostgREST client for Python. This library provides an ORM interface to PostgREST."
-authors = ["Lương Quang Mạnh <luongquangmanh85@gmail.com>", "Joel Lee <joel@joellee.org>", "Anand", "Oliver Rice", "Andrew Smith <a.smith@silentworks.co.uk>"]
-homepage = "https://github.com/supabase/postgrest-py"
-repository = "https://github.com/supabase/postgrest-py"
-documentation = "https://postgrest-py.rtfd.io"
+authors = [
+  { name = "Lương Quang Mạnh", email = "luongquangmanh85@gmail.com"},
+  { name = "Joel Lee", email = "joel@joellee.org"},
+  { name = "Anand"},
+  { name = "Oliver Rice"},
+  { name = "Andrew Smith", email = "a.smith@silentworks.co.uk"},
+]
+maintainers = [
+  { name = "Leonardo Santiago", email = "leonardo.santiago@supabase.io" }
+]
 readme = "README.md"
 license = "MIT"
 classifiers = [
@@ -13,34 +19,61 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
-packages = [
-    { include = "postgrest" },
+requires-python = ">=3.9"
+dependencies = [
+  "httpx[http2] >=0.26,<0.29",
+  "deprecation >=2.1.0",
+  "pydantic >=1.9,<3.0",
+  "strenum >=0.4.9; python_version < \"3.11\"",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-httpx = {version = ">=0.26,<0.29", extras = ["http2"]}
-deprecation = "^2.1.0"
-pydantic = ">=1.9,<3.0"
-strenum = {version = "^0.4.9", python = "<3.11"}
+[project.urls]
+homepage = "https://github.com/supabase/supabase/tree/main/src/postgrest"
+repository = "https://github.com/supabase/supabase-py"
+documentation = "https://postgrest-py.rtfd.io"
 
-[tool.poetry.dev-dependencies]
-pytest = "^8.4.1"
-flake8 = "^7.3.0"
-black = "^25.1"
-isort = "^6.0.1"
-pre-commit = "^4.2.0"
-pytest-cov = "^6.2.1"
-pytest-depends = "^1.0.1"
-pytest-asyncio = "^1.0.0"
-unasync-cli = { git = "https://github.com/supabase-community/unasync-cli.git", branch = "main" }
+[dependency-groups]
+test = [
+  "pytest >= 8.4.1",
+  "pytest-cov >=6.2.1",
+  "pytest-depends >=1.0.1",
+  "pytest-asyncio >=1.0.0",
+  "unasync >= 0.6.0",
+]
+lints = [
+  "pre-commit >=4.2.0",
+  "ruff >=0.12.1",
+]
+docs = [
+  "sphinx >=7.1.2",
+  "furo >=2023.9.10,<2026.0.0",
+]
+dev = [ { include-group = "lints" }, { include-group="test" }]
 
-[tool.poetry.group.docs]
-optional = true
+[tool.uv]
+default-groups = [ "dev" ]
 
-[tool.poetry.group.docs.dependencies]
-sphinx = "^7.1.2"
-furo = ">=2023.9.10,<2025.0.0"
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  # Pyflakes
+  "F",
+  # pyupgrade
+  "UP",
+  # flake8-bugbear
+  # "B",
+  # flake8-simplify
+  # "SIM",
+  # isort
+  "I",
+]
+ignore = ["F401", "F403", "F841", "E712", "E501", "E402", "UP006", "UP035"]
+# isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -49,5 +82,5 @@ filterwarnings = [
 ]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.8.3,<0.9.0"]
+build-backend = "uv_build"

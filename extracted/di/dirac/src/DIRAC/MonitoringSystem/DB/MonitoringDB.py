@@ -28,34 +28,33 @@ can be defined with::
 
 """
 
-import time
 import calendar
+import time
 
-from DIRAC import S_OK, S_ERROR
+from DIRAC import S_ERROR, S_OK
+from DIRAC.ConfigurationSystem.Client.Config import gConfig
+from DIRAC.ConfigurationSystem.Client.Helpers import CSGlobals
+from DIRAC.ConfigurationSystem.Client.PathFinder import getDatabaseSection
 from DIRAC.Core.Base.ElasticDB import ElasticDB
 from DIRAC.Core.Utilities.Plotting.TypeLoader import TypeLoader
-from DIRAC.ConfigurationSystem.Client.Helpers import CSGlobals
-from DIRAC.ConfigurationSystem.Client.Config import gConfig
-from DIRAC.ConfigurationSystem.Client.PathFinder import getDatabaseSection
 
 
 ########################################################################
 class MonitoringDB(ElasticDB):
     """Extension of ElasticDB for Monitoring system DB"""
 
-    def __init__(self, name="Monitoring/MonitoringDB", readOnly=False):
+    def __init__(self, name="Monitoring/MonitoringDB"):
         """Standard constructor"""
 
         try:
             section = getDatabaseSection("Monitoring/MonitoringDB")
             indexPrefix = gConfig.getValue(f"{section}/IndexPrefix", CSGlobals.getSetup()).lower()
             # Connecting to the ES cluster
-            super().__init__(dbname=name.split("/")[1], fullName=name, indexPrefix=indexPrefix)
+            super().__init__(fullName=name, indexPrefix=indexPrefix)
         except RuntimeError as ex:
             self.log.error("Can't connect to MonitoringDB", repr(ex))
             raise ex
 
-        self.__readonly = readOnly
         self.documentTypes = {}
 
         # loads all monitoring indexes and types.
@@ -64,7 +63,7 @@ class MonitoringDB(ElasticDB):
         # Load the files
         for pythonClassName in sorted(objectsLoaded):
             typeClass = objectsLoaded[pythonClassName]
-            indexName = f"{self.getIndexPrefix()}_{typeClass()._getIndex()}"
+            indexName = f"{typeClass()._getIndex()}"
             monitoringType = typeClass().__class__.__name__
             mapping = typeClass().mapping
             monfields = typeClass().monitoringFields
@@ -75,27 +74,6 @@ class MonitoringDB(ElasticDB):
                 "monitoringFields": monfields,
                 "period": period,
             }
-            if self.__readonly:
-                self.log.info("Read only mode: no new index will be created")
-            else:
-                # Verifying if the index is there, and if not create it
-                res = self.existingIndex(f"{indexName}-*")  # check with a wildcard
-                if res["OK"] and res["Value"]:
-                    actualIndexName = self.generateFullIndexName(indexName, period)
-                    res = self.existingIndex(actualIndexName)  # check actual index
-                    if not res["OK"] or not res["Value"]:
-                        result = self.createIndex(indexName, self.documentTypes[monitoringType]["mapping"], period)
-                        if not result["OK"]:
-                            self.log.error(result["Message"])
-                            raise RuntimeError(result["Message"])
-                        self.log.always("Index created", actualIndexName)
-                else:
-                    # in case the index pattern does not exist
-                    result = self.createIndex(indexName, self.documentTypes[monitoringType]["mapping"], period)
-                    if not result["OK"]:
-                        self.log.error(result["Message"])
-                        raise RuntimeError(result["Message"])
-                    self.log.always("Index created", indexName)
 
     def getIndexName(self, typeName):
         """
@@ -107,6 +85,7 @@ class MonitoringDB(ElasticDB):
             indexName = self.documentTypes.get(typeName).get("indexName", None)
 
         if indexName:
+            self.log.debug("Index name", indexName)
             return S_OK(indexName)
 
         return S_ERROR(f"Monitoring type {typeName} is not defined")
@@ -467,26 +446,6 @@ class MonitoringDB(ElasticDB):
             for resObj in hits["hits"]:
                 records.append({paramName: getattr(resObj["_source"], paramName) for paramName in paramNames})
             return S_OK(records)
-
-    def getLastDayData(self, typeName, condDict):
-        """
-        It returns the last day data for a given monitoring type.
-
-        :returns: for example
-
-          .. code-block:: python
-
-           {'sort': [{'timestamp': {'order': 'desc'}}],
-            'query': {'bool': {'must': [{'match': {'host': 'dzmathe.cern.ch'}},
-                                        {'match': {'component': 'Bookkeeping_BookkeepingManager'}}]}}}
-
-        :param str typeName: name of the monitoring type
-        :param dict condDict: conditions for the query
-
-                      * key -> name of the field
-                      * value -> list of possible values
-        """
-        return self.__getRawData(typeName, condDict)
 
     def getLimitedData(self, typeName, condDict, size=10):
         """

@@ -3,15 +3,14 @@
 
 from datetime import datetime
 import os
-import stat
 import tempfile
 import shlex
 import shutil
 
 from DIRAC import S_OK, S_ERROR, gConfig, rootPath, gLogger
 from DIRAC.Core.Utilities import DErrno
+from DIRAC.Core.Security import Locations
 from DIRAC.Core.Security.ProxyFile import multiProxyArgument, deleteMultiProxy
-from DIRAC.Core.Security.BaseSecurity import BaseSecurity
 from DIRAC.Core.Security.X509Chain import X509Chain  # pylint: disable=import-error
 from DIRAC.Core.Utilities.Subprocess import shellCall
 from DIRAC.Core.Utilities import List
@@ -20,15 +19,45 @@ from DIRAC.Core.Utilities import List
 VOMS_PROXY_INIT_CMD = "voms-proxy-init"
 
 
-class VOMS(BaseSecurity):
-    def __init__(self, timeout=80, *args, **kwargs):
+def voms_init_cmd(
+    vo: str, attribute: str | None, chain: X509Chain, in_fn: str, out_fn: str, vomsesPath: str | None
+) -> list[str]:
+    secs = chain.getRemainingSecs()["Value"] - 300
+    if secs < 0:
+        return S_ERROR(DErrno.EVOMS, "Proxy length is less that 300 secs")
+    hours = int(secs / 3600)
+    mins = int((secs - hours * 3600) / 60)
+
+    bitStrength = chain.getStrength()["Value"]
+
+    cmd = [VOMS_PROXY_INIT_CMD]
+    if chain.isLimitedProxy()["Value"]:
+        cmd.append("-limited")
+    cmd += ["-cert", in_fn]
+    cmd += ["-key", in_fn]
+    cmd += ["-out", out_fn]
+    cmd += ["-voms"]
+    cmd += [f"{vo}:{attribute}" if attribute and attribute != "NoRole" else vo]
+    cmd += ["-valid", f"{hours}:{mins}"]
+    cmd += ["-bits", str(bitStrength)]
+    if vomsesPath:
+        cmd += ["-vomses", vomsesPath]
+
+    if chain.isRFC().get("Value"):
+        cmd += ["-r"]
+    cmd += ["-timeout", "12"]
+
+    return cmd
+
+
+class VOMS:
+    def __init__(self, *args, **kwargs):
         """Create VOMS class, setting specific timeout for VOMS shell commands."""
         # Per-server timeout for voms-proxy-init, should be at maximum timeout/2*n
         # where n as the number of voms servers to try.
         # voms-proxy-init will try each server *twice* before moving to the next one
         # once for new interface mode, once for legacy.
-        self._servTimeout = 12
-        super().__init__(timeout=timeout, *args, **kwargs)
+        self._secCmdTimeout = 80
 
     def getVOMSAttributes(self, proxy, switch="all"):
         """
@@ -194,34 +223,7 @@ class VOMS(BaseSecurity):
                 self._unlinkFiles(proxyDict["file"])
 
     def getVOMSESLocation(self):
-        # Transition code to new behaviour
-        if "DIRAC_VOMSES" not in os.environ and "X509_VOMSES" not in os.environ:
-            os.environ["X509_VOMSES"] = os.path.join(rootPath, "etc", "grid-security", "vomses")
-            gLogger.notice(
-                "You did not set X509_VOMSES in your bashrc. DIRAC searches $DIRAC/etc/grid-security/vomses . "
-                "Please use X509_VOMSES, this auto discovery will be dropped."
-            )
-        elif "DIRAC_VOMSES" in os.environ and "X509_VOMSES" in os.environ:
-            os.environ["X509_VOMSES"] = f"{os.environ['DIRAC_VOMSES']}:{os.environ['X509_VOMSES']}"
-            gLogger.notice(
-                "You set both variables DIRAC_VOMSES and X509_VOMSES in your bashrc. "
-                "DIRAC_VOMSES will be dropped in a future version, please use only X509_VOMSES"
-            )
-        elif "DIRAC_VOMSES" in os.environ and "X509_VOMSES" not in os.environ:
-            os.environ["X509_VOMSES"] = os.environ["DIRAC_VOMSES"]
-            gLogger.notice(
-                "You set the variables DIRAC_VOMSES in your bashrc. "
-                "DIRAC_VOMSES will be dropped in a future version, please use X509_VOMSES"
-            )
-        # End of transition code
-        if "X509_VOMSES" not in os.environ:
-            raise Exception(
-                "The env variable X509_VOMSES is not set. "
-                "DIRAC does not know where to look for etc/grid-security/vomses. "
-                "Please set X509_VOMSES in your bashrc."
-            )
-        vomsesPaths = os.environ["X509_VOMSES"].split(":")
-        for vomsesPath in vomsesPaths:
+        for vomsesPath in Locations.getVomsesLocation().split(":"):
             if not os.path.exists(vomsesPath):
                 continue
             if os.path.isfile(vomsesPath):
@@ -257,40 +259,23 @@ class VOMS(BaseSecurity):
         chain = proxyDict["chain"]
         proxyLocation = proxyDict["file"]
 
-        secs = chain.getRemainingSecs()["Value"] - 300
-        if secs < 0:
-            return S_ERROR(DErrno.EVOMS, "Proxy length is less that 300 secs")
-        hours = int(secs / 3600)
-        mins = int((secs - hours * 3600) / 60)
-
-        # Ask VOMS a proxy the same strength as the one we already have
-        bitStrength = chain.getStrength()["Value"]
-
         retVal = self._generateTemporalFile()
         if not retVal["OK"]:
             deleteMultiProxy(proxyDict)
             return retVal
         newProxyLocation = retVal["Value"]
 
-        cmd = [VOMS_PROXY_INIT_CMD]
-        if chain.isLimitedProxy()["Value"]:
-            cmd.append("-limited")
-        cmd += ["-cert", proxyLocation]
-        cmd += ["-key", proxyLocation]
-        cmd += ["-out", newProxyLocation]
-        cmd += ["-voms"]
-        cmd += [f"{vo}:{attribute}" if attribute and attribute != "NoRole" else vo]
-        cmd += ["-valid", f"{hours}:{mins}"]
-        cmd += ["-bits", str(bitStrength)]
-        vomsesPath = self.getVOMSESLocation()
-        if vomsesPath:
-            cmd += ["-vomses", vomsesPath]
+        cmd = voms_init_cmd(vo, attribute, chain, proxyLocation, newProxyLocation, self.getVOMSESLocation())
 
-        if chain.isRFC().get("Value"):
-            cmd += ["-r"]
-        cmd += ["-timeout", str(self._servTimeout)]
-
-        result = shellCall(self._secCmdTimeout, shlex.join(cmd))
+        result = shellCall(
+            self._secCmdTimeout,
+            shlex.join(cmd),
+            env=os.environ
+            | {
+                "X509_CERT_DIR": Locations.getCAsLocation(),
+                "X509_VOMS_DIR": Locations.getVomsdirLocation(),
+            },
+        )
 
         deleteMultiProxy(proxyDict)
 
@@ -335,3 +320,21 @@ class VOMS(BaseSecurity):
         if status:
             return False
         return True
+
+    def _unlinkFiles(self, files):
+        if isinstance(files, (list, tuple)):
+            for fileName in files:
+                self._unlinkFiles(fileName)
+        else:
+            try:
+                os.unlink(files)
+            except Exception:
+                pass
+
+    def _generateTemporalFile(self):
+        try:
+            fd, filename = tempfile.mkstemp()
+            os.close(fd)
+        except OSError:
+            return S_ERROR(DErrno.ECTMPF)
+        return S_OK(filename)

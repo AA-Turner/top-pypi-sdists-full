@@ -5,14 +5,12 @@ import os
 import random
 import tempfile
 
-from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.Core.Utilities.Os import getDiskSpace
 from DIRAC.Core.Utilities.ReturnValues import returnSingleResult
 from DIRAC.DataManagementSystem.Utilities.DMSHelpers import DMSHelpers
 from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.WorkloadManagementSystem.Client.JobStateUpdateClient import JobStateUpdateClient
-
-COMPONENT_NAME = "DownloadInputData"
 
 
 def _isCached(lfn, seName):
@@ -137,7 +135,7 @@ class DownloadInputData:
         if not result["Value"]:
             self.log.warn("Not enough disk space available for download", f"{result['Value']} / {totalSize} bytes")
             self.__setJobParam(
-                COMPONENT_NAME,
+                self.__class__.__name__,
                 f"Not enough disk space available for download: {result['Value']} / {totalSize} bytes",
             )
             return S_OK({"Failed": self.inputData, "Successful": {}})
@@ -216,7 +214,7 @@ class DownloadInputData:
             report += "\n".join(failedReplicas)
 
         if report:
-            self.__setJobParam(COMPONENT_NAME, report)
+            self.__setJobParam(self.__class__.__name__, report)
 
         return S_OK({"Successful": resolvedData, "Failed": failedReplicas})
 
@@ -227,9 +225,9 @@ class DownloadInputData:
         """
         diskSpace = getDiskSpace(self.__getDownloadDir(False))  # MB
         availableBytes = diskSpace * 1024 * 1024  # bytes
-        # below can be a configuration option sent via the job wrapper in the future
-        # Moved from 3 to 5 GB (PhC 130822) for standard output file
-        bufferGBs = 5.0
+        bufferGBs = gConfig.getValue(
+            os.path.join("/Systems/WorkloadManagement/JobWrapper", "JobWrapper", "MinOutputDataBufferGB"), 5.0
+        )
         data = bufferGBs * 1024 * 1024 * 1024  # bufferGBs in bytes
         if (data + totalSize) < availableBytes:
             msg = f"Enough disk space available ({availableBytes} bytes)"
@@ -245,12 +243,13 @@ class DownloadInputData:
             return S_ERROR(msg)
 
     def __getDownloadDir(self, incrementCounter=True):
+        jobIDPath = str(self.configuration.get("JobIDPath", os.getcwd()))
         if self.inputDataDirectory == "PerFile":
             if incrementCounter:
                 self.counter += 1
-            return tempfile.mkdtemp(prefix=f"InputData_{self.counter}", dir=os.getcwd())
+            return tempfile.mkdtemp(prefix=f"InputData_{self.counter}", dir=jobIDPath)
         elif self.inputDataDirectory == "CWD":
-            return os.getcwd()
+            return jobIDPath
         else:
             return self.inputDataDirectory
 

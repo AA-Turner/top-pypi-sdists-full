@@ -1,5 +1,8 @@
 from __future__ import annotations
 from typing import Dict, TYPE_CHECKING
+
+from letschatty.models.analytics.sources.google_ad_utm_source import GoogleAdUtmSource
+from letschatty.models.analytics.sources.utm_source import UTMSource
 from ...models.analytics.sources import Source, WhatsAppDefaultSource, TopicDefaultSource, PureAd, OtherSource, PureAdUtmSource
 from ...models.utils.custom_exceptions.custom_exceptions import ConflictedSource, DuplicatedMessage
 if TYPE_CHECKING:
@@ -31,7 +34,9 @@ class SourcesAndTopicsValidator:
             if source == source_to_check: #type: ignore
                 if isinstance(source, OtherSource):
                     raise ConflictedSource(f":warning: *Conflict while adding source: Trigger already exists* \n New source '{source.name}' \n- Id {source.id} \n- Trigger {source.trigger[:30]} \n Existing source '{source_to_check.name}' \n- Id {source_to_check.id} \n- Trigger '{source_to_check.trigger[:30]}'", conflicting_source_id=source_to_check.id)
-                if isinstance(source, PureAd) or isinstance(source, PureAdUtmSource):
+                if isinstance(source, UTMSource):
+                    raise ConflictedSource(f":warning: *Conflict while adding source: UTM campaign already exists* \n New source '{source.name}' \n- Id {source.id} \n- UTM campaign {source.utm_campaign} \n Existing source '{source_to_check.name}' \n- Id {source_to_check.id} \n- UTM campaign {source_to_check.utm_campaign}", conflicting_source_id=source_to_check.id)
+                if isinstance(source, PureAd) or isinstance(source, PureAdUtmSource) or isinstance(source, GoogleAdUtmSource):
                     raise ConflictedSource(f":warning: Source '{source.name}' with that #ad_id {source.ad_id} ({type(source.ad_id)}) already exists for source {source_to_check.name}, #ad_id {source_to_check.ad_id} ({type(source_to_check.ad_id)})", conflicting_source_id=source_to_check.id)
                 if isinstance(source, TopicDefaultSource):
                     raise ConflictedSource(f":warning: Source '{source.name}' with that topic_id '{source.topic_id}' already exists for source '{source_to_check.name}', id={source_id}", conflicting_source_id=source_to_check.id)

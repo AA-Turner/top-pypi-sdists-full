@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clvm
-Version: 0.9.14
+Version: 0.9.15
 Summary: [Contract Language | Chialisp] Virtual Machine
 Home-page: https://github.com/Chia-Network/clvm
 Author: Chia Network, Inc.
@@ -20,7 +20,7 @@ Requires-Python: >=3.8.1, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: chia_rs>=0.2.13
-Requires-Dist: importlib_metadata~=7.1
+Requires-Dist: importlib_metadata~=8.7
 Requires-Dist: typing-extensions~=4.0
 Provides-Extra: dev
 Requires-Dist: clvm_tools>=0.4.4; extra == "dev"

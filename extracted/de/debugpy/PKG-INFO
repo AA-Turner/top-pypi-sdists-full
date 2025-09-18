@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: debugpy
-Version: 1.8.16
+Version: 1.8.17
 Summary: An implementation of the Debug Adapter Protocol for Python
 Home-page: https://aka.ms/debugpy
 Author: Microsoft Corporation
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS

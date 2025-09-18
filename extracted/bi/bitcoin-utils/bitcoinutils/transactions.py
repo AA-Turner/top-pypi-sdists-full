@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 The python-bitcoin-utils developers
+# Copyright (C) 2018-2025 The python-bitcoin-utils developers
 #
 # This file is part of python-bitcoin-utils
 #
@@ -12,7 +12,7 @@
 import math
 import hashlib
 import struct
-from typing import Optional
+from typing import Optional, Union
 
 from bitcoinutils.constants import (
     DEFAULT_TX_SEQUENCE,
@@ -34,7 +34,6 @@ from bitcoinutils.constants import (
 )
 from bitcoinutils.script import Script
 from bitcoinutils.utils import (
-    vi_to_int,
     encode_varint,
     tagged_hash,
     prepend_compact_size,
@@ -141,7 +140,9 @@ class TxInput:
         return self.__str__()
 
     @staticmethod
-    def from_raw(txinputrawhex: str, cursor: int = 0, has_segwit: bool = False):
+    def from_raw(
+        txinputrawhex: Union[str, bytes], cursor: int = 0, has_segwit: bool = False
+    ):
         """
         Imports a TxInput from a Transaction's hexadecimal data
 
@@ -154,10 +155,15 @@ class TxInput:
         has_segwit : boolean
             Is the Tx Input segwit or not
         """
-        txinputraw = h_to_b(txinputrawhex)
+        if isinstance(txinputrawhex, str):
+            txinputraw = h_to_b(txinputrawhex)
+        elif isinstance(txinputrawhex, bytes):
+            txinputraw = txinputrawhex
+        else:
+            raise TypeError("Input must be a hexadecimal string or bytes")
 
         # Unpack transaction ID (hash) in bytes and output index
-        txid, vout = struct.unpack_from('<32sI', txinputraw, cursor)
+        txid, vout = struct.unpack_from("<32sI", txinputraw, cursor)
         txid = txid[::-1]  # Reverse to match usual hexadecimal order
         cursor += 36  # 32 bytes for txid and 4 bytes for vout
 
@@ -166,25 +172,26 @@ class TxInput:
         cursor += size
 
         # Read the unlocking script in bytes
-        unlocking_script = struct.unpack_from(f'{unlocking_script_size}s', txinputraw, cursor)[0]
+        unlocking_script = struct.unpack_from(
+            f"{unlocking_script_size}s", txinputraw, cursor
+        )[0]
         cursor += unlocking_script_size
 
         # Read the sequence number in bytes
-        sequence, = struct.unpack_from('<4s', txinputraw, cursor)
+        (sequence,) = struct.unpack_from("<4s", txinputraw, cursor)
         cursor += 4
 
         # If coinbase input (utxo will be all zeros), handle script differently
-        if txid.hex() == '00' * 32:
-            script_sig = Script([unlocking_script.hex()])  # Treat as single element for coinbase
+        if txid.hex() == "00" * 32:
+            script_sig = Script(
+                [unlocking_script.hex()]
+            )  # Treat as single element for coinbase
         else:
             script_sig = Script.from_raw(unlocking_script.hex(), has_segwit=has_segwit)
 
         # Create the TxInput instance
         tx_input = TxInput(
-            txid=txid.hex(),
-            txout_index=vout,
-            script_sig=script_sig,
-            sequence=sequence
+            txid=txid.hex(), txout_index=vout, script_sig=script_sig, sequence=sequence
         )
 
         return tx_input, cursor
@@ -286,7 +293,9 @@ class TxOutput:
         return data
 
     @staticmethod
-    def from_raw(txoutputrawhex: str, cursor: int = 0, has_segwit: bool = False):
+    def from_raw(
+        txoutputrawhex: Union[str, bytes], cursor: int = 0, has_segwit: bool = False
+    ):
         """
         Imports a TxOutput from a Transaction's hexadecimal data
 
@@ -299,11 +308,16 @@ class TxOutput:
         has_segwit : boolean
             Is the Tx Output segwit or not
         """
-        txoutputraw = h_to_b(txoutputrawhex)
+        if isinstance(txoutputrawhex, str):
+            txoutputraw = h_to_b(txoutputrawhex)
+        elif isinstance(txoutputrawhex, bytes):
+            txoutputraw = txoutputrawhex
+        else:
+            raise TypeError("Input must be a hexadecimal string or bytes")
 
         # Unpack the amount of the TxOutput directly in bytes
         amount_format = "<Q"  # Little-endian unsigned long long (8 bytes)
-        amount, = struct.unpack_from(amount_format, txoutputraw, cursor)
+        (amount,) = struct.unpack_from(amount_format, txoutputraw, cursor)
         cursor += struct.calcsize(amount_format)
 
         # Read the locking script size using parse_compact_size
@@ -312,17 +326,16 @@ class TxOutput:
 
         # Read the locking script
         script_format = f"{lock_script_size}s"
-        lock_script, = struct.unpack_from(script_format, txoutputraw, cursor)
+        (lock_script,) = struct.unpack_from(script_format, txoutputraw, cursor)
         cursor += lock_script_size
 
         # Create the TxOutput instance
         tx_output = TxOutput(
             amount=amount,
-            script_pubkey=Script.from_raw(lock_script.hex(), has_segwit=has_segwit)
+            script_pubkey=Script.from_raw(lock_script.hex(), has_segwit=has_segwit),
         )
 
         return tx_output, cursor
-
 
     def __str__(self) -> str:
         return str({"amount": self.amount, "script_pubkey": self.script_pubkey})
@@ -482,6 +495,8 @@ class Transaction:
         Calculates the tx segwit size
     copy()
         creates a copy of the object (classmethod)
+    set_witness(txin_index, witness)
+        sets the witness for a particular input index
     get_transaction_digest(txin_index, script, sighash)
         returns the transaction input's digest that is to be signed according
     get_transaction_segwit_digest(txin_index, script, amount, sighash)
@@ -526,7 +541,7 @@ class Transaction:
         self.version = version
 
     @staticmethod
-    def from_raw(rawtxhex: str):
+    def from_raw(rawtxhex: Union[str, bytes]):
         """
         Imports a Transaction from hexadecimal data.
 
@@ -535,7 +550,12 @@ class Transaction:
         rawtxhex : string (hex)
             The hexadecimal raw string of the Transaction.
         """
-        rawtx = h_to_b(rawtxhex)
+        if isinstance(rawtxhex, str):
+            rawtx = h_to_b(rawtxhex)
+        elif isinstance(rawtxhex, bytes):
+            rawtx = rawtxhex
+        else:
+            raise TypeError("Input must be a hexadecimal string or bytes")
 
         # Read version (4 bytes)
         version = rawtx[0:4]
@@ -543,7 +563,7 @@ class Transaction:
 
         # Detect and handle SegWit
         has_segwit = False
-        if rawtx[cursor:cursor + 2] == b'\x00\x01':
+        if rawtx[cursor : cursor + 2] == b"\x00\x01":
             has_segwit = True
             cursor += 2  # Skipping past the marker and flag bytes
 
@@ -567,9 +587,11 @@ class Transaction:
             output, cursor = TxOutput.from_raw(rawtx.hex(), cursor, has_segwit)
             outputs.append(output)
 
-        # Handle witnesses if SegWit is enabled
+        # Handle witnesses if SegWit is enabled and if they are present i.e. if
+        # remaining payload length is greater than last tx field length (locktime)
+        has_witness_field = True if len(rawtx) - cursor > 4 else False
         witnesses = []
-        if has_segwit:
+        if has_segwit and has_witness_field:
             for _ in range(n_inputs):
                 n_items, size = parse_compact_size(rawtx[cursor:])
                 cursor += size
@@ -577,16 +599,16 @@ class Transaction:
                 for _ in range(n_items):
                     item_size, size = parse_compact_size(rawtx[cursor:])
                     cursor += size
-                    witness_data = rawtx[cursor:cursor + item_size]
+                    witness_data = rawtx[cursor : cursor + item_size]
                     cursor += item_size
                     witnesses_tmp.append(witness_data.hex())
                 if witnesses_tmp:
                     witnesses.append(TxWitnessInput(stack=witnesses_tmp))
 
         # Read locktime (4 bytes)
-        locktime = rawtx[cursor:cursor + 4]
+        locktime = rawtx[cursor : cursor + 4]
 
-        #Returning the Transaction object
+        # Returning the Transaction object
         return Transaction(
             inputs=inputs,
             outputs=outputs,
@@ -619,6 +641,26 @@ class Transaction:
         outs = [TxOutput.copy(txout) for txout in tx.outputs]
         wits = [TxWitnessInput.copy(witness) for witness in tx.witnesses]
         return cls(ins, outs, tx.locktime, tx.version, tx.has_segwit, wits)
+
+    # this sets empty witness slots (if necessary)
+    # makes length of witness equal to the number of inputs, to prevent expliclty defining empty witness inputs
+    # for non segwit inputs
+    def set_witness(self, txin_index: int, witness: TxWitnessInput):
+        """Safely set a witness at the specified index"""
+        if not self.has_segwit:
+            raise RuntimeError(
+                "Transaction should be segwit in order to set segwit slots"
+            )
+        witness_len = len(self.witnesses)
+        input_len = len(self.inputs)
+        if witness_len < input_len:
+            # append empty witness inputs if input_len>witness_len
+            for _ in range(input_len - witness_len):
+                self.witnesses.append(TxWitnessInput([]))
+
+        if txin_index < 0 or txin_index >= len(self.inputs):
+            raise IndexError("txin_index out of range")
+        self.witnesses[txin_index] = witness
 
     def get_transaction_digest(
         self, txin_index: int, script: Script, sighash: int = SIGHASH_ALL

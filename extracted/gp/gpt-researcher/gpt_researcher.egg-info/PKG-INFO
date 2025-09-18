@@ -1,177 +1,22 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: gpt-researcher
-Version: 0.14.3
-Summary: GPT Researcher is an autonomous agent designed for comprehensive online research on a variety of tasks.
+Version: 0.14.4
+Summary: GPT Researcher is an autonomous agent designed for comprehensive web research on any task
 Home-page: https://github.com/assafelovic/gpt-researcher
 Author: Assaf Elovic
-Author-email: Assaf Elovic <assaf.elovic@gmail.com>
+Author-email: assaf.elovic@gmail.com
 License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiofiles>=23.2.1
-Requires-Dist: aiohappyeyeballs>=2.6.1
-Requires-Dist: aiohttp>=3.12.0
-Requires-Dist: aiosignal>=1.3.2
-Requires-Dist: annotated-types>=0.7.0
-Requires-Dist: anyio>=4.9.0
-Requires-Dist: arxiv>=2.0.0
-Requires-Dist: attrs>=25.3.0
-Requires-Dist: backoff>=2.2.1
-Requires-Dist: beautifulsoup4>=4.12.2
-Requires-Dist: brotli>=1.1.0
-Requires-Dist: certifi>=2025.4.26
-Requires-Dist: cffi>=1.17.1
-Requires-Dist: chardet>=5.2.0
-Requires-Dist: charset-normalizer>=3.4.2
-Requires-Dist: click>=8.2.1
-Requires-Dist: colorama>=0.4.6
-Requires-Dist: cryptography>=45.0.2
-Requires-Dist: cssselect2>=0.8.0
-Requires-Dist: dataclasses-json>=0.6.7
-Requires-Dist: distro>=1.9.0
-Requires-Dist: docopt>=0.6.2
-Requires-Dist: duckduckgo-search>=4.1.1
-Requires-Dist: emoji>=2.14.1
-Requires-Dist: fastapi>=0.104.1
-Requires-Dist: feedparser>=6.0.11
-Requires-Dist: filelock>=3.18.0
-Requires-Dist: filetype>=1.2.0
-Requires-Dist: fonttools>=4.58.0
-Requires-Dist: frozenlist>=1.6.0
-Requires-Dist: fsspec>=2025.5.1
-Requires-Dist: greenlet>=3.2.2
-Requires-Dist: h11>=0.16.0
-Requires-Dist: html5lib>=1.1
-Requires-Dist: htmldocx>=0.0.6
-Requires-Dist: httpcore>=1.0.9
-Requires-Dist: httpx>=0.28.1
-Requires-Dist: httpx-aiohttp>=0.1.4
-Requires-Dist: httpx-sse>=0.4.0
-Requires-Dist: huggingface-hub>=0.32.0
-Requires-Dist: idna>=3.10
-Requires-Dist: importlib-metadata>=8.7.0
-Requires-Dist: jinja2>=3.1.6
-Requires-Dist: jiter>=0.10.0
-Requires-Dist: joblib>=1.5.1
-Requires-Dist: json-repair>=0.44.0
-Requires-Dist: json5>=0.12.0
-Requires-Dist: jsonpatch>=1.33
-Requires-Dist: jsonpointer>=3.0.0
-Requires-Dist: jsonschema>=4.23.0
-Requires-Dist: jsonschema-specifications>=2025.4.1
-Requires-Dist: kiwisolver>=1.4.8
-Requires-Dist: langchain-community>=0.3.17
-Requires-Dist: langchain-core>=0.3.61
-Requires-Dist: langchain-ollama>=0.3.3
-Requires-Dist: langchain-openai>=0.3.6
-Requires-Dist: langchain-text-splitters>=0.3.8
-Requires-Dist: langdetect>=1.0.9
-Requires-Dist: langgraph>=0.2.76
-Requires-Dist: langgraph-checkpoint>=2.0.26
-Requires-Dist: langgraph-cli>=0.2.10
-Requires-Dist: langgraph-sdk>=0.1.70
-Requires-Dist: langsmith>=0.3.42
-Requires-Dist: litellm>=1.71.0
-Requires-Dist: loguru>=0.7.3
-Requires-Dist: lxml>=5.4.0
-Requires-Dist: markdown>=3.8
-Requires-Dist: markdown2>=2.5.3
-Requires-Dist: markupsafe>=3.0.2
-Requires-Dist: marshmallow>=3.26.1
-Requires-Dist: mcp>=1.9.1
-Requires-Dist: md2pdf>=1.0.1
-Requires-Dist: mistune>=3.1.3
-Requires-Dist: multidict>=6.4.4
-Requires-Dist: mypy-extensions>=1.1.0
-Requires-Dist: nest-asyncio>=1.6.0
-Requires-Dist: nltk>=3.9.1
-Requires-Dist: numpy>=2.2.6
-Requires-Dist: olefile>=0.47
-Requires-Dist: ollama>=0.4.8
-Requires-Dist: openai>=1.82.0
-Requires-Dist: orjson>=3.10.18
-Requires-Dist: ormsgpack>=1.10.0
-Requires-Dist: packaging>=24.2
-Requires-Dist: pillow>=11.2.1
-Requires-Dist: primp>=0.15.0
-Requires-Dist: propcache>=0.3.1
-Requires-Dist: psutil>=7.0.0
-Requires-Dist: pycparser>=2.22
-Requires-Dist: pydantic>=2.11.5
-Requires-Dist: pydantic-core>=2.33.2
-Requires-Dist: pydantic-settings>=2.9.1
-Requires-Dist: pydyf>=0.11.0
-Requires-Dist: pymupdf>=1.26.0
-Requires-Dist: pypdf>=5.5.0
-Requires-Dist: pyphen>=0.17.2
-Requires-Dist: python-docx>=1.1.2
-Requires-Dist: python-dotenv>=1.1.0
-Requires-Dist: python-iso639>=2025.2.18
-Requires-Dist: python-magic>=0.4.27
-Requires-Dist: python-multipart>=0.0.20
-Requires-Dist: python-oxmsg>=0.0.2
-Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: rapidfuzz>=3.13.0
-Requires-Dist: referencing>=0.36.2
-Requires-Dist: regex>=2024.11.6
-Requires-Dist: requests>=2.32.3
-Requires-Dist: requests-toolbelt>=1.0.0
-Requires-Dist: rpds-py>=0.25.1
-Requires-Dist: sgmllib3k>=1.0.0
-Requires-Dist: six>=1.17.0
-Requires-Dist: sniffio>=1.3.1
-Requires-Dist: soupsieve>=2.7
-Requires-Dist: sqlalchemy>=2.0.41
-Requires-Dist: sse-starlette>=2.3.5
-Requires-Dist: starlette>=0.46.2
-Requires-Dist: tenacity>=9.1.2
-Requires-Dist: tiktoken>=0.9.0
-Requires-Dist: tinycss2>=1.4.0
-Requires-Dist: tinyhtml5>=2.0.0
-Requires-Dist: tokenizers>=0.21.1
-Requires-Dist: tqdm>=4.67.1
-Requires-Dist: typing-extensions>=4.13.2
-Requires-Dist: typing-inspect>=0.9.0
-Requires-Dist: typing-inspection>=0.4.1
-Requires-Dist: unstructured>=0.17.2
-Requires-Dist: unstructured-client>=0.35.0
-Requires-Dist: urllib3>=2.4.0
-Requires-Dist: uvicorn>=0.34.2
-Requires-Dist: weasyprint>=65.1; sys_platform != "win32"
-Requires-Dist: webencodings>=0.5.1
-Requires-Dist: websockets>=15.0.1
-Requires-Dist: win32-setctime>=1.2.0
-Requires-Dist: wrapt>=1.17.2
-Requires-Dist: yarl>=1.20.0
-Requires-Dist: zipp>=3.21.0
-Requires-Dist: zopfli>=0.2.3.post1
-Requires-Dist: zstandard>=0.23.0
-Provides-Extra: requirements-txt
-Requires-Dist: arxiv_client; extra == "requirements-txt"
-Requires-Dist: azure-storage-blob; extra == "requirements-txt"
-Requires-Dist: duckduckgo_search; extra == "requirements-txt"
-Requires-Dist: exa_py; extra == "requirements-txt"
-Requires-Dist: firecrawl; extra == "requirements-txt"
-Requires-Dist: langchain-anthropic; extra == "requirements-txt"
-Requires-Dist: langchain-cohere; extra == "requirements-txt"
-Requires-Dist: langchain-dashscope; extra == "requirements-txt"
-Requires-Dist: langchain-fireworks; extra == "requirements-txt"
-Requires-Dist: langchain-gigachat; extra == "requirements-txt"
-Requires-Dist: langchain-google-genai; extra == "requirements-txt"
-Requires-Dist: langchain-google-vertexai; extra == "requirements-txt"
-Requires-Dist: langchain-groq; extra == "requirements-txt"
-Requires-Dist: langchain-huggingface; extra == "requirements-txt"
-Requires-Dist: langchain-mistralai; extra == "requirements-txt"
-Requires-Dist: langchain-together; extra == "requirements-txt"
-Requires-Dist: langchain-xai; extra == "requirements-txt"
-Requires-Dist: playwright; extra == "requirements-txt"
-Requires-Dist: scrapy; extra == "requirements-txt"
-Requires-Dist: selenium; extra == "requirements-txt"
-Dynamic: author
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-python
 
 <div align="center" id="top">
 
@@ -270,6 +115,12 @@ See the [Documentation](https://docs.gptr.dev/docs/gpt-researcher/getting-starte
     ```bash
     export OPENAI_API_KEY={Your OpenAI API Key here}
     export TAVILY_API_KEY={Your Tavily API Key here}
+    ```
+
+    For custom OpenAI-compatible APIs (e.g., local models, other providers), you can also set:
+    
+    ```bash
+    export OPENAI_BASE_URL={Your custom API base URL here}
     ```
 
 4. Install dependencies and start the server:
@@ -465,3 +316,5 @@ Our view on unbiased research claims:
 <p align="right">
   <a href="#top">⬆️ Back to Top</a>
 </p>
+
+

@@ -22,23 +22,25 @@ this purpose the options MaxHBJobsAtOnce and RemoveStatusDelayHB/[Done|Killed|Fa
 than 0.
 
 """
-import os
 import datetime
+import os
 
-from DIRAC import S_OK, S_ERROR
-from DIRAC.Core.Base.AgentModule import AgentModule
+from DIRAC import S_ERROR, S_OK
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
-from DIRAC.RequestManagementSystem.Client.Request import Request
-from DIRAC.RequestManagementSystem.Client.Operation import Operation
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername
+from DIRAC.Core.Base.AgentModule import AgentModule
+from DIRAC.Core.Utilities import TimeUtilities
 from DIRAC.RequestManagementSystem.Client.File import File
+from DIRAC.RequestManagementSystem.Client.Operation import Operation
 from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
+from DIRAC.RequestManagementSystem.Client.Request import Request
 from DIRAC.WorkloadManagementSystem.Client import JobStatus
-from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
-from DIRAC.WorkloadManagementSystem.Client.SandboxStoreClient import SandboxStoreClient
-from DIRAC.WorkloadManagementSystem.Client.JobMonitoringClient import JobMonitoringClient
 from DIRAC.WorkloadManagementSystem.Client.WMSClient import WMSClient
-
-import DIRAC.Core.Utilities.TimeUtilities as TimeUtilities
+from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
+from DIRAC.WorkloadManagementSystem.DB.SandboxMetadataDB import SandboxMetadataDB
+from DIRAC.WorkloadManagementSystem.Service.JobPolicy import RIGHT_DELETE
+from DIRAC.WorkloadManagementSystem.DB.StatusUtils import kill_delete_jobs
+from DIRAC.WorkloadManagementSystem.Utilities.JobParameters import getJobParameters
 
 
 class JobCleaningAgent(AgentModule):
@@ -57,6 +59,7 @@ class JobCleaningAgent(AgentModule):
         self.prodTypes = []
         self.removeStatusDelay = {}
         self.removeStatusDelayHB = {}
+        self.maxHBJobsAtOnce = 0
 
     #############################################################################
     def initialize(self):
@@ -80,7 +83,7 @@ class JobCleaningAgent(AgentModule):
         self.removeStatusDelayHB[JobStatus.DONE] = self.am_getOption("RemoveStatusDelayHB/Done", -1)
         self.removeStatusDelayHB[JobStatus.KILLED] = self.am_getOption("RemoveStatusDelayHB/Killed", -1)
         self.removeStatusDelayHB[JobStatus.FAILED] = self.am_getOption("RemoveStatusDelayHB/Failed", -1)
-        self.maxHBJobsAtOnce = self.am_getOption("MaxHBJobsAtOnce", 0)
+        self.maxHBJobsAtOnce = self.am_getOption("MaxHBJobsAtOnce", self.maxHBJobsAtOnce)
 
         return S_OK()
 
@@ -93,7 +96,7 @@ class JobCleaningAgent(AgentModule):
         for jobType in result["Value"]:
             if jobType not in self.prodTypes:
                 cleanJobTypes.append(jobType)
-        self.log.notice(f"JobTypes to clean {cleanJobTypes}")
+        self.log.notice("JobTypes to clean", cleanJobTypes)
         return S_OK(cleanJobTypes)
 
     def execute(self):
@@ -102,7 +105,7 @@ class JobCleaningAgent(AgentModule):
         # First, fully remove jobs in JobStatus.DELETED state
         result = self.removeDeletedJobs()
         if not result["OK"]:
-            self.log.error(f"Failed to remove jobs with status {JobStatus.DELETED}")
+            self.log.error("Failed to remove jobs with status", JobStatus.DELETED)
 
         # Second: set the status to JobStatus.DELETED for certain jobs
 
@@ -117,8 +120,7 @@ class JobCleaningAgent(AgentModule):
 
         baseCond = {"JobType": result["Value"]}
         # Delete jobs with final status
-        for status in self.removeStatusDelay:
-            delay = self.removeStatusDelay[status]
+        for status, delay in self.removeStatusDelay.items():
             if delay < 0:
                 # Negative delay means don't delete anything...
                 continue
@@ -152,8 +154,9 @@ class JobCleaningAgent(AgentModule):
             return S_OK()
 
         self.log.info("Unassigning sandboxes from soon to be deleted jobs", f"({len(jobList)})")
-        result = SandboxStoreClient(useCertificates=True).unassignJobs(jobList)
-        if not result["OK"]:
+
+        entitiesList = [f"Job:{jobId}" for jobId in jobList]
+        if not (result := SandboxMetadataDB().unassignEntities(entitiesList))["OK"]:
             self.log.error("Cannot unassign jobs to sandboxes", result["Message"])
             return result
 
@@ -185,26 +188,7 @@ class JobCleaningAgent(AgentModule):
         if not jobList:
             return S_OK()
 
-        ownerJobsDict = self._getOwnerJobsDict(jobList)
-
-        fail = False
-        for owner, jobsList in ownerJobsDict.items():
-            ownerDN = owner.split(";")[0]
-            ownerGroup = owner.split(";")[1]
-            self.log.verbose("Attempting to remove jobs", f"(n={len(jobsList)}) for {ownerDN} : {ownerGroup}")
-            wmsClient = WMSClient(useCertificates=True, delegatedDN=ownerDN, delegatedGroup=ownerGroup)
-            result = wmsClient.removeJob(jobsList)
-            if not result["OK"]:
-                self.log.error(
-                    "Could not remove jobs",
-                    f"for {ownerDN} : {ownerGroup} (n={len(jobsList)}) : {result['Message']}",
-                )
-                fail = True
-
-        if fail:
-            return S_ERROR()
-
-        return S_OK()
+        return self._deleteRemoveJobs(jobList, remove=True)
 
     def deleteJobsByStatus(self, condDict, delay=False):
         """Sets the job status to "DELETED" for jobs in condDict.
@@ -234,19 +218,29 @@ class JobCleaningAgent(AgentModule):
         if not jobList:
             return S_OK()
 
+        return self._deleteRemoveJobs(jobList)
+
+    def _deleteRemoveJobs(self, jobList, remove=False):
+        """Delete or removes a jobList"""
         ownerJobsDict = self._getOwnerJobsDict(jobList)
 
         fail = False
         for owner, jobsList in ownerJobsDict.items():
-            ownerDN = owner.split(";")[0]
-            ownerGroup = owner.split(";")[1]
-            self.log.verbose("Attempting to delete jobs", f"(n={len(jobsList)}) for {ownerDN} : {ownerGroup}")
-            wmsClient = WMSClient(useCertificates=True, delegatedDN=ownerDN, delegatedGroup=ownerGroup)
-            result = wmsClient.deleteJob(jobsList)
+            user, ownerGroup = owner.split(";", maxsplit=1)
+            self.log.verbose("Attempting to delete jobs", f"(n={len(jobsList)}) for {user} : {ownerGroup}")
+            res = getDNForUsername(user)
+            if not res["OK"]:
+                self.log.error("No DN found", f"for {user}")
+                return res
+            if remove:
+                wmsClient = WMSClient(useCertificates=True, delegatedDN=res["Value"][0], delegatedGroup=ownerGroup)
+                result = wmsClient.removeJob(jobsList)
+            else:
+                result = kill_delete_jobs(RIGHT_DELETE, jobsList)
             if not result["OK"]:
                 self.log.error(
-                    "Could not delete jobs",
-                    f"for {ownerDN} : {ownerGroup} (n={len(jobsList)}) : {result['Message']}",
+                    f"Could not {'remove' if remove else 'delete'} jobs",
+                    f"for {user} : {ownerGroup} (n={len(jobsList)}) : {result['Message']}",
                 )
                 fail = True
 
@@ -279,7 +273,7 @@ class JobCleaningAgent(AgentModule):
 
         :returns: a dict with a grouping of them by owner, e.g.{'dn;group': [1, 3, 4], 'dn;group_1': [5], 'dn_1;group': [2]}
         """
-        res = self.jobDB.getJobsAttributes(jobList, ["OwnerDN", "OwnerGroup"])
+        res = self.jobDB.getJobsAttributes(jobList, ["Owner", "OwnerGroup"])
         if not res["OK"]:
             self.log.error("Could not get the jobs attributes", res["Message"])
             return res
@@ -302,7 +296,8 @@ class JobCleaningAgent(AgentModule):
         failed = {}
         successful = {}
 
-        result = JobMonitoringClient().getJobParameters(jobIDList, ["OutputSandboxLFN"])
+        jobIDs = [int(jobID) for jobID in jobIDList]
+        result = getJobParameters(jobIDs, "OutputSandboxLFN")
         if not result["OK"]:
             return result
         osLFNDict = result["Value"]
@@ -314,26 +309,25 @@ class JobCleaningAgent(AgentModule):
         # Schedule removal of the LFNs now
         for jobID, outputSandboxLFNdict in osLFNDict.items():
             lfn = outputSandboxLFNdict["OutputSandboxLFN"]
-            result = self.jobDB.getJobAttributes(jobID, ["OwnerDN", "OwnerGroup"])
+            result = self.jobDB.getJobAttributes(jobID, ["Owner", "OwnerGroup"])
             if not result["OK"] or not result["Value"]:
                 failed[jobID] = lfn
                 continue
 
-            ownerDN = result["Value"]["OwnerDN"]
+            owner = result["Value"]["Owner"]
             ownerGroup = result["Value"]["OwnerGroup"]
-            result = self.__setRemovalRequest(lfn, ownerDN, ownerGroup)
+            result = self.__setRemovalRequest(lfn, owner, ownerGroup)
             if not result["OK"]:
                 failed[jobID] = lfn
             else:
                 successful[jobID] = lfn
 
-        result = {"Successful": successful, "Failed": failed}
-        return S_OK(result)
+        return S_OK({"Successful": successful, "Failed": failed})
 
-    def __setRemovalRequest(self, lfn, ownerDN, ownerGroup):
+    def __setRemovalRequest(self, lfn, owner, ownerGroup):
         """Set removal request with the given credentials"""
         oRequest = Request()
-        oRequest.OwnerDN = ownerDN
+        oRequest.Owner = owner
         oRequest.OwnerGroup = ownerGroup
         oRequest.RequestName = os.path.basename(lfn).strip() + "_removal_request.xml"
         oRequest.SourceComponent = "JobCleaningAgent"
@@ -348,7 +342,12 @@ class JobCleaningAgent(AgentModule):
         oRequest.addOperation(removeFile)
 
         # put the request with the owner certificate to make sure it's still a valid DN
-        return ReqClient(useCertificates=True, delegatedDN=ownerDN, delegatedGroup=ownerGroup).putRequest(oRequest)
+        res = getDNForUsername(owner)
+        if not res["OK"]:
+            return res
+        return ReqClient(useCertificates=True, delegatedDN=res["Value"][0], delegatedGroup=ownerGroup).putRequest(
+            oRequest
+        )
 
     def removeHeartBeatLoggingInfo(self, status, delayDays):
         """Remove HeartBeatLoggingInfo for jobs with given status after given number of days.
@@ -364,4 +363,3 @@ class JobCleaningAgent(AgentModule):
             self.log.error("Failed to delete from HeartBeatLoggingInfo", result["Message"])
         else:
             self.log.info("Deleted HeartBeatLogging info")
-        return

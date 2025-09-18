@@ -16,6 +16,7 @@ import DIRAC
 from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Core.Base.Script import Script
+from DIRAC.Core.Security.DiracX import addTokenToPEM
 from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
 
 
@@ -159,6 +160,10 @@ def main():
     if not result["OK"]:
         gLogger.notice(f"Proxy file cannot be written to {params.proxyPath}: {result['Message']}")
         DIRAC.exit(2)
+    if not (result := chain.getDIRACGroup())["OK"]:
+        return result
+    if not (result := addTokenToPEM(params.proxyPath, result["Value"]))["OK"]:  # pylint: disable=unsubscriptable-object
+        return result
     gLogger.notice(f"Proxy downloaded to {params.proxyPath}")
     DIRAC.exit(0)
 

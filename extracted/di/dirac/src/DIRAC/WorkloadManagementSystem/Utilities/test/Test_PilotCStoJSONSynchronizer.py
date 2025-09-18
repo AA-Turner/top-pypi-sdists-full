@@ -20,17 +20,6 @@ class PilotCStoJSONSynchronizerTestCase(unittest.TestCase):
 
         self.testCfgFileName = "test.cfg"
         cfgContent = """
-    DIRAC
-    {
-      Setup=TestSetup
-      Setups
-      {
-        TestSetup
-        {
-          WorkloadManagement=MyWM
-        }
-      }
-    }
     Systems
     {
       WorkloadManagement
@@ -119,8 +108,6 @@ class PilotCStoJSONSynchronizerTestCase(unittest.TestCase):
             f.write(cfgContent)
         # we replace the configuration by our own one.
         gConfig = ConfigurationClient(fileToLoadList=[self.testCfgFileName])
-        self.setup = gConfig.getValue("/DIRAC/Setup", "")
-        self.wm = gConfig.getValue("DIRAC/Setups/" + self.setup + "/WorkloadManagement", "")
 
     def tearDown(self):
         for aFile in [self.testCfgFileName, "pilot.json"]:

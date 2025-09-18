@@ -134,21 +134,30 @@ class RebuildDeploymentResponse(_message.Message):
     def __init__(self, build_id: _Optional[str] = ...) -> None: ...
 
 class RedeployDeploymentRequest(_message.Message):
-    __slots__ = ("existing_deployment_id", "enable_profiling", "deployment_tags", "base_image_override")
+    __slots__ = (
+        "existing_deployment_id",
+        "enable_profiling",
+        "deployment_tags",
+        "base_image_override",
+        "override_graph",
+    )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
     BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_GRAPH_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     enable_profiling: bool
     deployment_tags: _containers.RepeatedScalarFieldContainer[str]
     base_image_override: str
+    override_graph: _graph_pb2.Graph
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
         enable_profiling: bool = ...,
         deployment_tags: _Optional[_Iterable[str]] = ...,
         base_image_override: _Optional[str] = ...,
+        override_graph: _Optional[_Union[_graph_pb2.Graph, _Mapping]] = ...,
     ) -> None: ...
 
 class RedeployDeploymentResponse(_message.Message):

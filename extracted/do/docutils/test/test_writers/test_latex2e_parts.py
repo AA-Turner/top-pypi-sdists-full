@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# $Id: test_latex2e_parts.py 10157 2025-06-07 15:37:21Z milde $
+# $Id: test_latex2e_parts.py 10219 2025-08-21 15:18:05Z milde $
 # Author: Günter Milde
 # Maintainer: docutils-develop@lists.sourceforge.net
 # :Copyright: 2024 Günter Milde,
@@ -191,15 +191,15 @@ paragraph
 }
 """,
   'fallbacks': r"""
-% numerical or symbol footnotes with hyperlinks and backlinks
+% numbered or symbol footnotes with hyperlinks and backlinks
 \providecommand*{\DUfootnotemark}[3]{%
   \raisebox{1em}{\hypertarget{#1}{}}%
-  \hyperlink{#2}{\textsuperscript{#3}}%
+  \hyperref[#2]{\textsuperscript{#3}}%
 }
 \providecommand{\DUfootnotetext}[4]{%
   \begingroup%
   \renewcommand{\thefootnote}{%
-    \protect\raisebox{1em}{\protect\hypertarget{#1}{}}%
+    \protect\phantomsection\protect\label{#1}
     \protect\hyperlink{#2}{#3}}%
   \footnotetext{#4}%
   \endgroup%
@@ -214,7 +214,6 @@ unnumbered section
 ------------------
 """,
  {'body': r"""
-\phantomsection\label{contents}
 \pdfbookmark[1]{Contents}{contents}
 \tableofcontents
 
@@ -235,7 +234,6 @@ first section
 -------------
 """,
  {'body': r"""
-\phantomsection\label{contents}
 \pdfbookmark[1]{Contents}{contents}
 \tableofcontents
 
@@ -256,7 +254,6 @@ first section
 -------------
 """,
  {'body': r"""
-\phantomsection\label{contents}
 \pdfbookmark[1]{Contents}{contents}
 \setcounter{tocdepth}{1}
 \tableofcontents
@@ -286,7 +283,6 @@ section not in local toc
   \label{section-with-local-toc}%
 }
 
-\phantomsection\label{contents}
 \mtcsettitle{secttoc}{}
 \secttoc
 
@@ -464,6 +460,45 @@ This is the \emph{document}.
 \date{}
 """
   }],
+# document title and subtitle with labels
+["""\
+.. _top:
+
+The Document Title
+==================
+
+.. _what-for:
+
+for test purposes
+-----------------
+
+Links to top_ and what-for_.
+""",
+ {'body': r"""
+Links to \hyperref[top]{top} and \hyperref[what-for]{what-for}.
+""",
+  'body_pre_docinfo': '\\maketitle\n',
+  'fallbacks': r"""
+% subtitle (in document title)
+\providecommand*{\DUdocumentsubtitle}[1]{{\large #1}}
+""",
+  'pdfsetup': DEFAULT_PARTS['pdfsetup'] + r"""\hypersetup{
+  pdftitle={The Document Title},
+}
+""",
+  'subtitle': 'for test purposes',
+  'title': 'The Document Title',
+  'titledata': r"""\title{The Document Title%
+  \label{the-document-title}%
+  \label{top}%
+  \\%
+  \DUdocumentsubtitle{for test purposes}%
+  \label{for-test-purposes}%
+  \label{what-for}}
+\author{}
+\date{}
+"""
+  }],
 # template
 ["""\
 """,
@@ -557,7 +592,6 @@ first chapter
 -------------
 """,
  {'body': r"""
-\phantomsection\label{contents}
 \pdfbookmark[1]{Contents}{contents}
 \setcounter{tocdepth}{0}
 \tableofcontents
@@ -664,7 +698,6 @@ Title 2
 Paragraph 2.
 """,
  {'body': r"""
-\phantomsection\label{table-of-contents}
 \pdfbookmark[1]{Table of Contents}{table-of-contents}
 
 \begin{DUclass}{contents}

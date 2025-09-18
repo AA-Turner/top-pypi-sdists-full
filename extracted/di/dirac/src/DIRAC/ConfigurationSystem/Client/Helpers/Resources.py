@@ -1,14 +1,14 @@
 """ Helper for the CS Resources section
 """
-import re
 from urllib import parse
 
-from DIRAC import S_OK, S_ERROR, gConfig, gLogger
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry, Operations
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Path import cfgPath
-from DIRAC.Core.Utilities.List import uniqueElements, fromChar
-from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
-
+from DIRAC.Core.Utilities.List import fromChar, uniqueElements
+from DIRACCommon.ConfigurationSystem.Client.Helpers.Resources import (
+    getDIRACPlatform as _getDIRACPlatform,
+    _platformSortKey,
+)
 
 gBaseResourcesSection = "/Resources"
 
@@ -255,10 +255,7 @@ def getQueues(siteList=None, ceList=None, ceTypeList=None, community=None, tags=
         for site in sites:
             if siteList and site not in siteList:
                 continue
-            if community:
-                comList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/VO", [])
-                if comList and community.lower() not in [cl.lower() for cl in comList]:
-                    continue
+
             siteCEParameters = {}
             result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/CEs")
             if result["OK"]:
@@ -275,10 +272,7 @@ def getQueues(siteList=None, ceList=None, ceTypeList=None, community=None, tags=
                         continue
                 if ceList and ce not in ceList:
                     continue
-                if community:
-                    comList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/CEs/{ce}/VO", [])
-                    if comList and community.lower() not in [cl.lower() for cl in comList]:
-                        continue
+
                 ceOptionsDict = dict(siteCEParameters)
                 result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/CEs/{ce}")
                 if not result["OK"]:
@@ -290,9 +284,23 @@ def getQueues(siteList=None, ceList=None, ceTypeList=None, community=None, tags=
                 queues = result["Value"]
                 for queue in queues:
                     if community:
-                        comList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/CEs/{ce}/Queues/{queue}/VO", [])
+                        # Community can be defined on site, CE or queue level
+                        paths = [
+                            f"/Resources/Sites/{grid}/{site}/CEs/{ce}/Queues/{queue}/VO",
+                            f"/Resources/Sites/{grid}/{site}/CEs/{ce}/VO",
+                            f"/Resources/Sites/{grid}/{site}/VO",
+                        ]
+
+                        # Try each path in order, stopping when we find a non-empty list
+                        for path in paths:
+                            comList = gConfig.getValue(path, [])
+                            if comList:
+                                break
+
+                        # If we found a list and the community is not in it, skip this iteration
                         if comList and community.lower() not in [cl.lower() for cl in comList]:
                             continue
+
                     if tags:
                         queueTags = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/CEs/{ce}/Queues/{queue}/Tag", [])
                         queueTags = set(ceTags + queueTags)
@@ -323,8 +331,8 @@ def getCompatiblePlatforms(originalPlatforms):
     if not (result["OK"] and result["Value"]):
         return S_ERROR("OS compatibility info not found")
 
-    platformsDict = {k: v.replace(" ", "").split(",") for k, v in result["Value"].items()}  # can be an iterator
-    for k, v in platformsDict.items():  # can be an iterator
+    platformsDict = {k: v.replace(" ", "").split(",") for k, v in result["Value"].items()}
+    for k, v in platformsDict.items():
         if k not in v:
             v.append(k)
 
@@ -350,7 +358,6 @@ def getDIRACPlatform(OSList):
     :param list OSList: list of platforms defined by resource providers
     :return: a list of DIRAC platforms that can be specified in job descriptions
     """
-
     # For backward compatibility allow a single string argument
     osList = OSList
     if isinstance(OSList, str):
@@ -360,31 +367,12 @@ def getDIRACPlatform(OSList):
     if not (result["OK"] and result["Value"]):
         return S_ERROR("OS compatibility info not found")
 
-    platformsDict = {k: v.replace(" ", "").split(",") for k, v in result["Value"].items()}  # can be an iterator
-    for k, v in platformsDict.items():  # can be an iterator
+    platformsDict = {k: set(v.replace(" ", "").split(",")) for k, v in result["Value"].items()}
+    for k, v in platformsDict.items():
         if k not in v:
-            v.append(k)
+            v.add(k)
 
-    # making an OS -> platforms dict
-    os2PlatformDict = dict()
-    for platform, osItems in platformsDict.items():  # can be an iterator
-        for osItem in osItems:
-            if os2PlatformDict.get(osItem):
-                os2PlatformDict[osItem].append(platform)
-            else:
-                os2PlatformDict[osItem] = [platform]
-
-    platforms = []
-    for os in osList:
-        if os in os2PlatformDict:
-            platforms += os2PlatformDict[os]
-
-    if not platforms:
-        return S_ERROR(f"No compatible DIRAC platform found for {','.join(OSList)}")
-
-    platforms.sort(key=_platformSortKey, reverse=True)
-
-    return S_OK(platforms)
+    return _getDIRACPlatform(osList, platformsDict)
 
 
 def getDIRACPlatforms():
@@ -446,7 +434,7 @@ def getInfoAboutProviders(of=None, providerName=None, option="", section=""):
             result = gConfig.getConfigurationTree(relPath)
             if not result["OK"]:
                 return result
-            for key, value in result["Value"].items():  # can be an iterator
+            for key, value in result["Value"].items():
                 if value:
                     resDict[key.replace(relPath, "")] = value
             return S_OK(resDict)
@@ -454,201 +442,3 @@ def getInfoAboutProviders(of=None, providerName=None, option="", section=""):
             return gConfig.getSections(f"{gBaseResourcesSection}/{of}Providers/{providerName}/{section}/")
     else:
         return S_OK(gConfig.getValue(f"{gBaseResourcesSection}/{of}Providers/{providerName}/{section}/{option}"))
-
-
-def findGenericCloudCredentials(vo=False, group=False):
-    """Get the cloud credentials to use for a specific VO and/or group."""
-    if not group and not vo:
-        return S_ERROR("Need a group or a VO to determine the Generic cloud credentials")
-    if not vo:
-        vo = Registry.getVOForGroup(group)
-        if not vo:
-            return S_ERROR(f"Group {group} does not have a VO associated")
-    opsHelper = Operations.Operations(vo=vo)
-    cloudGroup = opsHelper.getValue("Cloud/GenericCloudGroup", "")
-    cloudDN = opsHelper.getValue("Cloud/GenericCloudDN", "")
-    if not cloudDN:
-        cloudUser = opsHelper.getValue("Cloud/GenericCloudUser", "")
-        if cloudUser:
-            result = Registry.getDNForUsername(cloudUser)
-            if result["OK"]:
-                cloudDN = result["Value"][0]
-            else:
-                return S_ERROR("Failed to find suitable CloudDN")
-    if cloudDN and cloudGroup:
-        gLogger.verbose(f"Cloud credentials from CS: {cloudDN}@{cloudGroup}")
-        result = gProxyManager.userHasProxy(cloudDN, cloudGroup, 86400)
-        if not result["OK"]:
-            return result
-        return S_OK((cloudDN, cloudGroup))
-    return S_ERROR("Cloud credentials not found")
-
-
-def getVMTypes(siteList=None, ceList=None, vmTypeList=None, vo=None):
-    """Get CE/vmType options filtered by the provided parameters."""
-
-    result = gConfig.getSections("/Resources/Sites")
-    if not result["OK"]:
-        return result
-
-    resultDict = {}
-
-    grids = result["Value"]
-    for grid in grids:
-        result = gConfig.getSections(f"/Resources/Sites/{grid}")
-        if not result["OK"]:
-            continue
-        sites = result["Value"]
-        for site in sites:
-            if siteList is not None and site not in siteList:
-                continue
-            if vo:
-                voList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/VO", [])
-                if voList and vo not in voList:
-                    continue
-            result = gConfig.getSections(f"/Resources/Sites/{grid}/{site}/Cloud")
-            if not result["OK"]:
-                continue
-            ces = result["Value"]
-            for ce in ces:
-                if ceList is not None and ce not in ceList:
-                    continue
-                if vo:
-                    voList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/VO", [])
-                    if voList and vo not in voList:
-                        continue
-                result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}")
-                if not result["OK"]:
-                    continue
-                ceOptionsDict = result["Value"]
-                result = gConfig.getSections(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/VMTypes")
-                if not result["OK"]:
-                    result = gConfig.getSections(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/Images")
-                    if not result["OK"]:
-                        return result
-                vmTypes = result["Value"]
-                for vmType in vmTypes:
-                    if vmTypeList is not None and vmType not in vmTypeList:
-                        continue
-                    if vo:
-                        voList = gConfig.getValue(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/VMTypes/{vmType}/VO", [])
-                        if not voList:
-                            voList = gConfig.getValue(
-                                f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/Images/{vmType}/VO", []
-                            )
-                        if voList and vo not in voList:
-                            continue
-                    resultDict.setdefault(site, {})
-                    resultDict[site].setdefault(ce, ceOptionsDict)
-                    resultDict[site][ce].setdefault("VMTypes", {})
-                    result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/VMTypes/{vmType}")
-                    if not result["OK"]:
-                        result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/Images/{vmType}")
-                        if not result["OK"]:
-                            continue
-                    vmTypeOptionsDict = result["Value"]
-                    resultDict[site][ce]["VMTypes"][vmType] = vmTypeOptionsDict
-
-    return S_OK(resultDict)
-
-
-def getVMTypeConfig(site, ce="", vmtype=""):
-    """Get the VM image type parameters of the specified queue"""
-    tags = []
-    reqtags = []
-    grid = site.split(".")[0]
-    if not ce:
-        result = gConfig.getSections(f"/Resources/Sites/{grid}/{site}/Cloud")
-        if not result["OK"]:
-            return result
-        ceList = result["Value"]
-        if len(ceList) == 1:
-            ce = ceList[0]
-        else:
-            return S_ERROR("No cloud endpoint specified")
-
-    result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}")
-    if not result["OK"]:
-        return result
-    resultDict = result["Value"]
-    ceTags = resultDict.get("Tag")
-    if ceTags:
-        tags = fromChar(ceTags)
-    ceTags = resultDict.get("RequiredTag")
-    if ceTags:
-        reqtags = fromChar(ceTags)
-    resultDict["CEName"] = ce
-
-    if vmtype:
-        result = gConfig.getOptionsDict(f"/Resources/Sites/{grid}/{site}/Cloud/{ce}/VMTypes/{vmtype}")
-        if not result["OK"]:
-            return result
-        resultDict.update(result["Value"])
-        queueTags = resultDict.get("Tag")
-        if queueTags:
-            queueTags = fromChar(queueTags)
-            tags = list(set(tags + queueTags))
-        queueTags = resultDict.get("RequiredTag")
-        if queueTags:
-            queueTags = fromChar(queueTags)
-            reqtags = list(set(reqtags + queueTags))
-
-    if tags:
-        resultDict["Tag"] = tags
-    if reqtags:
-        resultDict["RequiredTag"] = reqtags
-    resultDict["VMType"] = vmtype
-    resultDict["Site"] = site
-    return S_OK(resultDict)
-
-
-def getPilotBootstrapParameters(vo="", runningPod=""):
-    """Get all of the settings required to bootstrap a cloud instance."""
-    op = Operations.Operations(vo=vo)
-    result = op.getOptionsDict("Cloud")
-    opParameters = {}
-    if result["OK"]:
-        opParameters = result["Value"]
-    opParameters["VO"] = vo
-    # FIXME: The majority of these settings can be removed once the old vm-pilot
-    #        scripts have been removed.
-    opParameters["ReleaseProject"] = op.getValue("Cloud/ReleaseProject", "DIRAC")
-    opParameters["ReleaseVersion"] = op.getValue("Cloud/ReleaseVersion", op.getValue("Pilot/Version"))
-    opParameters["Setup"] = gConfig.getValue("/DIRAC/Setup", "unknown")
-    opParameters["SubmitPool"] = op.getValue("Cloud/SubmitPool")
-    opParameters["CloudPilotCert"] = op.getValue("Cloud/CloudPilotCert")
-    opParameters["CloudPilotKey"] = op.getValue("Cloud/CloudPilotKey")
-    opParameters["pilotFileServer"] = op.getValue("Pilot/pilotFileServer")
-    result = op.getOptionsDict(f"Cloud/{runningPod}")
-    if result["OK"]:
-        opParameters.update(result["Value"])
-
-    # Get standard pilot version now
-    if "Version" in opParameters:
-        gLogger.warn(
-            "Cloud bootstrap version now uses standard Pilot/Version setting. "
-            "Please remove all obsolete (Cloud/Version) setting(s)."
-        )
-    pilotVersions = op.getValue("Pilot/Version")
-    if isinstance(pilotVersions, str):
-        pilotVersions = [pilotVersions]
-    if not pilotVersions:
-        return S_ERROR("Failed to get pilot version.")
-    opParameters["Version"] = pilotVersions[0].strip()
-
-    return S_OK(opParameters)
-
-
-def _platformSortKey(version: str) -> list[str]:
-    # Loosely based on distutils.version.LooseVersion
-    parts = []
-    for part in re.split(r"(\d+|[a-z]+|\.| -)", version.lower()):
-        if not part or part == ".":
-            continue
-        if part[:1] in "0123456789":
-            part = part.zfill(8)
-        else:
-            while parts and parts[-1] == "00000000":
-                parts.pop()
-        parts.append(part)
-    return parts

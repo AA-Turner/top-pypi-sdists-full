@@ -1,26 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: postgrest
-Version: 1.1.1
+Version: 2.19.0
 Summary: PostgREST client for Python. This library provides an ORM interface to PostgREST.
-Home-page: https://github.com/supabase/postgrest-py
-License: MIT
-Author: Lương Quang Mạnh
-Author-email: luongquangmanh85@gmail.com
-Requires-Python: >=3.9,<4.0
+Author: Lương Quang Mạnh, Joel Lee, Anand, Oliver Rice, Andrew Smith
+Author-email: Lương Quang Mạnh <luongquangmanh85@gmail.com>, Joel Lee <joel@joellee.org>, Andrew Smith <a.smith@silentworks.co.uk>
+License-Expression: MIT
+Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: deprecation (>=2.1.0,<3.0.0)
-Requires-Dist: httpx[http2] (>=0.26,<0.29)
-Requires-Dist: pydantic (>=1.9,<3.0)
-Requires-Dist: strenum (>=0.4.9,<0.5.0) ; python_version < "3.11"
-Project-URL: Documentation, https://postgrest-py.rtfd.io
-Project-URL: Repository, https://github.com/supabase/postgrest-py
+Requires-Dist: httpx[http2]>=0.26,<0.29
+Requires-Dist: deprecation>=2.1.0
+Requires-Dist: pydantic>=1.9,<3.0
+Requires-Dist: strenum>=0.4.9 ; python_full_version < '3.11'
+Maintainer: Leonardo Santiago
+Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
+Requires-Python: >=3.9
+Project-URL: documentation, https://postgrest-py.rtfd.io
+Project-URL: homepage, https://github.com/supabase/supabase/tree/main/src/postgrest
+Project-URL: repository, https://github.com/supabase/supabase-py
 Description-Content-Type: text/markdown
 
 # postgrest-py
@@ -47,10 +44,10 @@ Once Docker Compose started, PostgREST is accessible at <http://localhost:3000>.
 
 ### Instructions
 
-#### With Poetry (recommended)
+#### With uv (recommended)
 
 ```sh
-poetry add postgrest
+uv add postgrest
 ```
 
 #### With Pip
@@ -107,21 +104,6 @@ await client.from_("countries").delete().eq("name", "Việt Nam").execute()
 await client.rpc("foobar", {"arg1": "value1", "arg2": "value2"}).execute()
 ```
 
-## DEVELOPMENT
-
-```sh
-git clone https://github.com/supabase/postgrest-py.git
-cd postgrest-py
-poetry install
-poetry run pre-commit install
-```
-
-### Testing
-
-```sh
-poetry run pytest
-```
-
 ## CHANGELOG
 
 Read more [here](https://github.com/supabase/postgrest-py/blob/main/CHANGELOG.md).
@@ -132,4 +114,3 @@ We are building the features of Firebase using enterprise-grade, open source pro
 
 [![Worklife VC](https://user-images.githubusercontent.com/10214025/90451355-34d71200-e11e-11ea-81f9-1592fd1e9146.png)](https://www.worklife.vc)
 [![New Sponsor](https://user-images.githubusercontent.com/10214025/90518111-e74bbb00-e198-11ea-8f88-c9e3c1aa4b5b.png)](https://github.com/sponsors/supabase)
-

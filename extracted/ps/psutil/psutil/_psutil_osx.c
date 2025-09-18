@@ -11,17 +11,9 @@
 #include <sys/proc.h>
 #include <netinet/tcp_fsm.h>
 
-#include "_psutil_common.h"
-#include "arch/osx/cpu.h"
-#include "arch/osx/disk.h"
-#include "arch/osx/mem.h"
-#include "arch/osx/net.h"
-#include "arch/osx/proc.h"
-#include "arch/osx/sensors.h"
-#include "arch/osx/sys.h"
+#include "arch/all/init.h"
+#include "arch/osx/init.h"
 
-
-#define INITERR return NULL
 
 static PyMethodDef mod_methods[] = {
     // --- per-process functions
@@ -48,12 +40,12 @@ static PyMethodDef mod_methods[] = {
     {"disk_io_counters", psutil_disk_io_counters, METH_VARARGS},
     {"disk_partitions", psutil_disk_partitions, METH_VARARGS},
     {"disk_usage_used", psutil_disk_usage_used, METH_VARARGS},
+    {"has_cpu_freq", psutil_has_cpu_freq, METH_VARARGS},
     {"net_io_counters", psutil_net_io_counters, METH_VARARGS},
     {"per_cpu_times", psutil_per_cpu_times, METH_VARARGS},
     {"pids", psutil_pids, METH_VARARGS},
     {"sensors_battery", psutil_sensors_battery, METH_VARARGS},
     {"swap_mem", psutil_swap_mem, METH_VARARGS},
-    {"users", psutil_users, METH_VARARGS},
     {"virtual_mem", psutil_virtual_mem, METH_VARARGS},
 
     // --- others
@@ -81,56 +73,57 @@ PyObject *
 PyInit__psutil_osx(void) {
     PyObject *mod = PyModule_Create(&moduledef);
     if (mod == NULL)
-        INITERR;
+        return NULL;
 
 #ifdef Py_GIL_DISABLED
-    PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED);
+    if (PyUnstable_Module_SetGIL(mod, Py_MOD_GIL_NOT_USED))
+        return NULL;
 #endif
 
     if (psutil_setup() != 0)
-        INITERR;
+        return NULL;
+    if (psutil_setup_osx() != 0)
+        return NULL;
 
     if (PyModule_AddIntConstant(mod, "version", PSUTIL_VERSION))
-        INITERR;
+        return NULL;
     // process status constants, defined in:
     // http://fxr.watson.org/fxr/source/bsd/sys/proc.h?v=xnu-792.6.70#L149
     if (PyModule_AddIntConstant(mod, "SIDL", SIDL))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "SRUN", SRUN))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "SSLEEP", SSLEEP))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "SSTOP", SSTOP))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "SZOMB", SZOMB))
-        INITERR;
+        return NULL;
     // connection status constants
     if (PyModule_AddIntConstant(mod, "TCPS_CLOSED", TCPS_CLOSED))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_CLOSING", TCPS_CLOSING))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_CLOSE_WAIT", TCPS_CLOSE_WAIT))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_LISTEN", TCPS_LISTEN))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_ESTABLISHED", TCPS_ESTABLISHED))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_SYN_SENT", TCPS_SYN_SENT))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_SYN_RECEIVED", TCPS_SYN_RECEIVED))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_FIN_WAIT_1", TCPS_FIN_WAIT_1))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_FIN_WAIT_2", TCPS_FIN_WAIT_2))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_LAST_ACK", TCPS_LAST_ACK))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "TCPS_TIME_WAIT", TCPS_TIME_WAIT))
-        INITERR;
+        return NULL;
     if (PyModule_AddIntConstant(mod, "PSUTIL_CONN_NONE", PSUTIL_CONN_NONE))
-        INITERR;
+        return NULL;
 
-    if (mod == NULL)
-        INITERR;
     return mod;
 }

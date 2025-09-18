@@ -1,7 +1,7 @@
 r'''
 # `datadog_incident_type`
 
-Refer to the Terraform Registry for docs: [`datadog_incident_type`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type).
+Refer to the Terraform Registry for docs: [`datadog_incident_type`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IncidentType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.incidentType.IncidentType",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type datadog_incident_type}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type datadog_incident_type}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class IncidentType(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type datadog_incident_type} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type datadog_incident_type} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the incident type. Must be between 1 and 50 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#name IncidentType#name}
-        :param description: Description of the incident type. The description can have a maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#description IncidentType#description}
-        :param is_default: Whether this incident type is the default type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#is_default IncidentType#is_default}
+        :param name: Name of the incident type. Must be between 1 and 50 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#name IncidentType#name}
+        :param description: Description of the incident type. The description can have a maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#description IncidentType#description}
+        :param is_default: Whether this incident type is the default type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#is_default IncidentType#is_default}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class IncidentType(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IncidentType to import.
-        :param import_from_id: The id of the existing IncidentType that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IncidentType that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IncidentType to import is found.
         '''
         if __debug__:
@@ -242,9 +242,9 @@ class IncidentTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the incident type. Must be between 1 and 50 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#name IncidentType#name}
-        :param description: Description of the incident type. The description can have a maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#description IncidentType#description}
-        :param is_default: Whether this incident type is the default type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#is_default IncidentType#is_default}
+        :param name: Name of the incident type. Must be between 1 and 50 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#name IncidentType#name}
+        :param description: Description of the incident type. The description can have a maximum of 512 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#description IncidentType#description}
+        :param is_default: Whether this incident type is the default type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#is_default IncidentType#is_default}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -350,7 +350,7 @@ class IncidentTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of the incident type. Must be between 1 and 50 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#name IncidentType#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#name IncidentType#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -360,7 +360,7 @@ class IncidentTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the incident type. The description can have a maximum of 512 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#description IncidentType#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#description IncidentType#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -371,7 +371,7 @@ class IncidentTypeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this incident type is the default type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/incident_type#is_default IncidentType#is_default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/incident_type#is_default IncidentType#is_default}
         '''
         result = self._values.get("is_default")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="grab",
-    version="1.0.1",
+    version="1.1.0",
     packages=[
         "grab",
         "grab.script",
@@ -21,6 +21,7 @@ setup(
         'pycurl;platform_system != "Windows" or python_version >= "3.13"',
         "defusedxml",
         'typing-extensions; python_version <= "2.7"',
+        "unicodec>=0.2.0",
     ],
     extras_require={
         "full": [  # deprecated

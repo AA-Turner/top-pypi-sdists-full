@@ -2,10 +2,10 @@
 requesting new tokens for DIRAC components that have the appropriate permissions.
 
 .. literalinclude:: ../ConfigTemplate.cfg
-    :start-after: ##BEGIN TokenManager:
+    :start-after: ##BEGIN TornadoTokenManager:
     :end-before: ##END
     :dedent: 2
-    :caption: TokenManager options
+    :caption: TornadoTokenManager options
 
 The most common use of this service is to obtain tokens with certain scope to return to the user for its purposes,
 or to provide to the DIRAC service to perform asynchronous tasks on behalf of the user.
@@ -24,6 +24,13 @@ After that you need to update. The client can update it independently if on the 
 Otherwise, the client makes an RPC call to the **TornadoManager** service.
 The ``refresh token`` from :py:class:`TokenDB <DIRAC.FrameworkSystem.DB.TokenDB.TokenDB>`
 is taken and the **exchange token** request to Identity Provider is made.
+
+
+.. literalinclude:: ../ConfigTemplate.cfg
+    :start-after: ##BEGIN TornadoTokenManager:
+    :end-before: ##END
+    :dedent: 2
+    :caption: TornadoTokenManager options
 """
 
 from DIRAC.Core.Tornado.Server.TornadoService import TornadoService

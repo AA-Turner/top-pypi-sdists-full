@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyodps
-Version: 0.12.4.1
+Version: 0.12.5
 Summary: ODPS Python SDK and data analysis framework
 Home-page: http://github.com/aliyun/aliyun-odps-python-sdk
 Author: Wu Wei
@@ -61,16 +61,16 @@ Or from source code (not recommended for production use):
 Dependencies
 ------------
 
--  Python (>=2.7), including Python 3+, pypy, Python 3.7 recommended
--  setuptools (>=3.0)
+- Python (>=2.7), including Python 3+, pypy, Python 3.7 recommended
+- setuptools (>=3.0)
 
 Run Tests
 ---------
 
--  install pytest
--  copy conf/test.conf.template to odps/tests/test.conf, and fill it
-   with your account
--  run ``pytest odps``
+- install pytest
+- copy conf/test.conf.template to odps/tests/test.conf, and fill it with
+  your account
+- run ``pytest odps``
 
 Usage
 -----

@@ -1,25 +1,25 @@
 #!/usr/bin/env python
-import os.path
-import re
-import uuid
-import stat
-import json
-import random
 import glob
+import json
+import os.path
+import random
+import re
+import stat
 import time
-from configparser import ConfigParser, NoSectionError, NoOptionError
+import uuid
+from configparser import ConfigParser, NoOptionError, NoSectionError
 
 import DIRAC
 import DIRAC.Core.Security.ProxyInfo as ProxyInfo
 import DIRAC.FrameworkSystem.Client.ProxyGeneration as ProxyGeneration
-from DIRAC import S_OK, S_ERROR, gConfig, gLogger
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.Core.Security import VOMS, Locations
+from DIRAC.Core.Security.DiracX import addTokenToPEM
 from DIRAC.Core.Security.Locations import getCAsLocation
-from DIRAC.Core.Security import Locations, VOMS
 from DIRAC.Core.Utilities.PrettyPrint import printTable
 from DIRAC.FrameworkSystem.Client.BundleDeliveryClient import BundleDeliveryClient
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Resources.Catalog.FileCatalog import FileCatalog
-
 
 # -----------------------------
 # Proxy manipulation functions
@@ -157,10 +157,10 @@ class DConfig:
             os.mkdir(self.configDir)
             os.chmod(self.configDir, stat.S_IRWXU)
         elif not os.path.isdir(self.configDir):
-            print(f'Error: "{self.configDir}" config dir is not a directory')
+            gLogger.error(f'"{self.configDir}" config dir is not a directory')
             DIRAC.exit(-1)
         elif not os.stat(self.configDir).st_mode != stat.S_IRWXU:
-            print(f'Error: "{self.configDir}" config dir doesn\'t have correct permissions')
+            gLogger.error(f'"{self.configDir}" config dir doesn\'t have correct permissions')
             DIRAC.exit(-1)
         if os.path.isfile(self.configPath):
             self.config.read(self.configPath)
@@ -292,24 +292,44 @@ class DSession(DConfig):
         return cls.sessionFilePrefix() + ".%d" % (pid,)
 
     def __init__(self, profileName=None, config=None, sessionDir=None, pid=None):
-        self.origin = config or DConfig()
+        if not config:
+            config = DConfig()
+
+        if not profileName:
+            proxyPath = _getProxyLocation()
+            if not proxyPath:
+                gLogger.error("No proxy found")
+                return None
+
+            retVal = _getProxyInfo(proxyPath)
+            if not retVal["OK"]:
+                raise Exception(retVal["Message"])
+            proxyInfo = retVal["Value"]
+            groupName = proxyInfo.get("group")
+            sections = config.sections()
+            for s in sections:
+                if config.has(s, "group_name") and config.get(s, "group_name")["Value"] == groupName:
+                    profileName = s
+                    break
+            if not profileName:
+                if not groupName:
+                    raise Exception("cannot guess profile defaults without a DIRAC group in Proxy")
+                profileName = "__guessed_profile__"
+                userName = proxyInfo.get("username")
+                gLogger.warn(f"No config section found for {groupName}, using default profile.")
+                guessConfigFromCS(config, profileName, userName, groupName)
+
+        self.origin = config
         modified = self.origin.fillMinimal()
         if modified:
             self.origin.write()
 
         self.pid = pid
         if not self.pid:
-            if "DCOMMANDS_PPID" in os.environ:
-                self.pid = int(os.environ["DCOMMANDS_PPID"])
-            else:
-                self.pid = os.getppid()
+            self.pid = os.getppid()
 
         if not sessionDir:
-            var = "DCOMMANDS_SESSION_DIR"
-            if var in os.environ:
-                sessionDir = os.environ[var]
-            else:
-                sessionDir = self.origin.configDir
+            sessionDir = self.origin.configDir
 
         super().__init__(sessionDir, self.sessionFilename(self.pid))
 
@@ -319,7 +339,7 @@ class DSession(DConfig):
         profileName = profileName or oldProfileName or self.origin.defaultProfile()
         retVal = self.origin.sectionAliasName(profileName)
         if not retVal["OK"]:
-            print("Error:", retVal["Message"])
+            gLogger.error(retVal["Message"])
             DIRAC.exit(-1)
         self.profileName = retVal["Value"]
 
@@ -458,11 +478,9 @@ class DSession(DConfig):
         gLogger.notice("Your CRLs appear to be outdated; attempting to update them...")
         bdc = BundleDeliveryClient()
         res = bdc.syncCAs()
-        print(res)
         if not res["OK"]:
             gLogger.error("Failed to update CAs", res["Message"])
         res = bdc.syncCRLs()
-        print(res)
         if not res["OK"]:
             gLogger.error("Failed to update CRLs", res["Message"])
         # Continue even if the update failed...
@@ -477,15 +495,20 @@ class DSession(DConfig):
         params.diracGroup = retVal["Value"]
 
         result = ProxyGeneration.generateProxy(params)
-
         if not result["OK"]:
             raise Exception(result["Message"])
+        filename = result["Value"]
+
         self.checkCAs()
+
         try:
-            self.addVomsExt(result["Value"])
+            self.addVomsExt(filename)
         except:
             # silently skip VOMS errors
             pass
+
+        if not (result := addTokenToPEM(filename, params.diracGroup))["OK"]:  # pylint: disable=unsubscriptable-object
+            raise Exception(result["Message"])  # pylint: disable=unsubscriptable-object
 
     def addVomsExt(self, proxy):
         retVal = self.getEnv("group_name")
@@ -505,16 +528,6 @@ class DSession(DConfig):
 
         chain = result["Value"]
         chain.dumpAllToFile(proxy)
-
-    def checkProxyOrInit(self):
-        create = False
-        try:
-            create = not self.proxyIsValid()
-        except:
-            create = True
-
-        if create:
-            self.proxyInit()
 
     def getUserName(self):
         proxyPath = _getProxyLocation()
@@ -575,61 +588,6 @@ def guessConfigFromCS(config, section, userName, groupName):
             if defaultSESite:
                 # write to config
                 config.set(section, "default_se", defaultSESite)
-
-
-def sessionFromProxy(config=DConfig(), sessionDir=None):
-    proxyPath = _getProxyLocation()
-    if not proxyPath:
-        print("No proxy found")
-        return None
-
-    retVal = _getProxyInfo(proxyPath)
-    if not retVal["OK"]:
-        raise Exception(retVal["Message"])
-
-    pi = retVal["Value"]
-    try:
-        groupName = pi["group"]
-    except KeyError:
-        groupName = None
-
-    sections = config.sections()
-    match = None
-
-    for s in sections:
-        if config.has(s, "group_name") and config.get(s, "group_name")["Value"] == groupName:
-            match = s
-            break
-
-    if not match:
-        if not groupName:
-            raise Exception("cannot guess profile defaults without a DIRAC group in Proxy")
-
-        match = "__guessed_profile__"
-        userName = pi["username"]
-        guessConfigFromCS(config, match, userName, groupName)
-
-    session = DSession(match, config, sessionDir=sessionDir)
-
-    # force copy of config profile options to environment
-    session.copyProfile()
-
-    return session
-
-
-def getDNFromProxy():
-    proxyPath = _getProxyLocation()
-    if not proxyPath:
-        print("No proxy found")
-        return None
-
-    retVal = _getProxyInfo(proxyPath)
-    if not retVal["OK"]:
-        return retVal
-
-    pi = retVal["Value"]
-
-    return S_OK(pi["identity"])
 
 
 # -------------------------

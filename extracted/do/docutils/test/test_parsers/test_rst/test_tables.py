@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_tables.py 9906 2024-08-15 08:43:38Z grubert $
+# $Id: test_tables.py 10208 2025-08-19 18:37:49Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -28,6 +28,8 @@ TEST_ROOT = os.path.abspath(os.path.join(__file__, '..', '..', '..'))
 
 
 class ParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)
@@ -84,18 +86,87 @@ totest['grid_tables'] = [
 """],
 ["""\
 +-----------------------+
-| A malformed table. |
+| A misaligned table. |
++-----------------------+
+
++-----------------------+
+| Right border missing.
 +-----------------------+
 """,
 """\
 <document source="test data">
-    <system_message level="3" line="1" source="test data" type="ERROR">
+    <system_message level="3" line="2" source="test data" type="ERROR">
         <paragraph>
             Malformed table.
+            Right border not aligned or missing.
         <literal_block xml:space="preserve">
             +-----------------------+
-            | A malformed table. |
+            | A misaligned table. |
             +-----------------------+
+    <system_message level="3" line="6" source="test data" type="ERROR">
+        <paragraph>
+            Malformed table.
+            Right border not aligned or missing.
+        <literal_block xml:space="preserve">
+            +-----------------------+
+            | Right border missing.
+            +-----------------------+
+"""],
+["""\
++-------------------------+
+| A table with one cell   |
+| and missing bottom.     |
+""",
+"""\
+<document source="test data">
+    <system_message level="3" line="3" source="test data" type="ERROR">
+        <paragraph>
+            Malformed table.
+            Bottom border missing or corrupt.
+        <literal_block xml:space="preserve">
+            +-------------------------+
+            | A table with one cell   |
+            | and missing bottom.     |
+"""],
+["""\
++-------------------------+
+| A table with one cell   |
+| and corrupt bottom.     |
++------------------------ +
+""",
+"""\
+<document source="test data">
+    <system_message level="3" line="3" source="test data" type="ERROR">
+        <paragraph>
+            Malformed table.
+            Bottom border missing or corrupt.
+        <literal_block xml:space="preserve">
+            +-------------------------+
+            | A table with one cell   |
+            | and corrupt bottom.     |
+            +------------------------ +
+"""],
+["""\
++-------------------------+
+| A table with one cell   |
+| and corrupt bottom.     |
+--------------------------+
+""",
+"""\
+<document source="test data">
+    <system_message level="3" line="4" source="test data" type="ERROR">
+        <paragraph>
+            Malformed table.
+            Bottom border missing or corrupt.
+        <literal_block xml:space="preserve">
+            +-------------------------+
+            | A table with one cell   |
+            | and corrupt bottom.     |
+    <system_message level="2" line="4" source="test data" type="WARNING">
+        <paragraph>
+            Blank line required after table.
+    <paragraph>
+        --------------------------+
 """],
 ["""\
 +------------------------+
@@ -882,9 +953,9 @@ no bottom       border
 ["""\
 ==============  ======
 A simple table  cell 2
-cell 3          cell 4
 ==============  ======
-No blank line after table.
+this could be   cell content
+or text after   the table
 """,
 """\
 <document source="test data">
@@ -895,13 +966,13 @@ No blank line after table.
         <literal_block xml:space="preserve">
             ==============  ======
             A simple table  cell 2
-            cell 3          cell 4
             ==============  ======
-    <system_message level="2" line="5" source="test data" type="WARNING">
+    <system_message level="2" line="4" source="test data" type="WARNING">
         <paragraph>
             Blank line required after table.
     <paragraph>
-        No blank line after table.
+        this could be   cell content
+        or text after   the table
 """],
 ["""\
 ==============  ======
@@ -1115,10 +1186,10 @@ cell 3          the bottom border below is too long
 """,
 """\
 <document source="test data">
-    <system_message level="3" line="1" source="test data" type="ERROR">
+    <system_message level="3" line="4" source="test data" type="ERROR">
         <paragraph>
             Malformed table.
-            Bottom/header table border does not match top border.
+            Bottom border or header rule does not match top border.
         <literal_block xml:space="preserve">
             ==============  ======
             A simple table  this text extends to the right
@@ -1269,14 +1340,14 @@ A table with  many row separators.
                         <paragraph>
                             1
                     <entry>
-                        <system_message level="4" line="19" source="test data" type="SEVERE">
+                        <system_message level="3" line="19" source="test data" type="ERROR">
                             <paragraph>
                                 Unexpected section title.
                             <literal_block xml:space="preserve">
                                 Not a span
                                 -----------
                     <entry>
-                        <system_message level="4" line="19" source="test data" type="SEVERE">
+                        <system_message level="3" line="19" source="test data" type="ERROR">
                             <paragraph>
                                 Unexpected section title.
                             <literal_block xml:space="preserve">

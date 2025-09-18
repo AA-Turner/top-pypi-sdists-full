@@ -12,6 +12,7 @@ from chalk.config.project_config import ProjectSettings, load_project_config
 from chalk.features import FeatureSetBase
 from chalk.features.resolver import RESOLVER_REGISTRY
 from chalk.importer import CHALK_IMPORTER, FailedImport
+from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
 from chalk.parsed._graph_validation import validate_graph
 from chalk.parsed.duplicate_input_gql import (
     ChalkPYInfo,
@@ -26,6 +27,7 @@ from chalk.parsed.duplicate_input_gql import (
     ResolverSettings,
     UpsertCronQueryGQL,
     UpsertGraphGQL,
+    UpsertModelReferenceGQL,
     UpsertNamedQueryGQL,
     UpsertResolverGQL,
     UpsertSinkResolverGQL,
@@ -171,6 +173,14 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
             except Exception as e:
                 failed.append(build_failed_import(e, f"named query '{named_query.name}'"))
 
+    model_references: list[UpsertModelReferenceGQL] = []
+    for model_reference in MODEL_REFERENCE_REGISTRY.values():
+        if model_reference.filename is None or _is_relative_to(Path(model_reference.filename), scope_to):
+            try:
+                model_references.append(convert_type_to_gql(model_reference, path_prefix=path_prefix_to_remove))
+            except Exception as e:
+                failed.append(build_failed_import(e, f"model reference '{model_reference.name}'"))
+
     charts: list[CreateChartGQL] = []
     for chart in Chart.registry:
         try:
@@ -191,6 +201,7 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
         resolvers=resolvers,
         cronQueries=cron_queries,
         namedQueries=named_queries,
+        modelReferences=model_references,
         charts=charts,
         chalkpy=ChalkPYInfo(
             version=__version__,

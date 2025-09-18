@@ -7,26 +7,22 @@
   :dedent: 2
   :caption: SandboxStore options
 """
-
-import os
-import time
-import threading
-import tempfile
 import hashlib
+import os
+import tempfile
+import threading
+import time
 
-from DIRAC import gLogger, S_OK, S_ERROR
+import requests
+from diracx.client.models import SandboxInfo
+
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Core.DISET.RequestHandler import RequestHandler
-from DIRAC.Core.Security import Locations, Properties, X509Certificate
-from DIRAC.Core.Utilities.File import mkDir
+from DIRAC.Core.Security import Properties
+from DIRAC.Core.Utilities.File import getGlobbedTotalSize, mkDir
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
-from DIRAC.DataManagementSystem.Client.DataManager import DataManager
-from DIRAC.DataManagementSystem.Service.StorageElementHandler import getDiskSpace
-from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
-from DIRAC.RequestManagementSystem.Client.Request import Request
-from DIRAC.RequestManagementSystem.Client.Operation import Operation
-from DIRAC.RequestManagementSystem.Client.File import File
-from DIRAC.Resources.Storage.StorageElement import StorageElement
-from DIRAC.Core.Utilities.File import getGlobbedTotalSize
+from DIRAC.FrameworkSystem.Utilities.diracx import TheImpersonator
 
 
 class SandboxStoreHandlerMixin:
@@ -48,33 +44,24 @@ class SandboxStoreHandlerMixin:
         return S_OK()
 
     def initializeRequest(self):
-        self.__backend = self.getCSOption("Backend", "local")
         self.__localSEName = self.getCSOption("LocalSE", "SandboxSE")
+        self._useDiracXBackend = self.getCSOption("UseDiracXBackend", False)
         self._maxUploadBytes = self.getCSOption("MaxSandboxSizeMiB", 10) * 1048576
-        if self.__backend.lower() == "local" or self.__backend == self.__localSEName:
-            self.__useLocalStorage = True
-            self.__seNameToUse = self.__localSEName
-        else:
-            self.__useLocalStorage = False
-            self.__externalSEName = self.__backend
-            self.__seNameToUse = self.__backend
         # Execute the purge once every 1000 calls
         SandboxStoreHandler.__purgeCount += 1
-        if SandboxStoreHandler.__purgeCount > self.getCSOption("QueriesBeforePurge", 1000):
+        if SandboxStoreHandler.__purgeCount > 1000:
             SandboxStoreHandler.__purgeCount = 0
         if SandboxStoreHandler.__purgeCount == 0:
             threading.Thread(target=self.purgeUnusedSandboxes).start()
 
     def __getSandboxPath(self, md5):
         """Generate the sandbox path"""
-        # prefix = self.getCSOption( "SandboxPrefix", "SandBox" )
-        prefix = "SandBox"
         credDict = self.getRemoteCredentials()
         if Properties.JOB_SHARING in credDict["properties"]:
             idField = credDict["group"]
         else:
             idField = f"{credDict['username']}.{credDict['group']}"
-        pathItems = ["/", prefix, idField[0], idField]
+        pathItems = ["/", "SandBox", idField[0], idField]
         pathItems.extend([md5[0:3], md5[3:6], md5])
         return os.path.join(*pathItems)
 
@@ -107,29 +94,71 @@ class SandboxStoreHandlerMixin:
         gLogger.info("Upload requested", f"for {aHash} [{extension}]")
 
         credDict = self.getRemoteCredentials()
-        sbPath = self.__getSandboxPath(f"{aHash}.{extension}")
-        # Generate the location
-        result = self.__generateLocation(sbPath)
-        if not result["OK"]:
-            return result
-        seName, sePFN = result["Value"]
+        vo = credDict.get("VO", Registry.getVOForGroup(credDict["group"]))
 
-        result = self.sandboxDB.getSandboxId(seName, sePFN, credDict["username"], credDict["group"])
+        disabledVOs = gConfig.getValue("/DiracX/DisabledVOs", [])
+        if self._useDiracXBackend and vo not in disabledVOs:
+            gLogger.info("Forwarding to DiracX")
+            with tempfile.TemporaryFile(mode="w+b") as tar_fh:
+                result = fileHelper.networkToDataSink(tar_fh, maxFileSize=self._maxUploadBytes)
+                if not result["OK"]:
+                    return result
+                tar_fh.seek(0)
+
+                hasher = hashlib.sha256()
+                while data := tar_fh.read(512 * 1024):
+                    hasher.update(data)
+                checksum = hasher.hexdigest()
+                tar_fh.seek(0)
+                gLogger.debug("Sandbox checksum is", checksum)
+
+                sandbox_info = SandboxInfo(
+                    checksum_algorithm="sha256",
+                    checksum=checksum,
+                    size=os.stat(tar_fh.fileno()).st_size,
+                    format=extension,
+                )
+
+                with TheImpersonator(credDict, source="SandboxStore") as client:
+                    res = client.jobs.initiate_sandbox_upload(sandbox_info)
+
+                if res.url:
+                    gLogger.debug("Uploading sandbox for", res.pfn)
+                    files = {"file": ("file", tar_fh)}
+
+                    response = requests.post(res.url, data=res.fields, files=files, timeout=300)
+
+                    gLogger.debug("Sandbox uploaded", f"for {res.pfn} with status code {response.status_code}")
+                    # TODO: Handle this error better
+                    try:
+                        response.raise_for_status()
+                    except Exception as e:
+                        return S_ERROR("Error uploading sandbox", repr(e))
+                else:
+                    gLogger.debug("Sandbox already exists in storage backend", res.pfn)
+
+                assignTo = {key: [(res.pfn, assignTo[key])] for key in assignTo}
+                result = self.sandboxDB.assignSandboxesToEntities(assignTo, credDict["username"], credDict["group"])
+                if not result["OK"]:
+                    return result
+                return S_OK(res.pfn)
+
+        sbPath = self.__getSandboxPath(f"{aHash}.{extension}")
+
+        result = self.sandboxDB.getSandboxId(self.__localSEName, sbPath, credDict["username"], credDict["group"])
         if result["OK"]:
             gLogger.info("Sandbox already exists. Skipping upload")
             if fileHelper:
                 fileHelper.markAsTransferred()
-            sbURL = f"SB:{seName}|{sePFN}"
+            sbURL = f"SB:{self.__localSEName}|{sbPath}"
             assignTo = {key: [(sbURL, assignTo[key])] for key in assignTo}
-            result = self.export_assignSandboxesToEntities(assignTo)
+            result = self.sandboxDB.assignSandboxesToEntities(assignTo, credDict["username"], credDict["group"])
             if not result["OK"]:
                 return result
             return S_OK(sbURL)
 
-        if self.__useLocalStorage:
-            hdPath = self.__sbToHDPath(sbPath)
-        else:
-            hdPath = False
+        hdPath = self.__sbToHDPath(sbPath)
+
         # Write to local file
 
         if fileHelper:
@@ -163,22 +192,14 @@ class SandboxStoreHandlerMixin:
             self.__secureUnlinkFile(hdPath)
             gLogger.error("Hashes don't match! Client defined hash is different with received data hash!")
             return S_ERROR("Hashes don't match!")
-        # If using remote storage, copy there!
-        if not self.__useLocalStorage:
-            gLogger.info("Uploading sandbox to external storage")
-            result = self.__copyToExternalSE(hdPath, sbPath)
-            self.__secureUnlinkFile(hdPath)
-            if not result["OK"]:
-                return result
-            sbPath = result["Value"][1]
         # Register!
-        gLogger.info("Registering sandbox in the DB with", f"SB:{self.__seNameToUse}|{sbPath}")
+        gLogger.info("Registering sandbox in the DB with", f"SB:{self.__localSEName}|{sbPath}")
         fSize = getGlobbedTotalSize(hdPath)
         result = self.sandboxDB.registerAndGetSandbox(
             credDict["username"],
-            credDict["DN"],
             credDict["group"],
-            self.__seNameToUse,
+            vo,
+            self.__localSEName,
             sbPath,
             fSize,
         )
@@ -186,10 +207,11 @@ class SandboxStoreHandlerMixin:
             self.__secureUnlinkFile(hdPath)
             return result
 
-        sbURL = f"SB:{self.__seNameToUse}|{sbPath}"
+        sbURL = f"SB:{self.__localSEName}|{sbPath}"
         assignTo = {key: [(sbURL, assignTo[key])] for key in assignTo}
-        result = self.export_assignSandboxesToEntities(assignTo)
-        if not result["OK"]:
+        if not (result := self.sandboxDB.assignSandboxesToEntities(assignTo, credDict["username"], credDict["group"]))[
+            "OK"
+        ]:
             return result
         return S_OK(sbURL)
 
@@ -213,19 +235,20 @@ class SandboxStoreHandlerMixin:
         extension = fileId[fileId.find(".tar") + 1 :]
         sbPath = f"{self.__getSandboxPath(fileHelper.getHash())}.{extension}"
         gLogger.info("Sandbox path will be", sbPath)
-        # Generate the location
-        result = self.__generateLocation(sbPath)
-        if not result["OK"]:
-            return result
-        seName, sePFN = result["Value"]
         # Register in DB
         credDict = self.getRemoteCredentials()
-        result = self.sandboxDB.getSandboxId(seName, sePFN, credDict["username"], credDict["group"])
+        vo = credDict.get("VO", Registry.getVOForGroup(credDict["group"]))
+        result = self.sandboxDB.getSandboxId(self.__localSEName, sbPath, credDict["username"], credDict["group"])
         if result["OK"]:
-            return S_OK(f"SB:{seName}|{sePFN}")
+            return S_OK(f"SB:{self.__localSEName}|{sbPath}")
 
         result = self.sandboxDB.registerAndGetSandbox(
-            credDict["username"], credDict["DN"], credDict["group"], seName, sePFN, fileHelper.getTransferedBytes()
+            credDict["username"],
+            credDict["group"],
+            vo,
+            self.__localSEName,
+            sbPath,
+            fileHelper.getTransferedBytes(),
         )
         if not result["OK"]:
             self.__secureUnlinkFile(tmpFilePath)
@@ -243,28 +266,7 @@ class SandboxStoreHandlerMixin:
 
         # Unlink temporal file if it's there
         self.__secureUnlinkFile(tmpFilePath)
-        return S_OK(f"SB:{seName}|{sePFN}")
-
-    def __generateLocation(self, sbPath):
-        """
-        Generate the location string
-        """
-        if self.__useLocalStorage:
-            return S_OK((self.__localSEName, sbPath))
-        # It's external storage
-        storageElement = StorageElement(self.__externalSEName)
-        res = storageElement.isValid()
-        if not res["OK"]:
-            errStr = "Failed to instantiate destination StorageElement"
-            gLogger.error(errStr, self.__externalSEName)
-            return S_ERROR(errStr)
-        result = storageElement.getURL(sbPath)
-        if not result["OK"] or sbPath not in result["Value"]["Successful"]:
-            errStr = "Failed to generate PFN"
-            gLogger.error(errStr, self.__externalSEName)
-            return S_ERROR(errStr)
-        destPfn = result["Value"]["Successful"][sbPath]
-        return S_OK((self.__externalSEName, destPfn))
+        return S_OK(f"SB:{self.__localSEName}|{sbPath}")
 
     def __sbToHDPath(self, sbPath):
         while sbPath and sbPath[0] == "/":
@@ -311,92 +313,34 @@ class SandboxStoreHandlerMixin:
         return True
 
     def __moveToFinalLocation(self, localFilePath, sbPath):
-        if self.__useLocalStorage:
-            hdFilePath = self.__sbToHDPath(sbPath)
-            result = S_OK((self.__localSEName, sbPath))
-            if os.path.isfile(hdFilePath):
-                gLogger.info("There was already a sandbox with that name, skipping copy", sbPath)
-            else:
-                hdDirPath = os.path.dirname(hdFilePath)
-                mkDir(hdDirPath)
-                try:
-                    os.rename(localFilePath, hdFilePath)
-                except OSError as e:
-                    errMsg = "Cannot move temporal file to final path"
-                    gLogger.error(errMsg, repr(e).replace(",)", ")"))
-                    result = S_ERROR(errMsg)
+        hdFilePath = self.__sbToHDPath(sbPath)
+        result = S_OK((self.__localSEName, sbPath))
+        if os.path.isfile(hdFilePath):
+            gLogger.info("There was already a sandbox with that name, skipping copy", sbPath)
         else:
-            result = self.__copyToExternalSE(localFilePath, sbPath)
+            hdDirPath = os.path.dirname(hdFilePath)
+            mkDir(hdDirPath)
+            try:
+                os.rename(localFilePath, hdFilePath)
+            except OSError as e:
+                errMsg = "Cannot move temporal file to final path"
+                gLogger.error(errMsg, repr(e).replace(",)", ")"))
+                result = S_ERROR(errMsg)
 
         return result
-
-    def __copyToExternalSE(self, localFilePath, sbPath):
-        """
-        Copy uploaded file to external SE
-        """
-        try:
-            dm = DataManager()
-            result = dm.put(sbPath, localFilePath, self.__externalSEName)
-            if not result["OK"]:
-                return result
-            if "Successful" not in result["Value"]:
-                gLogger.verbose("Oops, no successful transfers there", str(result))
-                return S_ERROR("RM returned OK to the action but no successful transfers were there")
-            okTrans = result["Value"]["Successful"]
-            if sbPath not in okTrans:
-                gLogger.verbose("Ooops, SB transfer wasn't in the successful ones", str(result))
-                return S_ERROR("RM returned OK to the action but SB transfer wasn't in the successful ones")
-            return S_OK((self.__externalSEName, okTrans[sbPath]))
-        except Exception as e:
-            gLogger.error("Error while moving sandbox to SE", f"{repr(e).replace(',)', ')')}")
-            return S_ERROR("Error while moving sandbox to SE")
-
-    ##################
-    # Assigning sbs to jobs
-
-    types_assignSandboxesToEntities = [dict]
-
-    def export_assignSandboxesToEntities(self, enDict, ownerName="", ownerGroup="", entitySetup=False):
-        """
-        Assign sandboxes to jobs.
-        Expects a dict of { entityId : [ ( SB, SBType ), ... ] }
-        """
-        if not entitySetup:
-            entitySetup = self.diracSetup
-        credDict = self.getRemoteCredentials()
-        return self.sandboxDB.assignSandboxesToEntities(
-            enDict, credDict["username"], credDict["group"], entitySetup, ownerName, ownerGroup
-        )
-
-    ##################
-    # Unassign sbs to jobs
-
-    types_unassignEntities = [(list, tuple)]
-
-    def export_unassignEntities(self, entitiesList, entitiesSetup=False):
-        """
-        Unassign a list of jobs
-        """
-        if not entitiesSetup:
-            entitiesSetup = self.diracSetup
-        credDict = self.getRemoteCredentials()
-        return self.sandboxDB.unassignEntities({entitiesSetup: entitiesList}, credDict["username"], credDict["group"])
 
     ##################
     # Getting assigned sandboxes
 
     types_getSandboxesAssignedToEntity = [str]
 
-    def export_getSandboxesAssignedToEntity(self, entityId, entitySetup=False):
+    def export_getSandboxesAssignedToEntity(self, entityId):
         """
         Get the sandboxes associated to a job and the association type
         """
-        if not entitySetup:
-            entitySetup = self.diracSetup
         credDict = self.getRemoteCredentials()
-        result = self.sandboxDB.getSandboxesAssignedToEntity(
-            entityId, entitySetup, credDict["username"], credDict["group"]
-        )
+        vo = credDict.get("VO", Registry.getVOForGroup(credDict["group"]))
+        result = self.sandboxDB.getSandboxesAssignedToEntity(entityId, credDict["username"], credDict["group"], vo)
         if not result["OK"]:
             return result
         sbDict = {}
@@ -405,26 +349,6 @@ class SandboxStoreHandlerMixin:
                 sbDict[SBType] = []
             sbDict[SBType].append(f"SB:{SEName}|{SEPFN}")
         return S_OK(sbDict)
-
-    ##################
-    # Disk space left management
-
-    types_getFreeDiskSpace = []
-
-    def export_getFreeDiskSpace(self):
-        """Get the free disk space of the storage element
-        If no size is specified, terabytes will be used by default.
-        """
-
-        return getDiskSpace(self.getCSOption("BasePath", "/opt/dirac/storage/sandboxes"))
-
-    types_getTotalDiskSpace = []
-
-    def export_getTotalDiskSpace(self):
-        """Get the total disk space of the storage element
-        If no size is specified, terabytes will be used by default.
-        """
-        return getDiskSpace(self.getCSOption("BasePath", "/opt/dirac/storage/sandboxes"), total=True)
 
     ##################
     # Download sandboxes
@@ -441,6 +365,25 @@ class SandboxStoreHandlerMixin:
         credDict = self.getRemoteCredentials()
         serviceURL = self.serviceInfoDict["URL"]
         filePath = fileID.replace(serviceURL, "")
+
+        # If the PFN starts with S3, we know it has been uploaded to the
+        # S3 sandbox store, so download it from there before sending it
+        if filePath.startswith("/S3"):
+            with TheImpersonator(credDict, source="SandboxStore") as client:
+                res = client.jobs.get_sandbox_file(pfn=filePath)
+                r = requests.get(res.url)
+                r.raise_for_status()
+                sbData = r.content
+                if fileHelper:
+                    from io import BytesIO
+
+                    result = fileHelper.DataSourceToNetwork(BytesIO(sbData))
+                    # fileHelper.oFile.close()
+                    return result
+                if raw:
+                    return sbData
+                return S_OK(sbData)
+
         result = self.sandboxDB.getSandboxId(self.__localSEName, filePath, credDict["username"], credDict["group"])
         if not result["OK"]:
             return result
@@ -498,18 +441,14 @@ class SandboxStoreHandlerMixin:
         return S_OK()
 
     def __purgeSandbox(self, sbId, SEName, SEPFN):
-        result = self.__deleteSandboxFromBackend(SEName, SEPFN)
-        if not result["OK"]:
+        if not (result := self.__deleteSandboxFromBackend(SEName, SEPFN))["OK"]:
             gLogger.error("Cannot delete sandbox from backend", result["Message"])
             return
-        result = self.sandboxDB.deleteSandboxes([sbId])
-        if not result["OK"]:
+        if not (result := self.sandboxDB.deleteSandboxes([sbId]))["OK"]:
             gLogger.error("Cannot delete sandbox from DB", result["Message"])
 
     def __deleteSandboxFromBackend(self, SEName, SEPFN):
         gLogger.info("Purging sandbox", f"SB:{SEName}|{SEPFN}")
-        if SEName != self.__localSEName:
-            return self.__deleteSandboxFromExternalBackend(SEName, SEPFN)
         hdPath = self.__sbToHDPath(SEPFN)
         try:
             if not os.path.isfile(hdPath):
@@ -537,50 +476,7 @@ class SandboxStoreHandlerMixin:
                 break
         return S_OK()
 
-    def __deleteSandboxFromExternalBackend(self, SEName, SEPFN):
-        if self.getCSOption("DelayedExternalDeletion", True):
-            gLogger.info("Setting deletion request")
-            try:
-                # We need the hostDN used in order to pass these credentials to the
-                # SandboxStoreDB..
-                hostCertLocation, _ = Locations.getHostCertificateAndKeyLocation()
-                hostCert = X509Certificate.X509Certificate()
-                hostCert.loadFromFile(hostCertLocation)
-                hostDN = hostCert.getSubjectDN().get("Value")
-
-                # use the host authentication to fetch the data
-                result = self.sandboxDB.getSandboxOwner(SEName, SEPFN, hostDN, "hosts")
-                if not result["OK"]:
-                    return result
-                _owner, ownerDN, ownerGroup = result["Value"]
-
-                request = Request()
-                request.RequestName = f"RemoteSBDeletion:{SEName}|{SEPFN}:{time.time()}"
-                request.OwnerDN = ownerDN
-                request.OwnerGroup = ownerGroup
-                physicalRemoval = Operation()
-                physicalRemoval.Type = "PhysicalRemoval"
-                physicalRemoval.TargetSE = SEName
-                fileToRemove = File()
-                fileToRemove.PFN = SEPFN
-                fileToRemove.LFN = SEPFN
-                physicalRemoval.addFile(fileToRemove)
-                request.addOperation(physicalRemoval)
-                return ReqClient().putRequest(request)
-            except Exception as e:
-                gLogger.exception("Exception while setting deletion request")
-                return S_ERROR(f"Cannot set deletion request: {e}")
-        else:
-            gLogger.info("Deleting external Sandbox")
-            try:
-                return StorageElement(SEName).removeFile(SEPFN)
-            except Exception:
-                gLogger.exception("RM raised an exception while trying to delete a remote sandbox")
-                return S_ERROR("RM raised an exception while trying to delete a remote sandbox")
-
 
 class SandboxStoreHandler(SandboxStoreHandlerMixin, RequestHandler):
     def initialize(self):
-        # we need it still in 8.0
-        self.diracSetup = self.serviceInfoDict["clientSetup"]
         return self.initializeRequest()

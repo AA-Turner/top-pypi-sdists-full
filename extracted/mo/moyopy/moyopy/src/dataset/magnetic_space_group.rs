@@ -4,6 +4,7 @@ use pyo3::{prelude::*, IntoPyObjectExt};
 use pythonize::{depythonize, pythonize};
 
 use moyo::base::{AngleTolerance, Collinear, NonCollinear, RotationMagneticMomentAction};
+use moyo::utils::{to_3_slice, to_3x3_slice};
 use moyo::MoyoMagneticDataset;
 use serde::{Deserialize, Serialize};
 
@@ -86,19 +87,17 @@ impl PyMoyoCollinearMagneticDataset {
 
     #[getter]
     pub fn std_linear(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.std_linear.transpose().into()
+        to_3x3_slice(&self.0.std_linear)
     }
 
     #[getter]
     pub fn std_origin_shift(&self) -> [f64; 3] {
-        self.0.std_origin_shift.into()
+        to_3_slice(&self.0.std_origin_shift)
     }
 
     #[getter]
     pub fn std_rotation_matrix(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.std_rotation_matrix.transpose().into()
+        to_3x3_slice(&self.0.std_rotation_matrix)
     }
 
     // ------------------------------------------------------------------------
@@ -112,13 +111,12 @@ impl PyMoyoCollinearMagneticDataset {
 
     #[getter]
     pub fn prim_std_linear(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.prim_std_linear.transpose().into()
+        to_3x3_slice(&self.0.prim_std_linear)
     }
 
     #[getter]
     pub fn prim_std_origin_shift(&self) -> [f64; 3] {
-        self.0.prim_std_origin_shift.into()
+        to_3_slice(&self.0.prim_std_origin_shift)
     }
 
     #[getter]
@@ -269,19 +267,17 @@ impl PyMoyoNonCollinearMagneticDataset {
 
     #[getter]
     pub fn std_linear(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.std_linear.transpose().into()
+        to_3x3_slice(&self.0.std_linear)
     }
 
     #[getter]
     pub fn std_origin_shift(&self) -> [f64; 3] {
-        self.0.std_origin_shift.into()
+        to_3_slice(&self.0.std_origin_shift)
     }
 
     #[getter]
     pub fn std_rotation_matrix(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.std_rotation_matrix.transpose().into()
+        to_3x3_slice(&self.0.std_rotation_matrix)
     }
 
     // ------------------------------------------------------------------------
@@ -295,13 +291,12 @@ impl PyMoyoNonCollinearMagneticDataset {
 
     #[getter]
     pub fn prim_std_linear(&self) -> [[f64; 3]; 3] {
-        // Since nalgebra stores matrices in column-major order, we need to transpose them
-        self.0.prim_std_linear.transpose().into()
+        to_3x3_slice(&self.0.prim_std_linear)
     }
 
     #[getter]
     pub fn prim_std_origin_shift(&self) -> [f64; 3] {
-        self.0.prim_std_origin_shift.into()
+        to_3_slice(&self.0.prim_std_origin_shift)
     }
 
     #[getter]

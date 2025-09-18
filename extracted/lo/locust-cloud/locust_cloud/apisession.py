@@ -59,8 +59,6 @@ class ApiSession(requests.Session):
             refresh_token = config.refresh_token
             id_token_expires = config.id_token_expires
 
-        assert id_token
-
         self.__user_sub_id = user_sub_id
         self.__refresh_token = refresh_token
         self.__id_token_expires = id_token_expires - 60  # Refresh 1 minute before expiry
@@ -110,3 +108,18 @@ class ApiSession(requests.Session):
     def request(self, method, url, *args, **kwargs) -> requests.Response:
         self.__ensure_valid_authorization_header()
         return super().request(method, f"{self.api_url}{url}", *args, **kwargs)
+
+    def teardown(self):
+        try:
+            logger.info("Tearing down Locust cloud...")
+            response = self.delete("/teardown")
+            if response.status_code == 200:
+                logger.debug(f"Response message from teardown: {response.json()['message']}")
+            else:
+                logger.info(
+                    f"Could not automatically tear down Locust Cloud: HTTP {response.status_code}/{response.reason} - Response: {response.text} - URL: {response.request.url}"
+                )
+        except KeyboardInterrupt:
+            pass  # don't show nasty callstack
+        except Exception as e:
+            logger.error(f"Could not automatically tear down Locust Cloud: {e.__class__.__name__}:{e}")

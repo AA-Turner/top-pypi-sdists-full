@@ -1,17 +1,19 @@
-""" ProxyManager is the implementation of the ProxyManagement service in the DISET framework
+"""ProxyManager is the implementation of the ProxyManagement service in the DISET framework
 
-    .. literalinclude:: ../ConfigTemplate.cfg
-      :start-after: ##BEGIN ProxyManager:
-      :end-before: ##END
-      :dedent: 2
-      :caption: ProxyManager options
+.. literalinclude:: ../ConfigTemplate.cfg
+  :start-after: ##BEGIN ProxyManager:
+  :end-before: ##END
+  :dedent: 2
+  :caption: ProxyManager options
 """
-from DIRAC import gLogger, S_OK, S_ERROR
+
+from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
 from DIRAC.Core.DISET.RequestHandler import RequestHandler, getServiceOption
 from DIRAC.Core.Security import Properties
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
-
+from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue
+from DIRAC.FrameworkSystem.Utilities.diracx import get_token
 
 DEFAULT_MAIL_FROM = "proxymanager@diracgrid.org"
 
@@ -22,7 +24,6 @@ class ProxyManagerHandlerMixin:
 
     @classmethod
     def initializeHandler(cls, serviceInfoDict):
-        useMyProxy = cls.srv_getCSOption("UseMyProxy", False)
         mailFrom = getServiceOption(serviceInfoDict, "MailFrom", DEFAULT_MAIL_FROM)
 
         try:
@@ -32,12 +33,10 @@ class ProxyManagerHandlerMixin:
                 return result
             dbClass = result["Value"]
 
-            cls.__proxyDB = dbClass(useMyProxy=useMyProxy, mailFrom=mailFrom, parentLogger=cls.log)
+            cls.__proxyDB = dbClass(mailFrom=mailFrom, parentLogger=cls.log)
 
         except RuntimeError as excp:
             return S_ERROR("Can't connect to ProxyDB", repr(excp))
-        if useMyProxy:
-            gLogger.info(f"MyProxy: {useMyProxy}\n MyProxy Server: {cls.__proxyDB.getMyProxyServer()}")
         return S_OK()
 
     def __generateUserProxiesInfo(self):
@@ -56,14 +55,12 @@ class ProxyManagerHandlerMixin:
             return result
         contents = result["Value"]
         userDNIndex = contents["ParameterNames"].index("UserDN")
-        userGroupIndex = contents["ParameterNames"].index("UserGroup")
         expirationIndex = contents["ParameterNames"].index("ExpirationTime")
         for record in contents["Records"]:
             userDN = record[userDNIndex]
             if userDN not in proxiesInfo:
                 proxiesInfo[userDN] = {}
-            userGroup = record[userGroupIndex]
-            proxiesInfo[userDN][userGroup] = record[expirationIndex]
+            proxiesInfo[userDN] = record[expirationIndex]
         return proxiesInfo
 
     auth_getUserProxiesInfo = ["authenticated"]
@@ -104,9 +101,6 @@ class ProxyManagerHandlerMixin:
 
         :return: S_OK(dict)/S_ERROR() -- dict contain proxies
         """
-        if isinstance(pemChain, bytes):
-            # The client is running v7.3.x and we need to decode for backwards compatibility
-            pemChain = pemChain.decode("ascii")
         credDict = self.getRemoteCredentials()
         userId = f'{credDict["username"]}:{credDict["group"]}'
         retVal = self.__proxyDB.completeDelegation(requestId, credDict["DN"], pemChain)
@@ -124,7 +118,7 @@ class ProxyManagerHandlerMixin:
         :param int validSecondsRequired: required seconds the proxy is valid for
 
         :return: S_OK(list)/S_ERROR() -- list contain dicts with user name, DN, group
-                                         expiration time, persistent flag
+                                         expiration time
         """
         credDict = self.getRemoteCredentials()
         if Properties.PROXY_MANAGEMENT not in credDict["properties"]:
@@ -246,26 +240,6 @@ class ProxyManagerHandlerMixin:
         requiredLifetime = int(min(secsLeft, requiredLifetime * self.__maxExtraLifeFactor))
         return chain.generateChainFromRequestString(requestPem, lifetime=requiredLifetime, requireLimited=forceLimited)
 
-    types_setPersistency = [str, str, bool]
-
-    def export_setPersistency(self, userDN, userGroup, persistentFlag):
-        """Set the persistency for a given dn/group
-
-        :param str userDN: user DN
-        :param str userGroup: DIRAC group
-        :param boolean persistentFlag: if proxy persistent
-
-        :return: S_OK()/S_ERROR()
-        """
-        retVal = self.__proxyDB.setPersistencyFlag(userDN, userGroup, persistentFlag)
-        if not retVal["OK"]:
-            return retVal
-        credDict = self.getRemoteCredentials()
-        self.__proxyDB.logAction(
-            f"set persistency to {bool(persistentFlag)}", credDict["DN"], credDict["group"], userDN, userGroup
-        )
-        return S_OK()
-
     types_deleteProxyBundle = [(list, tuple)]
 
     def export_deleteProxyBundle(self, idList):
@@ -340,77 +314,20 @@ class ProxyManagerHandlerMixin:
         """
         return self.__proxyDB.getLogsContent(selDict, sortDict, start, limit)
 
-    types_generateToken = [str, str, int]
+    types_exchangeProxyForToken = []
 
-    def export_generateToken(self, requesterDN, requesterGroup, tokenUses):
-        """Generate tokens for proxy retrieval
+    @convertToReturnValue
+    def export_exchangeProxyForToken(self):
+        """Exchange a proxy for an equivalent token to be used with diracx"""
 
-        :param str requesterDN: user DN
-        :param str requesterGroup: DIRAC group
-        :param int tokenUses: number of uses
-
-        :return: S_OK(tuple)/S_ERROR() -- tuple contain token, number uses
-        """
         credDict = self.getRemoteCredentials()
-        self.__proxyDB.logAction("generate tokens", credDict["DN"], credDict["group"], requesterDN, requesterGroup)
-        return self.__proxyDB.generateToken(requesterDN, requesterGroup, numUses=tokenUses)
-
-    types_getProxyWithToken = [str, str, str, int, str]
-
-    def export_getProxyWithToken(self, userDN, userGroup, requestPem, requiredLifetime, token):
-        """Get a proxy for a userDN/userGroup
-
-        :param requestPem: PEM encoded request object for delegation
-        :param requiredLifetime: Argument for length of proxy
-        :param token: Valid token to get a proxy
-
-          * Properties:
-              * FullDelegation <- permits full delegation of proxies
-              * LimitedDelegation <- permits downloading only limited proxies
-              * PrivateLimitedDelegation <- permits downloading only limited proxies for one self
-        """
-        credDict = self.getRemoteCredentials()
-        result = self.__proxyDB.useToken(token, credDict["DN"], credDict["group"])
-        gLogger.info(f"Trying to use token {token} by {credDict['DN']}:{credDict['group']}")
-        if not result["OK"]:
-            return result
-        if not result["Value"]:
-            return S_ERROR("Proxy token is invalid")
-        self.__proxyDB.logAction("used token", credDict["DN"], credDict["group"], userDN, userGroup)
-
-        result = self.__checkProperties(userDN, userGroup)
-        if not result["OK"]:
-            return result
-        self.__proxyDB.logAction("download proxy with token", credDict["DN"], credDict["group"], userDN, userGroup)
-        return self.__getProxy(userDN, userGroup, requestPem, requiredLifetime, True)
-
-    types_getVOMSProxyWithToken = [str, str, str, int, [str, type(None)]]
-
-    def export_getVOMSProxyWithToken(self, userDN, userGroup, requestPem, requiredLifetime, token, vomsAttribute=None):
-        """Get a proxy for a userDN/userGroup
-
-        :param requestPem: PEM encoded request object for delegation
-        :param requiredLifetime: Argument for length of proxy
-        :param vomsAttribute: VOMS attr to add to the proxy
-
-          * Properties :
-              * FullDelegation <- permits full delegation of proxies
-              * LimitedDelegation <- permits downloading only limited proxies
-              * PrivateLimitedDelegation <- permits downloading only limited proxies for one self
-        """
-        credDict = self.getRemoteCredentials()
-        result = self.__proxyDB.useToken(token, credDict["DN"], credDict["group"])
-        if not result["OK"]:
-            return result
-        if not result["Value"]:
-            return S_ERROR("Proxy token is invalid")
-        self.__proxyDB.logAction("used token", credDict["DN"], credDict["group"], userDN, userGroup)
-
-        result = self.__checkProperties(userDN, userGroup)
-        if not result["OK"]:
-            return result
-        self.__proxyDB.logAction("download voms proxy with token", credDict["DN"], credDict["group"], userDN, userGroup)
-        return self.__getVOMSProxy(userDN, userGroup, requestPem, requiredLifetime, vomsAttribute, True)
+        return get_token(
+            credDict["username"],
+            credDict["group"],
+            set(credDict.get("groupProperties", []) + credDict.get("properties", [])),
+            expires_minutes=credDict["secondsLeft"] // 60 + 1,
+            source="ProxyManager",
+        )
 
 
 class ProxyManagerHandler(ProxyManagerHandlerMixin, RequestHandler):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docutils
-Version: 0.22
+Version: 0.22.1
 Summary: Docutils -- Python Documentation Utilities
 Author-email: David Goodger <goodger@python.org>
 Maintainer-email: docutils-develop list <docutils-develop@lists.sourceforge.net>
@@ -80,13 +80,13 @@ Project-URL: Download, https://pypi.org/project/docutils/
 Project-URL: Homepage, https://docutils.sourceforge.io
 Project-URL: Issue tracker, https://sourceforge.net/p/docutils/bugs/
 
-=======================
- README: Docutils 0.22
-=======================
+=========================
+ README: Docutils 0.22.1
+=========================
 
 :Author: David Goodger
 :Contact: goodger@python.org
-:Date: $Date: 2025-07-29 17:03:01 +0200 (Di, 29. Jul 2025) $
+:Date: $Date: 2025-09-17 19:54:28 +0200 (Mi, 17. Sep 2025) $
 :Web site: https://docutils.sourceforge.io/
 :Copyright: This document has been placed in the public domain.
 

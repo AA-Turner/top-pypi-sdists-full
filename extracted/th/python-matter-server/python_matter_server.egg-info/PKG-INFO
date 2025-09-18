@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-matter-server
-Version: 8.1.0
+Version: 8.1.1
 Summary: Open Home Foundation Matter Server
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: Apache-2.0
@@ -16,33 +16,31 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: aiorun
-Requires-Dist: async-timeout
 Requires-Dist: coloredlogs
 Requires-Dist: orjson
 Requires-Dist: home-assistant-chip-clusters==2025.7.0
 Provides-Extra: server
 Requires-Dist: aiohttp==3.12.15; extra == "server"
 Requires-Dist: aiorun==2025.1.1; extra == "server"
-Requires-Dist: async-timeout==5.0.1; extra == "server"
 Requires-Dist: atomicwrites==1.4.1; extra == "server"
 Requires-Dist: coloredlogs==15.0.1; extra == "server"
-Requires-Dist: cryptography==45.0.6; extra == "server"
-Requires-Dist: orjson==3.11.1; extra == "server"
-Requires-Dist: zeroconf==0.147.0; extra == "server"
+Requires-Dist: cryptography==45.0.7; extra == "server"
+Requires-Dist: orjson==3.11.3; extra == "server"
+Requires-Dist: zeroconf==0.147.2; extra == "server"
 Requires-Dist: home-assistant-chip-core==2025.7.0; extra == "server"
 Provides-Extra: test
 Requires-Dist: aioresponses==0.7.8; extra == "test"
 Requires-Dist: codespell==2.4.1; extra == "test"
 Requires-Dist: isort==6.0.1; extra == "test"
-Requires-Dist: mypy==1.17.1; extra == "test"
+Requires-Dist: mypy==1.18.1; extra == "test"
 Requires-Dist: pre-commit==4.3.0; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
 Requires-Dist: pylint==3.3.8; extra == "test"
-Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: pytest-asyncio==1.1.0; extra == "test"
+Requires-Dist: pytest==8.4.2; extra == "test"
+Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
-Requires-Dist: pytest-cov==6.2.1; extra == "test"
-Requires-Dist: ruff==0.12.8; extra == "test"
+Requires-Dist: pytest-cov==7.0.0; extra == "test"
+Requires-Dist: ruff==0.13.0; extra == "test"
 Requires-Dist: tomli==2.2.1; extra == "test"
 Dynamic: license-file
 

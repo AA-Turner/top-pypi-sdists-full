@@ -2,7 +2,7 @@
 # :Author: David Goodger, Günter Milde
 #          Based on the html4css1 writer by David Goodger.
 # :Maintainer: docutils-develop@lists.sourceforge.net
-# :Revision: $Revision: 10185 $
+# :Revision: $Revision: 10196 $
 # :Date: $Date: 2005-06-28$
 # :Copyright: © 2016 David Goodger, Günter Milde
 # :License: Released under the terms of the `2-Clause BSD license`_, in short:
@@ -115,16 +115,16 @@ class Writer(writers.Writer):
          ('Disable compact simple field lists.',
           ['--no-compact-field-lists'],
           {'dest': 'compact_field_lists', 'action': 'store_false'}),
-         ('Added to standard table classes. '
+         ('Class value(s) assigned to all tables. '
           'Defined styles: borderless, booktabs, '
           'align-left, align-center, align-right, '
           'colwidths-auto, colwidths-grid.',
           ['--table-style'],
-          {'default': ''}),
+          {'metavar': '<style>', 'default': ''}),
          ('Math output format (one of "MathML", "HTML", "MathJax", '
           'or "LaTeX") and option(s). (default: "MathML")',
           ['--math-output'],
-          {'default': 'MathML',
+          {'metavar': '<format [option(s)]>', 'default': 'MathML',
            'validator': frontend.validate_math_output}),
          ('Prepend an XML declaration. ',
           ['--xml-declaration'],

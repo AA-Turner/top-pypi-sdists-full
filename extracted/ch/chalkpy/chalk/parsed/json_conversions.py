@@ -12,6 +12,7 @@ from chalk.features.feature_field import HasOnePathObj, VersionInfo
 from chalk.features.feature_set import is_feature_set_class
 from chalk.features.pseudofeatures import PSEUDONAMESPACE
 from chalk.features.resolver import Cron, OfflineResolver, OnlineResolver, SinkResolver, StreamResolver
+from chalk.ml.model_reference import ModelReference
 from chalk.parsed.duplicate_input_gql import (
     FeatureClassGQL,
     RecomputeFeaturesGQL,
@@ -25,6 +26,7 @@ from chalk.parsed.duplicate_input_gql import (
     UpsertFilterGQL,
     UpsertHasManyKindGQL,
     UpsertHasOneKindGQL,
+    UpsertModelReferenceGQL,
     UpsertNamedQueryGQL,
     UpsertReferencePathComponentGQL,
     UpsertResolverGQL,
@@ -219,6 +221,11 @@ def convert_type_to_gql(t: ScheduledQuery, path_prefix: Optional[str] = None) ->
 
 @overload
 def convert_type_to_gql(t: NamedQuery, path_prefix: Optional[str] = None) -> UpsertNamedQueryGQL:
+    ...
+
+
+@overload
+def convert_type_to_gql(t: ModelReference, path_prefix: Optional[str] = None) -> UpsertModelReferenceGQL:
     ...
 
 
@@ -451,9 +458,29 @@ def convert_type_to_gql(
             staleness=t.staleness,
             plannerOptions=parsed_planner_options,
             code=t.code,
-            sourceLineStart=t.source_line_end,
-            sourceLineEnd=t.source_line_start,
+            sourceLineStart=t.source_line_start,
+            sourceLineEnd=t.source_line_end,
             validPlanNotRequired=t.valid_plan_not_required,
+        )
+    if isinstance(t, ModelReference):
+        if t.errors:
+            print_name = t.name + "" if t.version is None else f" ({t.version})"
+            error_string = "\n".join(f" - {e}" for e in t.errors)
+            raise ValueError(f"Found errors in ModelReference '{print_name}':\n{t.code}\n{error_string}")
+
+        if t.filename is None:
+            print_name = t.name + "" if t.version is None else f" ({t.version})"
+            raise ValueError(f"Found errors in ModelReference '{print_name}':\n failed to find filename")
+
+        return UpsertModelReferenceGQL(
+            name=t.name,
+            version=t.version,
+            asOf=t.as_of_date,
+            alias=t.alias,
+            filename=t.filename if path_prefix is None else t.filename.replace(path_prefix, ""),
+            code=t.code,
+            sourceLineStart=t.source_line_start,
+            sourceLineEnd=t.source_line_end,
         )
 
     if isinstance(t, Feature):

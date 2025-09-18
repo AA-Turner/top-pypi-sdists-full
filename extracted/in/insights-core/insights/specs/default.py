@@ -59,6 +59,7 @@ from insights.specs.datasources import (
     ipcs,
     kernel,
     leapp,
+    logrotate,
     lpstat,
     ls,
     lsattr,
@@ -215,6 +216,7 @@ class DefaultSpecs(Specs):
     cluster_conf = simple_file("/etc/cluster/cluster.conf")
     cmdline = simple_file("/proc/cmdline")
     cni_podman_bridge_conf = simple_file("/etc/cni/net.d/87-podman-bridge.conflist")
+    compliance_enabled_policies = compliance_ds.compliance_advisor_rule_enabled
     convert2rhel_facts = simple_file("/etc/rhsm/facts/convert2rhel.facts")
     corosync = simple_file("/etc/sysconfig/corosync")
     corosync_cmapctl = foreach_execute(corosync_ds.corosync_cmapctl_cmds, "%s")
@@ -463,7 +465,7 @@ class DefaultSpecs(Specs):
     localectl_status = simple_command("/usr/bin/localectl status")
     localtime = simple_command("/usr/bin/file -L /etc/localtime")
     login_pam_conf = simple_file("/etc/pam.d/login")
-    logrotate_conf = glob_file(["/etc/logrotate.conf", "/etc/logrotate.d/*"])
+    logrotate_conf = foreach_collect(logrotate.logrotate_conf_list, "%s")
     losetup = simple_command("/usr/sbin/losetup -l")
     lpfc_max_luns = simple_file("/sys/module/lpfc/parameters/lpfc_max_luns")
     lpstat_p = simple_command("/usr/bin/lpstat -p")
@@ -481,6 +483,19 @@ class DefaultSpecs(Specs):
     ls_lan_filtered = command_with_args(
         '/bin/ls -lan %s', ls.list_with_lan_filtered, save_as='ls_lan_filtered', keep_rc=True
     )  # Result is filtered
+    ls_lanL = command_with_args(
+        '/bin/ls -lanL %s', ls.list_with_lanL, save_as='ls_lanL', keep_rc=True
+    )
+    ls_lanR = command_with_args(
+        '/bin/ls -lanR %s', ls.list_with_lanR, save_as='ls_lanR', keep_rc=True
+    )
+    ls_lanRL = command_with_args(
+        '/bin/ls -lanRL %s', ls.list_with_lanRL, save_as='ls_lanRL', keep_rc=True
+    )
+    ls_laRZ = command_with_args(
+        '/bin/ls -laRZ %s', ls.list_with_laRZ, save_as='ls_laRZ', keep_rc=True
+    )
+    ls_laZ = command_with_args('/bin/ls -laZ %s', ls.list_with_laZ, save_as='ls_laZ', keep_rc=True)
     lsattr = command_with_args("/bin/lsattr %s", lsattr.paths_to_lsattr)
     lsblk = simple_command("/bin/lsblk")
     lsblk_pairs = simple_command(
@@ -520,6 +535,7 @@ class DefaultSpecs(Specs):
     )
     md5chk_files = foreach_execute(md5chk.files, "/usr/bin/md5sum %s", keep_rc=True)
     mdadm_D = command_with_args("/usr/sbin/mdadm -D %s", mdadm.raid_devices, keep_rc=True)
+    mdatp_managed = simple_file("/etc/opt/microsoft/mdatp/managed/mdatp_managed.json")
     mdstat = simple_file("/proc/mdstat")
     meminfo = first_file(["/proc/meminfo", "/meminfo"])
     messages = simple_file("/var/log/messages")

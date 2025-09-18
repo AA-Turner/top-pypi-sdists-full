@@ -19,7 +19,7 @@ import warnings
 from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
-from pydantic.v1 import StrictStr
+from pydantic.v1 import constr
 
 from typing import Dict, List, Optional
 

@@ -1,15 +1,13 @@
 import time
 
-from DIRAC import S_OK, S_ERROR, gLogger
-
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
 from DIRAC.Core.Utilities.JEncode import decode
-
+from DIRAC.RequestManagementSystem.Client.File import File
+from DIRAC.RequestManagementSystem.Client.Operation import Operation
 from DIRAC.RequestManagementSystem.Client.ReqClient import ReqClient
 from DIRAC.RequestManagementSystem.Client.Request import Request
-from DIRAC.RequestManagementSystem.Client.Operation import Operation
-from DIRAC.RequestManagementSystem.Client.File import File
 from DIRAC.RequestManagementSystem.private.RequestValidator import RequestValidator
 from DIRAC.TransformationSystem.Client import TransformationFilesStatus
 from DIRAC.TransformationSystem.Client.BodyPlugin.BaseBody import BaseBody
@@ -36,7 +34,7 @@ class RequestTasks(TaskBase):
         requestClient=None,
         requestClass=None,
         requestValidator=None,
-        ownerDN=None,
+        owner=None,
         ownerGroup=None,
     ):
         """c'tor
@@ -50,11 +48,13 @@ class RequestTasks(TaskBase):
             logger = gLogger.getSubLogger(self.__class__.__name__)
 
         super().__init__(transClient, logger)
-        useCertificates = True if (bool(ownerDN) and bool(ownerGroup)) else False
+        useCertificates = True if (bool(owner) and bool(ownerGroup)) else False
 
         if not requestClient:
             self.requestClient = ReqClient(
-                useCertificates=useCertificates, delegatedDN=ownerDN, delegatedGroup=ownerGroup
+                useCertificates=useCertificates,
+                delegatedDN=getDNForUsername(owner)["Value"][0] if owner else None,
+                delegatedGroup=ownerGroup,
             )
         else:
             self.requestClient = requestClient
@@ -69,9 +69,7 @@ class RequestTasks(TaskBase):
         else:
             self.requestValidator = requestValidator
 
-    def prepareTransformationTasks(
-        self, transBody, taskDict, owner="", ownerGroup="", ownerDN="", bulkSubmissionFlag=False
-    ):
+    def prepareTransformationTasks(self, transBody, taskDict, owner="", ownerGroup="", bulkSubmissionFlag=False):
         """Prepare tasks, given a taskDict, that is created (with some manipulation) by the DB"""
         if not taskDict:
             return S_OK({})
@@ -84,25 +82,19 @@ class RequestTasks(TaskBase):
             owner = proxyInfo["username"]
             ownerGroup = proxyInfo["group"]
 
-        if not ownerDN:
-            res = getDNForUsername(owner)
-            if not res["OK"]:
-                return res
-            ownerDN = res["Value"][0]
-
         try:
             transJson, _decLen = decode(transBody)
 
             if isinstance(transJson, BaseBody):
-                self._bodyPlugins(transJson, taskDict, ownerDN, ownerGroup)
+                self._bodyPlugins(transJson, taskDict, owner, ownerGroup)
             else:
-                self._multiOperationsBody(transJson, taskDict, ownerDN, ownerGroup)
+                self._multiOperationsBody(transJson, taskDict, owner, ownerGroup)
         except ValueError:  # #json couldn't load
-            self._singleOperationsBody(transBody, taskDict, ownerDN, ownerGroup)
+            self._singleOperationsBody(transBody, taskDict, owner, ownerGroup)
 
         return S_OK(taskDict)
 
-    def _multiOperationsBody(self, transJson, taskDict, ownerDN, ownerGroup):
+    def _multiOperationsBody(self, transJson, taskDict, owner, ownerGroup):
         """Deal with a Request that has multiple operations
 
         :param transJson: list of lists of string and dictionaries, e.g.:
@@ -118,7 +110,7 @@ class RequestTasks(TaskBase):
             For example ``TASK:TargetSE`` is replaced with ``task['TargetSE']``
 
         :param dict taskDict: dictionary of tasks, modified in this function
-        :param str ownerDN: certificate DN used for the requests
+        :param str owner: owner used for the requests
         :param str onwerGroup: dirac group used for the requests
 
         :returns: None
@@ -164,19 +156,19 @@ class RequestTasks(TaskBase):
 
                     oRequest.addOperation(op)
 
-                result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, ownerDN, ownerGroup)
+                result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, owner, ownerGroup)
                 if not result["OK"]:
                     raise StopTaskIteration(f"Could not assign request to task: {result['Message']}")
             except StopTaskIteration as e:
                 self._logError("Error creating request for task", f"{taskID}, {e}", transID=transID)
                 taskDict.pop(taskID)
 
-    def _singleOperationsBody(self, transBody, taskDict, ownerDN, ownerGroup):
+    def _singleOperationsBody(self, transBody, taskDict, owner, ownerGroup):
         """deal with a Request that has just one operation, as it was sofar
 
         :param transBody: string, can be an empty string
         :param dict taskDict: dictionary of tasks, modified in this function
-        :param str ownerDN: certificate DN used for the requests
+        :param str owner: owner used for the requests
         :param str onwerGroup: dirac group used for the requests
 
         :returns: None
@@ -212,14 +204,14 @@ class RequestTasks(TaskBase):
                     transfer.addFile(trFile)
 
             oRequest.addOperation(transfer)
-            result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, ownerDN, ownerGroup)
+            result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, owner, ownerGroup)
             if not result["OK"]:
                 failedTasks.append(taskID)
         # Remove failed tasks
         for taskID in failedTasks:
             taskDict.pop(taskID)
 
-    def _bodyPlugins(self, bodyObj, taskDict, ownerDN, ownerGroup):
+    def _bodyPlugins(self, bodyObj, taskDict, owner, ownerGroup):
         """Deal with complex body object"""
         for taskID, task in list(taskDict.items()):
             try:
@@ -228,29 +220,29 @@ class RequestTasks(TaskBase):
                     raise StopTaskIteration("No input data")
 
                 oRequest = bodyObj.taskToRequest(taskID, task, transID)
-                result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, ownerDN, ownerGroup)
+                result = self._assignRequestToTask(oRequest, taskDict, transID, taskID, owner, ownerGroup)
                 if not result["OK"]:
                     raise StopTaskIteration(f"Could not assign request to task: {result['Message']}")
             except StopTaskIteration as e:
                 self._logError("Error creating request for task", f"{taskID}, {e}", transID=transID)
                 taskDict.pop(taskID)
 
-    def _assignRequestToTask(self, oRequest, taskDict, transID, taskID, ownerDN, ownerGroup):
-        """set ownerDN and group to request, and add the request to taskDict if it is
+    def _assignRequestToTask(self, oRequest, taskDict, transID, taskID, owner, ownerGroup):
+        """set owner and group to request, and add the request to taskDict if it is
         valid, otherwise remove the task from the taskDict
 
-        :param oRequest: Request
+        :param Request oRequest: Request object
         :param dict taskDict: dictionary of tasks, modified in this function
         :param int transID: Transformation ID
         :param int taskID: Task ID
-        :param str ownerDN: certificate DN used for the requests
+        :param str owner: owner used for the requests
         :param str onwerGroup: dirac group used for the requests
 
         :returns: None
         """
 
         oRequest.RequestName = self._transTaskName(transID, taskID)
-        oRequest.OwnerDN = ownerDN
+        oRequest.Owner = owner
         oRequest.OwnerGroup = ownerGroup
 
         isValid = self.requestValidator.validate(oRequest)

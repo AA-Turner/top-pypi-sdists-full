@@ -29,6 +29,11 @@ class TestSnowflake(Validator):
         expr.selects[0].assert_is(exp.AggFunc)
         self.assertEqual(expr.sql(dialect="snowflake"), "SELECT APPROX_TOP_K(C4, 3, 5) FROM t")
 
+        self.validate_identity("SELECT {*} FROM my_table")
+        self.validate_identity("SELECT {my_table.*} FROM my_table")
+        self.validate_identity("SELECT {* ILIKE 'col1%'} FROM my_table")
+        self.validate_identity("SELECT {* EXCLUDE (col1)} FROM my_table")
+        self.validate_identity("SELECT {* EXCLUDE (col1, col2)} FROM my_table")
         self.validate_identity("SELECT a, b, COUNT(*) FROM x GROUP BY ALL LIMIT 100")
         self.validate_identity("STRTOK_TO_ARRAY('a b c')")
         self.validate_identity("STRTOK_TO_ARRAY('a.b.c', '.')")
@@ -61,6 +66,8 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT TO_ARRAY(CAST(x AS ARRAY))")
         self.validate_identity("SELECT TO_ARRAY(CAST(['test'] AS VARIANT))")
         self.validate_identity("SELECT ARRAY_UNIQUE_AGG(x)")
+        self.validate_identity("SELECT AI_AGG(review, 'Summarize the reviews')")
+        self.validate_identity("SELECT AI_SUMMARIZE_AGG(review)")
         self.validate_identity("SELECT OBJECT_CONSTRUCT()")
         self.validate_identity("SELECT DAYOFMONTH(CURRENT_TIMESTAMP())")
         self.validate_identity("SELECT DAYOFYEAR(CURRENT_TIMESTAMP())")
@@ -1151,6 +1158,13 @@ class TestSnowflake(Validator):
         self.validate_identity("SELECT BITSHIFTLEFT(a, 1)")
         self.validate_identity("SELECT BIT_SHIFTLEFT(a, 1)", "SELECT BITSHIFTLEFT(a, 1)")
         self.validate_identity("SELECT BIT_SHIFTRIGHT(a, 1)", "SELECT BITSHIFTRIGHT(a, 1)")
+        self.validate_all(
+            "OCTET_LENGTH('A')",
+            read={
+                "bigquery": "BYTE_LENGTH('A')",
+                "snowflake": "OCTET_LENGTH('A')",
+            },
+        )
 
         self.validate_identity("CREATE TABLE t (id INT PRIMARY KEY AUTOINCREMENT)")
 
@@ -1290,6 +1304,18 @@ class TestSnowflake(Validator):
                         "duckdb": "SELECT * FROM t1, t2",
                     },
                 )
+
+        self.validate_identity(
+            "SELECT * EXCLUDE foo RENAME bar AS baz FROM tbl",
+            "SELECT * EXCLUDE (foo) RENAME (bar AS baz) FROM tbl",
+        )
+
+        self.validate_all(
+            "WITH foo AS (SELECT [1] AS arr_1) SELECT (SELECT unnested_arr FROM TABLE(FLATTEN(INPUT => arr_1)) AS _t0(seq, key, path, index, unnested_arr, this)) AS f FROM foo",
+            read={
+                "bigquery": "WITH foo AS (SELECT [1] AS arr_1) SELECT (SELECT unnested_arr FROM UNNEST(arr_1) AS unnested_arr) AS f FROM foo",
+            },
+        )
 
     def test_null_treatment(self):
         self.validate_all(
@@ -3111,3 +3137,20 @@ FROM SEMANTIC_VIEW(
             for name in bit_func:
                 with self.subTest(f"Testing Snowflakes {name}"):
                     self.validate_identity(f"{name}(x)", f"{bit_func[0]}(x)")
+
+    def test_md5_functions(self):
+        self.validate_identity("MD5_HEX(col)", "MD5(col)")
+        self.validate_identity("MD5(col)")
+        self.validate_identity("MD5_BINARY(col)")
+        self.validate_identity("MD5_NUMBER_LOWER64(col)")
+        self.validate_identity("MD5_NUMBER_UPPER64(col)")
+
+    def test_model_attribute(self):
+        self.validate_identity("SELECT model!mladmin")
+        self.validate_identity("SELECT model!PREDICT(1)")
+        self.validate_identity("SELECT m!PREDICT(INPUT_DATA => {*}) AS p FROM tbl")
+        self.validate_identity("SELECT m!PREDICT(INPUT_DATA => {tbl.*}) AS p FROM tbl")
+        self.validate_identity("x.y.z!PREDICT(foo, bar, baz, bla)")
+        self.validate_identity(
+            "SELECT * FROM TABLE(model_trained_with_labeled_data!DETECT_ANOMALIES(INPUT_DATA => TABLE(view_with_data_to_analyze), TIMESTAMP_COLNAME => 'date', TARGET_COLNAME => 'sales', CONFIG_OBJECT => OBJECT_CONSTRUCT('prediction_interval', 0.99)))"
+        )

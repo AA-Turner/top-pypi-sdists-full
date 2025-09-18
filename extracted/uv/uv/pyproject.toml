@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "uv"
-version = "0.8.17"
+version = "0.8.18"
 description = "An extremely fast Python package and project manager, written in Rust."
 authors = [{ name = "Astral Software Inc.", email = "hey@astral.sh" }]
 requires-python = ">=3.8"
@@ -62,6 +62,7 @@ minor-labels = ["breaking"]
 ignore-labels = ["internal", "ci", "testing"]
 version_files = [
   "README.md",
+  "pyproject.toml",
   "crates/uv/Cargo.toml",
   "crates/uv-version/Cargo.toml",
   "crates/uv-build/Cargo.toml",

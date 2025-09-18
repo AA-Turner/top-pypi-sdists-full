@@ -23,28 +23,25 @@
 """
 
 # pylint: disable=broad-except
-import io
 import errno
+import io
 import os
-import requests
 import ssl
 import tempfile
 from http import HTTPStatus
 
+import requests
 
-from DIRAC import S_OK, S_ERROR, gLogger
-from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue
-
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Config import gConfig
 from DIRAC.ConfigurationSystem.Client.Helpers.CSGlobals import skipCACheck
 from DIRAC.ConfigurationSystem.Client.Helpers.Registry import findDefaultGroupForDN
-from DIRAC.ConfigurationSystem.Client.PathFinder import getServiceURLs, getGatewayURLs
-
+from DIRAC.ConfigurationSystem.Client.PathFinder import getGatewayURLs, getServiceURLs
 from DIRAC.Core.DISET.ThreadConfig import ThreadConfig
 from DIRAC.Core.Security import Locations
 from DIRAC.Core.Utilities import Network
 from DIRAC.Core.Utilities.JEncode import decode, encode
-
+from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue
 
 # TODO CHRIS: refactor all the messy `discover` methods
 # I do not do it now because I want first to decide
@@ -63,7 +60,6 @@ class TornadoBaseClient:
     KW_USE_CERTIFICATES = "useCertificates"
     KW_EXTRA_CREDENTIALS = "extraCredentials"
     KW_TIMEOUT = "timeout"
-    KW_SETUP = "setup"
     KW_VO = "VO"
     KW_DELEGATED_DN = "delegatedDN"
     KW_DELEGATED_GROUP = "delegatedGroup"
@@ -72,7 +68,6 @@ class TornadoBaseClient:
     KW_PROXY_STRING = "proxyString"
     KW_PROXY_CHAIN = "proxyChain"
     KW_SKIP_CA_CHECK = "skipCACheck"
-    KW_KEEP_ALIVE_LAPSE = "keepAliveLapse"
 
     def __init__(self, serviceName, **kwargs):
         """
@@ -80,7 +75,6 @@ class TornadoBaseClient:
         :param useCertificates: If set to True, use the server certificate
         :param extraCredentials:
         :param timeout: Timeout of the call (default 600 s)
-        :param setup: Specify the Setup
         :param VO: Specify the VO
         :param delegatedDN: Not clear what it can be used for.
         :param delegatedGroup: Not clear what it can be used for.
@@ -106,9 +100,7 @@ class TornadoBaseClient:
         self.__useAccessToken = None
         self.__useCertificates = None
         # The CS useServerCertificate option can be overridden by explicit argument
-        self.__forceUseCertificates = self.kwargs.get(self.KW_USE_CERTIFICATES)
         self.__initStatus = S_OK()
-        self.__idDict = {}
         self.__extraCredentials = ""
         # by default we always have 1 url for example:
         # RPCClient('dips://volhcb38.cern.ch:9162/Framework/SystemAdministrator')
@@ -116,13 +108,11 @@ class TornadoBaseClient:
         self.__bannedUrls = []
 
         # For pylint...
-        self.setup = None
         self.vo = None
         self.serviceURL = None
 
         for initFunc in (
             self.__discoverTimeout,
-            self.__discoverSetup,
             self.__discoverVO,
             self.__discoverCredentialsToUse,
             self.__discoverExtraCredentials,
@@ -131,21 +121,6 @@ class TornadoBaseClient:
             result = initFunc()
             if not result["OK"] and self.__initStatus["OK"]:
                 self.__initStatus = result
-
-    def __discoverSetup(self):
-        """Discover which setup to use and stores it in self.setup
-        The setup is looked for:
-           * kwargs of the constructor (see KW_SETUP)
-           * in the CS /DIRAC/Setup
-           * default to 'Test'
-        """
-        if self.KW_SETUP in self.kwargs and self.kwargs[self.KW_SETUP]:
-            self.setup = str(self.kwargs[self.KW_SETUP])
-        else:
-            self.setup = self.__threadConfig.getSetup()
-            if not self.setup:
-                self.setup = gConfig.getValue("/DIRAC/Setup", "Test")
-        return S_OK()
 
     def __discoverURL(self):
         """Calculate the final URL. It is called at initialization and in connect in case of issue
@@ -277,7 +252,7 @@ class TornadoBaseClient:
         WARNING: COPY/PASTE FROM Core/Diset/private/BaseClient
         """
         # which extra credentials to use?
-        if self.__useCertificates:
+        if self.__useCertificates and not self.kwargs.get(self.KW_PROXY_LOCATION):
             self.__extraCredentials = self.VAL_EXTRA_CREDENTIALS_HOST
         else:
             self.__extraCredentials = ""
@@ -375,9 +350,9 @@ class TornadoBaseClient:
         # If nor url is given as constructor, we extract the list of URLs from the CS (System/URLs/Component)
         try:
             # We randomize the list, and add at the end the failover URLs (System/FailoverURLs/Component)
-            urlsList = getServiceURLs(self._destinationSrv, setup=self.setup, failover=True)
+            urlsList = getServiceURLs(self._destinationSrv, failover=True)
         except Exception as e:
-            return S_ERROR(f"Cannot get URL for {self._destinationSrv} in setup {self.setup}: {repr(e)}")
+            return S_ERROR(f"Cannot get URL for {self._destinationSrv} : {repr(e)}")
         if not urlsList:
             return S_ERROR(f"URL for service {self._destinationSrv} not found")
 
@@ -500,7 +475,8 @@ class TornadoBaseClient:
         if self.__extraCredentials:
             kwargs[self.KW_EXTRA_CREDENTIALS] = encode(self.__extraCredentials)
         kwargs["clientVO"] = self.vo
-        kwargs["clientSetup"] = self.setup
+        # No more Setups
+        kwargs["clientSetup"] = "None"
 
         # Getting URL
         url = self.__findServiceURL()
@@ -508,13 +484,16 @@ class TornadoBaseClient:
             return url
         url = url["Value"]
 
+        if self.kwargs.get(self.KW_PROXY_LOCATION):
+            auth = {"cert": self.kwargs[self.KW_PROXY_LOCATION]}
         # getting certificate
         # Do we use the server certificate ?
-        if self.kwargs[self.KW_USE_CERTIFICATES]:
+        elif self.kwargs[self.KW_USE_CERTIFICATES]:
             auth = {"cert": Locations.getHostCertificateAndKeyLocation()}
 
         # Use access token?
         elif self.__useAccessToken:
+            # TODO: Remove this code path?
             from DIRAC.FrameworkSystem.private.authorization.utils.Tokens import (
                 getLocalTokenDict,
                 writeTokenDictToTokenFile,
@@ -543,13 +522,11 @@ class TornadoBaseClient:
 
             auth = {"headers": {"Authorization": f"Bearer {token['access_token']}"}}
         elif self.kwargs.get(self.KW_PROXY_STRING):
+            # TODO: This code path cannot work with DiracX
             tmpHandle, cert = tempfile.mkstemp()
             fp = os.fdopen(tmpHandle, "w")
             fp.write(self.kwargs[self.KW_PROXY_STRING])
             fp.close()
-
-        # CHRIS 04.02.21
-        # TODO: add proxyLocation check ?
         else:
             auth = {"cert": Locations.getProxyLocation()}
             if not auth["cert"]:
@@ -649,10 +626,8 @@ class _ContextAdapter(requests.adapters.HTTPAdapter):
 @convertToReturnValue
 def _create_session(verified=True):
     ctx = ssl.create_default_context()
-    # Python 3.10+ sets DEFAULT:@SECLEVEL=2 which prevents the use of 1024 bit RSA for proxies.
-    # In DIRAC 8.0 the default proxy length has been increased to 2048 bits however we need to
-    # downgrade to DEFAULT:@SECLEVEL=1 until all users have uploaded a new proxy.
-    ctx.set_ciphers(os.environ.get("DIRAC_HTTPS_SSL_CIPHERS", "DEFAULT:@SECLEVEL=1"))
+    if ssl_ciphers := os.environ.get("DIRAC_HTTPS_SSL_CIPHERS"):
+        ctx.set_ciphers(ssl_ciphers)
     if minimum_tls_version := os.environ.get("DIRAC_HTTPS_SSL_METHOD_MIN"):
         ctx.minimum_version = getattr(ssl.TLSVersion, minimum_tls_version)
     if maximum_tls_version := os.environ.get("DIRAC_HTTPS_SSL_METHOD_MAX"):

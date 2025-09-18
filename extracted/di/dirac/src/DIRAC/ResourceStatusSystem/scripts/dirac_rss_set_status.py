@@ -6,9 +6,8 @@ issuer with a duration of 1 day.
 """
 from datetime import datetime, timedelta
 
-from DIRAC import S_OK
+from DIRAC import S_OK, gLogger
 from DIRAC import exit as DIRACExit
-from DIRAC import gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.Core.Base.Script import Script
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
@@ -29,6 +28,7 @@ def registerSwitches():
         ("status=", "Status to be changed"),
         ("reason=", "Reason to set the Status"),
         ("VO=", "VO to change a status for. When omitted, status will be changed for all VOs"),
+        ("tokenOwner=", "Owner of the token"),
         ("days=", "Number of days the token is valid for. Default is 1 day. 0 or less days denotes forever."),
     )
 
@@ -138,6 +138,9 @@ def unpack(switchDict):
         switchDictClone["statusType"] = None
         switchDictSet.append(switchDictClone)
 
+    for sd in switchDictSet:
+        sd.update({"tokenOwner": switchDict.get("tokenOwner")})
+
     return switchDictSet
 
 
@@ -229,14 +232,15 @@ def run(switchDict):
     Main function of the script
     """
 
-    tokenOwner = getTokenOwner()
-    if not tokenOwner["OK"]:
-        gLogger.error(tokenOwner["Message"])
-        DIRACExit(1)
-    tokenOwner = tokenOwner["Value"]
+    tokenOwner = switchDict.get("tokenOwner")
+    if tokenOwner is None:
+        tokenOwner = getTokenOwner()
+        if not tokenOwner["OK"]:
+            gLogger.error(tokenOwner["Message"])
+            DIRACExit(1)
+        tokenOwner = tokenOwner["Value"]
 
     gLogger.notice(f"TokenOwner is {tokenOwner}")
-
     result = setStatus(switchDict, tokenOwner)
     if not result["OK"]:
         gLogger.error(result["Message"])

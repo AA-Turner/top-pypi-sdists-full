@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aioamazondevices
-Version: 6.2.3
+Version: 6.2.5
 Summary: Python library to control Amazon devices
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Author: Simone Chemelli
 Author-email: simone.chemelli@gmail.com
 Requires-Python: >=3.12

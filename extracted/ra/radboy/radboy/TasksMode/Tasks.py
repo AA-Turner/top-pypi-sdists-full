@@ -1162,37 +1162,6 @@ def generateWhiteNoise():
     except Exception as e:
         print(e)
 
-defaultEntries='''
-Aluminum Beverage Can [http://www.kadealu.com/] Stubby Container Volume: 250ml Can Ht: 92mm Can Body Diam: 66mm Can End Diam. 52/58mm Net Wt: 9.3/10.g
-Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 330ml Can Ht: 116mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 10.6g
-Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 355ml Can Ht: 122mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 11.5g
-Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 475ml Can Ht: 158mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13g
-Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 500ml Can Ht: 168mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13.4g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 250ml Can Ht: 115mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 270ml Can Ht: 123mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 13.4g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 310ml Can Ht: 138.8mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 9.5g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 330ml Can Ht: 147mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 355ml Can Ht: 156mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
-Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 180ml Can Ht: 104mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 8.8g
-Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 250ml Can Ht: 134mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 9.1g
-Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 200ml Can Ht: 96mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
-'''.split("\n")
-with Session(ENGINE) as session:
-    for line in defaultEntries:
-        check=session.query(Entry).filter(or_(
-            Entry.Barcode.icontains(line),
-            Entry.Code.icontains(line),
-            Entry.Name.icontains(line),
-            )).first()
-        if check is None:
-            e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
-            session.add(e)
-        else:
-            session.delete(check)
-            #e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
-            #session.add(e)
-    session.commit()
-
 class TasksMode:
     def networth_ui(self):
         NetWorthUi()
@@ -5707,6 +5676,12 @@ where:
                     'exec':lambda self=self: OAR.CountTo(),
                     }
         count+=1
+        self.options[str(uuid1())]={
+                    'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["add"],endCmd=["recycle entries",'rec. entry',])]],
+                    'desc':f"add new default recycle entries",
+                    'exec':lambda self=self:self.addRecycleEntries(),
+                    }
+        count+=1
         #self.product_history=
         
         '''
@@ -5784,7 +5759,38 @@ where:
                         except Exception as e:
                             print(e)
                             print(type(command),f"{command}")
+
                             break
+    def addRecycleEntries(self):
+        defaultEntries='''Aluminum Beverage Can [http://www.kadealu.com/] Stubby Container Volume: 250ml Can Ht: 92mm Can Body Diam: 66mm Can End Diam. 52/58mm Net Wt: 9.3/10.g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 330ml Can Ht: 116mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 10.6g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 355ml Can Ht: 122mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 11.5g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 475ml Can Ht: 158mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13g
+Aluminum Beverage Can [http://www.kadealu.com/] Standard Container Volume: 500ml Can Ht: 168mm Can Body Diam: 66mm Can End Diam. 52mm Net Wt: 13.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 250ml Can Ht: 115mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 270ml Can Ht: 123mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 13.4g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 310ml Can Ht: 138.8mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 9.5g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 330ml Can Ht: 147mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 355ml Can Ht: 156mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 10.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 180ml Can Ht: 104mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 8.8g
+Aluminum Beverage Can [http://www.kadealu.com/] Slim Container Volume: 250ml Can Ht: 134mm Can Body Diam: 53mm Can End Diam. 50mm Net Wt: 9.1g
+Aluminum Beverage Can [http://www.kadealu.com/] Sleek Container Volume: 200ml Can Ht: 96mm Can Body Diam: 57mm Can End Diam. 52mm Net Wt: 11.4g
+'''.split("\n")
+        with Session(ENGINE) as session:
+            for line in defaultEntries:
+                check=session.query(Entry).filter(or_(
+                    Entry.Barcode.icontains(line),
+                    Entry.Code.icontains(line),
+                    Entry.Name.icontains(line),
+                    )).first()
+                if check is None:
+                    e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
+                    session.add(e)
+                else:
+                    session.delete(check)
+                    #e=Entry(Barcode=line.lower(),Code=line.upper(),Name=line)
+                    #session.add(e)
+            session.commit()
 
     def promptForOp(self,n,total,entryIdList,barcode):
         with Session(ENGINE) as session:

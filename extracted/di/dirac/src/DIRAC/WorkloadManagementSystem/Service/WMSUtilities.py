@@ -1,35 +1,25 @@
 """ A set of utilities used in the WMS services
-    Requires the Nordugrid ARC plugins. In particular : nordugrid-arc-python
 """
-from tempfile import mkdtemp
 import shutil
+from tempfile import mkdtemp
 
-from DIRAC import S_OK, S_ERROR, gLogger, gConfig
+from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import (
+    getDNForUsername,
+    getGroupOption,
+)
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getQueue
-from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getGroupOption, getUsernameForDN, getVOForGroup
 from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
 from DIRAC.FrameworkSystem.Client.TokenManagerClient import gTokenManager
 from DIRAC.Resources.Computing.ComputingElementFactory import ComputingElementFactory
 from DIRAC.WorkloadManagementSystem.Client.PilotScopes import PILOT_SCOPES
-
 
 # List of files to be inserted/retrieved into/from pilot Output Sandbox
 # first will be defined as StdOut in JDL and the second as StdErr
 outputSandboxFiles = ["StdOut", "StdErr"]
 
 COMMAND_TIMEOUT = 60
-###########################################################################
-
-
-def getGridEnv():
-    gridEnv = ""
-    setup = gConfig.getValue("/DIRAC/Setup", "")
-    if setup:
-        instance = gConfig.getValue(f"/DIRAC/Setups/{setup}/WorkloadManagement", "")
-        if instance:
-            gridEnv = gConfig.getValue(f"/Systems/WorkloadManagement/{instance}/GridEnv", "")
-
-    return gridEnv
 
 
 def getPilotCE(pilotDict):
@@ -39,15 +29,12 @@ def getPilotCE(pilotDict):
     if not result["OK"]:
         return result
     queueDict = result["Value"]
-    gridEnv = getGridEnv()
-    queueDict["GridEnv"] = gridEnv
     queueDict["WorkingDirectory"] = mkdtemp()
     result = ceFactory.getCE(pilotDict["GridType"], pilotDict["DestinationSite"], queueDict)
     if not result["OK"]:
         shutil.rmtree(queueDict["WorkingDirectory"])
         return result
-    ce = result["Value"]
-    return S_OK(ce)
+    return result
 
 
 def getPilotProxy(pilotDict):
@@ -56,16 +43,24 @@ def getPilotProxy(pilotDict):
     :param dict pilotDict: pilot parameters
     :return: S_OK/S_ERROR with proxy as Value
     """
-    owner = pilotDict["OwnerDN"]
-    group = pilotDict["OwnerGroup"]
 
-    groupVOMS = getGroupOption(group, "VOMSRole", group)
-    result = gProxyManager.getPilotProxyFromVOMSGroup(owner, groupVOMS)
+    opsH = Operations(vo=pilotDict["VO"])
+
+    pilotDN = opsH.getValue("Pilot/GenericPilotDN")
+    if not pilotDN:
+        owner = Operations(vo=pilotDict["VO"]).getValue("Pilot/GenericPilotUser")
+        res = getDNForUsername(owner)
+        if not res["OK"]:
+            return S_ERROR(f"Cannot get the generic pilot DN: {res['Message']}")
+        pilotDN = res["Value"][0]
+    pilotGroup = Operations(vo=pilotDict["VO"]).getValue("Pilot/GenericPilotGroup")
+
+    groupVOMS = getGroupOption(pilotGroup, "VOMSRole")
+    result = gProxyManager.getPilotProxyFromVOMSGroup(pilotDN, groupVOMS)
     if not result["OK"]:
-        gLogger.error("Could not get proxy:", f"User \"{owner}\" Group \"{groupVOMS}\" : {result['Message']}")
+        gLogger.error("Could not get proxy from VOMS:", f"DN \"{pilotDN}\" Group \"{groupVOMS}\" : {result['Message']}")
         return S_ERROR("Failed to get the pilot's owner proxy")
-    proxy = result["Value"]
-    return S_OK(proxy)
+    return result
 
 
 def setPilotCredentials(ce, pilotDict):
@@ -75,10 +70,11 @@ def setPilotCredentials(ce, pilotDict):
     :param pilotDict: pilot parameter dictionary
     :return: S_OK/S_ERROR
     """
-    vo = getVOForGroup(pilotDict["OwnerGroup"])
+    vo = pilotDict["VO"]
     if "Token" in ce.ceParameters.get("Tag", []) or f"Token:{vo}" in ce.ceParameters.get("Tag", []):
+        pilotGroup = Operations(vo=vo).getValue("Pilot/GenericPilotGroup")
         result = gTokenManager.getToken(
-            userGroup=pilotDict["OwnerGroup"],
+            userGroup=pilotGroup,
             scope=PILOT_SCOPES,
             audience=ce.audienceName,
             requiredTimeLeft=150,
@@ -114,7 +110,7 @@ def killPilotsInQueues(pilotRefDict):
     ceFactory = ComputingElementFactory()
 
     for key, pilotDict in pilotRefDict.items():
-        owner, group, site, ce, queue = key.split("@@@")
+        vo, site, ce, queue = key.split("@@@")
         result = getQueue(site, ce, queue)
         if not result["OK"]:
             return result
@@ -125,13 +121,10 @@ def killPilotsInQueues(pilotRefDict):
             return result
         ce = result["Value"]
 
-        group = getGroupOption(group, "VOMSRole", group)
-        ret = gProxyManager.getPilotProxyFromVOMSGroup(owner, group)
-        if not ret["OK"]:
-            gLogger.error("Could not get proxy:", f"User '{owner}' Group '{group}' : {ret['Message']}")
-            return S_ERROR("Failed to get the pilot's owner proxy")
-        proxy = ret["Value"]
-        ce.setProxy(proxy)
+        pilotDict["VO"] = vo
+        result = setPilotCredentials(ce, pilotDict)
+        if not result["OK"]:
+            return result
 
         pilotList = pilotDict["PilotList"]
         result = ce.killJob(pilotList)

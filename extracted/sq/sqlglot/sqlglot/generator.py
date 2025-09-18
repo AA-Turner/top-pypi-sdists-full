@@ -4235,7 +4235,8 @@ class Generator(metaclass=_Generator):
         return self._ml_sql(expression, "PREDICT")
 
     def generateembedding_sql(self, expression: exp.GenerateEmbedding) -> str:
-        return self._ml_sql(expression, "GENERATE_EMBEDDING")
+        name = "GENERATE_TEXT_EMBEDDING" if expression.args.get("is_text") else "GENERATE_EMBEDDING"
+        return self._ml_sql(expression, name)
 
     def mltranslate_sql(self, expression: exp.MLTranslate) -> str:
         return self._ml_sql(expression, "TRANSLATE")
@@ -5197,6 +5198,10 @@ class Generator(metaclass=_Generator):
         self.unsupported("Unsupported SHOW statement")
         return ""
 
+    def install_sql(self, expression: exp.Install) -> str:
+        self.unsupported("Unsupported INSTALL statement")
+        return ""
+
     def get_put_sql(self, expression: exp.Put | exp.Get) -> str:
         # Snowflake GET/PUT statements:
         #   PUT <file> <internalStage> <properties>
@@ -5301,3 +5306,7 @@ class Generator(metaclass=_Generator):
         starts = f" STARTS {starts}" if starts else ""
 
         return f"REFRESH {method} ON {kind}{every}{starts}"
+
+    def modelattribute_sql(self, expression: exp.ModelAttribute) -> str:
+        self.unsupported("The model!attribute syntax is not supported")
+        return ""

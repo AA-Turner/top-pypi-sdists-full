@@ -10,9 +10,7 @@
 #include <Python.h>
 #include <windows.h>
 
-#include "../../_psutil_common.h"
-#include "proc_info.h"
-#include "proc_utils.h"
+#include "../../arch/all/init.h"
 
 
 #ifndef _WIN64

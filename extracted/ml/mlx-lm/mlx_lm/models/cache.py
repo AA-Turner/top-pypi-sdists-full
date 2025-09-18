@@ -6,6 +6,8 @@ import mlx.core as mx
 import mlx.nn as nn
 from mlx.utils import tree_flatten, tree_map, tree_unflatten
 
+from .base import create_causal_mask
+
 
 def make_prompt_cache(
     model: nn.Module,
@@ -106,6 +108,17 @@ def trim_prompt_cache(cache: List[Any], num_tokens: int) -> List[Any]:
     return [c.trim(num_tokens) for c in cache][0]
 
 
+def create_attention_mask(
+    N: int, offset: int, return_array: bool, window_size: Optional[int]
+):
+    if N == 1:
+        return None
+    if return_array:
+        return create_causal_mask(N, offset, window_size=window_size)
+    else:
+        return "causal"
+
+
 class _BaseCache:
     @property
     def state(self):
@@ -161,6 +174,17 @@ class ConcatenateKVCache(_BaseCache):
     def state(self, v):
         self.keys, self.values = v
         self.offset = self.keys.shape[-2]
+
+    def is_trimmable(self):
+        return True
+
+    def trim(self, n):
+        n = min(self.offset, n)
+        self.offset -= n
+        return n
+
+    def make_mask(self, *args, **kwargs):
+        return create_attention_mask(*args, offset=self.offset, **kwargs)
 
 
 class QuantizedKVCache(_BaseCache):
@@ -244,6 +268,9 @@ class QuantizedKVCache(_BaseCache):
         self.offset -= n
         return n
 
+    def make_mask(self, *args, **kwargs):
+        return create_attention_mask(*args, offset=self.offset, **kwargs)
+
 
 class KVCache(_BaseCache):
     def __init__(self):
@@ -308,6 +335,9 @@ class KVCache(_BaseCache):
                 self.values, group_size=group_size, bits=bits
             )
         return quant_cache
+
+    def make_mask(self, *args, **kwargs):
+        return create_attention_mask(*args, offset=self.offset, **kwargs)
 
 
 class RotatingKVCache(_BaseCache):
@@ -452,10 +482,34 @@ class RotatingKVCache(_BaseCache):
     def to_quantized(self, group_size: int = 64, bits: int = 4) -> QuantizedKVCache:
         raise NotImplementedError("RotatingKVCache Quantization NYI")
 
+    def make_mask(
+        self, N: int, window_size: Optional[int] = None, return_array: bool = False
+    ):
+        if N > 1:
+            window_size = window_size or self.max_size
+            offset = min(self.max_size, self.offset)
+            if offset + N > window_size or return_array:
+                return create_causal_mask(N, offset, window_size=window_size)
+            else:
+                return "causal"
+        else:
+            if window_size is None:
+                return None
+            # May need a mask for when window_size < max_size
+            if self.offset >= window_size and self.max_size > window_size:
+                idx = self._idx
+                if idx >= self.max_size:
+                    idx = 0
+                mask_size = min(self.max_size, self.offset)
+                mask = mx.arange(mask_size) >= (mask_size - window_size)
+                mask = mx.roll(mask, shift=idx + 1)
+                return mask[:, None]
+
 
 class ArraysCache(_BaseCache):
-    def __init__(self, size):
+    def __init__(self, size, left_padding: Optional[List[int]] = None):
         self.cache = [None] * size
+        self.left_padding = left_padding
 
     def __setitem__(self, idx, value):
         self.cache[idx] = value
@@ -471,10 +525,30 @@ class ArraysCache(_BaseCache):
     def state(self, v):
         self.cache = v
 
+    def filter(self, batch_indices):
+        """
+        In-place filter to keep just the given indices in the cache.
+        """
+        self.cache = [c[batch_indices] for c in self.cache]
+        self.left_padding = None
+
+    def extend(self, other):
+        """
+        In-place extend this cache with the other cache.
+        """
+        self.cache = [mx.concatenate([c, o]) for c, o in zip(self.cache, other.cache)]
+        self.left_padding = None
+
+    def make_mask(self, N: int):
+        if self.cache[0] is None and self.left_padding is not None:
+            return mx.arange(N) >= self.left_padding[:, None]
+        else:
+            return None
+
 
 class MambaCache(ArraysCache):
-    def __init__(self):
-        super().__init__(size=2)
+    def __init__(self, left_padding: Optional[List[int]] = None):
+        super().__init__(size=2, left_padding=left_padding)
 
 
 class ChunkedKVCache(KVCache):
@@ -536,6 +610,14 @@ class CacheList(KVCache):
     def __getitem__(self, idx):
         return self.caches[idx]
 
+    def is_trimmable(self):
+        return all(c.is_trimmable() for c in self.caches)
+
+    def trim(self, n):
+        for c in self.caches:
+            m = c.trim(n)
+        return m
+
     @property
     def state(self):
         return [s for c in self.caches for s in c.state]
@@ -548,3 +630,129 @@ class CacheList(KVCache):
             l = len(c.state)
             c.state = v[start : start + l]
             start += l
+
+
+class BatchKVCache(_BaseCache):
+    def __init__(self, left_padding: List[int]):
+        """
+        The BatchKV cache expects inputs to be left-padded.
+
+        E.g. the following prompts:
+
+            [1, 3, 5]
+            [7]
+            [2, 6, 8, 9]
+
+        Should be padded like so:
+
+            [0, 1, 3, 5]
+            [0, 0, 0, 7]
+            [2, 6, 8, 9]
+
+        And ``left_padding`` specifies the amount of padding for each.
+        In this case, ``left_padding = [1, 3, 0]``.
+        """
+        self.keys = None
+        self.values = None
+        self.left_padding = mx.array(left_padding)
+        self.offset = mx.array([-l for l in left_padding])
+        self._idx = 0
+        self.step = 256
+
+    def update_and_fetch(self, keys, values):
+        prev = self._idx
+        if self.keys is None or (prev + keys.shape[2]) > self.keys.shape[2]:
+            B, n_kv_heads, _, k_head_dim = keys.shape
+            v_head_dim = values.shape[3]
+            n_steps = (self.step + keys.shape[2] - 1) // self.step
+            k_shape = (B, n_kv_heads, n_steps * self.step, k_head_dim)
+            v_shape = (B, n_kv_heads, n_steps * self.step, v_head_dim)
+            new_k = mx.zeros(k_shape, keys.dtype)
+            new_v = mx.zeros(v_shape, values.dtype)
+            if self.keys is not None:
+                if prev % self.step != 0:
+                    self.keys = self.keys[..., :prev, :]
+                    self.values = self.values[..., :prev, :]
+                self.keys = mx.concatenate([self.keys, new_k], axis=2)
+                self.values = mx.concatenate([self.values, new_v], axis=2)
+            else:
+                self.keys, self.values = new_k, new_v
+
+        self.offset += keys.shape[2]
+        self._idx += keys.shape[2]
+        self.keys[..., prev : self._idx, :] = keys
+        self.values[..., prev : self._idx, :] = values
+        return self.keys[..., : self._idx, :], self.values[..., : self._idx, :]
+
+    @property
+    def state(self):
+        k, v = self.keys, self.values
+        if self._idx < k.shape[2]:
+            k = k[..., : self._idx, :]
+            v = v[..., : self._idx, :]
+        return k, v, self.offset, self.left_padding
+
+    @state.setter
+    def state(self, v):
+        self.keys, self.values, self.offset, self.left_padding = v
+        self._idx = self.keys.shape[2]
+
+    def is_trimmable(self):
+        return True
+
+    def trim(self, n):
+        n = min(self._idx, n)
+        self._idx -= n
+        self.offset -= n
+        return n
+
+    def make_mask(self, N: int, return_array: bool = False, **kwargs):
+        return create_causal_mask(
+            N, offset=self._idx, left_padding=self.left_padding, **kwargs
+        )
+
+    def filter(self, batch_indices):
+        """
+        In-place filter to keep just the given indices in the cache.
+        """
+        self.keys = self.keys[batch_indices]
+        self.values = self.values[batch_indices]
+        self.offset = self.offset[batch_indices]
+        self.left_padding = self.left_padding[batch_indices]
+
+        # Shift left to reduce padding
+        min_left_pad = self.left_padding.min().item()
+        if min_left_pad > 0:
+            self.keys = self.keys[..., min_left_pad:, :]
+            self.values = self.values[..., min_left_pad:, :]
+            self._idx -= min_left_pad
+            self.left_padding -= min_left_pad
+
+    def extend(self, other):
+        """
+        In-place extend this cache with the other cache.
+        """
+        max_idx = max(self._idx, other._idx)
+        max_size = max(self.keys.shape[2], other.keys.shape[2])
+
+        # Pad the keys and values so they are right-justified
+        # with the index and the same size
+        def pad(c):
+            left = max_idx - c._idx
+            right = max_size - c.keys.shape[2] - left
+            k, v = c.keys, c.values
+            if right < 0:
+                k = k[..., :right, :]
+                v = v[..., :right, :]
+                right = 0
+            if left != 0 or right != 0:
+                pad = [(0, 0), (0, 0), (left, right), (0, 0)]
+                k = mx.pad(k, pad)
+                v = mx.pad(v, pad)
+            left_padding = c.left_padding + left
+            return k, v, c.offset, left_padding
+
+        self.keys, self.values, self.offset, self.left_padding = map(
+            mx.concatenate, zip(*(pad(self), pad(other)))
+        )
+        self._idx = max_idx

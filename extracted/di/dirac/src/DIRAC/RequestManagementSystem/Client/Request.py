@@ -1,7 +1,3 @@
-########################################################################
-# File: Request.py
-# Date: 2012/07/16 13:43:45
-########################################################################
 """
 :mod: Request
 
@@ -29,9 +25,8 @@ class Request:
     """
     :param int RequestID: requestID
     :param str Name: request' name
-    :param str OwnerDN: request's owner DN
+    :param str Owner: request's owner
     :param str OwnerGroup: request owner group
-    :param str Setup: DIRAC setup
     :param str SourceComponent: whatever
     :param int JobID: jobID
     :param datetime.datetime CreationTime: UTC datetime
@@ -70,19 +65,18 @@ class Request:
         self._Status = "Done"
         self.JobID = 0
         self.Error = None
-        self.DIRACSetup = None
-        self.OwnerDN = None
+        self.Owner = None
         self.RequestName = None
         self.OwnerGroup = None
         self._SourceComponent = None
 
         self.dmsHelper = DMSHelpers()
 
-        proxyInfo = getProxyInfo()
-        if proxyInfo["OK"]:
-            proxyInfo = proxyInfo["Value"]
-            if proxyInfo["validGroup"] and proxyInfo["validDN"]:
-                self.OwnerDN = proxyInfo["identity"]
+        res = getProxyInfo()
+        if res["OK"]:
+            proxyInfo = res["Value"]
+            if proxyInfo["validGroup"]:
+                self.Owner = proxyInfo["username"]
                 self.OwnerGroup = proxyInfo["group"]
 
         self.__operations__ = []
@@ -250,9 +244,6 @@ class Request:
         """for comparisons"""
         return True
 
-    # For Python 2 compatibility
-    __nonzero__ = __bool__
-
     def __len__(self):
         """nb of subRequests"""
         return len(self.__operations__)
@@ -385,11 +376,10 @@ class Request:
         attrNames = [
             "RequestID",
             "RequestName",
-            "OwnerDN",
+            "Owner",
             "OwnerGroup",
             "Status",
             "Error",
-            "DIRACSetup",
             "SourceComponent",
             "JobID",
             "CreationTime",

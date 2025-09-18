@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2024 The python-bitcoin-utils developers
+# Copyright (C) 2018-2025 The python-bitcoin-utils developers
 #
 # This file is part of python-bitcoin-utils
 #
@@ -11,7 +11,7 @@
 
 NETWORK = "testnet"
 
-networks = {"mainnet", "testnet", "regtest"}
+networks = {"mainnet", "testnet", "testnet4", "signet", "regtest"}
 
 
 def setup(network: str = "testnet") -> str:
@@ -36,6 +36,22 @@ def is_mainnet() -> bool:
 def is_testnet() -> bool:
     global NETWORK
     if NETWORK == "testnet":
+        return True
+    else:
+        return False
+
+
+def is_testnet4() -> bool:
+    global NETWORK
+    if NETWORK == "testnet4":
+        return True
+    else:
+        return False
+
+
+def is_signet() -> bool:
+    global NETWORK
+    if NETWORK == "signet":
         return True
     else:
         return False

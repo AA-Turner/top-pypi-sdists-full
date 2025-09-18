@@ -1,4 +1,4 @@
-"""  TransformationAgent processes transformations found in the transformation database.
+"""TransformationAgent processes transformations found in the transformation database.
 
 The following options can be set for the TransformationAgent.
 
@@ -9,11 +9,14 @@ The following options can be set for the TransformationAgent.
   :caption: TransformationAgent options
 """
 
+from importlib import import_module
+
 import time
 import os
 import datetime
 import pickle
 import concurrent.futures
+from pathlib import Path
 
 from DIRAC import S_OK, S_ERROR
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
@@ -126,6 +129,9 @@ class TransformationAgent(AgentModule, TransformationAgentsUtilities):
         if not res["OK"]:
             self._logError("Failed to obtain transformations:", res["Message"])
             return S_OK()
+
+        active_trans_ids = [t["TransformationID"] for t in res["Value"]]
+        self.cleanOldTransformationCache(active_trans_ids)
         # Process the transformations
         count = 0
         future_to_transID = {}
@@ -162,6 +168,22 @@ class TransformationAgent(AgentModule, TransformationAgentsUtilities):
                 self._logInfo("Processed %d" % transID)
 
         return S_OK()
+
+    def cleanOldTransformationCache(self, active_trans_ids: list[int]):
+        cache_filenames = {Path(self.__cacheFile(tid)) for tid in active_trans_ids}
+        existing_caches = set(Path(self.workDirectory).glob("*.pkl"))
+        useless_cache_files = existing_caches - cache_filenames
+
+        if useless_cache_files:
+            self._logInfo(f"Found potentially {len(useless_cache_files)} useless cache files")
+
+        # Since idle transformations aren't in active_trans_ids, let's filter it more
+        # and take only files that haven't been touched for 2 month
+        last_update_threshold = (datetime.datetime.utcnow() - datetime.timedelta(days=60)).timestamp()
+
+        for cache_file in useless_cache_files:
+            if Path(cache_file).stat().st_mtime < last_update_threshold:
+                cache_file.unlink()
 
     def getTransformations(self):
         """Obtain the transformations to be executed - this is executed at the start of every loop (it's really the
@@ -626,10 +648,8 @@ class TransformationAgent(AgentModule, TransformationAgentsUtilities):
             self.__writeCache(transID)
 
     def __removeFromCache(self, transID, lfns):
-        if transID not in self.replicaCache:
-            return
         removed = 0
-        if self.replicaCache[transID] and lfns:
+        if transID in self.replicaCache and self.replicaCache[transID] and lfns:
             for lfn in lfns:
                 for timeKey in self.replicaCache[transID]:
                     if self.replicaCache[transID][timeKey].pop(lfn, None):
@@ -702,22 +722,22 @@ class TransformationAgent(AgentModule, TransformationAgentsUtilities):
     def __generatePluginObject(self, plugin, clients):
         """This simply instantiates the TransformationPlugin class with the relevant plugin name"""
         try:
-            plugModule = __import__(self.pluginLocation, globals(), locals(), ["TransformationPlugin"])
-        except ImportError as e:
-            self._logException(
-                f"Failed to import 'TransformationPlugin' {plugin}", lException=e, method="__generatePluginObject"
-            )
+            plugModule = import_module(self.pluginLocation)
+        except ImportError:
+            self._logException(f"Failed to import 'TransformationPlugin' {plugin}", method="__generatePluginObject")
             return S_ERROR()
         try:
-            plugin_o = getattr(plugModule, "TransformationPlugin")(
-                f"{plugin}", transClient=clients["TransformationClient"], dataManager=clients["DataManager"]
+            pluginClass = getattr(plugModule, "TransformationPlugin")
+        except AttributeError:
+            self._logException(
+                f"Failed to import 'TransformationPlugin' class from module {self.pluginLocation}",
+                method="__generatePluginObject",
             )
-            return S_OK(plugin_o)
-        except AttributeError as e:
-            self._logException(f"Failed to create {plugin}()", lException=e, method="__generatePluginObject")
             return S_ERROR()
-        plugin_o.setDirectory(self.workDirectory)
-        plugin_o.setCallback(self.pluginCallback)
+
+        plugin_o = pluginClass(plugin, transClient=clients["TransformationClient"], dataManager=clients["DataManager"])
+
+        return S_OK(plugin_o)
 
     def pluginCallback(self, transID, invalidateCache=False):
         """Standard plugin callback"""

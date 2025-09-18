@@ -24,7 +24,7 @@
      can be distinguished from it:
 
       - Remote ComputingElement: includes methods to interact with a remote ComputingElement
-        (e.g. HtCondorCEComputingElement, ARCComputingElement).
+        (e.g. HtCondorCEComputingElement, AREXComputingElement).
       - Inner ComputingElement: includes methods to locally interact with an underlying worker node.
         It is worth noting that an Inner ComputingElement provides synchronous submission
         (the submission of a job is blocking the execution until its completion). It deals with one job at a time.
@@ -39,24 +39,17 @@
 """
 
 import os
-import datetime
 
-from DIRAC import S_OK, S_ERROR, gLogger, version
-
-from DIRAC.Core.Security import Properties
-from DIRAC.Core.Security.VOMS import VOMS
-from DIRAC.Core.Security.ProxyFile import writeToProxyFile
-from DIRAC.Core.Security.ProxyInfo import getProxyInfoAsString
-from DIRAC.Core.Security.ProxyInfo import formatProxyInfoAsString
-from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.Core.Utilities.TimeUtilities import second
-from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
+from DIRAC import S_ERROR, S_OK, gLogger, version
 from DIRAC.ConfigurationSystem.Client.Config import gConfig
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.Core.Security import Properties
+from DIRAC.Core.Security.ProxyFile import writeToProxyFile
+from DIRAC.Core.Security.ProxyInfo import formatProxyInfoAsString, getProxyInfo, getProxyInfoAsString
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.FrameworkSystem.Client.ProxyManagerClient import gProxyManager
 from DIRAC.WorkloadManagementSystem.Utilities.JobParameters import (
-    getNumberOfProcessors,
     getNumberOfGPUs,
+    getNumberOfProcessors,
 )
 
 INTEGER_PARAMETERS = ["CPUTime", "NumberOfProcessors", "NumberOfPayloadProcessors", "MaxRAM"]
@@ -88,7 +81,6 @@ class ComputingElement:
         self.minProxyTime = gConfig.getValue("/Registry/MinProxyLifeTime", 10800)  # secs
         self.defaultProxyTime = gConfig.getValue("/Registry/DefaultProxyLifeTime", 43200)  # secs
         self.proxyCheckPeriod = gConfig.getValue("/Registry/ProxyCheckingPeriod", 3600)  # secs
-        self.valid = None
 
         self.batchSystem = None
         self.taskResults = {}
@@ -103,10 +95,9 @@ class ComputingElement:
         self.initializeParameters()
         self.log.debug("CE parameters", self.ceParameters)
 
-    def setProxy(self, proxy, valid=0):
+    def setProxy(self, proxy):
         """Set proxy for this instance"""
         self.proxy = proxy
-        self.valid = datetime.datetime.utcnow() + second * valid
 
     def setToken(self, token):
         self.token = token
@@ -114,28 +105,13 @@ class ComputingElement:
     def _prepareProxy(self):
         """Set the environment variable X509_USER_PROXY"""
         if self.proxy:
-            result = gProxyManager.dumpProxyToFile(self.proxy, requiredTimeLeft=self.minProxyTime)
+            result = gProxyManager.dumpProxyToFile(self.proxy, requiredTimeLeft=self.minProxyTime, includeToken=False)
             if not result["OK"]:
                 return result
             os.environ["X509_USER_PROXY"] = result["Value"]
 
             self.log.debug(f"Set proxy variable X509_USER_PROXY to {os.environ['X509_USER_PROXY']}")
         return S_OK()
-
-    def isProxyValid(self, valid=1000):
-        """Check if the stored proxy is valid"""
-        if not self.valid:
-            result = S_ERROR("Proxy is not valid for the requested length")
-            result["Value"] = 0
-            return result
-        delta = self.valid - datetime.datetime.utcnow()
-        totalSeconds = delta.days * 86400 + delta.seconds
-        if totalSeconds > valid:
-            return S_OK(totalSeconds - valid)
-
-        result = S_ERROR("Proxy is not valid for the requested length")
-        result["Value"] = totalSeconds - valid
-        return result
 
     def initializeParameters(self):
         """Initialize the CE parameters after they are collected from various sources"""
@@ -159,11 +135,11 @@ class ComputingElement:
             # List parameters cannot be updated as any other fields, they should be concatenated in a set(), not overriden
             for listParam in LIST_PARAMETERS:
                 # If listParam is not present or null, we remove it from ceParameters and continue
-                if not listParam in ceParameters or not ceParameters[listParam]:
+                if listParam not in ceParameters or not ceParameters[listParam]:
                     ceParameters.pop(listParam, [])
                     continue
                 # Initialize self.ceParameters[listParam] is not done and update the set
-                if not listParam in self.ceParameters:
+                if listParam not in self.ceParameters:
                     self.ceParameters[listParam] = set()
                 self.ceParameters[listParam].update(set(ceParameters.pop(listParam)))
 
@@ -264,76 +240,49 @@ class ComputingElement:
             return S_ERROR("Wrong type for setCPUTimeLeft argument")
 
     #############################################################################
-    def available(self, jobIDList=None):
+    def available(self):
         """This method returns the number of available slots in the target CE. The CE
         instance polls for waiting and running jobs and compares to the limits
         in the CE parameters.
-
-        :param list jobIDList: list of already existing job IDs to be checked against
         """
+        result = self.getCEStatus()
+        if not result["OK"]:
+            return result
 
-        # If there are no already registered jobs
-        if jobIDList is not None and not jobIDList:
-            result = S_OK()
-            result["RunningJobs"] = 0
-            result["WaitingJobs"] = 0
-            result["SubmittedJobs"] = 0
-        else:
-            result = self.ceParameters.get("CEType")
-            if result and result == "CREAM":
-                result = self.getCEStatus(jobIDList)  # pylint: disable=too-many-function-args
-            else:
-                result = self.getCEStatus()
-            if not result["OK"]:
-                return result
         runningJobs = result["RunningJobs"]
         waitingJobs = result["WaitingJobs"]
-        submittedJobs = result["SubmittedJobs"]
         availableProcessors = result.get("AvailableProcessors")
         ceInfoDict = dict(result)
 
         maxTotalJobs = int(self.ceParameters.get("MaxTotalJobs", 0))
         ceInfoDict["MaxTotalJobs"] = maxTotalJobs
-        waitingToRunningRatio = float(self.ceParameters.get("WaitingToRunningRatio", 0.0))
-        # if there are no Running job we can submit to get at most 'MaxWaitingJobs'
-        # if there are Running jobs we can increase this to get a ratio W / R 'WaitingToRunningRatio'
-        maxWaitingJobs = int(max(int(self.ceParameters.get("MaxWaitingJobs", 0)), runningJobs * waitingToRunningRatio))
+        maxWaitingJobs = int(self.ceParameters.get("MaxWaitingJobs", 0))
+        ceInfoDict["MaxWaitingJobs"] = maxWaitingJobs
 
         self.log.verbose("Max Number of Jobs:", maxTotalJobs)
-        self.log.verbose("Max W/R Ratio:", waitingToRunningRatio)
         self.log.verbose("Max Waiting Jobs:", maxWaitingJobs)
 
-        # Determine how many more jobs can be submitted
-        message = f"{self.ceName} CE: SubmittedJobs={submittedJobs}"
-        message += f", WaitingJobs={waitingJobs}, RunningJobs={runningJobs}"
-        totalJobs = runningJobs + waitingJobs
-
-        message += f", MaxTotalJobs={maxTotalJobs}"
-
-        if totalJobs >= maxTotalJobs:
-            self.log.verbose("Max Number of Jobs reached:", maxTotalJobs)
-            result["Value"] = 0
-            message = "There are {} waiting jobs and total jobs {} >= {} max total jobs".format(
-                waitingJobs,
-                totalJobs,
-                maxTotalJobs,
-            )
-        else:
-            additionalJobs = 0
-            if waitingJobs < maxWaitingJobs:
-                additionalJobs = maxWaitingJobs - waitingJobs
-                if totalJobs + additionalJobs >= maxTotalJobs:
-                    additionalJobs = maxTotalJobs - totalJobs
-            # For SSH CE case
-            if int(self.ceParameters.get("MaxWaitingJobs", 0)) == 0:
-                additionalJobs = maxTotalJobs - runningJobs
-
-            if availableProcessors is not None:
-                additionalJobs = min(additionalJobs, availableProcessors)
-            result["Value"] = additionalJobs
-
-        result["Message"] = message
         result["CEInfoDict"] = ceInfoDict
+        # If we reached the maximum number of total jobs, then the CE is not available
+        totalJobs = runningJobs + waitingJobs
+        if totalJobs >= maxTotalJobs:
+            self.log.verbose("Max Number of Jobs reached:", f"{totalJobs} >= {maxTotalJobs}")
+            result["Value"] = 0
+            return result
+
+        # If we reached the maximum number of waiting jobs, then the CE is not available
+        if waitingJobs >= maxWaitingJobs:
+            self.log.verbose("Max Number of waiting jobs reached:", f"{waitingJobs} >= {maxWaitingJobs}")
+            result["Value"] = 0
+            return result
+
+        additionalJobs = maxWaitingJobs - waitingJobs
+        if totalJobs + additionalJobs >= maxTotalJobs:
+            additionalJobs = maxTotalJobs - totalJobs
+
+        if availableProcessors is not None:
+            additionalJobs = min(additionalJobs, availableProcessors)
+        result["Value"] = additionalJobs
         return result
 
     #############################################################################
@@ -411,7 +360,7 @@ class ComputingElement:
         pilotProps = pilotProxyDict["groupProperties"]
 
         # if running with a pilot proxy, use it to renew the proxy of the payload
-        if Properties.PILOT in pilotProps or Properties.GENERIC_PILOT in pilotProps:
+        if Properties.GENERIC_PILOT in pilotProps:
             self.log.info("Using Pilot credentials to get a new payload Proxy")
             return gProxyManager.renewProxy(
                 proxyToBeRenewed=payloadProxy,
@@ -420,45 +369,7 @@ class ComputingElement:
                 proxyToConnect=pilotProxy,
             )
 
-        # if we are running with other type of proxy check if they are for the same user and group
-        # and copy the pilot proxy if necessary
-
-        self.log.info("Trying to copy pilot Proxy to get a new payload Proxy")
-        pilotProxySecs = pilotProxyDict["chain"].getRemainingSecs()["Value"]
-        if pilotProxySecs <= payloadSecs:
-            errorStr = "Pilot Proxy is not longer than payload Proxy"
-            self.log.error(errorStr)
-            return S_ERROR(f"Can not renew by copy: {errorStr}")
-
-        # check if both proxies belong to the same user and group
-        pilotDN = pilotProxyDict["chain"].getIssuerCert()["Value"].getSubjectDN()["Value"]
-        retVal = pilotProxyDict["chain"].getDIRACGroup()
-        if not retVal["OK"]:
-            return retVal
-        pilotGroup = retVal["Value"]
-
-        payloadDN = payloadProxyDict["chain"].getIssuerCert()["Value"].getSubjectDN()["Value"]
-        retVal = payloadProxyDict["chain"].getDIRACGroup()
-        if not retVal["OK"]:
-            return retVal
-        payloadGroup = retVal["Value"]
-        if pilotDN != payloadDN or pilotGroup != payloadGroup:
-            errorStr = "Pilot Proxy and payload Proxy do not have same DN and Group"
-            self.log.error(errorStr)
-            return S_ERROR(f"Can not renew by copy: {errorStr}")
-
-        if pilotProxyDict.get("hasVOMS", False):
-            return pilotProxyDict["chain"].dumpAllToFile(payloadProxy)
-
-        attribute = Registry.getVOMSAttributeForGroup(payloadGroup)
-        vo = Registry.getVOMSVOForGroup(payloadGroup)
-
-        retVal = VOMS().setVOMSAttributes(pilotProxyDict["chain"], attribute=attribute, vo=vo)
-        if not retVal["OK"]:
-            return retVal
-
-        chain = retVal["Value"]
-        return chain.dumpAllToFile(payloadProxy)
+        return S_ERROR("Payload proxy can not be renewed")
 
     def getDescription(self):
         """Get CE description as a dictionary.

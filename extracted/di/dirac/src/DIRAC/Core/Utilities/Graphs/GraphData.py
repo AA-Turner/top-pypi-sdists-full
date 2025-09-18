@@ -194,7 +194,9 @@ class GraphData:
                 self.all_num_keys.append(next)
                 next += 1
         elif self.key_type == "time":
-            self.all_num_keys = [date2num(datetime.datetime.fromtimestamp(to_timestamp(key))) for key in self.all_keys]
+            self.all_num_keys = [
+                date2num(datetime.datetime.utcfromtimestamp(to_timestamp(key))) for key in self.all_keys
+            ]
         elif self.key_type == "numeric":
             self.all_num_keys = [float(key) for key in self.all_keys]
 
@@ -409,7 +411,7 @@ class PlotData:
                 self.num_keys.append(next)
                 next += 1
         elif self.key_type == "time":
-            self.num_keys = [date2num(datetime.datetime.fromtimestamp(to_timestamp(key))) for key in self.keys]
+            self.num_keys = [date2num(datetime.datetime.utcfromtimestamp(to_timestamp(key))) for key in self.keys]
         elif self.key_type == "numeric":
             self.num_keys = [float(key) for key in self.keys]
 

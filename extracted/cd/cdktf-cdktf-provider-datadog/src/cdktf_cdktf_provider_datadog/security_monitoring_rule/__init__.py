@@ -1,7 +1,7 @@
 r'''
 # `datadog_security_monitoring_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_security_monitoring_rule`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule).
+Refer to the Terraform Registry for docs: [`datadog_security_monitoring_rule`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SecurityMonitoringRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule datadog_security_monitoring_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule datadog_security_monitoring_rule}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class SecurityMonitoringRule(
         *,
         message: builtins.str,
         name: builtins.str,
+        calculated_field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleCalculatedField", typing.Dict[builtins.str, typing.Any]]]]] = None,
         case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleCase", typing.Dict[builtins.str, typing.Any]]]]] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -62,6 +63,7 @@ class SecurityMonitoringRule(
         options: typing.Optional[typing.Union["SecurityMonitoringRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleQuery", typing.Dict[builtins.str, typing.Any]]]]] = None,
         reference_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleReferenceTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        scheduling_options: typing.Optional[typing.Union["SecurityMonitoringRuleSchedulingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         signal_query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleSignalQuery", typing.Dict[builtins.str, typing.Any]]]]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         third_party_case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleThirdPartyCase", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -75,26 +77,28 @@ class SecurityMonitoringRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule datadog_security_monitoring_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule datadog_security_monitoring_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param message: Message for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
-        :param name: The name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
-        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
-        :param enabled: Whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
-        :param group_signals_by: Additional grouping to perform on top of the query grouping. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
-        :param has_extended_title: Whether the notifications include the triggering group-by values in their title. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
-        :param reference_tables: reference_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
-        :param signal_query: signal_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
-        :param tags: Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
-        :param third_party_case: third_party_case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
-        :param type: The rule type. Valid values are ``application_security``, ``log_detection``, ``workload_security``, ``signal_correlation``. Defaults to ``"log_detection"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
-        :param validate: Whether or not to validate the Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
+        :param message: Message for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
+        :param name: The name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param calculated_field: calculated_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#calculated_field SecurityMonitoringRule#calculated_field}
+        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
+        :param enabled: Whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
+        :param group_signals_by: Additional grouping to perform on top of the query grouping. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
+        :param has_extended_title: Whether the notifications include the triggering group-by values in their title. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param reference_tables: reference_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
+        :param scheduling_options: scheduling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#scheduling_options SecurityMonitoringRule#scheduling_options}
+        :param signal_query: signal_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
+        :param tags: Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
+        :param third_party_case: third_party_case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
+        :param type: The rule type. Valid values are ``application_security``, ``log_detection``, ``workload_security``, ``signal_correlation``. Defaults to ``"log_detection"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
+        :param validate: Whether or not to validate the Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -110,6 +114,7 @@ class SecurityMonitoringRule(
         config = SecurityMonitoringRuleConfig(
             message=message,
             name=name,
+            calculated_field=calculated_field,
             case=case,
             enabled=enabled,
             filter=filter,
@@ -119,6 +124,7 @@ class SecurityMonitoringRule(
             options=options,
             query=query,
             reference_tables=reference_tables,
+            scheduling_options=scheduling_options,
             signal_query=signal_query,
             tags=tags,
             third_party_case=third_party_case,
@@ -148,7 +154,7 @@ class SecurityMonitoringRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SecurityMonitoringRule to import.
-        :param import_from_id: The id of the existing SecurityMonitoringRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SecurityMonitoringRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SecurityMonitoringRule to import is found.
         '''
         if __debug__:
@@ -158,6 +164,19 @@ class SecurityMonitoringRule(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="putCalculatedField")
+    def put_calculated_field(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleCalculatedField", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb7244d99da2b6be4dbafde42ad82a49899c52078b84af960a59dfe6b10e6122)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putCalculatedField", [value]))
 
     @jsii.member(jsii_name="putCase")
     def put_case(
@@ -199,14 +218,14 @@ class SecurityMonitoringRule(
         third_party_rule_options: typing.Optional[typing.Union["SecurityMonitoringRuleOptionsThirdPartyRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
-        :param detection_method: The detection method. Valid values are ``threshold``, ``new_value``, ``anomaly_detection``, ``impossible_travel``, ``hardcoded``, ``third_party``, ``anomaly_threshold``. Defaults to ``"threshold"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
-        :param evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
-        :param impossible_travel_options: impossible_travel_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
-        :param keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds). Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
-        :param max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
-        :param new_value_options: new_value_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
-        :param third_party_rule_options: third_party_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
+        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
+        :param detection_method: The detection method. Valid values are ``threshold``, ``new_value``, ``anomaly_detection``, ``impossible_travel``, ``hardcoded``, ``third_party``, ``anomaly_threshold``. Defaults to ``"threshold"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
+        :param evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
+        :param impossible_travel_options: impossible_travel_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
+        :param keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds). Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
+        :param max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
+        :param new_value_options: new_value_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
+        :param third_party_rule_options: third_party_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
         '''
         value = SecurityMonitoringRuleOptions(
             decrease_criticality_based_on_env=decrease_criticality_based_on_env,
@@ -247,6 +266,25 @@ class SecurityMonitoringRule(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putReferenceTables", [value]))
 
+    @jsii.member(jsii_name="putSchedulingOptions")
+    def put_scheduling_options(
+        self,
+        *,
+        rrule: builtins.str,
+        start: builtins.str,
+        timezone: builtins.str,
+    ) -> None:
+        '''
+        :param rrule: Schedule for the rule queries, written in RRULE syntax. See `RFC <https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html>`_ for syntax reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rrule SecurityMonitoringRule#rrule}
+        :param start: Start date for the schedule, in ISO 8601 format without timezone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#start SecurityMonitoringRule#start}
+        :param timezone: Time zone of the start date, in the `tz database <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_ format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#timezone SecurityMonitoringRule#timezone}
+        '''
+        value = SecurityMonitoringRuleSchedulingOptions(
+            rrule=rrule, start=start, timezone=timezone
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putSchedulingOptions", [value]))
+
     @jsii.member(jsii_name="putSignalQuery")
     def put_signal_query(
         self,
@@ -272,6 +310,10 @@ class SecurityMonitoringRule(
             type_hints = typing.get_type_hints(_typecheckingstub__9309cecd0c860750dbaf8fc6a75f029051b9c36b86dd40020821465f31234826)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putThirdPartyCase", [value]))
+
+    @jsii.member(jsii_name="resetCalculatedField")
+    def reset_calculated_field(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCalculatedField", []))
 
     @jsii.member(jsii_name="resetCase")
     def reset_case(self) -> None:
@@ -309,6 +351,10 @@ class SecurityMonitoringRule(
     def reset_reference_tables(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetReferenceTables", []))
 
+    @jsii.member(jsii_name="resetSchedulingOptions")
+    def reset_scheduling_options(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchedulingOptions", []))
+
     @jsii.member(jsii_name="resetSignalQuery")
     def reset_signal_query(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSignalQuery", []))
@@ -343,6 +389,11 @@ class SecurityMonitoringRule(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="calculatedField")
+    def calculated_field(self) -> "SecurityMonitoringRuleCalculatedFieldList":
+        return typing.cast("SecurityMonitoringRuleCalculatedFieldList", jsii.get(self, "calculatedField"))
+
+    @builtins.property
     @jsii.member(jsii_name="case")
     def case(self) -> "SecurityMonitoringRuleCaseList":
         return typing.cast("SecurityMonitoringRuleCaseList", jsii.get(self, "case"))
@@ -368,6 +419,13 @@ class SecurityMonitoringRule(
         return typing.cast("SecurityMonitoringRuleReferenceTablesList", jsii.get(self, "referenceTables"))
 
     @builtins.property
+    @jsii.member(jsii_name="schedulingOptions")
+    def scheduling_options(
+        self,
+    ) -> "SecurityMonitoringRuleSchedulingOptionsOutputReference":
+        return typing.cast("SecurityMonitoringRuleSchedulingOptionsOutputReference", jsii.get(self, "schedulingOptions"))
+
+    @builtins.property
     @jsii.member(jsii_name="signalQuery")
     def signal_query(self) -> "SecurityMonitoringRuleSignalQueryList":
         return typing.cast("SecurityMonitoringRuleSignalQueryList", jsii.get(self, "signalQuery"))
@@ -376,6 +434,13 @@ class SecurityMonitoringRule(
     @jsii.member(jsii_name="thirdPartyCase")
     def third_party_case(self) -> "SecurityMonitoringRuleThirdPartyCaseList":
         return typing.cast("SecurityMonitoringRuleThirdPartyCaseList", jsii.get(self, "thirdPartyCase"))
+
+    @builtins.property
+    @jsii.member(jsii_name="calculatedFieldInput")
+    def calculated_field_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleCalculatedField"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleCalculatedField"]]], jsii.get(self, "calculatedFieldInput"))
 
     @builtins.property
     @jsii.member(jsii_name="caseInput")
@@ -443,6 +508,13 @@ class SecurityMonitoringRule(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleReferenceTables"]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleReferenceTables"]]], jsii.get(self, "referenceTablesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schedulingOptionsInput")
+    def scheduling_options_input(
+        self,
+    ) -> typing.Optional["SecurityMonitoringRuleSchedulingOptions"]:
+        return typing.cast(typing.Optional["SecurityMonitoringRuleSchedulingOptions"], jsii.get(self, "schedulingOptionsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="signalQueryInput")
@@ -596,6 +668,229 @@ class SecurityMonitoringRule(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleCalculatedField",
+    jsii_struct_bases=[],
+    name_mapping={"expression": "expression", "name": "name"},
+)
+class SecurityMonitoringRuleCalculatedField:
+    def __init__(self, *, expression: builtins.str, name: builtins.str) -> None:
+        '''
+        :param expression: Expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
+        :param name: Field name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff65dda2264698187e9eeb3f7f9e6706f0e2b2af039fd2b03b797d3ceff8e5cc)
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "expression": expression,
+            "name": name,
+        }
+
+    @builtins.property
+    def expression(self) -> builtins.str:
+        '''Expression.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
+        '''
+        result = self._values.get("expression")
+        assert result is not None, "Required property 'expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Field name.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityMonitoringRuleCalculatedField(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SecurityMonitoringRuleCalculatedFieldList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleCalculatedFieldList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e98e24f41021fc275884a34663ce8004eff6bd184daf108f978a6a0a85d021c9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SecurityMonitoringRuleCalculatedFieldOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9ebc2995a87d485ac42fd804b8aff79ea6473f528ab523db2daa6c8c5c16c83)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SecurityMonitoringRuleCalculatedFieldOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96575f1f27c44ad1ac242f023636bf2d8563bd6c70617fb8fa20790103ee953f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52699e8ce34a5b229b1f7a5dec91a1f3c99a190ed06945c9a6c6b486a8a5235d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c331952a3d81753e2e9889d703035b06e8061e374277ca5b8c637470016c4761)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59d73ff8e0a0d91c046c02d7c011bf5c33a06a469337846570ab63ee5d02efe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class SecurityMonitoringRuleCalculatedFieldOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleCalculatedFieldOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1b53ffa71221b09bdeaa11924ebc33d2780b0f7a47b3686c2d4d852652ca24a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="expressionInput")
+    def expression_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expressionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nameInput")
+    def name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="expression")
+    def expression(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "expression"))
+
+    @expression.setter
+    def expression(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3ef903a42a190da68ad9bd97c87543a69398389e9dd165f2ae3fe969c3451f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expression", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29d60532c8e8bd3c5b575b397709bf93553ff4983d538206988deafa44683fde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SecurityMonitoringRuleCalculatedField]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SecurityMonitoringRuleCalculatedField]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SecurityMonitoringRuleCalculatedField]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7fdb1844bd70c52a8f095abfc384809b221c4a5540426c401c5f4faa3f4e8e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleCase",
     jsii_struct_bases=[],
     name_mapping={
@@ -617,11 +912,11 @@ class SecurityMonitoringRuleCase:
         notifications: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param status: Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
-        :param condition: A rule case contains logical operations (``>``,``>=``, ``&&``, ``||``) to determine if a signal should be generated based on the event counts in the previously defined queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#condition SecurityMonitoringRule#condition}
-        :param name: Name of the case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
-        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
+        :param status: Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
+        :param condition: A rule case contains logical operations (``>``,``>=``, ``&&``, ``||``) to determine if a signal should be generated based on the event counts in the previously defined queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#condition SecurityMonitoringRule#condition}
+        :param name: Name of the case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be9ecb132ecadc5053f5b0553890fcdceb22f380336d4d877a920ef0e917ced6)
@@ -646,7 +941,7 @@ class SecurityMonitoringRuleCase:
     def status(self) -> builtins.str:
         '''Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -658,7 +953,7 @@ class SecurityMonitoringRuleCase:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleCaseAction"]]]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleCaseAction"]]], result)
@@ -667,7 +962,7 @@ class SecurityMonitoringRuleCase:
     def condition(self) -> typing.Optional[builtins.str]:
         '''A rule case contains logical operations (``>``,``>=``, ``&&``, ``||``) to determine if a signal should be generated based on the event counts in the previously defined queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#condition SecurityMonitoringRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#condition SecurityMonitoringRule#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -676,7 +971,7 @@ class SecurityMonitoringRuleCase:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -685,7 +980,7 @@ class SecurityMonitoringRuleCase:
     def notifications(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Notification targets for each rule case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
         '''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -715,8 +1010,8 @@ class SecurityMonitoringRuleCaseAction:
         options: typing.Optional[typing.Union["SecurityMonitoringRuleCaseActionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param type: Type of action to perform when the case triggers. Valid values are ``block_ip``, ``block_user``, ``user_behavior``, ``flag_ip``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
+        :param type: Type of action to perform when the case triggers. Valid values are ``block_ip``, ``block_user``, ``user_behavior``, ``flag_ip``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
         '''
         if isinstance(options, dict):
             options = SecurityMonitoringRuleCaseActionOptions(**options)
@@ -734,7 +1029,7 @@ class SecurityMonitoringRuleCaseAction:
     def type(self) -> builtins.str:
         '''Type of action to perform when the case triggers. Valid values are ``block_ip``, ``block_user``, ``user_behavior``, ``flag_ip``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -744,7 +1039,7 @@ class SecurityMonitoringRuleCaseAction:
     def options(self) -> typing.Optional["SecurityMonitoringRuleCaseActionOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["SecurityMonitoringRuleCaseActionOptions"], result)
@@ -862,7 +1157,7 @@ class SecurityMonitoringRuleCaseActionList(
 class SecurityMonitoringRuleCaseActionOptions:
     def __init__(self, *, duration: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param duration: Duration of the action in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
+        :param duration: Duration of the action in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__293141dbff86d9b4bdabe5015abde5ec93fbd3aa662f5ad822e8c88f3a08654c)
@@ -875,7 +1170,7 @@ class SecurityMonitoringRuleCaseActionOptions:
     def duration(self) -> typing.Optional[jsii.Number]:
         '''Duration of the action in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
         '''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -980,7 +1275,7 @@ class SecurityMonitoringRuleCaseActionOutputReference(
     @jsii.member(jsii_name="putOptions")
     def put_options(self, *, duration: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param duration: Duration of the action in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
+        :param duration: Duration of the action in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#duration SecurityMonitoringRule#duration}
         '''
         value = SecurityMonitoringRuleCaseActionOptions(duration=duration)
 
@@ -1291,6 +1586,7 @@ class SecurityMonitoringRuleCaseOutputReference(
         "provisioners": "provisioners",
         "message": "message",
         "name": "name",
+        "calculated_field": "calculatedField",
         "case": "case",
         "enabled": "enabled",
         "filter": "filter",
@@ -1300,6 +1596,7 @@ class SecurityMonitoringRuleCaseOutputReference(
         "options": "options",
         "query": "query",
         "reference_tables": "referenceTables",
+        "scheduling_options": "schedulingOptions",
         "signal_query": "signalQuery",
         "tags": "tags",
         "third_party_case": "thirdPartyCase",
@@ -1320,6 +1617,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         message: builtins.str,
         name: builtins.str,
+        calculated_field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCalculatedField, typing.Dict[builtins.str, typing.Any]]]]] = None,
         case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCase, typing.Dict[builtins.str, typing.Any]]]]] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -1329,6 +1627,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         options: typing.Optional[typing.Union["SecurityMonitoringRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleQuery", typing.Dict[builtins.str, typing.Any]]]]] = None,
         reference_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleReferenceTables", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        scheduling_options: typing.Optional[typing.Union["SecurityMonitoringRuleSchedulingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         signal_query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleSignalQuery", typing.Dict[builtins.str, typing.Any]]]]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         third_party_case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SecurityMonitoringRuleThirdPartyCase", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -1343,27 +1642,31 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param message: Message for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
-        :param name: The name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
-        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
-        :param enabled: Whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
-        :param group_signals_by: Additional grouping to perform on top of the query grouping. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
-        :param has_extended_title: Whether the notifications include the triggering group-by values in their title. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
-        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
-        :param reference_tables: reference_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
-        :param signal_query: signal_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
-        :param tags: Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
-        :param third_party_case: third_party_case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
-        :param type: The rule type. Valid values are ``application_security``, ``log_detection``, ``workload_security``, ``signal_correlation``. Defaults to ``"log_detection"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
-        :param validate: Whether or not to validate the Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
+        :param message: Message for generated signals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
+        :param name: The name of the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param calculated_field: calculated_field block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#calculated_field SecurityMonitoringRule#calculated_field}
+        :param case: case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
+        :param enabled: Whether the rule is enabled. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
+        :param group_signals_by: Additional grouping to perform on top of the query grouping. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
+        :param has_extended_title: Whether the notifications include the triggering group-by values in their title. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
+        :param query: query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param reference_tables: reference_tables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
+        :param scheduling_options: scheduling_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#scheduling_options SecurityMonitoringRule#scheduling_options}
+        :param signal_query: signal_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
+        :param tags: Tags for generated signals. Note: if default tags are present at provider level, they will be added to this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
+        :param third_party_case: third_party_case block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
+        :param type: The rule type. Valid values are ``application_security``, ``log_detection``, ``workload_security``, ``signal_correlation``. Defaults to ``"log_detection"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
+        :param validate: Whether or not to validate the Rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(options, dict):
             options = SecurityMonitoringRuleOptions(**options)
+        if isinstance(scheduling_options, dict):
+            scheduling_options = SecurityMonitoringRuleSchedulingOptions(**scheduling_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11fb48eb81a5c88e4dd36e60d914b894a63e04642134d6e62d2337bdb1639ab1)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -1375,6 +1678,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument calculated_field", value=calculated_field, expected_type=type_hints["calculated_field"])
             check_type(argname="argument case", value=case, expected_type=type_hints["case"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
@@ -1384,6 +1688,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument query", value=query, expected_type=type_hints["query"])
             check_type(argname="argument reference_tables", value=reference_tables, expected_type=type_hints["reference_tables"])
+            check_type(argname="argument scheduling_options", value=scheduling_options, expected_type=type_hints["scheduling_options"])
             check_type(argname="argument signal_query", value=signal_query, expected_type=type_hints["signal_query"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument third_party_case", value=third_party_case, expected_type=type_hints["third_party_case"])
@@ -1407,6 +1712,8 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if calculated_field is not None:
+            self._values["calculated_field"] = calculated_field
         if case is not None:
             self._values["case"] = case
         if enabled is not None:
@@ -1425,6 +1732,8 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["query"] = query
         if reference_tables is not None:
             self._values["reference_tables"] = reference_tables
+        if scheduling_options is not None:
+            self._values["scheduling_options"] = scheduling_options
         if signal_query is not None:
             self._values["signal_query"] = signal_query
         if tags is not None:
@@ -1504,7 +1813,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def message(self) -> builtins.str:
         '''Message for generated signals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#message SecurityMonitoringRule#message}
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -1514,11 +1823,22 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def calculated_field(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]]:
+        '''calculated_field block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#calculated_field SecurityMonitoringRule#calculated_field}
+        '''
+        result = self._values.get("calculated_field")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]], result)
 
     @builtins.property
     def case(
@@ -1526,7 +1846,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCase]]]:
         '''case block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#case SecurityMonitoringRule#case}
         '''
         result = self._values.get("case")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCase]]], result)
@@ -1537,7 +1857,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the rule is enabled. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#enabled SecurityMonitoringRule#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1548,7 +1868,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#filter SecurityMonitoringRule#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleFilter"]]], result)
@@ -1557,7 +1877,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_signals_by(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Additional grouping to perform on top of the query grouping.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_signals_by SecurityMonitoringRule#group_signals_by}
         '''
         result = self._values.get("group_signals_by")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1568,14 +1888,14 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the notifications include the triggering group-by values in their title. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#has_extended_title SecurityMonitoringRule#has_extended_title}
         '''
         result = self._values.get("has_extended_title")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#id SecurityMonitoringRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1587,7 +1907,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def options(self) -> typing.Optional["SecurityMonitoringRuleOptions"]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#options SecurityMonitoringRule#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional["SecurityMonitoringRuleOptions"], result)
@@ -1598,7 +1918,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleQuery"]]]:
         '''query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleQuery"]]], result)
@@ -1609,10 +1929,21 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleReferenceTables"]]]:
         '''reference_tables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#reference_tables SecurityMonitoringRule#reference_tables}
         '''
         result = self._values.get("reference_tables")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleReferenceTables"]]], result)
+
+    @builtins.property
+    def scheduling_options(
+        self,
+    ) -> typing.Optional["SecurityMonitoringRuleSchedulingOptions"]:
+        '''scheduling_options block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#scheduling_options SecurityMonitoringRule#scheduling_options}
+        '''
+        result = self._values.get("scheduling_options")
+        return typing.cast(typing.Optional["SecurityMonitoringRuleSchedulingOptions"], result)
 
     @builtins.property
     def signal_query(
@@ -1620,7 +1951,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleSignalQuery"]]]:
         '''signal_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_query SecurityMonitoringRule#signal_query}
         '''
         result = self._values.get("signal_query")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleSignalQuery"]]], result)
@@ -1631,7 +1962,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note: if default tags are present at provider level, they will be added to this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#tags SecurityMonitoringRule#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1642,7 +1973,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleThirdPartyCase"]]]:
         '''third_party_case block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_case SecurityMonitoringRule#third_party_case}
         '''
         result = self._values.get("third_party_case")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleThirdPartyCase"]]], result)
@@ -1651,7 +1982,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The rule type. Valid values are ``application_security``, ``log_detection``, ``workload_security``, ``signal_correlation``. Defaults to ``"log_detection"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#type SecurityMonitoringRule#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1662,7 +1993,7 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not to validate the Rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#validate SecurityMonitoringRule#validate}
         '''
         result = self._values.get("validate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1687,8 +2018,8 @@ class SecurityMonitoringRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SecurityMonitoringRuleFilter:
     def __init__(self, *, action: builtins.str, query: builtins.str) -> None:
         '''
-        :param action: The type of filtering action. Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
-        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param action: The type of filtering action. Valid values are ``require``, ``suppress``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
+        :param query: Query for selecting logs to apply the filtering action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c866bf17fbaa97751b321daaeb1d7870b2fbcfdf8bdcc285606da3317f7f0ab)
@@ -1703,7 +2034,7 @@ class SecurityMonitoringRuleFilter:
     def action(self) -> builtins.str:
         '''The type of filtering action. Valid values are ``require``, ``suppress``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#action SecurityMonitoringRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1713,7 +2044,7 @@ class SecurityMonitoringRuleFilter:
     def query(self) -> builtins.str:
         '''Query for selecting logs to apply the filtering action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1927,14 +2258,14 @@ class SecurityMonitoringRuleOptions:
         third_party_rule_options: typing.Optional[typing.Union["SecurityMonitoringRuleOptionsThirdPartyRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
-        :param detection_method: The detection method. Valid values are ``threshold``, ``new_value``, ``anomaly_detection``, ``impossible_travel``, ``hardcoded``, ``third_party``, ``anomaly_threshold``. Defaults to ``"threshold"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
-        :param evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
-        :param impossible_travel_options: impossible_travel_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
-        :param keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds). Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
-        :param max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
-        :param new_value_options: new_value_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
-        :param third_party_rule_options: third_party_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
+        :param decrease_criticality_based_on_env: If true, signals in non-production environments have a lower severity than what is defined by the rule case, which can reduce noise. The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
+        :param detection_method: The detection method. Valid values are ``threshold``, ``new_value``, ``anomaly_detection``, ``impossible_travel``, ``hardcoded``, ``third_party``, ``anomaly_threshold``. Defaults to ``"threshold"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
+        :param evaluation_window: A time window is specified to match when at least one of the cases matches true. This is a sliding window and evaluates in real time. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
+        :param impossible_travel_options: impossible_travel_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
+        :param keep_alive: Once a signal is generated, the signal will remain “open” if a case is matched at least once within this keep alive window (in seconds). Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
+        :param max_signal_duration: A signal will “close” regardless of the query being matched once the time exceeds the maximum duration (in seconds). This time is calculated from the first seen timestamp. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
+        :param new_value_options: new_value_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
+        :param third_party_rule_options: third_party_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
         '''
         if isinstance(impossible_travel_options, dict):
             impossible_travel_options = SecurityMonitoringRuleOptionsImpossibleTravelOptions(**impossible_travel_options)
@@ -1978,7 +2309,7 @@ class SecurityMonitoringRuleOptions:
 
         The decrement is applied when the environment tag of the signal starts with ``staging``, ``test``, or ``dev``. Only available when the rule type is ``log_detection``. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#decrease_criticality_based_on_env SecurityMonitoringRule#decrease_criticality_based_on_env}
         '''
         result = self._values.get("decrease_criticality_based_on_env")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1987,7 +2318,7 @@ class SecurityMonitoringRuleOptions:
     def detection_method(self) -> typing.Optional[builtins.str]:
         '''The detection method. Valid values are ``threshold``, ``new_value``, ``anomaly_detection``, ``impossible_travel``, ``hardcoded``, ``third_party``, ``anomaly_threshold``. Defaults to ``"threshold"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#detection_method SecurityMonitoringRule#detection_method}
         '''
         result = self._values.get("detection_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1998,7 +2329,7 @@ class SecurityMonitoringRuleOptions:
 
         This is a sliding window and evaluates in real time. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#evaluation_window SecurityMonitoringRule#evaluation_window}
         '''
         result = self._values.get("evaluation_window")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2009,7 +2340,7 @@ class SecurityMonitoringRuleOptions:
     ) -> typing.Optional["SecurityMonitoringRuleOptionsImpossibleTravelOptions"]:
         '''impossible_travel_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#impossible_travel_options SecurityMonitoringRule#impossible_travel_options}
         '''
         result = self._values.get("impossible_travel_options")
         return typing.cast(typing.Optional["SecurityMonitoringRuleOptionsImpossibleTravelOptions"], result)
@@ -2020,7 +2351,7 @@ class SecurityMonitoringRuleOptions:
 
         Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#keep_alive SecurityMonitoringRule#keep_alive}
         '''
         result = self._values.get("keep_alive")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2031,7 +2362,7 @@ class SecurityMonitoringRuleOptions:
 
         This time is calculated from the first seen timestamp. Valid values are ``0``, ``60``, ``300``, ``600``, ``900``, ``1800``, ``3600``, ``7200``, ``10800``, ``21600``, ``43200``, ``86400``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#max_signal_duration SecurityMonitoringRule#max_signal_duration}
         '''
         result = self._values.get("max_signal_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2042,7 +2373,7 @@ class SecurityMonitoringRuleOptions:
     ) -> typing.Optional["SecurityMonitoringRuleOptionsNewValueOptions"]:
         '''new_value_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#new_value_options SecurityMonitoringRule#new_value_options}
         '''
         result = self._values.get("new_value_options")
         return typing.cast(typing.Optional["SecurityMonitoringRuleOptionsNewValueOptions"], result)
@@ -2053,7 +2384,7 @@ class SecurityMonitoringRuleOptions:
     ) -> typing.Optional["SecurityMonitoringRuleOptionsThirdPartyRuleOptions"]:
         '''third_party_rule_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#third_party_rule_options SecurityMonitoringRule#third_party_rule_options}
         '''
         result = self._values.get("third_party_rule_options")
         return typing.cast(typing.Optional["SecurityMonitoringRuleOptionsThirdPartyRuleOptions"], result)
@@ -2082,7 +2413,7 @@ class SecurityMonitoringRuleOptionsImpossibleTravelOptions:
         baseline_user_locations: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param baseline_user_locations: If true, signals are suppressed for the first 24 hours. During that time, Datadog learns the user's regular access locations. This can be helpful to reduce noise and infer VPN usage or credentialed API access. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
+        :param baseline_user_locations: If true, signals are suppressed for the first 24 hours. During that time, Datadog learns the user's regular access locations. This can be helpful to reduce noise and infer VPN usage or credentialed API access. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__db8e8b16fb596505bcc3f7b2501d629ea7f84e5e1c1058ae18d30c78bbb47df6)
@@ -2099,7 +2430,7 @@ class SecurityMonitoringRuleOptionsImpossibleTravelOptions:
 
         During that time, Datadog learns the user's regular access locations. This can be helpful to reduce noise and infer VPN usage or credentialed API access. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
         '''
         result = self._values.get("baseline_user_locations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2202,10 +2533,10 @@ class SecurityMonitoringRuleOptionsNewValueOptions:
         learning_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param forget_after: The duration in days after which a learned value is forgotten. Valid values are ``1``, ``2``, ``7``, ``14``, ``21``, ``28``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
-        :param learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are ``0``, ``1``, ``7``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
-        :param learning_method: The learning method used to determine when signals should be generated for values that weren't learned. Valid values are ``duration``, ``threshold``. Defaults to ``"duration"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
-        :param learning_threshold: A number of occurrences after which signals are generated for values that weren't learned. Valid values are ``0``, ``1``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
+        :param forget_after: The duration in days after which a learned value is forgotten. Valid values are ``1``, ``2``, ``7``, ``14``, ``21``, ``28``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
+        :param learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are ``0``, ``1``, ``7``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
+        :param learning_method: The learning method used to determine when signals should be generated for values that weren't learned. Valid values are ``duration``, ``threshold``. Defaults to ``"duration"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
+        :param learning_threshold: A number of occurrences after which signals are generated for values that weren't learned. Valid values are ``0``, ``1``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__549e4b89e82ed8c6c587a2adffb2382abe55bfe4e244c06f7bf7db9e55b21148)
@@ -2229,7 +2560,7 @@ class SecurityMonitoringRuleOptionsNewValueOptions:
 
         Valid values are ``1``, ``2``, ``7``, ``14``, ``21``, ``28``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
         '''
         result = self._values.get("forget_after")
         assert result is not None, "Required property 'forget_after' is missing"
@@ -2241,7 +2572,7 @@ class SecurityMonitoringRuleOptionsNewValueOptions:
 
         If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are ``0``, ``1``, ``7``. Defaults to ``1``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
         '''
         result = self._values.get("learning_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2252,7 +2583,7 @@ class SecurityMonitoringRuleOptionsNewValueOptions:
 
         Valid values are ``duration``, ``threshold``. Defaults to ``"duration"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
         '''
         result = self._values.get("learning_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2263,7 +2594,7 @@ class SecurityMonitoringRuleOptionsNewValueOptions:
 
         Valid values are ``0``, ``1``. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
         '''
         result = self._values.get("learning_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2425,7 +2756,7 @@ class SecurityMonitoringRuleOptionsOutputReference(
         baseline_user_locations: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param baseline_user_locations: If true, signals are suppressed for the first 24 hours. During that time, Datadog learns the user's regular access locations. This can be helpful to reduce noise and infer VPN usage or credentialed API access. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
+        :param baseline_user_locations: If true, signals are suppressed for the first 24 hours. During that time, Datadog learns the user's regular access locations. This can be helpful to reduce noise and infer VPN usage or credentialed API access. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#baseline_user_locations SecurityMonitoringRule#baseline_user_locations}
         '''
         value = SecurityMonitoringRuleOptionsImpossibleTravelOptions(
             baseline_user_locations=baseline_user_locations
@@ -2443,10 +2774,10 @@ class SecurityMonitoringRuleOptionsOutputReference(
         learning_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param forget_after: The duration in days after which a learned value is forgotten. Valid values are ``1``, ``2``, ``7``, ``14``, ``21``, ``28``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
-        :param learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are ``0``, ``1``, ``7``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
-        :param learning_method: The learning method used to determine when signals should be generated for values that weren't learned. Valid values are ``duration``, ``threshold``. Defaults to ``"duration"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
-        :param learning_threshold: A number of occurrences after which signals are generated for values that weren't learned. Valid values are ``0``, ``1``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
+        :param forget_after: The duration in days after which a learned value is forgotten. Valid values are ``1``, ``2``, ``7``, ``14``, ``21``, ``28``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#forget_after SecurityMonitoringRule#forget_after}
+        :param learning_duration: The duration in days during which values are learned, and after which signals will be generated for values that weren't learned. If set to 0, a signal will be generated for all new values after the first value is learned. Valid values are ``0``, ``1``, ``7``. Defaults to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_duration SecurityMonitoringRule#learning_duration}
+        :param learning_method: The learning method used to determine when signals should be generated for values that weren't learned. Valid values are ``duration``, ``threshold``. Defaults to ``"duration"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_method SecurityMonitoringRule#learning_method}
+        :param learning_threshold: A number of occurrences after which signals are generated for values that weren't learned. Valid values are ``0``, ``1``. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#learning_threshold SecurityMonitoringRule#learning_threshold}
         '''
         value = SecurityMonitoringRuleOptionsNewValueOptions(
             forget_after=forget_after,
@@ -2467,10 +2798,10 @@ class SecurityMonitoringRuleOptionsOutputReference(
         signal_title_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_status: Severity of the default rule case, when none of the third-party cases match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
-        :param root_query: root_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
-        :param default_notifications: Notification targets for the default rule case, when none of the third-party cases match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
-        :param signal_title_template: A template for the signal title; if omitted, the title is generated based on the case name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
+        :param default_status: Severity of the default rule case, when none of the third-party cases match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
+        :param root_query: root_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
+        :param default_notifications: Notification targets for the default rule case, when none of the third-party cases match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
+        :param signal_title_template: A template for the signal title; if omitted, the title is generated based on the case name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
         '''
         value = SecurityMonitoringRuleOptionsThirdPartyRuleOptions(
             default_status=default_status,
@@ -2683,10 +3014,10 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptions:
         signal_title_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_status: Severity of the default rule case, when none of the third-party cases match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
-        :param root_query: root_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
-        :param default_notifications: Notification targets for the default rule case, when none of the third-party cases match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
-        :param signal_title_template: A template for the signal title; if omitted, the title is generated based on the case name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
+        :param default_status: Severity of the default rule case, when none of the third-party cases match. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
+        :param root_query: root_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
+        :param default_notifications: Notification targets for the default rule case, when none of the third-party cases match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
+        :param signal_title_template: A template for the signal title; if omitted, the title is generated based on the case name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__177745d3741f08e67dc7dd549109df6dcad47bc06318712dbec14ab175cff53e)
@@ -2709,7 +3040,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptions:
 
         Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_status SecurityMonitoringRule#default_status}
         '''
         result = self._values.get("default_status")
         assert result is not None, "Required property 'default_status' is missing"
@@ -2721,7 +3052,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptions:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQuery"]]:
         '''root_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#root_query SecurityMonitoringRule#root_query}
         '''
         result = self._values.get("root_query")
         assert result is not None, "Required property 'root_query' is missing"
@@ -2731,7 +3062,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptions:
     def default_notifications(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Notification targets for the default rule case, when none of the third-party cases match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_notifications SecurityMonitoringRule#default_notifications}
         '''
         result = self._values.get("default_notifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2740,7 +3071,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptions:
     def signal_title_template(self) -> typing.Optional[builtins.str]:
         '''A template for the signal title; if omitted, the title is generated based on the case name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#signal_title_template SecurityMonitoringRule#signal_title_template}
         '''
         result = self._values.get("signal_title_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2894,8 +3225,8 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQuery:
         group_by_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param query: Query to filter logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
-        :param group_by_fields: Fields to group by. If empty, each log triggers a signal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
+        :param query: Query to filter logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param group_by_fields: Fields to group by. If empty, each log triggers a signal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51f7f0e31d00e0c5e0e69686b9c639014fdf814d47d91a64848ce6959c7fb90a)
@@ -2911,7 +3242,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQuery:
     def query(self) -> builtins.str:
         '''Query to filter logs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -2921,7 +3252,7 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQuery:
     def group_by_fields(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Fields to group by. If empty, each log triggers a signal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
         '''
         result = self._values.get("group_by_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3123,6 +3454,8 @@ class SecurityMonitoringRuleOptionsThirdPartyRuleOptionsRootQueryOutputReference
         "data_source": "dataSource",
         "distinct_fields": "distinctFields",
         "group_by_fields": "groupByFields",
+        "has_optional_group_by_fields": "hasOptionalGroupByFields",
+        "indexes": "indexes",
         "metric": "metric",
         "metrics": "metrics",
         "name": "name",
@@ -3138,20 +3471,24 @@ class SecurityMonitoringRuleQuery:
         data_source: typing.Optional[builtins.str] = None,
         distinct_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         group_by_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+        has_optional_group_by_fields: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        indexes: typing.Optional[typing.Sequence[builtins.str]] = None,
         metric: typing.Optional[builtins.str] = None,
         metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: Query to run on logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
-        :param agent_rule: agent_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#agent_rule SecurityMonitoringRule#agent_rule}
-        :param aggregation: The aggregation type. For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"count"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
-        :param data_source: Source of events. Valid values are ``logs``, ``audit``, ``app_sec_spans``, ``spans``, ``security_runtime``, ``network``, ``events``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#data_source SecurityMonitoringRule#data_source}
-        :param distinct_fields: Field for which the cardinality is measured. Sent as an array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#distinct_fields SecurityMonitoringRule#distinct_fields}
-        :param group_by_fields: Fields to group by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
-        :param metric: The target field to aggregate over when using the ``sum``, ``max``, or ``geo_data`` aggregations. **Deprecated.** Configure ``metrics`` instead. This attribute will be removed in the next major version of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#metric SecurityMonitoringRule#metric}
-        :param metrics: Group of target fields to aggregate over when using the ``sum``, ``max``, ``geo_data``, or ``new_value`` aggregations. The ``sum``, ``max``, and ``geo_data`` aggregations only accept one value in this list, whereas the ``new_value`` aggregation accepts up to five values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#metrics SecurityMonitoringRule#metrics}
-        :param name: Name of the query. Not compatible with ``new_value`` aggregations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param query: Query to run on logs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param agent_rule: agent_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#agent_rule SecurityMonitoringRule#agent_rule}
+        :param aggregation: The aggregation type. For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"count"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
+        :param data_source: Source of events. Valid values are ``logs``, ``audit``, ``app_sec_spans``, ``spans``, ``security_runtime``, ``network``, ``events``. Defaults to ``"logs"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#data_source SecurityMonitoringRule#data_source}
+        :param distinct_fields: Field for which the cardinality is measured. Sent as an array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#distinct_fields SecurityMonitoringRule#distinct_fields}
+        :param group_by_fields: Fields to group by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
+        :param has_optional_group_by_fields: When false, events without a group-by value are ignored by the rule. When true, events with missing group-by fields are processed with ``N/A``, replacing the missing values. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#has_optional_group_by_fields SecurityMonitoringRule#has_optional_group_by_fields}
+        :param indexes: List of indexes to run the query on when the data source is ``logs``. Supports only one element. Used only for scheduled rules (in other words, when ``scheduling_options`` is defined). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#indexes SecurityMonitoringRule#indexes}
+        :param metric: The target field to aggregate over when using the ``sum``, ``max``, or ``geo_data`` aggregations. **Deprecated.** Configure ``metrics`` instead. This attribute will be removed in the next major version of the provider. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#metric SecurityMonitoringRule#metric}
+        :param metrics: Group of target fields to aggregate over when using the ``sum``, ``max``, ``geo_data``, or ``new_value`` aggregations. The ``sum``, ``max``, and ``geo_data`` aggregations only accept one value in this list, whereas the ``new_value`` aggregation accepts up to five values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#metrics SecurityMonitoringRule#metrics}
+        :param name: Name of the query. Not compatible with ``new_value`` aggregations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e8f570b0171354820639da7d8575f7c19be01bb17e683a3669127e02c739aca)
@@ -3161,6 +3498,8 @@ class SecurityMonitoringRuleQuery:
             check_type(argname="argument data_source", value=data_source, expected_type=type_hints["data_source"])
             check_type(argname="argument distinct_fields", value=distinct_fields, expected_type=type_hints["distinct_fields"])
             check_type(argname="argument group_by_fields", value=group_by_fields, expected_type=type_hints["group_by_fields"])
+            check_type(argname="argument has_optional_group_by_fields", value=has_optional_group_by_fields, expected_type=type_hints["has_optional_group_by_fields"])
+            check_type(argname="argument indexes", value=indexes, expected_type=type_hints["indexes"])
             check_type(argname="argument metric", value=metric, expected_type=type_hints["metric"])
             check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3177,6 +3516,10 @@ class SecurityMonitoringRuleQuery:
             self._values["distinct_fields"] = distinct_fields
         if group_by_fields is not None:
             self._values["group_by_fields"] = group_by_fields
+        if has_optional_group_by_fields is not None:
+            self._values["has_optional_group_by_fields"] = has_optional_group_by_fields
+        if indexes is not None:
+            self._values["indexes"] = indexes
         if metric is not None:
             self._values["metric"] = metric
         if metrics is not None:
@@ -3188,7 +3531,7 @@ class SecurityMonitoringRuleQuery:
     def query(self) -> builtins.str:
         '''Query to run on logs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -3200,7 +3543,7 @@ class SecurityMonitoringRuleQuery:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleQueryAgentRule"]]]:
         '''agent_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#agent_rule SecurityMonitoringRule#agent_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#agent_rule SecurityMonitoringRule#agent_rule}
         '''
         result = self._values.get("agent_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SecurityMonitoringRuleQueryAgentRule"]]], result)
@@ -3211,7 +3554,7 @@ class SecurityMonitoringRuleQuery:
 
         For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"count"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
         '''
         result = self._values.get("aggregation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3220,7 +3563,7 @@ class SecurityMonitoringRuleQuery:
     def data_source(self) -> typing.Optional[builtins.str]:
         '''Source of events. Valid values are ``logs``, ``audit``, ``app_sec_spans``, ``spans``, ``security_runtime``, ``network``, ``events``. Defaults to ``"logs"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#data_source SecurityMonitoringRule#data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#data_source SecurityMonitoringRule#data_source}
         '''
         result = self._values.get("data_source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3229,7 +3572,7 @@ class SecurityMonitoringRuleQuery:
     def distinct_fields(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Field for which the cardinality is measured. Sent as an array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#distinct_fields SecurityMonitoringRule#distinct_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#distinct_fields SecurityMonitoringRule#distinct_fields}
         '''
         result = self._values.get("distinct_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3238,9 +3581,33 @@ class SecurityMonitoringRuleQuery:
     def group_by_fields(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Fields to group by.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#group_by_fields SecurityMonitoringRule#group_by_fields}
         '''
         result = self._values.get("group_by_fields")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def has_optional_group_by_fields(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''When false, events without a group-by value are ignored by the rule.
+
+        When true, events with missing group-by fields are processed with ``N/A``, replacing the missing values. Defaults to ``false``.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#has_optional_group_by_fields SecurityMonitoringRule#has_optional_group_by_fields}
+        '''
+        result = self._values.get("has_optional_group_by_fields")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def indexes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of indexes to run the query on when the data source is ``logs``.
+
+        Supports only one element. Used only for scheduled rules (in other words, when ``scheduling_options`` is defined).
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#indexes SecurityMonitoringRule#indexes}
+        '''
+        result = self._values.get("indexes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
@@ -3249,7 +3616,7 @@ class SecurityMonitoringRuleQuery:
 
         **Deprecated.** Configure ``metrics`` instead. This attribute will be removed in the next major version of the provider.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#metric SecurityMonitoringRule#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#metric SecurityMonitoringRule#metric}
         '''
         result = self._values.get("metric")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3260,7 +3627,7 @@ class SecurityMonitoringRuleQuery:
 
         The ``sum``, ``max``, and ``geo_data`` aggregations only accept one value in this list, whereas the ``new_value`` aggregation accepts up to five values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#metrics SecurityMonitoringRule#metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#metrics SecurityMonitoringRule#metrics}
         '''
         result = self._values.get("metrics")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3269,7 +3636,7 @@ class SecurityMonitoringRuleQuery:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the query. Not compatible with ``new_value`` aggregations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3299,8 +3666,8 @@ class SecurityMonitoringRuleQueryAgentRule:
         expression: builtins.str,
     ) -> None:
         '''
-        :param agent_rule_id: **Deprecated**. It won't be applied anymore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#agent_rule_id SecurityMonitoringRule#agent_rule_id}
-        :param expression: **Deprecated**. It won't be applied anymore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
+        :param agent_rule_id: **Deprecated**. It won't be applied anymore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#agent_rule_id SecurityMonitoringRule#agent_rule_id}
+        :param expression: **Deprecated**. It won't be applied anymore. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cdfe13239dc740bfb832b869018ed53be671f89aeff0fa0f0b7503c00a5e055d)
@@ -3315,7 +3682,7 @@ class SecurityMonitoringRuleQueryAgentRule:
     def agent_rule_id(self) -> builtins.str:
         '''**Deprecated**. It won't be applied anymore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#agent_rule_id SecurityMonitoringRule#agent_rule_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#agent_rule_id SecurityMonitoringRule#agent_rule_id}
         '''
         result = self._values.get("agent_rule_id")
         assert result is not None, "Required property 'agent_rule_id' is missing"
@@ -3325,7 +3692,7 @@ class SecurityMonitoringRuleQueryAgentRule:
     def expression(self) -> builtins.str:
         '''**Deprecated**. It won't be applied anymore.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#expression SecurityMonitoringRule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -3663,6 +4030,14 @@ class SecurityMonitoringRuleQueryOutputReference(
     def reset_group_by_fields(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetGroupByFields", []))
 
+    @jsii.member(jsii_name="resetHasOptionalGroupByFields")
+    def reset_has_optional_group_by_fields(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHasOptionalGroupByFields", []))
+
+    @jsii.member(jsii_name="resetIndexes")
+    def reset_indexes(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetIndexes", []))
+
     @jsii.member(jsii_name="resetMetric")
     def reset_metric(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMetric", []))
@@ -3706,6 +4081,18 @@ class SecurityMonitoringRuleQueryOutputReference(
     @jsii.member(jsii_name="groupByFieldsInput")
     def group_by_fields_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groupByFieldsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hasOptionalGroupByFieldsInput")
+    def has_optional_group_by_fields_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "hasOptionalGroupByFieldsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="indexesInput")
+    def indexes_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "indexesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="metricInput")
@@ -3774,6 +4161,35 @@ class SecurityMonitoringRuleQueryOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__c276cef0c4f93b80c4651687330aef0e1bee295bd1613b5bd178159424f6f0d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "groupByFields", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="hasOptionalGroupByFields")
+    def has_optional_group_by_fields(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "hasOptionalGroupByFields"))
+
+    @has_optional_group_by_fields.setter
+    def has_optional_group_by_fields(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__505b5d3c83a14db5a713a7e802fa20edf191ed84f68b2cb13da01582e5d34006)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hasOptionalGroupByFields", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="indexes")
+    def indexes(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "indexes"))
+
+    @indexes.setter
+    def indexes(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35f4bbd9248d272b133c9fd779decfba63f404dce543303cab9cbc8bf14049bc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "indexes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="metric")
@@ -3863,11 +4279,11 @@ class SecurityMonitoringRuleReferenceTables:
         table_name: builtins.str,
     ) -> None:
         '''
-        :param check_presence: Whether to include or exclude logs that match the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#check_presence SecurityMonitoringRule#check_presence}
-        :param column_name: The name of the column in the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#column_name SecurityMonitoringRule#column_name}
-        :param log_field_path: The field in the log that should be matched against the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#log_field_path SecurityMonitoringRule#log_field_path}
-        :param rule_query_name: The name of the query to filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#rule_query_name SecurityMonitoringRule#rule_query_name}
-        :param table_name: The name of the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#table_name SecurityMonitoringRule#table_name}
+        :param check_presence: Whether to include or exclude logs that match the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#check_presence SecurityMonitoringRule#check_presence}
+        :param column_name: The name of the column in the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#column_name SecurityMonitoringRule#column_name}
+        :param log_field_path: The field in the log that should be matched against the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#log_field_path SecurityMonitoringRule#log_field_path}
+        :param rule_query_name: The name of the query to filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rule_query_name SecurityMonitoringRule#rule_query_name}
+        :param table_name: The name of the reference table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#table_name SecurityMonitoringRule#table_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8366f09894796ba0bffa401de60b5dceef450758675c65fd6cf48f40e69d4872)
@@ -3890,7 +4306,7 @@ class SecurityMonitoringRuleReferenceTables:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether to include or exclude logs that match the reference table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#check_presence SecurityMonitoringRule#check_presence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#check_presence SecurityMonitoringRule#check_presence}
         '''
         result = self._values.get("check_presence")
         assert result is not None, "Required property 'check_presence' is missing"
@@ -3900,7 +4316,7 @@ class SecurityMonitoringRuleReferenceTables:
     def column_name(self) -> builtins.str:
         '''The name of the column in the reference table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#column_name SecurityMonitoringRule#column_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#column_name SecurityMonitoringRule#column_name}
         '''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
@@ -3910,7 +4326,7 @@ class SecurityMonitoringRuleReferenceTables:
     def log_field_path(self) -> builtins.str:
         '''The field in the log that should be matched against the reference table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#log_field_path SecurityMonitoringRule#log_field_path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#log_field_path SecurityMonitoringRule#log_field_path}
         '''
         result = self._values.get("log_field_path")
         assert result is not None, "Required property 'log_field_path' is missing"
@@ -3920,7 +4336,7 @@ class SecurityMonitoringRuleReferenceTables:
     def rule_query_name(self) -> builtins.str:
         '''The name of the query to filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#rule_query_name SecurityMonitoringRule#rule_query_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rule_query_name SecurityMonitoringRule#rule_query_name}
         '''
         result = self._values.get("rule_query_name")
         assert result is not None, "Required property 'rule_query_name' is missing"
@@ -3930,7 +4346,7 @@ class SecurityMonitoringRuleReferenceTables:
     def table_name(self) -> builtins.str:
         '''The name of the reference table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#table_name SecurityMonitoringRule#table_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#table_name SecurityMonitoringRule#table_name}
         '''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
@@ -4178,6 +4594,166 @@ class SecurityMonitoringRuleReferenceTablesOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleSchedulingOptions",
+    jsii_struct_bases=[],
+    name_mapping={"rrule": "rrule", "start": "start", "timezone": "timezone"},
+)
+class SecurityMonitoringRuleSchedulingOptions:
+    def __init__(
+        self,
+        *,
+        rrule: builtins.str,
+        start: builtins.str,
+        timezone: builtins.str,
+    ) -> None:
+        '''
+        :param rrule: Schedule for the rule queries, written in RRULE syntax. See `RFC <https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html>`_ for syntax reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rrule SecurityMonitoringRule#rrule}
+        :param start: Start date for the schedule, in ISO 8601 format without timezone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#start SecurityMonitoringRule#start}
+        :param timezone: Time zone of the start date, in the `tz database <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_ format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#timezone SecurityMonitoringRule#timezone}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ffcf97072f9717a3bc853e76582fba3299a343d3b5c44949593a91ce55d6464)
+            check_type(argname="argument rrule", value=rrule, expected_type=type_hints["rrule"])
+            check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+            check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rrule": rrule,
+            "start": start,
+            "timezone": timezone,
+        }
+
+    @builtins.property
+    def rrule(self) -> builtins.str:
+        '''Schedule for the rule queries, written in RRULE syntax. See `RFC <https://icalendar.org/iCalendar-RFC-5545/3-8-5-3-recurrence-rule.html>`_ for syntax reference.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rrule SecurityMonitoringRule#rrule}
+        '''
+        result = self._values.get("rrule")
+        assert result is not None, "Required property 'rrule' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def start(self) -> builtins.str:
+        '''Start date for the schedule, in ISO 8601 format without timezone.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#start SecurityMonitoringRule#start}
+        '''
+        result = self._values.get("start")
+        assert result is not None, "Required property 'start' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def timezone(self) -> builtins.str:
+        '''Time zone of the start date, in the `tz database <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_ format.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#timezone SecurityMonitoringRule#timezone}
+        '''
+        result = self._values.get("timezone")
+        assert result is not None, "Required property 'timezone' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecurityMonitoringRuleSchedulingOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SecurityMonitoringRuleSchedulingOptionsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleSchedulingOptionsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5063eeb20afb10ae9f711505c0444a9613b912678fb7a64449fc6c26c5d117d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="rruleInput")
+    def rrule_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "rruleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="startInput")
+    def start_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "startInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="timezoneInput")
+    def timezone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "timezoneInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rrule")
+    def rrule(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rrule"))
+
+    @rrule.setter
+    def rrule(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d055945a4526313799ede5d393d43d6c4d2d27bcc4bed06d3ab94a227f25d072)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rrule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="start")
+    def start(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "start"))
+
+    @start.setter
+    def start(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d52b5b5e5fdfe664180ba344fa96792b3c54f8f5a35c11b1e0f8549911a1cd7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "start", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timezone")
+    def timezone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "timezone"))
+
+    @timezone.setter
+    def timezone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5080ac582447e100039ceaa30af87a33cf556fa7ad2d3873dbc7bc6e30d88c57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timezone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[SecurityMonitoringRuleSchedulingOptions]:
+        return typing.cast(typing.Optional[SecurityMonitoringRuleSchedulingOptions], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[SecurityMonitoringRuleSchedulingOptions],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c9d642905a05c184c7d72265934ffaaf15df664afe5dac15370a0d1bbadf937)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-datadog.securityMonitoringRule.SecurityMonitoringRuleSignalQuery",
     jsii_struct_bases=[],
     name_mapping={
@@ -4201,12 +4777,12 @@ class SecurityMonitoringRuleSignalQuery:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rule_id: Rule ID of the signal to correlate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#rule_id SecurityMonitoringRule#rule_id}
-        :param aggregation: The aggregation type. For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"event_count"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
-        :param correlated_by_fields: Fields to correlate by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#correlated_by_fields SecurityMonitoringRule#correlated_by_fields}
-        :param correlated_query_index: Index of the rule query used to retrieve the correlated field. An empty string applies correlation on the non-projected per query attributes of the rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#correlated_query_index SecurityMonitoringRule#correlated_query_index}
-        :param default_rule_id: Default Rule ID of the signal to correlate. This value is READ-ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_rule_id SecurityMonitoringRule#default_rule_id}
-        :param name: Name of the query. Not compatible with ``new_value`` aggregations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param rule_id: Rule ID of the signal to correlate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rule_id SecurityMonitoringRule#rule_id}
+        :param aggregation: The aggregation type. For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"event_count"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
+        :param correlated_by_fields: Fields to correlate by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#correlated_by_fields SecurityMonitoringRule#correlated_by_fields}
+        :param correlated_query_index: Index of the rule query used to retrieve the correlated field. An empty string applies correlation on the non-projected per query attributes of the rule. Defaults to ``""``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#correlated_query_index SecurityMonitoringRule#correlated_query_index}
+        :param default_rule_id: Default Rule ID of the signal to correlate. This value is READ-ONLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_rule_id SecurityMonitoringRule#default_rule_id}
+        :param name: Name of the query. Not compatible with ``new_value`` aggregations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5743294e4b1a55c33433176f0b84b892e0598d8df0a159b9efc26f3db420eee5)
@@ -4234,7 +4810,7 @@ class SecurityMonitoringRuleSignalQuery:
     def rule_id(self) -> builtins.str:
         '''Rule ID of the signal to correlate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#rule_id SecurityMonitoringRule#rule_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#rule_id SecurityMonitoringRule#rule_id}
         '''
         result = self._values.get("rule_id")
         assert result is not None, "Required property 'rule_id' is missing"
@@ -4246,7 +4822,7 @@ class SecurityMonitoringRuleSignalQuery:
 
         For Signal Correlation rules, it must be event_count. Valid values are ``count``, ``cardinality``, ``sum``, ``max``, ``new_value``, ``geo_data``, ``event_count``, ``none``. Defaults to ``"event_count"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#aggregation SecurityMonitoringRule#aggregation}
         '''
         result = self._values.get("aggregation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4255,7 +4831,7 @@ class SecurityMonitoringRuleSignalQuery:
     def correlated_by_fields(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Fields to correlate by.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#correlated_by_fields SecurityMonitoringRule#correlated_by_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#correlated_by_fields SecurityMonitoringRule#correlated_by_fields}
         '''
         result = self._values.get("correlated_by_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4266,7 +4842,7 @@ class SecurityMonitoringRuleSignalQuery:
 
         An empty string applies correlation on the non-projected per query attributes of the rule. Defaults to ``""``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#correlated_query_index SecurityMonitoringRule#correlated_query_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#correlated_query_index SecurityMonitoringRule#correlated_query_index}
         '''
         result = self._values.get("correlated_query_index")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4275,7 +4851,7 @@ class SecurityMonitoringRuleSignalQuery:
     def default_rule_id(self) -> typing.Optional[builtins.str]:
         '''Default Rule ID of the signal to correlate. This value is READ-ONLY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#default_rule_id SecurityMonitoringRule#default_rule_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#default_rule_id SecurityMonitoringRule#default_rule_id}
         '''
         result = self._values.get("default_rule_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4284,7 +4860,7 @@ class SecurityMonitoringRuleSignalQuery:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the query. Not compatible with ``new_value`` aggregations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4580,10 +5156,10 @@ class SecurityMonitoringRuleThirdPartyCase:
         query: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status: Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
-        :param name: Name of the case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
-        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
-        :param query: A query to associate a third-party event to this case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        :param status: Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
+        :param name: Name of the case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        :param notifications: Notification targets for each rule case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
+        :param query: A query to associate a third-party event to this case. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c73c31c17be252e410917d90db5e452563c36ff6d3089b44bb9211dfdf96d068)
@@ -4605,7 +5181,7 @@ class SecurityMonitoringRuleThirdPartyCase:
     def status(self) -> builtins.str:
         '''Severity of the Security Signal. Valid values are ``info``, ``low``, ``medium``, ``high``, ``critical``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#status SecurityMonitoringRule#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -4615,7 +5191,7 @@ class SecurityMonitoringRuleThirdPartyCase:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#name SecurityMonitoringRule#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4624,7 +5200,7 @@ class SecurityMonitoringRuleThirdPartyCase:
     def notifications(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Notification targets for each rule case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#notifications SecurityMonitoringRule#notifications}
         '''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4633,7 +5209,7 @@ class SecurityMonitoringRuleThirdPartyCase:
     def query(self) -> typing.Optional[builtins.str]:
         '''A query to associate a third-party event to this case.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/security_monitoring_rule#query SecurityMonitoringRule#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4869,6 +5445,9 @@ class SecurityMonitoringRuleThirdPartyCaseOutputReference(
 
 __all__ = [
     "SecurityMonitoringRule",
+    "SecurityMonitoringRuleCalculatedField",
+    "SecurityMonitoringRuleCalculatedFieldList",
+    "SecurityMonitoringRuleCalculatedFieldOutputReference",
     "SecurityMonitoringRuleCase",
     "SecurityMonitoringRuleCaseAction",
     "SecurityMonitoringRuleCaseActionList",
@@ -4901,6 +5480,8 @@ __all__ = [
     "SecurityMonitoringRuleReferenceTables",
     "SecurityMonitoringRuleReferenceTablesList",
     "SecurityMonitoringRuleReferenceTablesOutputReference",
+    "SecurityMonitoringRuleSchedulingOptions",
+    "SecurityMonitoringRuleSchedulingOptionsOutputReference",
     "SecurityMonitoringRuleSignalQuery",
     "SecurityMonitoringRuleSignalQueryList",
     "SecurityMonitoringRuleSignalQueryOutputReference",
@@ -4917,6 +5498,7 @@ def _typecheckingstub__dd00fd9aa3b1f81238f3c6c2a02ca88039dd987dec551b4ad0c13a2ac
     *,
     message: builtins.str,
     name: builtins.str,
+    calculated_field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCalculatedField, typing.Dict[builtins.str, typing.Any]]]]] = None,
     case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCase, typing.Dict[builtins.str, typing.Any]]]]] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleFilter, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -4926,6 +5508,7 @@ def _typecheckingstub__dd00fd9aa3b1f81238f3c6c2a02ca88039dd987dec551b4ad0c13a2ac
     options: typing.Optional[typing.Union[SecurityMonitoringRuleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleQuery, typing.Dict[builtins.str, typing.Any]]]]] = None,
     reference_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleReferenceTables, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    scheduling_options: typing.Optional[typing.Union[SecurityMonitoringRuleSchedulingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     signal_query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleSignalQuery, typing.Dict[builtins.str, typing.Any]]]]] = None,
     tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     third_party_case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleThirdPartyCase, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -4947,6 +5530,12 @@ def _typecheckingstub__32f2dd280993557d71b2e35e82f60ed5950a16e390170809be8eab274
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb7244d99da2b6be4dbafde42ad82a49899c52078b84af960a59dfe6b10e6122(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCalculatedField, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5037,6 +5626,79 @@ def _typecheckingstub__199c9a33aa378e32bc2bb89251dd5022dd0ddaa9b8cd8df3eb21dbc00
 
 def _typecheckingstub__150e3f2849c03dc63f87a343f8c24bf0cdc8ef921627d393bd4ba5840a8c1ce6(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff65dda2264698187e9eeb3f7f9e6706f0e2b2af039fd2b03b797d3ceff8e5cc(
+    *,
+    expression: builtins.str,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e98e24f41021fc275884a34663ce8004eff6bd184daf108f978a6a0a85d021c9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9ebc2995a87d485ac42fd804b8aff79ea6473f528ab523db2daa6c8c5c16c83(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96575f1f27c44ad1ac242f023636bf2d8563bd6c70617fb8fa20790103ee953f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52699e8ce34a5b229b1f7a5dec91a1f3c99a190ed06945c9a6c6b486a8a5235d(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c331952a3d81753e2e9889d703035b06e8061e374277ca5b8c637470016c4761(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59d73ff8e0a0d91c046c02d7c011bf5c33a06a469337846570ab63ee5d02efe4(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SecurityMonitoringRuleCalculatedField]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1b53ffa71221b09bdeaa11924ebc33d2780b0f7a47b3686c2d4d852652ca24a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3ef903a42a190da68ad9bd97c87543a69398389e9dd165f2ae3fe969c3451f6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29d60532c8e8bd3c5b575b397709bf93553ff4983d538206988deafa44683fde(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7fdb1844bd70c52a8f095abfc384809b221c4a5540426c401c5f4faa3f4e8e8(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SecurityMonitoringRuleCalculatedField]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5239,6 +5901,7 @@ def _typecheckingstub__11fb48eb81a5c88e4dd36e60d914b894a63e04642134d6e62d2337bdb
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     message: builtins.str,
     name: builtins.str,
+    calculated_field: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCalculatedField, typing.Dict[builtins.str, typing.Any]]]]] = None,
     case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleCase, typing.Dict[builtins.str, typing.Any]]]]] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleFilter, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -5248,6 +5911,7 @@ def _typecheckingstub__11fb48eb81a5c88e4dd36e60d914b894a63e04642134d6e62d2337bdb
     options: typing.Optional[typing.Union[SecurityMonitoringRuleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleQuery, typing.Dict[builtins.str, typing.Any]]]]] = None,
     reference_tables: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleReferenceTables, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    scheduling_options: typing.Optional[typing.Union[SecurityMonitoringRuleSchedulingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     signal_query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleSignalQuery, typing.Dict[builtins.str, typing.Any]]]]] = None,
     tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     third_party_case: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SecurityMonitoringRuleThirdPartyCase, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -5588,6 +6252,8 @@ def _typecheckingstub__6e8f570b0171354820639da7d8575f7c19be01bb17e683a3669127e02
     data_source: typing.Optional[builtins.str] = None,
     distinct_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
     group_by_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
+    has_optional_group_by_fields: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    indexes: typing.Optional[typing.Sequence[builtins.str]] = None,
     metric: typing.Optional[builtins.str] = None,
     metrics: typing.Optional[typing.Sequence[builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
@@ -5745,6 +6411,18 @@ def _typecheckingstub__c276cef0c4f93b80c4651687330aef0e1bee295bd1613b5bd17815942
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__505b5d3c83a14db5a713a7e802fa20edf191ed84f68b2cb13da01582e5d34006(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35f4bbd9248d272b133c9fd779decfba63f404dce543303cab9cbc8bf14049bc(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a7c5122401386e2ea1c4cf6e0586ac32aae456ad0d078e58ebc5f366b1c39e1(
     value: builtins.str,
 ) -> None:
@@ -5865,6 +6543,46 @@ def _typecheckingstub__e69e11cd5ab0f583d64efa95e4bf1f66539f03752373790944bf10522
 
 def _typecheckingstub__b7921876ff738523c3073e00f07f12b8f528575f4920477da577c2da06a02487(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SecurityMonitoringRuleReferenceTables]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ffcf97072f9717a3bc853e76582fba3299a343d3b5c44949593a91ce55d6464(
+    *,
+    rrule: builtins.str,
+    start: builtins.str,
+    timezone: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5063eeb20afb10ae9f711505c0444a9613b912678fb7a64449fc6c26c5d117d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d055945a4526313799ede5d393d43d6c4d2d27bcc4bed06d3ab94a227f25d072(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d52b5b5e5fdfe664180ba344fa96792b3c54f8f5a35c11b1e0f8549911a1cd7a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5080ac582447e100039ceaa30af87a33cf556fa7ad2d3873dbc7bc6e30d88c57(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c9d642905a05c184c7d72265934ffaaf15df664afe5dac15370a0d1bbadf937(
+    value: typing.Optional[SecurityMonitoringRuleSchedulingOptions],
 ) -> None:
     """Type checking stubs"""
     pass

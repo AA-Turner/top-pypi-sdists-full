@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tablestore"
-version = "6.3.3"
+version = "6.3.4"
 description = "Aliyun TableStore(OTS) SDK"
 readme = "README.md"
 license = "Apache License 2.0"

@@ -8,8 +8,8 @@ from DIRAC import exit as DIRACExit
 from DIRAC import gLogger
 from DIRAC.Core.Base.Script import Script
 from DIRAC.Core.Utilities import TimeUtilities
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.Core.Utilities.PrettyPrint import printTable
-from DIRAC.ResourceStatusSystem.Utilities import Utils
 
 
 def registerSwitches():
@@ -334,10 +334,10 @@ def main():
     registerSwitches()
     args, switchDict = parseSwitches()
 
-    ResourceManagementClient = getattr(
-        Utils.voimport("DIRAC.ResourceStatusSystem.Client.ResourceManagementClient"),
-        "ResourceManagementClient",
-    )
+    result = ObjectLoader().loadObject("DIRAC.ResourceStatusSystem.Client.ResourceManagementClient")
+    if not result["OK"]:
+        raise Exception(result["Message"])
+    ResourceManagementClient = result["Value"]
 
     # Run script
     run(args, switchDict)

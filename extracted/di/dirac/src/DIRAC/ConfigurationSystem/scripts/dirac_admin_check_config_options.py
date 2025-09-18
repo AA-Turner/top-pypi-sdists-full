@@ -145,21 +145,14 @@ class CheckConfig:
         gConfig.forceRefresh()
 
         fullCfg = CFG()
-        setup = gConfig.getValue("/DIRAC/Setup", "")
-        setupList = gConfig.getSections("/DIRAC/Setups", [])
-        if not setupList["OK"]:
-            return S_ERROR("Could not get /DIRAC/Setups sections")
-        setupList = setupList["Value"]
-        if setup not in setupList:
-            return S_ERROR(f"Setup {setup} is not in allowed list: {', '.join(setupList)}")
-        serviceSetups = gConfig.getOptionsDict(f"/DIRAC/Setups/{setup}")
-        if not serviceSetups["OK"]:
-            return S_ERROR(f"Could not get /DIRAC/Setups/{setup} options")
-        serviceSetups = serviceSetups["Value"]  # dict
-        for system, setup in serviceSetups.items():
+        res = gConfig.getSections("/Systems")
+        if not res["OK"]:
+            return res
+        systems = res["Value"]
+        for system in systems:
             if self.systems and system not in self.systems:
                 continue
-            systemCfg = gConfigurationData.remoteCFG.getAsCFG(f"/Systems/{system}/{setup}")
+            systemCfg = gConfigurationData.remoteCFG.getAsCFG(f"/Systems/{system}")
             for section in systemCfg.listSections():
                 if section not in ("Agents", "Services", "Executors"):
                     systemCfg.deleteKey(section)

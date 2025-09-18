@@ -6,20 +6,20 @@ Example:
   $ dirac-proxy-init -g dirac_user
   Enter Certificate password: **************
 """
+import datetime
+import glob
 import os
 import sys
-import glob
 import time
-import datetime
 
 import DIRAC
-
-from DIRAC import gLogger, S_OK, S_ERROR
-from DIRAC.Core.Base.Script import Script
-from DIRAC.FrameworkSystem.Client import ProxyGeneration, ProxyUpload
-from DIRAC.Core.Security import X509Chain, ProxyInfo, VOMS
-from DIRAC.Core.Security.Locations import getCAsLocation
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.Core.Base.Script import Script
+from DIRAC.Core.Security import VOMS, ProxyInfo, X509Chain
+from DIRAC.Core.Security.DiracX import addTokenToPEM
+from DIRAC.Core.Security.Locations import getCAsLocation, getDefaultProxyLocation
+from DIRAC.FrameworkSystem.Client import ProxyGeneration, ProxyUpload
 from DIRAC.FrameworkSystem.Client.BundleDeliveryClient import BundleDeliveryClient
 
 
@@ -165,17 +165,9 @@ class ProxyInit:
             maxDNLen = 0
             for userDN in self.__uploadedInfo:
                 maxDNLen = max(maxDNLen, len(userDN))
-
             gLogger.notice(f" {'DN'.ljust(maxDNLen)} | Until (GMT)")
             for userDN in self.__uploadedInfo:
-                # in v8.0, expirationTime is accessed from uploadedInfo[userDN][""]
-                if isinstance(self.__uploadedInfo[userDN], dict):
-                    expirationTime = self.__uploadedInfo[userDN][""]
-                # whereas in v9.0, expirationTime is accessed from uploadedInfo[userDN]
-                else:
-                    expirationTime = self.__uploadedInfo[userDN]
-
-                gLogger.notice(f" {userDN.ljust(maxDNLen)} | {expirationTime.strftime('%Y/%m/%d %H:%M')}")
+                gLogger.notice(f" {userDN.ljust(maxDNLen)} | {self.__uploadedInfo[userDN].strftime('%Y/%m/%d %H:%M')}")
 
     def checkCAs(self):
         caDir = getCAsLocation()
@@ -217,6 +209,11 @@ class ProxyInit:
         self.checkCAs()
         pI.certLifeTimeCheck()
         resultProxyWithVOMS = pI.addVOMSExtIfNeeded()
+
+        proxyLoc = self.__piParams.proxyLoc or getDefaultProxyLocation()
+        if not (result := addTokenToPEM(proxyLoc, self.__piParams.diracGroup))["OK"]:
+            return result
+
         if not resultProxyWithVOMS["OK"]:
             if "returning a valid AC for the user" in resultProxyWithVOMS["Message"]:
                 gLogger.error(resultProxyWithVOMS["Message"])

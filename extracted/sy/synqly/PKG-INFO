@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: synqly
-Version: 1.0.0
+Version: 1.0.1
 Summary: SDK for Synqly APIs
 Requires-Python: >=3.7,<4.0
 Classifier: Programming Language :: Python :: 3
@@ -10,7 +10,6 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: pydantic (>=1.9.2)
 Description-Content-Type: text/markdown

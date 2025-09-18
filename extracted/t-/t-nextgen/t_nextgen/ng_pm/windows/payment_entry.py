@@ -415,7 +415,8 @@ class PaymentEntryWindow(NextGenWindow):
         """Clicks the recalc button."""
         if click_recalc_button:
             self.logger.debug("Clicking recalc button in Payment Entry Window.")
-            self.desktop_app.click_button_by_element_name(element_name="_cmdAction_6")
+            with contextlib.suppress(_ctypes.COMError):
+                self.window.child_window(title="_cmdAction_6", control_type="Button").click()
         else:
             self.logger.warning("Skipping recalc button click to prevent changes.")
 
@@ -423,7 +424,8 @@ class PaymentEntryWindow(NextGenWindow):
         """Clicks the save button."""
         if click_save_button:
             self.logger.debug("Clicking save button on Payment Entry Window.")
-            self.desktop_app.click_button_by_element_name(element_name="_cmdAction_2")
+            with contextlib.suppress(_ctypes.COMError):
+                self.window.child_window(title="_cmdAction_2", control_type="Button").click()
             self.verify_and_handle_modal("Please specify a status for each line item payments and adjustment.")
         else:
             self.logger.warning("Clicking cancel in payment entry to prevent changes.")

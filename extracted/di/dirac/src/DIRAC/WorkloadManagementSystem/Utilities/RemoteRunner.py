@@ -11,47 +11,23 @@ import os
 import shlex
 import time
 
-from DIRAC import gLogger, gConfig, S_OK, S_ERROR
+from DIRAC import gLogger, S_OK, S_ERROR
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
 from DIRAC.Core.Utilities import DErrno
-from DIRAC.Core.Utilities.Decorators import deprecated
 from DIRAC.Resources.Computing.ComputingElementFactory import ComputingElementFactory
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getQueue
 from DIRAC.WorkloadManagementSystem.Client import PilotStatus
 
 
 class RemoteRunner:
-    def __init__(self, siteName=None, ceName=None, queueName=None):
+    def __init__(self, siteName, ceName, queueName):
         self.log = gLogger.getSubLogger("RemoteRunner")
         self.executable = "workloadExec.sh"
         self.checkSumOutput = "md5Checksum.txt"
 
         self._workloadSite = siteName
-        if not self._workloadSite:
-            self.log.warn("You are expected to provide a siteName in parameters from v8.0")
-            self.log.warn("Trying to get workloadSite from /LocalSite/Site...")
-            self._workloadSite = gConfig.getValue("/LocalSite/Site")
         self._workloadCE = ceName
-        if not self._workloadCE:
-            self.log.warn("You are expected to provide a ceName in parameters from v8.0")
-            self.log.warn("Trying to get workloadSite from /LocalSite/GridCE...")
-            self._workloadCE = gConfig.getValue("/LocalSite/GridCE")
         self._workloadQueue = queueName
-        if not self._workloadQueue:
-            self.log.warn("You are expected to provide a queueName in parameters from v8.0")
-            self.log.warn("Trying to get workloadSite from /LocalSite/CEQueue...")
-            self._workloadQueue = gConfig.getValue("/LocalSite/CEQueue")
-
-    @deprecated('Use gConfig.getValue("/LocalSite/RemoteExecution", False) instead.')
-    def is_remote_execution(self):
-        """Main method: decides whether the execution will be done locally or remotely via a CE.
-
-        This method does not really make sense: if we use RemoteRunner, it means we want to perform a remote execution.
-        Therefore, this should be checked before calling RemoteRunner by checking /LocalSite/RemoteExecution for instance.
-
-        :return: bool
-        """
-        return gConfig.getValue("/LocalSite/RemoteExecution", False)
 
     def execute(self, command, workingDirectory=".", numberOfProcessors=1, cleanRemoteJob=True):
         """Execute the command remotely via a CE
@@ -72,6 +48,11 @@ class RemoteRunner:
             "Preparing and submitting the command to",
             f"site {self._workloadSite}, CE {self._workloadCE}, queue {self._workloadQueue}",
         )
+
+        # The CE interface needs to drop the token section from the proxy file to interact with the CE
+        # So we save the current proxy file location (which likely contains the DiracX token)
+        # and we will restore it at the end of the job
+        originalProxyLocation = os.environ.get("X509_USER_PROXY")
 
         # Set up Application Queue
         if not (result := self._setUpWorkloadCE(numberOfProcessors))["OK"]:
@@ -111,6 +92,8 @@ class RemoteRunner:
             time.sleep(timeBetweenRetries)
         else:
             result["Errno"] = DErrno.EWMSSUBM
+            # Restore the original proxy location
+            os.environ["X509_USER_PROXY"] = originalProxyLocation
             return result
 
         jobID = result["Value"][0]
@@ -131,6 +114,8 @@ class RemoteRunner:
                 time.sleep(timeBetweenRetries)
             else:
                 result["Errno"] = DErrno.EWMSSTATUS
+                # Restore the original proxy location
+                os.environ["X509_USER_PROXY"] = originalProxyLocation
                 return result
 
             jobStatus = result["Value"][jobID]
@@ -147,6 +132,8 @@ class RemoteRunner:
             time.sleep(timeBetweenRetries)
         else:
             result["Errno"] = DErrno.EWMSJMAN
+            # Restore the original proxy location
+            os.environ["X509_USER_PROXY"] = originalProxyLocation
             return result
 
         output, error = result["Value"]
@@ -155,6 +142,8 @@ class RemoteRunner:
         self.log.info("Checking the integrity of the outputs...")
         if not (result := self._checkOutputIntegrity("."))["OK"]:
             result["Errno"] = DErrno.EWMSJMAN
+            # Restore the original proxy location
+            os.environ["X509_USER_PROXY"] = originalProxyLocation
             return result
         self.log.info("The output has been retrieved and declared complete")
 
@@ -169,6 +158,9 @@ class RemoteRunner:
             if not (result := workloadCE.cleanJob(jobID))["OK"]:
                 self.log.warn("Failed to clean the output remotely", result["Message"])
             self.log.info("The job has been remotely removed")
+
+        # Restore the original proxy location
+        os.environ["X509_USER_PROXY"] = originalProxyLocation
 
         commandStatus = {"Done": 0, "Failed": -1, "Killed": -2}
         return S_OK((commandStatus[jobStatus], output, error))
@@ -230,11 +222,7 @@ class RemoteRunner:
         if not result["OK"]:
             return result
         proxy = result["Value"]["chain"]
-        result = proxy.getRemainingSecs()
-        if not result["OK"]:
-            return result
-        lifetime_secs = result["Value"]
-        workloadCE.setProxy(proxy, lifetime_secs)
+        workloadCE.setProxy(proxy)
 
         return S_OK(workloadCE)
 

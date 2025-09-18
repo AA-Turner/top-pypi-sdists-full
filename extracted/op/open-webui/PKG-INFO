@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.28
+Version: 0.6.30
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
@@ -64,12 +64,10 @@ Requires-Dist: bcrypt==4.3.0
 Requires-Dist: black==25.1.0
 Requires-Dist: boto3==1.40.5
 Requires-Dist: chromadb==1.0.20
-Requires-Dist: colbert-ai==0.2.21
 Requires-Dist: cryptography
 Requires-Dist: ddgs==9.0.0
 Requires-Dist: docx2txt==0.8
 Requires-Dist: einops==0.8.1
-Requires-Dist: elasticsearch==9.1.0
 Requires-Dist: fake-useragent==2.2.0
 Requires-Dist: fastapi==0.115.7
 Requires-Dist: faster-whisper==1.1.1
@@ -95,15 +93,12 @@ Requires-Dist: openai
 Requires-Dist: opencv-python-headless==4.11.0.86
 Requires-Dist: openpyxl==3.1.5
 Requires-Dist: opensearch-py==2.8.0
-Requires-Dist: oracledb==3.2.0
 Requires-Dist: oracledb>=3.2.0
 Requires-Dist: pandas==2.2.3
 Requires-Dist: passlib[bcrypt]==1.7.4
 Requires-Dist: peewee-migrate==1.12.2
 Requires-Dist: peewee==3.18.1
 Requires-Dist: pillow==11.3.0
-Requires-Dist: pinecone==6.0.2
-Requires-Dist: playwright==1.49.1
 Requires-Dist: psutil
 Requires-Dist: pyarrow==20.0.0
 Requires-Dist: pycrdt==0.12.25
@@ -111,7 +106,6 @@ Requires-Dist: pydantic==2.11.7
 Requires-Dist: pydub
 Requires-Dist: pyjwt[crypto]==2.10.1
 Requires-Dist: pymdown-extensions==10.14.2
-Requires-Dist: pymilvus==2.5.0
 Requires-Dist: pymysql==1.1.1
 Requires-Dist: pypandoc==1.15
 Requires-Dist: pypdf==6.0.0
@@ -121,7 +115,6 @@ Requires-Dist: python-pptx==1.0.2
 Requires-Dist: python-socketio==5.13.0
 Requires-Dist: pytube==15.0.0
 Requires-Dist: pyxlsb==1.0.10
-Requires-Dist: qdrant-client==1.14.3
 Requires-Dist: rank-bm25==0.2.2
 Requires-Dist: rapidocr-onnxruntime==1.4.4
 Requires-Dist: redis
@@ -141,14 +134,21 @@ Requires-Dist: validators==0.35.0
 Requires-Dist: xlrd==2.0.1
 Requires-Dist: youtube-transcript-api==1.1.0
 Provides-Extra: all
+Requires-Dist: colbert-ai==0.2.21; extra == 'all'
 Requires-Dist: docker~=7.1.0; extra == 'all'
+Requires-Dist: elasticsearch==9.1.0; extra == 'all'
 Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
 Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
+Requires-Dist: oracledb==3.2.0; extra == 'all'
 Requires-Dist: pgvector==0.4.0; extra == 'all'
+Requires-Dist: pinecone==6.0.2; extra == 'all'
+Requires-Dist: playwright==1.49.1; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.9; extra == 'all'
+Requires-Dist: pymilvus==2.5.0; extra == 'all'
 Requires-Dist: pymongo; extra == 'all'
 Requires-Dist: pytest-docker~=3.1.1; extra == 'all'
 Requires-Dist: pytest~=8.3.2; extra == 'all'
+Requires-Dist: qdrant-client==1.14.3; extra == 'all'
 Provides-Extra: postgres
 Requires-Dist: pgvector==0.4.1; extra == 'postgres'
 Requires-Dist: psycopg2-binary==2.9.10; extra == 'postgres'

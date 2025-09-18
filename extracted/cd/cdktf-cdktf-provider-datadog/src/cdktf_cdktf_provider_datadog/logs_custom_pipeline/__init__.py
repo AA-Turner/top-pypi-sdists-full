@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_custom_pipeline`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_custom_pipeline`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline).
+Refer to the Terraform Registry for docs: [`datadog_logs_custom_pipeline`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsCustomPipeline(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsCustomPipeline.LogsCustomPipeline",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline datadog_logs_custom_pipeline}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline datadog_logs_custom_pipeline}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class LogsCustomPipeline(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline datadog_logs_custom_pipeline} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline datadog_logs_custom_pipeline} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
-        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
+        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class LogsCustomPipeline(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsCustomPipeline to import.
-        :param import_from_id: The id of the existing LogsCustomPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsCustomPipeline that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsCustomPipeline to import is found.
         '''
         if __debug__:
@@ -353,13 +353,13 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
-        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
+        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -478,7 +478,7 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineFilter"]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -486,20 +486,20 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#id LogsCustomPipeline#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -511,7 +511,7 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.'''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -521,14 +521,14 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessor"]]]:
         '''processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
         '''
         result = self._values.get("processor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessor"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -552,7 +552,7 @@ class LogsCustomPipelineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class LogsCustomPipelineFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06af79ced7a3adb91e320775d3af5ca11ddebc719825d9c7b9fd188322da3e5e)
@@ -565,7 +565,7 @@ class LogsCustomPipelineFilter:
     def query(self) -> builtins.str:
         '''Filter criteria of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -784,25 +784,25 @@ class LogsCustomPipelineProcessor:
         user_agent_parser: typing.Optional[typing.Union["LogsCustomPipelineProcessorUserAgentParser", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param arithmetic_processor: arithmetic_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
-        :param array_processor: array_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
-        :param attribute_remapper: attribute_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
-        :param category_processor: category_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
-        :param date_remapper: date_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
-        :param decoder_processor: decoder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
-        :param geo_ip_parser: geo_ip_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
-        :param grok_parser: grok_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
-        :param lookup_processor: lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
-        :param message_remapper: message_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
-        :param pipeline: pipeline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#pipeline LogsCustomPipeline#pipeline}
-        :param reference_table_lookup_processor: reference_table_lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
-        :param service_remapper: service_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
-        :param span_id_remapper: span_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
-        :param status_remapper: status_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
-        :param string_builder_processor: string_builder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
-        :param trace_id_remapper: trace_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
-        :param url_parser: url_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
-        :param user_agent_parser: user_agent_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
+        :param arithmetic_processor: arithmetic_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
+        :param array_processor: array_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
+        :param attribute_remapper: attribute_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
+        :param category_processor: category_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
+        :param date_remapper: date_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
+        :param decoder_processor: decoder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
+        :param geo_ip_parser: geo_ip_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
+        :param grok_parser: grok_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
+        :param lookup_processor: lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
+        :param message_remapper: message_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
+        :param pipeline: pipeline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#pipeline LogsCustomPipeline#pipeline}
+        :param reference_table_lookup_processor: reference_table_lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
+        :param service_remapper: service_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
+        :param span_id_remapper: span_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
+        :param status_remapper: status_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
+        :param string_builder_processor: string_builder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
+        :param trace_id_remapper: trace_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
+        :param url_parser: url_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
+        :param user_agent_parser: user_agent_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
         '''
         if isinstance(arithmetic_processor, dict):
             arithmetic_processor = LogsCustomPipelineProcessorArithmeticProcessor(**arithmetic_processor)
@@ -909,7 +909,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorArithmeticProcessor"]:
         '''arithmetic_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
         '''
         result = self._values.get("arithmetic_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorArithmeticProcessor"], result)
@@ -920,7 +920,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorArrayProcessor"]:
         '''array_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
         '''
         result = self._values.get("array_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorArrayProcessor"], result)
@@ -931,7 +931,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorAttributeRemapper"]:
         '''attribute_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
         '''
         result = self._values.get("attribute_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorAttributeRemapper"], result)
@@ -942,7 +942,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorCategoryProcessor"]:
         '''category_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
         '''
         result = self._values.get("category_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorCategoryProcessor"], result)
@@ -953,7 +953,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorDateRemapper"]:
         '''date_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
         '''
         result = self._values.get("date_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorDateRemapper"], result)
@@ -964,7 +964,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorDecoderProcessor"]:
         '''decoder_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
         '''
         result = self._values.get("decoder_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorDecoderProcessor"], result)
@@ -975,7 +975,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorGeoIpParser"]:
         '''geo_ip_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
         '''
         result = self._values.get("geo_ip_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorGeoIpParser"], result)
@@ -984,7 +984,7 @@ class LogsCustomPipelineProcessor:
     def grok_parser(self) -> typing.Optional["LogsCustomPipelineProcessorGrokParser"]:
         '''grok_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
         '''
         result = self._values.get("grok_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorGrokParser"], result)
@@ -995,7 +995,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorLookupProcessor"]:
         '''lookup_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
         '''
         result = self._values.get("lookup_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorLookupProcessor"], result)
@@ -1006,7 +1006,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorMessageRemapper"]:
         '''message_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
         '''
         result = self._values.get("message_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorMessageRemapper"], result)
@@ -1015,7 +1015,7 @@ class LogsCustomPipelineProcessor:
     def pipeline(self) -> typing.Optional["LogsCustomPipelineProcessorPipeline"]:
         '''pipeline block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#pipeline LogsCustomPipeline#pipeline}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#pipeline LogsCustomPipeline#pipeline}
         '''
         result = self._values.get("pipeline")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipeline"], result)
@@ -1026,7 +1026,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorReferenceTableLookupProcessor"]:
         '''reference_table_lookup_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
         '''
         result = self._values.get("reference_table_lookup_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorReferenceTableLookupProcessor"], result)
@@ -1037,7 +1037,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorServiceRemapper"]:
         '''service_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
         '''
         result = self._values.get("service_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorServiceRemapper"], result)
@@ -1048,7 +1048,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorSpanIdRemapper"]:
         '''span_id_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
         '''
         result = self._values.get("span_id_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorSpanIdRemapper"], result)
@@ -1059,7 +1059,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorStatusRemapper"]:
         '''status_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
         '''
         result = self._values.get("status_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorStatusRemapper"], result)
@@ -1070,7 +1070,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorStringBuilderProcessor"]:
         '''string_builder_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
         '''
         result = self._values.get("string_builder_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorStringBuilderProcessor"], result)
@@ -1081,7 +1081,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorTraceIdRemapper"]:
         '''trace_id_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
         '''
         result = self._values.get("trace_id_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorTraceIdRemapper"], result)
@@ -1090,7 +1090,7 @@ class LogsCustomPipelineProcessor:
     def url_parser(self) -> typing.Optional["LogsCustomPipelineProcessorUrlParser"]:
         '''url_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
         '''
         result = self._values.get("url_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorUrlParser"], result)
@@ -1101,7 +1101,7 @@ class LogsCustomPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorUserAgentParser"]:
         '''user_agent_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
         '''
         result = self._values.get("user_agent_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorUserAgentParser"], result)
@@ -1140,11 +1140,11 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
-        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__165dfccd3ae85989f1d521f57b75d845a867d1a4f22b807f94d1aaea275be552)
@@ -1168,7 +1168,7 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
     def expression(self) -> builtins.str:
         '''Arithmetic operation between one or more log attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1178,7 +1178,7 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the arithmetic operation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1190,7 +1190,7 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean value to enable your pipeline.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1201,7 +1201,7 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
         '''
         result = self._values.get("is_replace_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1210,7 +1210,7 @@ class LogsCustomPipelineProcessorArithmeticProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Your pipeline name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1388,9 +1388,9 @@ class LogsCustomPipelineProcessorArrayProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
-        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if isinstance(operation, dict):
             operation = LogsCustomPipelineProcessorArrayProcessorOperation(**operation)
@@ -1411,7 +1411,7 @@ class LogsCustomPipelineProcessorArrayProcessor:
     def operation(self) -> "LogsCustomPipelineProcessorArrayProcessorOperation":
         '''operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
         '''
         result = self._values.get("operation")
         assert result is not None, "Required property 'operation' is missing"
@@ -1423,7 +1423,7 @@ class LogsCustomPipelineProcessorArrayProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean value to enable your processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1432,7 +1432,7 @@ class LogsCustomPipelineProcessorArrayProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Your processor name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1463,9 +1463,9 @@ class LogsCustomPipelineProcessorArrayProcessorOperation:
         select: typing.Optional[typing.Union["LogsCustomPipelineProcessorArrayProcessorOperationSelect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
-        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         if isinstance(append, dict):
             append = LogsCustomPipelineProcessorArrayProcessorOperationAppend(**append)
@@ -1492,7 +1492,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationAppend"]:
         '''append block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
         '''
         result = self._values.get("append")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationAppend"], result)
@@ -1503,7 +1503,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationLength"]:
         '''length block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
         '''
         result = self._values.get("length")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationLength"], result)
@@ -1514,7 +1514,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationSelect"]:
         '''select block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorArrayProcessorOperationSelect"], result)
@@ -1549,9 +1549,9 @@ class LogsCustomPipelineProcessorArrayProcessorOperationAppend:
         preserve_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c0809b34ccf0133919a0a4b8e1c33528a50df87a244abe4466e86bf0f6ba069)
@@ -1569,7 +1569,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationAppend:
     def source(self) -> builtins.str:
         '''Attribute path containing the value to append.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1579,7 +1579,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationAppend:
     def target(self) -> builtins.str:
         '''Attribute path of the array to append to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1591,7 +1591,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationAppend:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Remove or preserve the remapped source element. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         result = self._values.get("preserve_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1716,8 +1716,8 @@ class LogsCustomPipelineProcessorArrayProcessorOperationAppendOutputReference(
 class LogsCustomPipelineProcessorArrayProcessorOperationLength:
     def __init__(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__910e1465517d1dc37b1c1b7f6448c89972ddcb514befbf39f40663730530d1aa)
@@ -1732,7 +1732,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationLength:
     def source(self) -> builtins.str:
         '''Attribute path of the array to compute the length of.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1742,7 +1742,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationLength:
     def target(self) -> builtins.str:
         '''Attribute that receives the computed length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1861,9 +1861,9 @@ class LogsCustomPipelineProcessorArrayProcessorOperationOutputReference(
         preserve_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         value = LogsCustomPipelineProcessorArrayProcessorOperationAppend(
             source=source, target=target, preserve_source=preserve_source
@@ -1874,8 +1874,8 @@ class LogsCustomPipelineProcessorArrayProcessorOperationOutputReference(
     @jsii.member(jsii_name="putLength")
     def put_length(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         value = LogsCustomPipelineProcessorArrayProcessorOperationLength(
             source=source, target=target
@@ -1893,10 +1893,10 @@ class LogsCustomPipelineProcessorArrayProcessorOperationOutputReference(
         value_to_extract: builtins.str,
     ) -> None:
         '''
-        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         value = LogsCustomPipelineProcessorArrayProcessorOperationSelect(
             filter=filter,
@@ -1999,10 +1999,10 @@ class LogsCustomPipelineProcessorArrayProcessorOperationSelect:
         value_to_extract: builtins.str,
     ) -> None:
         '''
-        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c64a6ada02ec052c10e81f5d85bc55553b8c6cbb6dc67aa9b26c3aecdd000af)
@@ -2021,7 +2021,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationSelect:
     def filter(self) -> builtins.str:
         '''Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -2031,7 +2031,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationSelect:
     def source(self) -> builtins.str:
         '''Attribute path of the array to search into.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -2041,7 +2041,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationSelect:
     def target(self) -> builtins.str:
         '''Attribute that receives the extracted value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -2051,7 +2051,7 @@ class LogsCustomPipelineProcessorArrayProcessorOperationSelect:
     def value_to_extract(self) -> builtins.str:
         '''Attribute key from the matching object that should be extracted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         result = self._values.get("value_to_extract")
         assert result is not None, "Required property 'value_to_extract' is missing"
@@ -2204,9 +2204,9 @@ class LogsCustomPipelineProcessorArrayProcessorOutputReference(
         select: typing.Optional[typing.Union[LogsCustomPipelineProcessorArrayProcessorOperationSelect, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
-        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         value = LogsCustomPipelineProcessorArrayProcessorOperation(
             append=append, length=length, select=select
@@ -2323,15 +2323,15 @@ class LogsCustomPipelineProcessorAttributeRemapper:
         target_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
-        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
-        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
-        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b3d422d5f6fed40ee0387e1dd3994e0e679e0706bd384bd358d46ba7f62c099)
@@ -2365,7 +2365,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes or tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -2375,7 +2375,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     def source_type(self) -> builtins.str:
         '''Defines where the sources are from (log ``attribute`` or ``tag``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
         '''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
@@ -2385,7 +2385,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     def target(self) -> builtins.str:
         '''Final attribute or tag name to remap the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -2395,7 +2395,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     def target_type(self) -> builtins.str:
         '''Defines if the target is a log ``attribute`` or ``tag``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
         '''
         result = self._values.get("target_type")
         assert result is not None, "Required property 'target_type' is missing"
@@ -2407,7 +2407,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2416,7 +2416,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2427,7 +2427,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Override the target element if already set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
         '''
         result = self._values.get("override_on_conflict")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2438,7 +2438,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Remove or preserve the remapped source element.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         result = self._values.get("preserve_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2449,7 +2449,7 @@ class LogsCustomPipelineProcessorAttributeRemapper:
 
         If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         result = self._values.get("target_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2716,10 +2716,10 @@ class LogsCustomPipelineProcessorCategoryProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
-        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d020454179d0e702232498c0fb091e398e76a34782b1418abf4a7269ebea3d3b)
@@ -2742,7 +2742,7 @@ class LogsCustomPipelineProcessorCategoryProcessor:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessorCategoryProcessorCategory"]]:
         '''category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
         '''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
@@ -2752,7 +2752,7 @@ class LogsCustomPipelineProcessorCategoryProcessor:
     def target(self) -> builtins.str:
         '''Name of the target attribute whose value is defined by the matching category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -2764,7 +2764,7 @@ class LogsCustomPipelineProcessorCategoryProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2773,7 +2773,7 @@ class LogsCustomPipelineProcessorCategoryProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2803,8 +2803,8 @@ class LogsCustomPipelineProcessorCategoryProcessorCategory:
         name: builtins.str,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
         '''
         if isinstance(filter, dict):
             filter = LogsCustomPipelineProcessorCategoryProcessorCategoryFilter(**filter)
@@ -2821,7 +2821,7 @@ class LogsCustomPipelineProcessorCategoryProcessorCategory:
     def filter(self) -> "LogsCustomPipelineProcessorCategoryProcessorCategoryFilter":
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -2829,7 +2829,7 @@ class LogsCustomPipelineProcessorCategoryProcessorCategory:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2854,7 +2854,7 @@ class LogsCustomPipelineProcessorCategoryProcessorCategory:
 class LogsCustomPipelineProcessorCategoryProcessorCategoryFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d69b771f248ac613e79dadc9d0b68cc45648b85fc7b1ea8aeaf7c7cf2e4ee334)
@@ -2867,7 +2867,7 @@ class LogsCustomPipelineProcessorCategoryProcessorCategoryFilter:
     def query(self) -> builtins.str:
         '''Filter criteria of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -3062,7 +3062,7 @@ class LogsCustomPipelineProcessorCategoryProcessorCategoryOutputReference(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         value = LogsCustomPipelineProcessorCategoryProcessorCategoryFilter(query=query)
 
@@ -3258,9 +3258,9 @@ class LogsCustomPipelineProcessorDateRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64b6df76e438ef90b0e20dfa2851fdc5cdf1025815d7cc47b0473fbd428573ed)
@@ -3279,7 +3279,7 @@ class LogsCustomPipelineProcessorDateRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -3291,7 +3291,7 @@ class LogsCustomPipelineProcessorDateRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3300,7 +3300,7 @@ class LogsCustomPipelineProcessorDateRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3443,12 +3443,12 @@ class LogsCustomPipelineProcessorDecoderProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
-        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
-        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41bd55b601ef7b801b06090fb1ffac370c6fa36786e631f6298cbb2a779705b0)
@@ -3473,7 +3473,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     def binary_to_text_encoding(self) -> builtins.str:
         '''Encoding type: base64 or base16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
         '''
         result = self._values.get("binary_to_text_encoding")
         assert result is not None, "Required property 'binary_to_text_encoding' is missing"
@@ -3483,7 +3483,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     def input_representation(self) -> builtins.str:
         '''Input representation: utf-8 or integer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
         '''
         result = self._values.get("input_representation")
         assert result is not None, "Required property 'input_representation' is missing"
@@ -3493,7 +3493,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     def source(self) -> builtins.str:
         '''Encoded message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -3503,7 +3503,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     def target(self) -> builtins.str:
         '''Decoded message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -3515,7 +3515,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3524,7 +3524,7 @@ class LogsCustomPipelineProcessorDecoderProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3714,10 +3714,10 @@ class LogsCustomPipelineProcessorGeoIpParser:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5876c2864b1a1109c3e39053fe1450681dc744c291d4fa0b2cbd12231caa5f7)
@@ -3738,7 +3738,7 @@ class LogsCustomPipelineProcessorGeoIpParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -3748,7 +3748,7 @@ class LogsCustomPipelineProcessorGeoIpParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -3760,7 +3760,7 @@ class LogsCustomPipelineProcessorGeoIpParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3769,7 +3769,7 @@ class LogsCustomPipelineProcessorGeoIpParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3925,11 +3925,11 @@ class LogsCustomPipelineProcessorGrokParser:
         samples: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
-        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         if isinstance(grok, dict):
             grok = LogsCustomPipelineProcessorGrokParserGrok(**grok)
@@ -3955,7 +3955,7 @@ class LogsCustomPipelineProcessorGrokParser:
     def grok(self) -> "LogsCustomPipelineProcessorGrokParserGrok":
         '''grok block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
         '''
         result = self._values.get("grok")
         assert result is not None, "Required property 'grok' is missing"
@@ -3965,7 +3965,7 @@ class LogsCustomPipelineProcessorGrokParser:
     def source(self) -> builtins.str:
         '''Name of the log attribute to parse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -3977,7 +3977,7 @@ class LogsCustomPipelineProcessorGrokParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3986,7 +3986,7 @@ class LogsCustomPipelineProcessorGrokParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3997,7 +3997,7 @@ class LogsCustomPipelineProcessorGrokParser:
 
         It can save up to 5 samples. Each sample takes up to 5000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         result = self._values.get("samples")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4027,8 +4027,8 @@ class LogsCustomPipelineProcessorGrokParserGrok:
         support_rules: builtins.str,
     ) -> None:
         '''
-        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
-        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21a08abaf2a6cbf76e5e0ed1dcff20792a6ea0c7cae6cd9358348db85641b804)
@@ -4043,7 +4043,7 @@ class LogsCustomPipelineProcessorGrokParserGrok:
     def match_rules(self) -> builtins.str:
         '''Match rules for your grok parser.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
         '''
         result = self._values.get("match_rules")
         assert result is not None, "Required property 'match_rules' is missing"
@@ -4053,7 +4053,7 @@ class LogsCustomPipelineProcessorGrokParserGrok:
     def support_rules(self) -> builtins.str:
         '''Support rules for your grok parser.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         result = self._values.get("support_rules")
         assert result is not None, "Required property 'support_rules' is missing"
@@ -4171,8 +4171,8 @@ class LogsCustomPipelineProcessorGrokParserOutputReference(
         support_rules: builtins.str,
     ) -> None:
         '''
-        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
-        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         value = LogsCustomPipelineProcessorGrokParserGrok(
             match_rules=match_rules, support_rules=support_rules
@@ -4405,12 +4405,12 @@ class LogsCustomPipelineProcessorLookupProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91c4305e56ee1b323e4b08be1a73f63b90af7a45c702b03ab87278aa01bcf83d)
@@ -4436,7 +4436,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     def lookup_table(self) -> typing.List[builtins.str]:
         '''List of entries of the lookup table using ``key,value`` format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
         '''
         result = self._values.get("lookup_table")
         assert result is not None, "Required property 'lookup_table' is missing"
@@ -4446,7 +4446,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     def source(self) -> builtins.str:
         '''Name of the source attribute used to do the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -4456,7 +4456,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -4466,7 +4466,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     def default_lookup(self) -> typing.Optional[builtins.str]:
         '''Default lookup value to use if there is no entry in the lookup table for the value of the source attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
         '''
         result = self._values.get("default_lookup")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4477,7 +4477,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4486,7 +4486,7 @@ class LogsCustomPipelineProcessorLookupProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4674,9 +4674,9 @@ class LogsCustomPipelineProcessorMessageRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05ca14cc207841035e09e338e44cdd9270515b65ee52b5063928d2892e79136c)
@@ -4695,7 +4695,7 @@ class LogsCustomPipelineProcessorMessageRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -4707,7 +4707,7 @@ class LogsCustomPipelineProcessorMessageRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4716,7 +4716,7 @@ class LogsCustomPipelineProcessorMessageRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4872,11 +4872,11 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
-        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorArithmeticProcessor(
             expression=expression,
@@ -4897,9 +4897,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
-        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorArrayProcessor(
             operation=operation, is_enabled=is_enabled, name=name
@@ -4922,15 +4922,15 @@ class LogsCustomPipelineProcessorOutputReference(
         target_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
-        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
-        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
-        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         value = LogsCustomPipelineProcessorAttributeRemapper(
             sources=sources,
@@ -4956,10 +4956,10 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
-        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorCategoryProcessor(
             category=category, target=target, is_enabled=is_enabled, name=name
@@ -4976,9 +4976,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorDateRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -4998,12 +4998,12 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
-        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
-        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorDecoderProcessor(
             binary_to_text_encoding=binary_to_text_encoding,
@@ -5026,10 +5026,10 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorGeoIpParser(
             sources=sources, target=target, is_enabled=is_enabled, name=name
@@ -5048,11 +5048,11 @@ class LogsCustomPipelineProcessorOutputReference(
         samples: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
-        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         value = LogsCustomPipelineProcessorGrokParser(
             grok=grok, source=source, is_enabled=is_enabled, name=name, samples=samples
@@ -5072,12 +5072,12 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorLookupProcessor(
             lookup_table=lookup_table,
@@ -5099,9 +5099,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorMessageRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -5121,12 +5121,12 @@ class LogsCustomPipelineProcessorOutputReference(
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
-        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
+        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
         '''
         value = LogsCustomPipelineProcessorPipeline(
             filter=filter,
@@ -5150,11 +5150,11 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorReferenceTableLookupProcessor(
             lookup_enrichment_table=lookup_enrichment_table,
@@ -5175,9 +5175,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorServiceRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -5194,9 +5194,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorSpanIdRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -5213,9 +5213,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorStatusRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -5234,11 +5234,11 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorStringBuilderProcessor(
             target=target,
@@ -5259,9 +5259,9 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorTraceIdRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -5280,11 +5280,11 @@ class LogsCustomPipelineProcessorOutputReference(
         normalize_ending_slashes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         value = LogsCustomPipelineProcessorUrlParser(
             sources=sources,
@@ -5307,11 +5307,11 @@ class LogsCustomPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorUserAgentParser(
             sources=sources,
@@ -5695,12 +5695,12 @@ class LogsCustomPipelineProcessorPipeline:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
-        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.
+        :param processor: processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93cae1451052ba984a3062d0fbeac97ee702dacb11ef0e0d66379fd6266737e3)
@@ -5729,7 +5729,7 @@ class LogsCustomPipelineProcessorPipeline:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessorPipelineFilter"]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -5737,14 +5737,14 @@ class LogsCustomPipelineProcessorPipeline:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#description LogsCustomPipeline#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5752,7 +5752,7 @@ class LogsCustomPipelineProcessorPipeline:
     def is_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}.'''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5762,14 +5762,14 @@ class LogsCustomPipelineProcessorPipeline:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessorPipelineProcessor"]]]:
         '''processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#processor LogsCustomPipeline#processor}
         '''
         result = self._values.get("processor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessorPipelineProcessor"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#tags LogsCustomPipeline#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5793,7 +5793,7 @@ class LogsCustomPipelineProcessorPipeline:
 class LogsCustomPipelineProcessorPipelineFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3ac592d8c93de938e3b1deba5116a7ba8ba1904d64d0505cfffedf13593eae8)
@@ -5806,7 +5806,7 @@ class LogsCustomPipelineProcessorPipelineFilter:
     def query(self) -> builtins.str:
         '''Filter criteria of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -6201,24 +6201,24 @@ class LogsCustomPipelineProcessorPipelineProcessor:
         user_agent_parser: typing.Optional[typing.Union["LogsCustomPipelineProcessorPipelineProcessorUserAgentParser", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param arithmetic_processor: arithmetic_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
-        :param array_processor: array_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
-        :param attribute_remapper: attribute_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
-        :param category_processor: category_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
-        :param date_remapper: date_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
-        :param decoder_processor: decoder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
-        :param geo_ip_parser: geo_ip_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
-        :param grok_parser: grok_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
-        :param lookup_processor: lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
-        :param message_remapper: message_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
-        :param reference_table_lookup_processor: reference_table_lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
-        :param service_remapper: service_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
-        :param span_id_remapper: span_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
-        :param status_remapper: status_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
-        :param string_builder_processor: string_builder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
-        :param trace_id_remapper: trace_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
-        :param url_parser: url_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
-        :param user_agent_parser: user_agent_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
+        :param arithmetic_processor: arithmetic_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
+        :param array_processor: array_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
+        :param attribute_remapper: attribute_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
+        :param category_processor: category_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
+        :param date_remapper: date_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
+        :param decoder_processor: decoder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
+        :param geo_ip_parser: geo_ip_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
+        :param grok_parser: grok_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
+        :param lookup_processor: lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
+        :param message_remapper: message_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
+        :param reference_table_lookup_processor: reference_table_lookup_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
+        :param service_remapper: service_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
+        :param span_id_remapper: span_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
+        :param status_remapper: status_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
+        :param string_builder_processor: string_builder_processor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
+        :param trace_id_remapper: trace_id_remapper block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
+        :param url_parser: url_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
+        :param user_agent_parser: user_agent_parser block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
         '''
         if isinstance(arithmetic_processor, dict):
             arithmetic_processor = LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor(**arithmetic_processor)
@@ -6320,7 +6320,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor"]:
         '''arithmetic_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#arithmetic_processor LogsCustomPipeline#arithmetic_processor}
         '''
         result = self._values.get("arithmetic_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor"], result)
@@ -6331,7 +6331,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessor"]:
         '''array_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#array_processor LogsCustomPipeline#array_processor}
         '''
         result = self._values.get("array_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessor"], result)
@@ -6342,7 +6342,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper"]:
         '''attribute_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#attribute_remapper LogsCustomPipeline#attribute_remapper}
         '''
         result = self._values.get("attribute_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper"], result)
@@ -6353,7 +6353,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor"]:
         '''category_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category_processor LogsCustomPipeline#category_processor}
         '''
         result = self._values.get("category_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor"], result)
@@ -6364,7 +6364,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorDateRemapper"]:
         '''date_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#date_remapper LogsCustomPipeline#date_remapper}
         '''
         result = self._values.get("date_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorDateRemapper"], result)
@@ -6375,7 +6375,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor"]:
         '''decoder_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#decoder_processor LogsCustomPipeline#decoder_processor}
         '''
         result = self._values.get("decoder_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor"], result)
@@ -6386,7 +6386,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorGeoIpParser"]:
         '''geo_ip_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#geo_ip_parser LogsCustomPipeline#geo_ip_parser}
         '''
         result = self._values.get("geo_ip_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorGeoIpParser"], result)
@@ -6397,7 +6397,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorGrokParser"]:
         '''grok_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok_parser LogsCustomPipeline#grok_parser}
         '''
         result = self._values.get("grok_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorGrokParser"], result)
@@ -6408,7 +6408,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorLookupProcessor"]:
         '''lookup_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_processor LogsCustomPipeline#lookup_processor}
         '''
         result = self._values.get("lookup_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorLookupProcessor"], result)
@@ -6419,7 +6419,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorMessageRemapper"]:
         '''message_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#message_remapper LogsCustomPipeline#message_remapper}
         '''
         result = self._values.get("message_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorMessageRemapper"], result)
@@ -6430,7 +6430,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor"]:
         '''reference_table_lookup_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#reference_table_lookup_processor LogsCustomPipeline#reference_table_lookup_processor}
         '''
         result = self._values.get("reference_table_lookup_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor"], result)
@@ -6441,7 +6441,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorServiceRemapper"]:
         '''service_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#service_remapper LogsCustomPipeline#service_remapper}
         '''
         result = self._values.get("service_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorServiceRemapper"], result)
@@ -6452,7 +6452,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper"]:
         '''span_id_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#span_id_remapper LogsCustomPipeline#span_id_remapper}
         '''
         result = self._values.get("span_id_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper"], result)
@@ -6463,7 +6463,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorStatusRemapper"]:
         '''status_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#status_remapper LogsCustomPipeline#status_remapper}
         '''
         result = self._values.get("status_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorStatusRemapper"], result)
@@ -6474,7 +6474,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor"]:
         '''string_builder_processor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#string_builder_processor LogsCustomPipeline#string_builder_processor}
         '''
         result = self._values.get("string_builder_processor")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor"], result)
@@ -6485,7 +6485,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper"]:
         '''trace_id_remapper block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#trace_id_remapper LogsCustomPipeline#trace_id_remapper}
         '''
         result = self._values.get("trace_id_remapper")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper"], result)
@@ -6496,7 +6496,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorUrlParser"]:
         '''url_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#url_parser LogsCustomPipeline#url_parser}
         '''
         result = self._values.get("url_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorUrlParser"], result)
@@ -6507,7 +6507,7 @@ class LogsCustomPipelineProcessorPipelineProcessor:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorUserAgentParser"]:
         '''user_agent_parser block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#user_agent_parser LogsCustomPipeline#user_agent_parser}
         '''
         result = self._values.get("user_agent_parser")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorUserAgentParser"], result)
@@ -6546,11 +6546,11 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
-        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6472717b34fe07b99b374305a50cc0a4b561c162542c565e3653c0a4e5840c7)
@@ -6574,7 +6574,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
     def expression(self) -> builtins.str:
         '''Arithmetic operation between one or more log attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -6584,7 +6584,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the arithmetic operation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -6596,7 +6596,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean value to enable your pipeline.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6607,7 +6607,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
         '''
         result = self._values.get("is_replace_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6616,7 +6616,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Your pipeline name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6794,9 +6794,9 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
-        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if isinstance(operation, dict):
             operation = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation(**operation)
@@ -6819,7 +6819,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessor:
     ) -> "LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation":
         '''operation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
         '''
         result = self._values.get("operation")
         assert result is not None, "Required property 'operation' is missing"
@@ -6831,7 +6831,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Boolean value to enable your processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6840,7 +6840,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Your processor name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6871,9 +6871,9 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation:
         select: typing.Optional[typing.Union["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
-        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         if isinstance(append, dict):
             append = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend(**append)
@@ -6900,7 +6900,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend"]:
         '''append block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
         '''
         result = self._values.get("append")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend"], result)
@@ -6911,7 +6911,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength"]:
         '''length block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
         '''
         result = self._values.get("length")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength"], result)
@@ -6922,7 +6922,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation:
     ) -> typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect"]:
         '''select block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional["LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect"], result)
@@ -6957,9 +6957,9 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend:
         preserve_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a04421f2383fe9b1261b28ee1e90cac4c623eb341ee080a8656022f3741e9fa3)
@@ -6977,7 +6977,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend:
     def source(self) -> builtins.str:
         '''Attribute path containing the value to append.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -6987,7 +6987,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend:
     def target(self) -> builtins.str:
         '''Attribute path of the array to append to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -6999,7 +6999,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Remove or preserve the remapped source element. Defaults to ``true``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         result = self._values.get("preserve_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7124,8 +7124,8 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppendO
 class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength:
     def __init__(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56e625bef2f727193de9fb931aa0d4b8ce4f63254cab81659c6cd7e145d74d20)
@@ -7140,7 +7140,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength:
     def source(self) -> builtins.str:
         '''Attribute path of the array to compute the length of.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -7150,7 +7150,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength:
     def target(self) -> builtins.str:
         '''Attribute that receives the computed length.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -7269,9 +7269,9 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationOutputR
         preserve_source: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param source: Attribute path containing the value to append. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute path of the array to append to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param preserve_source: Remove or preserve the remapped source element. Defaults to ``true``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationAppend(
             source=source, target=target, preserve_source=preserve_source
@@ -7282,8 +7282,8 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationOutputR
     @jsii.member(jsii_name="putLength")
     def put_length(self, *, source: builtins.str, target: builtins.str) -> None:
         '''
-        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param source: Attribute path of the array to compute the length of. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the computed length. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationLength(
             source=source, target=target
@@ -7301,10 +7301,10 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationOutputR
         value_to_extract: builtins.str,
     ) -> None:
         '''
-        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect(
             filter=filter,
@@ -7407,10 +7407,10 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect:
         value_to_extract: builtins.str,
     ) -> None:
         '''
-        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        :param filter: Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param source: Attribute path of the array to search into. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Attribute that receives the extracted value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param value_to_extract: Attribute key from the matching object that should be extracted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf39aa76cf35046e5bf996826119bf72290c91ef7b59070c983bc6522674b81f)
@@ -7429,7 +7429,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect:
     def filter(self) -> builtins.str:
         '''Filter expression (e.g. key1:value1 OR key2:value2) used to find the matching element.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -7439,7 +7439,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect:
     def source(self) -> builtins.str:
         '''Attribute path of the array to search into.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -7449,7 +7449,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect:
     def target(self) -> builtins.str:
         '''Attribute that receives the extracted value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -7459,7 +7459,7 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect:
     def value_to_extract(self) -> builtins.str:
         '''Attribute key from the matching object that should be extracted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#value_to_extract LogsCustomPipeline#value_to_extract}
         '''
         result = self._values.get("value_to_extract")
         assert result is not None, "Required property 'value_to_extract' is missing"
@@ -7612,9 +7612,9 @@ class LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOutputReference(
         select: typing.Optional[typing.Union[LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperationSelect, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
-        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
+        :param append: append block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#append LogsCustomPipeline#append}
+        :param length: length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#length LogsCustomPipeline#length}
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#select LogsCustomPipeline#select}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArrayProcessorOperation(
             append=append, length=length, select=select
@@ -7731,15 +7731,15 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
         target_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
-        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
-        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
-        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1d539d2cbacbac8393e4c539481675119eaaaf6e04b0ff8a92ba4db6b783e1d)
@@ -7773,7 +7773,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes or tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -7783,7 +7783,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     def source_type(self) -> builtins.str:
         '''Defines where the sources are from (log ``attribute`` or ``tag``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
         '''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
@@ -7793,7 +7793,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     def target(self) -> builtins.str:
         '''Final attribute or tag name to remap the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -7803,7 +7803,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     def target_type(self) -> builtins.str:
         '''Defines if the target is a log ``attribute`` or ``tag``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
         '''
         result = self._values.get("target_type")
         assert result is not None, "Required property 'target_type' is missing"
@@ -7815,7 +7815,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7824,7 +7824,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7835,7 +7835,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Override the target element if already set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
         '''
         result = self._values.get("override_on_conflict")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7846,7 +7846,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Remove or preserve the remapped source element.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
         '''
         result = self._values.get("preserve_source")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7857,7 +7857,7 @@ class LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper:
 
         If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         result = self._values.get("target_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8124,10 +8124,10 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
-        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__076fb5080c0ff6d46a7c2eeb2b2621810e1faaeb6376047c608bf0e5296dc6be)
@@ -8150,7 +8150,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategory"]]:
         '''category block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
         '''
         result = self._values.get("category")
         assert result is not None, "Required property 'category' is missing"
@@ -8160,7 +8160,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor:
     def target(self) -> builtins.str:
         '''Name of the target attribute whose value is defined by the matching category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -8172,7 +8172,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8181,7 +8181,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8211,8 +8211,8 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategory:
         name: builtins.str,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.
         '''
         if isinstance(filter, dict):
             filter = LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryFilter(**filter)
@@ -8231,7 +8231,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategory:
     ) -> "LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryFilter":
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#filter LogsCustomPipeline#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -8239,7 +8239,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategory:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -8264,7 +8264,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategory:
 class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryFilter:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a13698893fe66fb74b24f8c9e87e033fdb4d9dccbc9f652b65ffa470489fe1c6)
@@ -8277,7 +8277,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryFilte
     def query(self) -> builtins.str:
         '''Filter criteria of the category.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -8472,7 +8472,7 @@ class LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryOutpu
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, query: builtins.str) -> None:
         '''
-        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
+        :param query: Filter criteria of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#query LogsCustomPipeline#query}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorCategoryProcessorCategoryFilter(
             query=query
@@ -8672,9 +8672,9 @@ class LogsCustomPipelineProcessorPipelineProcessorDateRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81b2235a8cad9f7a25804166e40896b12ce08dded8f4b0f15dfa7420679d771b)
@@ -8693,7 +8693,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDateRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -8705,7 +8705,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDateRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8714,7 +8714,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDateRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8857,12 +8857,12 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
-        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
-        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a09ff4f23f9e83428782bc691fc18d8e995fe2b87f26c4bdf892dffd0f2b7c8)
@@ -8887,7 +8887,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     def binary_to_text_encoding(self) -> builtins.str:
         '''Encoding type: base64 or base16.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
         '''
         result = self._values.get("binary_to_text_encoding")
         assert result is not None, "Required property 'binary_to_text_encoding' is missing"
@@ -8897,7 +8897,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     def input_representation(self) -> builtins.str:
         '''Input representation: utf-8 or integer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
         '''
         result = self._values.get("input_representation")
         assert result is not None, "Required property 'input_representation' is missing"
@@ -8907,7 +8907,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     def source(self) -> builtins.str:
         '''Encoded message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -8917,7 +8917,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     def target(self) -> builtins.str:
         '''Decoded message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -8929,7 +8929,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8938,7 +8938,7 @@ class LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9128,10 +9128,10 @@ class LogsCustomPipelineProcessorPipelineProcessorGeoIpParser:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4572e6c6018a2575f6a25afb6b9bbe64523eb8c18dbfa8ecd8b25ae6c8bec8d6)
@@ -9152,7 +9152,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGeoIpParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -9162,7 +9162,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGeoIpParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -9174,7 +9174,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGeoIpParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9183,7 +9183,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGeoIpParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9341,11 +9341,11 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
         samples: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
-        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         if isinstance(grok, dict):
             grok = LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok(**grok)
@@ -9371,7 +9371,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
     def grok(self) -> "LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok":
         '''grok block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
         '''
         result = self._values.get("grok")
         assert result is not None, "Required property 'grok' is missing"
@@ -9381,7 +9381,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
     def source(self) -> builtins.str:
         '''Name of the log attribute to parse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -9393,7 +9393,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9402,7 +9402,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9413,7 +9413,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParser:
 
         It can save up to 5 samples. Each sample takes up to 5000 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         result = self._values.get("samples")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -9443,8 +9443,8 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok:
         support_rules: builtins.str,
     ) -> None:
         '''
-        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
-        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f72aed5e4aa7c818bf6d16ff4d6a8bb1861758557a40acb02485665e235f39f6)
@@ -9459,7 +9459,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok:
     def match_rules(self) -> builtins.str:
         '''Match rules for your grok parser.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
         '''
         result = self._values.get("match_rules")
         assert result is not None, "Required property 'match_rules' is missing"
@@ -9469,7 +9469,7 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok:
     def support_rules(self) -> builtins.str:
         '''Support rules for your grok parser.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         result = self._values.get("support_rules")
         assert result is not None, "Required property 'support_rules' is missing"
@@ -9587,8 +9587,8 @@ class LogsCustomPipelineProcessorPipelineProcessorGrokParserOutputReference(
         support_rules: builtins.str,
     ) -> None:
         '''
-        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
-        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
+        :param match_rules: Match rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#match_rules LogsCustomPipeline#match_rules}
+        :param support_rules: Support rules for your grok parser. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#support_rules LogsCustomPipeline#support_rules}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorGrokParserGrok(
             match_rules=match_rules, support_rules=support_rules
@@ -9830,12 +9830,12 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e3c59f9e021d4bef41e8fc5a3b5cd9fb80953234adac9d21c60730d950c15f2)
@@ -9861,7 +9861,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     def lookup_table(self) -> typing.List[builtins.str]:
         '''List of entries of the lookup table using ``key,value`` format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
         '''
         result = self._values.get("lookup_table")
         assert result is not None, "Required property 'lookup_table' is missing"
@@ -9871,7 +9871,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     def source(self) -> builtins.str:
         '''Name of the source attribute used to do the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -9881,7 +9881,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -9891,7 +9891,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     def default_lookup(self) -> typing.Optional[builtins.str]:
         '''Default lookup value to use if there is no entry in the lookup table for the value of the source attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
         '''
         result = self._values.get("default_lookup")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9902,7 +9902,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -9911,7 +9911,7 @@ class LogsCustomPipelineProcessorPipelineProcessorLookupProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10099,9 +10099,9 @@ class LogsCustomPipelineProcessorPipelineProcessorMessageRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d4270b6ad21cf9cb28787964fd4bebca907b8e65f52997e484a894458a58158a)
@@ -10120,7 +10120,7 @@ class LogsCustomPipelineProcessorPipelineProcessorMessageRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -10132,7 +10132,7 @@ class LogsCustomPipelineProcessorPipelineProcessorMessageRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -10141,7 +10141,7 @@ class LogsCustomPipelineProcessorPipelineProcessorMessageRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10297,11 +10297,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
-        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param expression: Arithmetic operation between one or more log attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#expression LogsCustomPipeline#expression}
+        :param target: Name of the attribute that contains the result of the arithmetic operation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: Boolean value to enable your pipeline. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If true, it replaces all missing attributes of expression by 0, false skips the operation if an attribute is missing. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: Your pipeline name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArithmeticProcessor(
             expression=expression,
@@ -10322,9 +10322,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
-        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param operation: operation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#operation LogsCustomPipeline#operation}
+        :param is_enabled: Boolean value to enable your processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Your processor name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorArrayProcessor(
             operation=operation, is_enabled=is_enabled, name=name
@@ -10347,15 +10347,15 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         target_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
-        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
-        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
-        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
+        :param sources: List of source attributes or tags. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param source_type: Defines where the sources are from (log ``attribute`` or ``tag``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source_type LogsCustomPipeline#source_type}
+        :param target: Final attribute or tag name to remap the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param target_type: Defines if the target is a log ``attribute`` or ``tag``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_type LogsCustomPipeline#target_type}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param override_on_conflict: Override the target element if already set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#override_on_conflict LogsCustomPipeline#override_on_conflict}
+        :param preserve_source: Remove or preserve the remapped source element. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#preserve_source LogsCustomPipeline#preserve_source}
+        :param target_format: If the ``target_type`` of the remapper is ``attribute``, try to cast the value to a new specific type. If the cast is not possible, the original type is kept. ``string``, ``integer``, or ``double`` are the possible types. If the ``target_type`` is ``tag``, this parameter may not be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target_format LogsCustomPipeline#target_format}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorAttributeRemapper(
             sources=sources,
@@ -10381,10 +10381,10 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
-        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param category: category block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#category LogsCustomPipeline#category}
+        :param target: Name of the target attribute whose value is defined by the matching category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the category. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorCategoryProcessor(
             category=category, target=target, is_enabled=is_enabled, name=name
@@ -10401,9 +10401,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorDateRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10423,12 +10423,12 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
-        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
-        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param binary_to_text_encoding: Encoding type: base64 or base16. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#binary_to_text_encoding LogsCustomPipeline#binary_to_text_encoding}
+        :param input_representation: Input representation: utf-8 or integer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#input_representation LogsCustomPipeline#input_representation}
+        :param source: Encoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Decoded message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorDecoderProcessor(
             binary_to_text_encoding=binary_to_text_encoding,
@@ -10451,10 +10451,10 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorGeoIpParser(
             sources=sources, target=target, is_enabled=is_enabled, name=name
@@ -10473,11 +10473,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         samples: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
-        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
+        :param grok: grok block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#grok LogsCustomPipeline#grok}
+        :param source: Name of the log attribute to parse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param samples: List of sample logs for this parser. It can save up to 5 samples. Each sample takes up to 5000 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#samples LogsCustomPipeline#samples}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorGrokParser(
             grok=grok, source=source, is_enabled=is_enabled, name=name, samples=samples
@@ -10497,12 +10497,12 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_table: List of entries of the lookup table using ``key,value`` format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_table LogsCustomPipeline#lookup_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param default_lookup: Default lookup value to use if there is no entry in the lookup table for the value of the source attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#default_lookup LogsCustomPipeline#default_lookup}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorLookupProcessor(
             lookup_table=lookup_table,
@@ -10524,9 +10524,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorMessageRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10545,11 +10545,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor(
             lookup_enrichment_table=lookup_enrichment_table,
@@ -10570,9 +10570,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorServiceRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10589,9 +10589,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10608,9 +10608,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorStatusRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10629,11 +10629,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor(
             target=target,
@@ -10654,9 +10654,9 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper(
             sources=sources, is_enabled=is_enabled, name=name
@@ -10675,11 +10675,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         normalize_ending_slashes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorUrlParser(
             sources=sources,
@@ -10702,11 +10702,11 @@ class LogsCustomPipelineProcessorPipelineProcessorOutputReference(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         value = LogsCustomPipelineProcessorPipelineProcessorUserAgentParser(
             sources=sources,
@@ -11082,11 +11082,11 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86b2a3e3d94c1fe100587b4b785b35062061dc537deb671f578f28b3c62d5ab3)
@@ -11109,7 +11109,7 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
     def lookup_enrichment_table(self) -> builtins.str:
         '''Name of the Reference Table for the source attribute and their associated target attribute values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
         '''
         result = self._values.get("lookup_enrichment_table")
         assert result is not None, "Required property 'lookup_enrichment_table' is missing"
@@ -11119,7 +11119,7 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
     def source(self) -> builtins.str:
         '''Name of the source attribute used to do the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -11129,7 +11129,7 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -11141,7 +11141,7 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11150,7 +11150,7 @@ class LogsCustomPipelineProcessorPipelineProcessorReferenceTableLookupProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11317,9 +11317,9 @@ class LogsCustomPipelineProcessorPipelineProcessorServiceRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25be134783ad8859764727cdc99e7c71582e70dca162ffd46f3b8151dbb5b550)
@@ -11338,7 +11338,7 @@ class LogsCustomPipelineProcessorPipelineProcessorServiceRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -11350,7 +11350,7 @@ class LogsCustomPipelineProcessorPipelineProcessorServiceRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11359,7 +11359,7 @@ class LogsCustomPipelineProcessorPipelineProcessorServiceRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11492,9 +11492,9 @@ class LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6efef503278ef352103dffa64419a7a2b276cef8de49d3e655f7a5105702f8fe)
@@ -11513,7 +11513,7 @@ class LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -11525,7 +11525,7 @@ class LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11534,7 +11534,7 @@ class LogsCustomPipelineProcessorPipelineProcessorSpanIdRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11667,9 +11667,9 @@ class LogsCustomPipelineProcessorPipelineProcessorStatusRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44c0e93b59b82ff448c83d13cd0fa99f07533f4afd2c1177fa81d5e8a48a6fe4)
@@ -11688,7 +11688,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStatusRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -11700,7 +11700,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStatusRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11709,7 +11709,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStatusRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11850,11 +11850,11 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e66757241bfa12eba6efebc21b0d18f44ea85a311b2fcab40dfe22cf738a70b)
@@ -11878,7 +11878,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
     def target(self) -> builtins.str:
         '''The name of the attribute that contains the result of the template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -11888,7 +11888,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
     def template(self) -> builtins.str:
         '''The formula with one or more attributes and raw text.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -11900,7 +11900,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11911,7 +11911,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If it replaces all missing attributes of template by an empty string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
         '''
         result = self._values.get("is_replace_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -11920,7 +11920,7 @@ class LogsCustomPipelineProcessorPipelineProcessorStringBuilderProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12098,9 +12098,9 @@ class LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c78e26d1da1606a12b23c4a827f94e47662754d0f66525ba416f1aa7d555513)
@@ -12119,7 +12119,7 @@ class LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -12131,7 +12131,7 @@ class LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12140,7 +12140,7 @@ class LogsCustomPipelineProcessorPipelineProcessorTraceIdRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12281,11 +12281,11 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
         normalize_ending_slashes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6419e5c307d58be7369139a6efe254a361067d2475e2affe02845b14fc66b29a)
@@ -12309,7 +12309,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -12319,7 +12319,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -12331,7 +12331,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12340,7 +12340,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12351,7 +12351,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUrlParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Normalize the ending slashes or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         result = self._values.get("normalize_ending_slashes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12537,11 +12537,11 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29af01b53c238f2d90fd4bc427fca817635ad0c815bd27d96ac35f477e403480)
@@ -12565,7 +12565,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -12575,7 +12575,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -12587,7 +12587,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12598,7 +12598,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the source attribute is URL encoded or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
         '''
         result = self._values.get("is_encoded")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12607,7 +12607,7 @@ class LogsCustomPipelineProcessorPipelineProcessorUserAgentParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12791,11 +12791,11 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
-        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
-        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param lookup_enrichment_table: Name of the Reference Table for the source attribute and their associated target attribute values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        :param source: Name of the source attribute used to do the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        :param target: Name of the attribute that contains the result of the lookup. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b6cca9d9a9cbe3ad2987247b67e13964bd885c4df00cb74e2610e0cf86b6253)
@@ -12818,7 +12818,7 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
     def lookup_enrichment_table(self) -> builtins.str:
         '''Name of the Reference Table for the source attribute and their associated target attribute values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#lookup_enrichment_table LogsCustomPipeline#lookup_enrichment_table}
         '''
         result = self._values.get("lookup_enrichment_table")
         assert result is not None, "Required property 'lookup_enrichment_table' is missing"
@@ -12828,7 +12828,7 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
     def source(self) -> builtins.str:
         '''Name of the source attribute used to do the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#source LogsCustomPipeline#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -12838,7 +12838,7 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
     def target(self) -> builtins.str:
         '''Name of the attribute that contains the result of the lookup.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -12850,7 +12850,7 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -12859,7 +12859,7 @@ class LogsCustomPipelineProcessorReferenceTableLookupProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13026,9 +13026,9 @@ class LogsCustomPipelineProcessorServiceRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54cc4194c29b2a7d94b070a9867a017a3bdc7d0d5b852974151deb6c87e6e26a)
@@ -13047,7 +13047,7 @@ class LogsCustomPipelineProcessorServiceRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -13059,7 +13059,7 @@ class LogsCustomPipelineProcessorServiceRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13068,7 +13068,7 @@ class LogsCustomPipelineProcessorServiceRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13201,9 +13201,9 @@ class LogsCustomPipelineProcessorSpanIdRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e40b85d0ecb5219a02c9f9c238ae8a2a047348e3517fe0e81a6422fd4a8fc13)
@@ -13222,7 +13222,7 @@ class LogsCustomPipelineProcessorSpanIdRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -13234,7 +13234,7 @@ class LogsCustomPipelineProcessorSpanIdRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13243,7 +13243,7 @@ class LogsCustomPipelineProcessorSpanIdRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13376,9 +13376,9 @@ class LogsCustomPipelineProcessorStatusRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd012d0ae3574d49fcd6822968eed258a7d636a90e114efb86003c66877a0692)
@@ -13397,7 +13397,7 @@ class LogsCustomPipelineProcessorStatusRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -13409,7 +13409,7 @@ class LogsCustomPipelineProcessorStatusRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13418,7 +13418,7 @@ class LogsCustomPipelineProcessorStatusRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13559,11 +13559,11 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
-        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param target: The name of the attribute that contains the result of the template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param template: The formula with one or more attributes and raw text. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_replace_missing: If it replaces all missing attributes of template by an empty string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        :param name: The name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__714aed5a12c145ede8eceb8e65f765b83fbbf3dee8e229aebbb437508a6c44d1)
@@ -13587,7 +13587,7 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
     def target(self) -> builtins.str:
         '''The name of the attribute that contains the result of the template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -13597,7 +13597,7 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
     def template(self) -> builtins.str:
         '''The formula with one or more attributes and raw text.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#template LogsCustomPipeline#template}
         '''
         result = self._values.get("template")
         assert result is not None, "Required property 'template' is missing"
@@ -13609,7 +13609,7 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13620,7 +13620,7 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If it replaces all missing attributes of template by an empty string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_replace_missing LogsCustomPipeline#is_replace_missing}
         '''
         result = self._values.get("is_replace_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13629,7 +13629,7 @@ class LogsCustomPipelineProcessorStringBuilderProcessor:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13807,9 +13807,9 @@ class LogsCustomPipelineProcessorTraceIdRemapper:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5d858544fd122c10c765f3ab28363fcfc744f7961a33d4e5aaa04e5bc657902)
@@ -13828,7 +13828,7 @@ class LogsCustomPipelineProcessorTraceIdRemapper:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -13840,7 +13840,7 @@ class LogsCustomPipelineProcessorTraceIdRemapper:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -13849,7 +13849,7 @@ class LogsCustomPipelineProcessorTraceIdRemapper:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13990,11 +13990,11 @@ class LogsCustomPipelineProcessorUrlParser:
         normalize_ending_slashes: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
-        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param normalize_ending_slashes: Normalize the ending slashes or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dedbdfed1ec9e22bc841de9f1b61c79daeb26007d92ba84b48a9230752d504b)
@@ -14018,7 +14018,7 @@ class LogsCustomPipelineProcessorUrlParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -14028,7 +14028,7 @@ class LogsCustomPipelineProcessorUrlParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -14040,7 +14040,7 @@ class LogsCustomPipelineProcessorUrlParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14049,7 +14049,7 @@ class LogsCustomPipelineProcessorUrlParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14060,7 +14060,7 @@ class LogsCustomPipelineProcessorUrlParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Normalize the ending slashes or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#normalize_ending_slashes LogsCustomPipeline#normalize_ending_slashes}
         '''
         result = self._values.get("normalize_ending_slashes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14244,11 +14244,11 @@ class LogsCustomPipelineProcessorUserAgentParser:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
-        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
-        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
-        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
-        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        :param sources: List of source attributes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        :param target: Name of the parent attribute that contains all the extracted details from the sources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        :param is_enabled: If the processor is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        :param is_encoded: If the source attribute is URL encoded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        :param name: Name of the processor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be12c75880a81edc3e6dcbde2e33211035b5ea2be57bca8fafef3ff7028726a0)
@@ -14272,7 +14272,7 @@ class LogsCustomPipelineProcessorUserAgentParser:
     def sources(self) -> typing.List[builtins.str]:
         '''List of source attributes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#sources LogsCustomPipeline#sources}
         '''
         result = self._values.get("sources")
         assert result is not None, "Required property 'sources' is missing"
@@ -14282,7 +14282,7 @@ class LogsCustomPipelineProcessorUserAgentParser:
     def target(self) -> builtins.str:
         '''Name of the parent attribute that contains all the extracted details from the sources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#target LogsCustomPipeline#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -14294,7 +14294,7 @@ class LogsCustomPipelineProcessorUserAgentParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the processor is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_enabled LogsCustomPipeline#is_enabled}
         '''
         result = self._values.get("is_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14305,7 +14305,7 @@ class LogsCustomPipelineProcessorUserAgentParser:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the source attribute is URL encoded or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#is_encoded LogsCustomPipeline#is_encoded}
         '''
         result = self._values.get("is_encoded")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -14314,7 +14314,7 @@ class LogsCustomPipelineProcessorUserAgentParser:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the processor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/logs_custom_pipeline#name LogsCustomPipeline#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)

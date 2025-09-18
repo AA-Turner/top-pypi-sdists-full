@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-agno
-Version: 0.1.14
+Version: 0.1.15
 Summary: OpenInference Agno Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-agno
 Author-email: OpenInference Authors <oss@arize.com>

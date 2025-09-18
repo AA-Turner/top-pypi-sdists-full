@@ -28,16 +28,16 @@ is taken and the **exchange token** request to Identity Provider is made.
 
 import pprint
 
-from DIRAC import S_OK, S_ERROR
+from DIRAC import S_ERROR, S_OK
+from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.Core.DISET.RequestHandler import RequestHandler
 from DIRAC.Core.Security import Properties
 from DIRAC.FrameworkSystem.DB.TokenDB import TokenDB
-from DIRAC.ConfigurationSystem.Client.Helpers import Registry
-from DIRAC.Resources.IdProvider.IdProviderFactory import IdProviderFactory
 from DIRAC.FrameworkSystem.Utilities.TokenManagementUtilities import (
-    getIdProviderClient,
     getCachedKey,
+    getIdProviderClient,
 )
-from DIRAC.Core.DISET.RequestHandler import RequestHandler
+from DIRAC.Resources.IdProvider.IdProviderFactory import IdProviderFactory
 
 
 class TokenManagerHandlerMixin:

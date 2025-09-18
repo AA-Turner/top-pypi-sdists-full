@@ -125,8 +125,12 @@ class UiPathRuntimeResult(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for output."""
+        output_data = self.output or {}
+        if isinstance(self.output, BaseModel):
+            output_data = self.output.model_dump()
+
         result = {
-            "output": self.output or {},
+            "output": output_data,
             "status": self.status,
         }
 
@@ -595,7 +599,12 @@ class UiPathBaseRuntime(ABC):
             # Write the execution output to file if requested
             if self.context.execution_output_file:
                 with open(self.context.execution_output_file, "w") as f:
-                    json.dump(execution_result.output or {}, f, indent=2, default=str)
+                    if isinstance(execution_result.output, BaseModel):
+                        f.write(execution_result.output.model_dump())
+                    else:
+                        json.dump(
+                            execution_result.output or {}, f, indent=2, default=str
+                        )
 
             # Don't suppress exceptions
             return False

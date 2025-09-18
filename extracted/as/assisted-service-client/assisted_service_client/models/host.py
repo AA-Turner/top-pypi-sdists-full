@@ -79,7 +79,8 @@ class Host(object):
         'ignition_endpoint_token_set': 'bool',
         'node_labels': 'str',
         'disks_to_be_formatted': 'str',
-        'skip_formatting_disks': 'str'
+        'skip_formatting_disks': 'str',
+        'fencing_credentials': 'str'
     }
 
     attribute_map = {
@@ -131,10 +132,11 @@ class Host(object):
         'ignition_endpoint_token_set': 'ignition_endpoint_token_set',
         'node_labels': 'node_labels',
         'disks_to_be_formatted': 'disks_to_be_formatted',
-        'skip_formatting_disks': 'skip_formatting_disks'
+        'skip_formatting_disks': 'skip_formatting_disks',
+        'fencing_credentials': 'fencing_credentials'
     }
 
-    def __init__(self, kind=None, id=None, href=None, cluster_id=None, infra_env_id=None, status=None, status_info=None, validations_info=None, logs_info=None, status_updated_at=None, progress=None, stage_started_at=None, stage_updated_at=None, progress_stages=None, connectivity=None, api_vip_connectivity=None, tang_connectivity=None, inventory=None, free_addresses=None, ntp_sources=None, disks_info=None, role=None, suggested_role=None, bootstrap=None, logs_collected_at=None, logs_started_at=None, installer_version=None, installation_disk_path=None, installation_disk_id=None, updated_at=None, created_at=None, checked_in_at=None, connection_timed_out=None, registered_at=None, discovery_agent_version=None, requested_hostname=None, user_name=None, media_status='connected', deleted_at=None, ignition_config_overrides=None, installer_args=None, timestamp=None, machine_config_pool_name=None, images_status=None, domain_name_resolutions=None, ignition_endpoint_token_set=None, node_labels=None, disks_to_be_formatted=None, skip_formatting_disks=None):  # noqa: E501
+    def __init__(self, kind=None, id=None, href=None, cluster_id=None, infra_env_id=None, status=None, status_info=None, validations_info=None, logs_info=None, status_updated_at=None, progress=None, stage_started_at=None, stage_updated_at=None, progress_stages=None, connectivity=None, api_vip_connectivity=None, tang_connectivity=None, inventory=None, free_addresses=None, ntp_sources=None, disks_info=None, role=None, suggested_role=None, bootstrap=None, logs_collected_at=None, logs_started_at=None, installer_version=None, installation_disk_path=None, installation_disk_id=None, updated_at=None, created_at=None, checked_in_at=None, connection_timed_out=None, registered_at=None, discovery_agent_version=None, requested_hostname=None, user_name=None, media_status='connected', deleted_at=None, ignition_config_overrides=None, installer_args=None, timestamp=None, machine_config_pool_name=None, images_status=None, domain_name_resolutions=None, ignition_endpoint_token_set=None, node_labels=None, disks_to_be_formatted=None, skip_formatting_disks=None, fencing_credentials=None):  # noqa: E501
         """Host - a model defined in Swagger"""  # noqa: E501
 
         self._kind = None
@@ -186,6 +188,7 @@ class Host(object):
         self._node_labels = None
         self._disks_to_be_formatted = None
         self._skip_formatting_disks = None
+        self._fencing_credentials = None
         self.discriminator = None
 
         self.kind = kind
@@ -281,6 +284,8 @@ class Host(object):
             self.disks_to_be_formatted = disks_to_be_formatted
         if skip_formatting_disks is not None:
             self.skip_formatting_disks = skip_formatting_disks
+        if fencing_credentials is not None:
+            self.fencing_credentials = fencing_credentials
 
     @property
     def kind(self):
@@ -1394,6 +1399,29 @@ class Host(object):
         """
 
         self._skip_formatting_disks = skip_formatting_disks
+
+    @property
+    def fencing_credentials(self):
+        """Gets the fencing_credentials of this Host.  # noqa: E501
+
+        The host's BMC credentials that will be used in TNF.  # noqa: E501
+
+        :return: The fencing_credentials of this Host.  # noqa: E501
+        :rtype: str
+        """
+        return self._fencing_credentials
+
+    @fencing_credentials.setter
+    def fencing_credentials(self, fencing_credentials):
+        """Sets the fencing_credentials of this Host.
+
+        The host's BMC credentials that will be used in TNF.  # noqa: E501
+
+        :param fencing_credentials: The fencing_credentials of this Host.  # noqa: E501
+        :type: str
+        """
+
+        self._fencing_credentials = fencing_credentials
 
     def to_dict(self):
         """Returns the model properties as a dict"""

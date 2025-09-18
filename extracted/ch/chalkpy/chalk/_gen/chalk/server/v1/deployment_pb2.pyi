@@ -127,6 +127,7 @@ class Deployment(_message.Message):
         "preview_deployment_tag",
         "profiling_mode",
         "source_image_specs",
+        "uses_uploaded_proto_graph",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -157,6 +158,7 @@ class Deployment(_message.Message):
     PREVIEW_DEPLOYMENT_TAG_FIELD_NUMBER: _ClassVar[int]
     PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
     SOURCE_IMAGE_SPECS_FIELD_NUMBER: _ClassVar[int]
+    USES_UPLOADED_PROTO_GRAPH_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -186,6 +188,7 @@ class Deployment(_message.Message):
     preview_deployment_tag: str
     profiling_mode: DeploymentProfilingMode
     source_image_specs: bytes
+    uses_uploaded_proto_graph: bool
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -217,4 +220,5 @@ class Deployment(_message.Message):
         preview_deployment_tag: _Optional[str] = ...,
         profiling_mode: _Optional[_Union[DeploymentProfilingMode, str]] = ...,
         source_image_specs: _Optional[bytes] = ...,
+        uses_uploaded_proto_graph: bool = ...,
     ) -> None: ...

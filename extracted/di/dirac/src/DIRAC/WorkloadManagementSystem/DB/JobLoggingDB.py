@@ -11,6 +11,7 @@ import datetime
 from DIRAC import S_ERROR, S_OK
 from DIRAC.Core.Base.DB import DB
 from DIRAC.Core.Utilities import TimeUtilities
+from DIRAC.Core.Utilities.ReturnValues import returnValueOrRaise, convertToReturnValue
 from DIRAC.FrameworkSystem.Client.Logger import contextLogger
 
 MAGIC_EPOC_NUMBER = 1270000000
@@ -44,8 +45,6 @@ class JobLoggingDB(DB):
         applicationStatus="idem",
         date=None,
         source="Unknown",
-        minor=None,
-        application=None,
     ):
         """Add a new entry to the JobLoggingDB table. One, two or all the three status
         components (status, minorStatus, applicationStatus) can be specified.
@@ -54,13 +53,6 @@ class JobLoggingDB(DB):
         as datetime.datetime object. If the time stamp is not provided the current
         UTC time is used.
         """
-
-        # Backward compatibility
-        # FIXME: to remove in next version
-        if minor:
-            minorStatus = minor
-        if application:
-            applicationStatus = application
 
         event = f"status/minor/app={status}/{minorStatus}/{applicationStatus}"
         self.log.info("Adding record for job ", str(jobID) + ": '" + event + "' from " + source)
@@ -154,21 +146,33 @@ class JobLoggingDB(DB):
         return S_OK(return_value)
 
     #############################################################################
+    @convertToReturnValue
     def deleteJob(self, jobID):
         """Delete logging records for given jobs"""
         if not jobID:
-            return S_OK()
+            return None
 
-        # Make sure that we have a list of strings of jobIDs
         if isinstance(jobID, int):
-            jobList = [str(jobID)]
+            jobList = [jobID]
         elif isinstance(jobID, str):
             jobList = jobID.replace(" ", "").split(",")
         else:
-            jobList = list(str(j) for j in jobID)
+            jobList = jobID
 
-        req = f"DELETE FROM LoggingInfo WHERE JobID IN ({','.join(jobList)})"
-        return self._update(req)
+        sqlCmd = (
+            "CREATE TEMPORARY TABLE to_delete_LoggingInfo (JobID INTEGER NOT NULL, PRIMARY KEY (JobID)) ENGINE=MEMORY;"
+        )
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            sqlCmd = "INSERT INTO to_delete_LoggingInfo (JobID) VALUES ( %s )"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(j,) for j in jobList]))
+            sqlCmd = "DELETE l from `LoggingInfo` l JOIN to_delete_LoggingInfo t USING (JobID)"
+            result = returnValueOrRaise(self._update(sqlCmd))
+        finally:
+            sqlCmd = "DROP TEMPORARY TABLE to_delete_LoggingInfo"
+            returnValueOrRaise(self._update(sqlCmd))
+
+        return result
 
     #############################################################################
     def getWMSTimeStamps(self, jobID):

@@ -1,16 +1,16 @@
 """ DISET request handler base class for the ProductionDB.
 """
 
-from DIRAC import gLogger, S_OK, S_ERROR
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.Core.DISET.RequestHandler import RequestHandler
 from DIRAC.Core.Utilities.DEncode import ignoreEncodeWarning
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 
-prodTypes = [(str,), int]
-transTypes = [(str,), int, list]
+prodTypes = [str, int]
+transTypes = [str, int, list]
 
 
-class ProductionManagerHandler(RequestHandler):
+class ProductionManagerHandlerMixin:
     @classmethod
     def initializeHandler(cls, serviceInfoDict):
         """Initialization of DB object"""
@@ -30,23 +30,23 @@ class ProductionManagerHandler(RequestHandler):
     # These are the methods to manipulate the Productions table
     #
 
-    types_addProduction = [(str,), (str,)]
+    types_addProduction = [prodTypes, str]
 
     def export_addProduction(self, prodName, prodDescription):
         credDict = self.getRemoteCredentials()
-        authorDN = credDict.get("DN", credDict.get("CN"))
+        author = credDict.get("username", credDict.get("DN", credDict.get("CN")))
         authorGroup = credDict.get("group")
-        res = self.productionDB.addProduction(prodName, prodDescription, authorDN, authorGroup)
+        res = self.productionDB.addProduction(prodName, prodDescription, author, authorGroup)
         if res["OK"]:
-            gLogger.info("Added production %d" % res["Value"])
+            gLogger.info("Added production", res["Value"])
         return res
 
     types_deleteProduction = [prodTypes]
 
     def export_deleteProduction(self, prodName):
         credDict = self.getRemoteCredentials()
-        authorDN = credDict.get("DN", credDict.get("CN"))
-        return self.productionDB.deleteProduction(prodName, author=authorDN)
+        author = credDict.get("username")
+        return self.productionDB.deleteProduction(prodName, author=author)
 
     types_getProductions = []
 
@@ -79,13 +79,13 @@ class ProductionManagerHandler(RequestHandler):
     def export_getProduction(cls, prodName):
         return cls.productionDB.getProduction(prodName)
 
-    types_getProductionParameters = [prodTypes, [(str,), list, tuple]]
+    types_getProductionParameters = [prodTypes, [str, list, tuple]]
 
     @classmethod
     def export_getProductionParameters(cls, prodName, parameters):
         return cls.productionDB.getProductionParameters(prodName, parameters)
 
-    types_setProductionStatus = [prodTypes, (str,)]
+    types_setProductionStatus = [prodTypes, str]
 
     @classmethod
     def export_setProductionStatus(cls, prodName, status):
@@ -176,3 +176,7 @@ class ProductionManagerHandler(RequestHandler):
     @classmethod
     def export_getProductionStep(cls, stepID):
         return cls.productionDB.getProductionStep(stepID)
+
+
+class ProductionManagerHandler(ProductionManagerHandlerMixin, RequestHandler):
+    pass

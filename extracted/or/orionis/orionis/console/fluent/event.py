@@ -57,7 +57,7 @@ class Event(IEvent):
         self.__purpose: Optional[str] = purpose
 
         # Initialize the random delay attribute (in seconds) as None
-        self.__random_delay: Optional[int] = None
+        self.__random_delay: Optional[int] = 0
 
         # Initialize the start date for the event as None
         self.__start_date: Optional[datetime] = None
@@ -74,8 +74,8 @@ class Event(IEvent):
         # Initialize the listener attribute as None; can be set to an IScheduleEventListener instance
         self.__listener: Optional[IScheduleEventListener] = None
 
-        # Initialize the maximum instances attribute as None
-        self.__max_instances: Optional[int] = None
+        # Initialize the maximum instances attribute as 1
+        self.__max_instances: Optional[int] = 1
 
         # Initialize the misfire grace time attribute as None
         self.__misfire_grace_time: Optional[int] = None
@@ -136,7 +136,7 @@ class Event(IEvent):
             raise CLIOrionisValueError("Max instances must be a positive integer or None.")
 
         # Validate that misfire_grace_time is a positive integer if it is set
-        if self.__misfire_grace_time is not None and (not isinstance(self.__misfire_grace_time, int) or self.__misfire_grace_time <= 0):
+        if self.__misfire_grace_time is not None and (not isinstance(self.__misfire_grace_time, int) or self.__misfire_grace_time < 0):
             raise CLIOrionisValueError("Misfire grace time must be a positive integer or None.")
 
         # Construct and return an EventEntity with the current event's attributes
@@ -182,7 +182,7 @@ class Event(IEvent):
         """
 
         # Validate that the seconds parameter is a positive integer
-        if not isinstance(seconds, int) or seconds <= 0:
+        if not isinstance(seconds, int) or seconds < 0:
             raise CLIOrionisValueError("Misfire grace time must be a positive integer.")
 
         # Set the internal misfire grace time attribute
@@ -225,7 +225,7 @@ class Event(IEvent):
             raise CLIOrionisValueError("The purpose must be a non-empty string.")
 
         # Set the internal purpose attribute
-        self.__purpose = purpose
+        self.__purpose = purpose.strip()
 
         # Return self to support method chaining
         return self
@@ -315,11 +315,11 @@ class Event(IEvent):
         """
 
         # Validate that max_seconds is a positive integer
-        if not isinstance(max_seconds, int) or max_seconds <= 0 or max_seconds > 120:
-            raise CLIOrionisValueError("Max seconds must be a positive integer between 1 and 120.")
+        if not isinstance(max_seconds, int) or max_seconds < 0 or max_seconds > 120:
+            raise CLIOrionisValueError("Max seconds must be a positive integer between 0 and 120.")
 
-        # Generate a random delay between 1 and max_seconds (inclusive)
-        self.__random_delay = random.randint(1, max_seconds)
+        # Generate a random delay between 0 and max_seconds
+        self.__random_delay = random.randint(1, max_seconds) if max_seconds > 0 else 0
 
         # Return self to support method chaining
         return self
@@ -2717,17 +2717,18 @@ class Event(IEvent):
         the trigger.
         """
 
-        # Configure the trigger to execute the event every day.
-        # Apply any configured start_date, end_date, and random_delay (jitter).
-        self.__trigger = IntervalTrigger(
-            days=1,
+        # Configure the trigger to execute the event every day at 00:00:00.
+        self.__trigger = CronTrigger(
+            hour=0,
+            minute=0,
+            second=0,
             start_date=self.__start_date,  # Restrict the schedule start if set
             end_date=self.__end_date,      # Restrict the schedule end if set
             jitter=self.__random_delay     # Apply random delay if configured
         )
 
         # Store a human-readable description of the schedule.
-        self.__details = "Every day"
+        self.__details = "Every day at 00:00:00"
 
         # Indicate that the scheduling was successful.
         return True
@@ -2788,15 +2789,14 @@ class Event(IEvent):
         if not (0 <= second < 60):
             raise CLIOrionisValueError("Second must be between 0 and 59.")
 
-        # Set up the trigger to execute the event daily at the specified time.
-        # The IntervalTrigger will fire every day at the given hour, minute, and second.
-        self.__trigger = IntervalTrigger(
-            days=1,
+        # Set up the trigger to execute the event daily at the specified time using CronTrigger.
+        self.__trigger = CronTrigger(
             hour=hour,
             minute=minute,
             second=second,
             start_date=self.__start_date,
-            end_date=self.__end_date
+            end_date=self.__end_date,
+            jitter=self.__random_delay
         )
 
         # Store a human-readable description of the schedule.
@@ -2867,16 +2867,17 @@ class Event(IEvent):
         second: int = 0
     ) -> bool:
         """
-        Schedule the event to run every day at a specific hour, minute, and second.
+        Schedule the event to run every N days at a specific hour, minute, and second.
 
-        This method configures the event to execute once per day at the specified
-        hour, minute, and second. The schedule can be further restricted by previously
-        set `start_date` and `end_date` attributes. If a random delay (jitter) has been
-        configured, it will be applied to the trigger to help distribute load or avoid
-        collisions.
+        This method configures the event to execute every `days` days at the specified
+        hour, minute, and second using a CronTrigger. The schedule can be further restricted
+        by previously set `start_date` and `end_date` attributes. If a random delay (jitter)
+        has been configured, it will be applied to the trigger.
 
         Parameters
         ----------
+        days : int
+            The interval, in days, at which the event should be executed. Must be a positive integer.
         hour : int
             The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
@@ -2889,23 +2890,22 @@ class Event(IEvent):
         bool
             Returns True if the scheduling was successfully configured. If the input
             is invalid, a `CLIOrionisValueError` is raised and the trigger is not set.
-            On success, returns True.
 
         Raises
         ------
         CLIOrionisValueError
-            If `hour`, `minute`, or `second` are not integers within the valid ranges.
+            If `days`, `hour`, `minute`, or `second` are not integers within the valid ranges.
 
         Notes
         -----
-        The event will be triggered once per day at the specified time, within the optional
+        The event will be triggered every `days` days at the specified time, within the optional
         scheduling window defined by `start_date` and `end_date`. If a random delay (jitter)
         is set, it will be applied to the trigger.
         """
 
         # Validate that the days parameter is a positive integer.
         if not isinstance(days, int) or days <= 0:
-            raise CLIOrionisValueError("The interval must be a positive integer.")
+            raise CLIOrionisValueError("Days must be a positive integer.")
 
         # Validate that hour, minute, and second are integers.
         if not isinstance(hour, int) or not isinstance(minute, int) or not isinstance(second, int):
@@ -2921,19 +2921,19 @@ class Event(IEvent):
         if not (0 <= second < 60):
             raise CLIOrionisValueError("Second must be between 0 and 59.")
 
-        # Set up the trigger to execute the event daily at the specified time.
-        # The IntervalTrigger will fire every day at the given hour, minute, and second.
-        self.__trigger = IntervalTrigger(
-            days=1,
+        # Set up the trigger to execute the event every N days at the specified time using CronTrigger.
+        self.__trigger = CronTrigger(
+            day=f"*/{days}",
             hour=hour,
             minute=minute,
             second=second,
             start_date=self.__start_date,
-            end_date=self.__end_date
+            end_date=self.__end_date,
+            jitter=self.__random_delay
         )
 
         # Store a human-readable description of the schedule.
-        self.__details = f"Every day at {hour:02d}:{minute:02d}:{second:02d}"
+        self.__details = f"Every {days} days at {hour:02d}:{minute:02d}:{second:02d}"
 
         # Indicate that the scheduling was successful.
         return True
@@ -3352,7 +3352,7 @@ class Event(IEvent):
 
     def everyMondayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3367,7 +3367,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3406,13 +3406,13 @@ class Event(IEvent):
         # Configure the trigger to execute the event every Monday at the specified hour, minute, and second.
         # The `CronTrigger` is used to specify the day of the week and time for the event.
         self.__trigger = CronTrigger(
-            day_of_week='mon',  # Schedule the event for Mondays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='mon',                  # Schedule the event for Mondays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3423,7 +3423,7 @@ class Event(IEvent):
 
     def everyTuesdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3438,7 +3438,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3476,13 +3476,13 @@ class Event(IEvent):
 
         # Configure the trigger to execute the event every Tuesday at the specified hour, minute, and second.
         self.__trigger = CronTrigger(
-            day_of_week='tue',  # Schedule the event for Tuesdays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='tue',                  # Schedule the event for Tuesdays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3493,7 +3493,7 @@ class Event(IEvent):
 
     def everyWednesdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3508,7 +3508,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3546,13 +3546,13 @@ class Event(IEvent):
 
         # Configure the trigger to execute the event every Wednesday at the specified hour, minute, and second.
         self.__trigger = CronTrigger(
-            day_of_week='wed',  # Schedule the event for Wednesdays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='wed',                  # Schedule the event for Wednesdays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3563,7 +3563,7 @@ class Event(IEvent):
 
     def everyThursdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3578,7 +3578,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3616,13 +3616,13 @@ class Event(IEvent):
 
         # Configure the trigger to execute the event every Thursday at the specified hour, minute, and second.
         self.__trigger = CronTrigger(
-            day_of_week='thu',  # Schedule the event for Thursdays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='thu',                  # Schedule the event for Thursdays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3633,7 +3633,7 @@ class Event(IEvent):
 
     def everyFridayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3648,7 +3648,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3686,13 +3686,13 @@ class Event(IEvent):
 
         # Configure the trigger to execute the event every Friday at the specified hour, minute, and second.
         self.__trigger = CronTrigger(
-            day_of_week='fri',  # Schedule the event for Fridays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='fri',                  # Schedule the event for Fridays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3703,7 +3703,7 @@ class Event(IEvent):
 
     def everySaturdayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3718,7 +3718,7 @@ class Event(IEvent):
         Parameters
         ----------
         hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3773,7 +3773,7 @@ class Event(IEvent):
 
     def everySundayAt(
         self,
-        hour: int = 0,
+        hour: int,
         minute: int = 0,
         second: int = 0
     ) -> bool:
@@ -3787,8 +3787,8 @@ class Event(IEvent):
 
         Parameters
         ----------
-        hour : int, optional
-            The hour of the day when the event should run. Must be in the range [0, 23]. Default is 0.
+        hour : int
+            The hour of the day when the event should run. Must be in the range [0, 23].
         minute : int, optional
             The minute of the hour when the event should run. Must be in the range [0, 59]. Default is 0.
         second : int, optional
@@ -3826,13 +3826,13 @@ class Event(IEvent):
 
         # Configure the trigger to execute the event every Sunday at the specified hour, minute, and second.
         self.__trigger = CronTrigger(
-            day_of_week='sun',  # Schedule the event for Sundays.
-            hour=hour,          # Set the hour of execution.
-            minute=minute,      # Set the minute of execution.
-            second=second,      # Set the second of execution.
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay (jitter) if configured.
+            day_of_week='sun',                  # Schedule the event for Sundays.
+            hour=hour,                          # Set the hour of execution.
+            minute=minute,                      # Set the minute of execution.
+            second=second,                      # Set the second of execution.
+            start_date=self.__start_date,       # Restrict the schedule start if set.
+            end_date=self.__end_date,           # Restrict the schedule end if set.
+            jitter=self.__random_delay          # Apply random delay (jitter) if configured.
         )
 
         # Store a human-readable description of the schedule.
@@ -3864,13 +3864,15 @@ class Event(IEvent):
         be applied to the trigger.
         """
 
-        # Configure the trigger to execute the event every week using an IntervalTrigger.
-        # Apply any configured start_date, end_date, and random_delay (jitter).
-        self.__trigger = IntervalTrigger(
-            weeks=1,
-            start_date=self.__start_date,  # Restrict the schedule start if set.
-            end_date=self.__end_date,      # Restrict the schedule end if set.
-            jitter=self.__random_delay     # Apply random delay if configured.
+        # Configure the trigger to execute the event every week.
+        self.__trigger = CronTrigger(
+            day_of_week='sun',
+            hour=0,
+            minute=0,
+            second=0,
+            start_date=self.__start_date,
+            end_date=self.__end_date,
+            jitter=self.__random_delay
         )
 
         # Store a human-readable description of the schedule for reference or logging.

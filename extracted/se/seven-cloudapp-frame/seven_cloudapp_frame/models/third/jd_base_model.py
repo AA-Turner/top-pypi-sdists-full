@@ -2,7 +2,7 @@
 """
 :Author: HuangJianYi
 :Date: 2023-09-26 16:52:07
-@LastEditTime: 2024-05-27 10:51:31
+@LastEditTime: 2025-09-17 17:26:11
 @LastEditors: HuangJianYi
 :Description:
 """
@@ -39,13 +39,14 @@ from seven_jd.jd.api.rest.ApplyRepealSaveRequest import ApplyRepealSaveRequest
 from seven_jd.jd.api.rest.CertListQueryRequest import CertListQueryRequest
 from seven_jd.jd.api.rest.PreviewSaveRequest import PreviewSaveRequest
 from seven_jd.jd.api.rest.CertUnlockRequest import CertUnlockRequest
+from seven_jd.jd.api.rest.CrmMemberSearchNewRequest import CrmMemberSearchNewRequest
+from seven_jd.jd.api.rest.WareReadSearchWare4ValidRequest import WareReadSearchWare4ValidRequest
 
 
 class JdBaseModel():
     """
     :description: 京东jos接口业务模型（为了不让框架越来越重，框架不默认安装seven_jd模块，需手动配置安装）
     """
-
     def __init__(self, app_key, app_secret, context=None, logging_error=None, logging_info=None):
         self.app_key = app_key
         self.app_secret = app_secret
@@ -193,8 +194,7 @@ class JdBaseModel():
                 return invoke_result_data
 
             if "jingdong_user_getUserInfoByOpenId_responce" in resp:
-                invoke_result_data.data = resp['jingdong_user_getUserInfoByOpenId_responce'][
-                    'getuserinfobyappidandopenid_result']
+                invoke_result_data.data = resp['jingdong_user_getUserInfoByOpenId_responce']['getuserinfobyappidandopenid_result']
 
             return invoke_result_data
         except Exception as e:
@@ -227,8 +227,7 @@ class JdBaseModel():
                 return invoke_result_data
 
             if "jingdong_user_getUserInfoByXId_responce" in resp:
-                invoke_result_data.data = \
-                    resp['jingdong_user_getUserInfoByXId_responce']['getuserinfobyappidandopenid_result']['data']
+                invoke_result_data.data = resp['jingdong_user_getUserInfoByXId_responce']['getuserinfobyappidandopenid_result']['data']
 
             return invoke_result_data
         except Exception as e:
@@ -290,8 +289,7 @@ class JdBaseModel():
         try:
             resp = req.getResponse(access_token)
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【将pin转化为Xid】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【将pin转化为Xid】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -371,9 +369,7 @@ class JdBaseModel():
             invoke_result_data.error_message = "京东接口错误：小程序用户信息标识(jingdong.miniapp.mixUserInfo)"
             return invoke_result_data
 
-    def sku_read_search_sku_list(self, access_token, field="wareId,skuId,jdPrice,logo,skuName,wareTitle", ware_title="",
-                                 ware_ids="", sku_ids="", sku_status="", page_index=1, page_size=50,
-                                 order_filed="skuId", order_type="desc", is_log=False):
+    def sku_read_search_sku_list(self, access_token, field="wareId,skuId,jdPrice,logo,skuName,wareTitle", ware_title="", ware_ids="", sku_ids="", sku_status="", page_index=1, page_size=50, order_filed="skuId", order_type="desc", is_log=False):
         """
         :description: SKU搜索服务
         :param access_token: access_token
@@ -591,18 +587,15 @@ class JdBaseModel():
 
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = LockCertsSaveRequest()
-        aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
-        aes_key2 = share_config.get_value("jd_config",{}).get("aes_key2","07afbc8bca08bc5139d36b3239ab3408")
+        aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
+        aes_key2 = share_config.get_value("jd_config", {}).get("aes_key2", "07afbc8bca08bc5139d36b3239ab3408")
         for cert in certList:
             cert_num = CryptoHelper.aes_decrypt(cert["cardNum"], aes_key1)
             cert["cardNum"] = CryptoHelper.aes_encrypt(cert_num, aes_key2)
             pwd = CryptoHelper.aes_decrypt(cert["pwd"], aes_key1)
             cert["pwd"] = CryptoHelper.aes_encrypt(pwd, aes_key2)
 
-        data = {
-            "transactionId": transaction_id,
-            "certList": certList
-        }
+        data = {"transactionId": transaction_id, "certList": certList}
 
         req.data = JsonHelper.json_dumps(data)
         req.merchantCode = vender_id
@@ -611,8 +604,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【锁定卡密】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【锁定卡密】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -658,9 +650,7 @@ class JdBaseModel():
             invoke_result_data.error_message = "京东接口错误：锁定卡密(jingdong.lockCerts.save)"
             return invoke_result_data
 
-    def palce_order_submit(self, access_token, xid, user_ip, business_data_id, order_source,
-                           name, mobile, county_id, town_id, address,
-                           goods_sku_id, goods_quantity, is_log=False, pin=None):
+    def palce_order_submit(self, access_token, xid, user_ip, business_data_id, order_source, name, mobile, county_id, town_id, address, goods_sku_id, goods_quantity, is_log=False, pin=None):
         """
         :description: 代下单提单
         :param access_token: access_token
@@ -703,14 +693,12 @@ class JdBaseModel():
                 "townId": town_id,
                 "address": address
             },
-            "goodsDetails": [
-                {
-                    "goodsSkuId": goods_sku_id,
-                    "goodsPrice": 0,  # 实物下单价格，填0
-                    "goodsQuantity": goods_quantity,
-                    # "goodsName": null # 实物名称，非必填
-                }
-            ],
+            "goodsDetails": [{
+                "goodsSkuId": goods_sku_id,
+                "goodsPrice": 0,  # 实物下单价格，填0
+                "goodsQuantity": goods_quantity,
+                # "goodsName": null # 实物名称，非必填
+            }],
             "shipmentTimeType": 3,  # 配送时间类型，1：只工作日送货，2：只双休日、假日送货，3：工作日、双休日与假日均可送货，4：指定日期送货
             "orderCtg": 1,  # 订单类型，1：普通订单，2：预定订单
             # "sendPay": null, # sendPay打标，对方填写
@@ -728,8 +716,7 @@ class JdBaseModel():
         try:
             resp = req.getResponse(access_token)
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【代下单提单】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【代下单提单】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -753,7 +740,7 @@ class JdBaseModel():
                     if result.__contains__('success') and result['success'] == False:
                         invoke_result_data.success = False
                         invoke_result_data.error_code = result["errCode"]
-                        result_message = result.get("data",{}).get("resultMessage","")
+                        result_message = result.get("data", {}).get("resultMessage", "")
                         invoke_result_data.error_message = result["errMsg"] if not result_message else result_message
                         return invoke_result_data
                     else:
@@ -800,8 +787,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【检索单个SOP订单信息】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【检索单个SOP订单信息】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -871,8 +857,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【批量添加商品】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【批量添加商品】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -942,8 +927,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【订单放行】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【订单放行】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1003,18 +987,15 @@ class JdBaseModel():
 
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = VerifySaveRequest()
-        aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
-        aes_key2 = share_config.get_value("jd_config",{}).get("aes_key2","07afbc8bca08bc5139d36b3239ab3408")
+        aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
+        aes_key2 = share_config.get_value("jd_config", {}).get("aes_key2", "07afbc8bca08bc5139d36b3239ab3408")
         for cert in certList:
             cert_num = CryptoHelper.aes_decrypt(cert["cardNum"], aes_key1)
             cert["cardNum"] = CryptoHelper.aes_encrypt(cert_num, aes_key2)
             pwd = CryptoHelper.aes_decrypt(cert["pwd"], aes_key1)
             cert["pwd"] = CryptoHelper.aes_encrypt(pwd, aes_key2)
 
-        data = {
-            "transactionId": transaction_id,
-            "verifyingCertList": certList
-        }
+        data = {"transactionId": transaction_id, "verifyingCertList": certList}
 
         req.data = JsonHelper.json_dumps(data)
         req.merchantCode = vender_id
@@ -1023,8 +1004,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【卡密核销】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【卡密核销】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1069,7 +1049,7 @@ class JdBaseModel():
             invoke_result_data.error_code = "verify_save"
             invoke_result_data.error_message = "京东接口错误：卡密核销(jingdong.verify.save)"
             return invoke_result_data
-        
+
     def areas_province_get(self, is_log=False):
         """
         :description: 获取省级地址列表
@@ -1286,19 +1266,14 @@ class JdBaseModel():
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = OrderCancelRequest()
 
-        data = {
-            "businessDataId": business_data_id,
-            "cancelReasonType": cancel_reason_type,
-            "erpOrderId": erp_order_id
-        }
+        data = {"businessDataId": business_data_id, "cancelReasonType": cancel_reason_type, "erpOrderId": erp_order_id}
 
         req.data = SevenHelper.json_dumps(data)
 
         try:
             resp = req.getResponse(access_token)
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【代下单取消】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【代下单取消】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1362,7 +1337,7 @@ class JdBaseModel():
 
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = ApplyRepealSaveRequest() if is_test == False else ApplyRepealSaveRequest(domain="api-dev.jd.com")
-        aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
+        aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
         new_list = []
         for cert in card_num_list:
             cert = CryptoHelper.aes_decrypt(cert, aes_key1)
@@ -1381,8 +1356,7 @@ class JdBaseModel():
         try:
             resp = req.getResponse(access_token) if is_test == False else req.getResponse(access_token, ssl=True)
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【卡密作废】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【卡密作废】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1440,7 +1414,7 @@ class JdBaseModel():
 
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = CertListQueryRequest() if is_test == False else CertListQueryRequest(domain="api-dev.jd.com")
-        aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
+        aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
         new_list = []
         for cert in card_num_list:
             cert = CryptoHelper.aes_decrypt(cert, aes_key1)
@@ -1463,8 +1437,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token) if is_test == False else req.getResponse(access_token, ssl=True)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【凭证信息查询】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【凭证信息查询】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1493,8 +1466,8 @@ class JdBaseModel():
                     else:
                         data = result["data"]
                         if data["list"]:
-                            aes_key2 = share_config.get_value("jd_config",{}).get("aes_key2","07afbc8bca08bc5139d36b3239ab3408")
-                            aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
+                            aes_key2 = share_config.get_value("jd_config", {}).get("aes_key2", "07afbc8bca08bc5139d36b3239ab3408")
+                            aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
                             for item in data["list"]:
                                 item["cardNum"] = CryptoHelper.aes_decrypt(item["cardNum"], aes_key2)
                                 item["cardNum"] = CryptoHelper.aes_encrypt(item["cardNum"], aes_key1)
@@ -1512,7 +1485,7 @@ class JdBaseModel():
             invoke_result_data.error_code = "cert_list_query"
             invoke_result_data.error_message = "京东接口错误：凭证信息查询(jingdong.certList.query)"
             return invoke_result_data
-        
+
     def preview_save(self, access_token, vender_id, cert_num, pwd, is_log=False):
         """
         :description: 卡密预核销
@@ -1535,10 +1508,7 @@ class JdBaseModel():
         pwd = CryptoHelper.aes_decrypt(pwd, "17f72a775ec0a96ad52b662206c7bceb")
         pwd = CryptoHelper.aes_encrypt(pwd, "07afbc8bca08bc5139d36b3239ab3408")
 
-        data = {
-            "cardNum": cert_num,
-            "pwd": pwd
-        }
+        data = {"cardNum": cert_num, "pwd": pwd}
 
         req.data = JsonHelper.json_dumps(data)
         req.merchantCode = vender_id
@@ -1547,8 +1517,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【卡密预核销】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【卡密预核销】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1609,18 +1578,15 @@ class JdBaseModel():
 
         jd.setDefaultAppInfo(self.app_key, self.app_secret)
         req = CertUnlockRequest() if is_test == False else CertUnlockRequest(domain="api-dev.jd.com")
-        aes_key1 = share_config.get_value("jd_config",{}).get("aes_key1","17f72a775ec0a96ad52b662206c7bceb")
-        aes_key2 = share_config.get_value("jd_config",{}).get("aes_key2","07afbc8bca08bc5139d36b3239ab3408")
+        aes_key1 = share_config.get_value("jd_config", {}).get("aes_key1", "17f72a775ec0a96ad52b662206c7bceb")
+        aes_key2 = share_config.get_value("jd_config", {}).get("aes_key2", "07afbc8bca08bc5139d36b3239ab3408")
         for cert in certList:
             cert_num = CryptoHelper.aes_decrypt(cert["cardNum"], aes_key1)
             cert["cardNum"] = CryptoHelper.aes_encrypt(cert_num, aes_key2)
             pwd = CryptoHelper.aes_decrypt(cert["pwd"], aes_key1)
             cert["pwd"] = CryptoHelper.aes_encrypt(pwd, aes_key2)
 
-        data = {
-            "transactionId": transaction_id,
-            "certList": certList
-        }
+        data = {"transactionId": transaction_id, "certList": certList}
 
         req.data = JsonHelper.json_dumps(data)
         req.merchantCode = vender_id
@@ -1631,8 +1597,7 @@ class JdBaseModel():
             resp = req.getResponse(access_token) if is_test == False else req.getResponse(access_token, ssl=True)
 
             if is_log:
-                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + \
-                           "【access_token】：" + access_token + "【卡密解锁】"
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + access_token + "【卡密解锁】"
                 if self.context:
                     self.context.logging_link_info(log_info)
                 elif self.logging_link_info:
@@ -1676,4 +1641,93 @@ class JdBaseModel():
             invoke_result_data.success = False
             invoke_result_data.error_code = "cert_unlock"
             invoke_result_data.error_message = "京东接口错误：卡密解锁(jingdong.cert.unlock)"
+            return invoke_result_data
+
+    def crm_member_search_new(self, params, is_log=False):
+        """
+        :description: 查询会员信息接口
+        :param params: 参数字典
+        :京东接口返回 {"jingdong_crm_member_searchNew_responce":{"crm_member_result":{"total_result":2730134,"crm_members":[{"xid_buyer":"o*AASJ8JjlzSRtl3-hTLa_x7mMMWQ5NXO-Fz7mI8sBFj6Kre3GDFENomPcfL7s2yADQkFkuLMm","close_trade_count":0,"trade_count":0,"customer_pin":"aT7xC+5t4DYRH52pMe3q6sHe5C9nykkaB1jm751H1A/pEPiRsLEtRcdZRg0D9Z2RoiXP+3+EkctVRJR05RhpRQ==","open_id_buyer":"1-RKbLS9ctqwHkBPUJz6N_sdT655w9XucjgLgT6EapA","item_num":0}]},"request_id":"76f8f69104934dd399e2628af064abbd","code":"0"}}
+        :last_editors: HuangJianYi
+        """
+        invoke_result_data = InvokeResultData()
+
+        jd.setDefaultAppInfo(self.app_key, self.app_secret)
+        req = CrmMemberSearchNewRequest()
+        req.page_size = params.get("page_size", 100)
+        req.current_page = params.get("page_index", 1)
+        req.min_last_trade_time = params.get("min_last_trade_time")
+        req.max_last_trade_time = params.get("max_last_trade_time")
+
+        try:
+            resp = req.getResponse(params.get('access_token'))
+
+            if is_log:
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + params.get('access_token', '') + "【查询会员信息接口】"
+                if self.context:
+                    self.context.logging_link_info(log_info)
+                elif self.logging_link_info:
+                    self.logging_link_info(log_info)
+
+            if "errorMessage" in resp:
+                invoke_result_data.success = False
+                invoke_result_data.error_code = resp.get('code', '')
+                invoke_result_data.error_message = resp.get('errorMessage', '')
+                return invoke_result_data
+
+            invoke_result_data.data = resp.get('jingdong_crm_member_searchNew_responce', {}).get('crm_member_result', {})
+
+            return invoke_result_data
+        except Exception as e:
+            if self.context:
+                self.context.logging_link_error(traceback.format_exc())
+            elif self.logging_link_error:
+                self.logging_link_error(traceback.format_exc())
+            invoke_result_data.success = False
+            invoke_result_data.error_code = "crm_member_search_new"
+            invoke_result_data.error_message = "京东接口错误：查询会员信息接口(jingdong.crm.member.searchNew)"
+            return invoke_result_data
+
+    def search_ware4_valid(self, params, is_log=False):
+        """
+        :description: 搜索有效商品
+        :param params: 参数字典
+        :return: {"jingdong_ware_read_searchWare4Valid_responce":{"request_id":"184a383b04a74c3f8a86ddf1d589a35c","code":"0","page":{"data":[{"wareStatus":2,"itemNum":"","wareId":14651770001,"colType":0,"multiCategoryId":21438,"onlineTime":1593309256000,"offlineTime":1593650652000,"outerId":"","title":"【有价优惠券】宝宝巴士双十一专享券 90元优惠券 满599可用（10.31晚8至11.03可用）","categoryId":21438}],"totalItem":104,"pageNo":1,"pageSize":1}}}
+        :last_editors: HuangJianYi
+        """
+        invoke_result_data = InvokeResultData()
+
+        jd.setDefaultAppInfo(self.app_key, self.app_secret)
+        req = WareReadSearchWare4ValidRequest()
+        req.pageSize = params.get("page_size", 100)
+        req.pageNo = params.get("page_index", 1)
+        req.field = params.get("field", "wareId,shopId,title,categoryId,wareStatus,outerId,logo,marketPrice,costPrice,jdPrice,stockNum,transportId,offlineTime,onlineTime,modified,created")
+
+        try:
+            resp = req.getResponse(params.get('access_token'))
+
+            if is_log:
+                log_info = "【req】：" + str(req.__dict__) + "【resp】：" + str(resp) + "【access_token】：" + params.get('access_token', '') + "【搜索有效商品】"
+                if self.context:
+                    self.context.logging_link_info(log_info)
+                elif self.logging_link_info:
+                    self.logging_link_info(log_info)
+
+            if "errorMessage" in resp:
+                invoke_result_data.success = False
+                invoke_result_data.error_code = resp.get('code', '')
+                invoke_result_data.error_message = resp.get('errorMessage', '')
+                return invoke_result_data
+
+            invoke_result_data.data = resp.get('jingdong_ware_read_searchWare4Valid_responce', {}).get('page', {})
+
+            return invoke_result_data
+        except Exception as e:
+            if self.context:
+                self.context.logging_link_error(traceback.format_exc())
+            elif self.logging_link_error:
+                self.logging_link_error(traceback.format_exc())
+            invoke_result_data.success = False
+            invoke_result_data.error_code = "search_ware4_valid"
+            invoke_result_data.error_message = "京东接口错误：搜索有效商品(jingdong.ware.read.searchWare4Valid)"
             return invoke_result_data

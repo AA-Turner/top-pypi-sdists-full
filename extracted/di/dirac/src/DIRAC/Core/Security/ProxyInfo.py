@@ -1,15 +1,18 @@
 """
- Set of utilities to retrieve Information from proxy
+Set of utilities to retrieve Information from proxy
 """
+
 import base64
 
-from DIRAC import S_OK, S_ERROR, gLogger
-from DIRAC.Core.Utilities import DErrno
-from DIRAC.Core.Security.X509Chain import X509Chain  # pylint: disable=import-error
-from DIRAC.Core.Security.VOMS import VOMS
-from DIRAC.Core.Security import Locations
-
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.ConfigurationSystem.Client.Helpers import Registry
+from DIRAC.ConfigurationSystem.Client.Helpers.CSGlobals import getVO
+
+from DIRAC.Core.Security import Locations
+from DIRAC.Core.Security.DiracX import diracxTokenFromPEM
+from DIRAC.Core.Security.VOMS import VOMS
+from DIRAC.Core.Security.X509Chain import X509Chain  # pylint: disable=import-error
+from DIRAC.Core.Utilities import DErrno
 
 
 def getProxyInfo(proxy=False, disableVOMS=False):
@@ -25,9 +28,11 @@ def getProxyInfo(proxy=False, disableVOMS=False):
           * 'validDN' : Valid DN in DIRAC
           * 'validGroup' : Valid Group in DIRAC
           * 'secondsLeft' : Seconds left
+          * 'hasDiracxToken'
       * values that can be there
           * 'path' : path to the file,
           * 'group' : DIRAC group
+          * 'VO' : DIRAC VO
           * 'groupProperties' : Properties that apply to the DIRAC Group
           * 'username' : DIRAC username
           * 'identity' : DN that generated the proxy
@@ -67,6 +72,14 @@ def getProxyInfo(proxy=False, disableVOMS=False):
             infoDict["VOMS"] = retVal["Value"]
         else:
             infoDict["VOMSError"] = retVal["Message"].strip()
+
+    if "group" in infoDict:
+        infoDict["VO"] = Registry.getVOForGroup(infoDict["group"])
+
+    infoDict["hasDiracxToken"] = False
+    if proxyLocation:
+        infoDict["hasDiracxToken"] = bool(diracxTokenFromPEM(proxyLocation))
+
     return S_OK(infoDict)
 
 
@@ -91,9 +104,9 @@ def formatProxyInfoAsString(infoDict):
         "subject",
         "issuer",
         "identity",
-        "subproxyUser",
         ("secondsLeft", "timeleft"),
         ("group", "DIRAC group"),
+        ("hasDiracxToken", "DiracX"),
         "rfc",
         "path",
         "username",
@@ -197,10 +210,11 @@ def getVOfromProxyGroup():
     """
     Return the VO associated to the group in the proxy
     """
-    voName = Registry.getVOForGroup("NoneExistingGroup")
+
     ret = getProxyInfo(disableVOMS=True)
-    if not ret["OK"]:
-        return S_OK(voName)
-    if "group" in ret["Value"]:
+    if not ret["OK"] or "group" not in ret["Value"]:
+        voName = getVO()
+    else:
         voName = Registry.getVOForGroup(ret["Value"]["group"])
+
     return S_OK(voName)

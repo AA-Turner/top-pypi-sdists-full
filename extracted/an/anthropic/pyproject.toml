@@ -1,6 +1,6 @@
 [project]
 name = "anthropic"
-version = "0.67.0"
+version = "0.68.0"
 description = "The official Python library for the anthropic API"
 dynamic = ["readme"]
 license = "MIT"
@@ -15,6 +15,7 @@ dependencies = [
     "distro>=1.7.0, <2",
     "sniffio",
     "jiter>=0.4.0, <1",
+    "docstring-parser>=0.15,<1",
 ]
 requires-python = ">= 3.8"
 classifiers = [
@@ -60,8 +61,8 @@ dev-dependencies = [
     "importlib-metadata>=6.7.0",
     "boto3-stubs >= 1",
     "rich>=13.7.1",
-    "nest_asyncio==1.6.0",
     "pytest-xdist>=3.6.1",
+    "inline-snapshot>=0.28.0",
     "griffe>=1",
 ]
 conflicts = [
@@ -127,6 +128,9 @@ filterwarnings = [
   "error"
 ]
 
+[tool.inline-snapshot]
+format-command="ruff format --stdin-filename {filename}"
+
 [tool.pyright]
 # this enables practically every flag given by pyright.
 # there are a couple of flags that are still disabled by
@@ -135,10 +139,10 @@ typeCheckingMode = "strict"
 pythonVersion = "3.8"
 
 exclude = [
+    ".git",
     "_dev",
     ".venv",
     ".nox",
-    ".git",
 ]
 
 reportImplicitOverride = true
@@ -157,7 +161,7 @@ show_error_codes = true
 #
 # We also exclude our `tests` as mypy doesn't always infer
 # types correctly and Pyright will still catch any type errors.
-exclude = ['src/anthropic/_files.py', '_dev/.*.py', 'tests/.*']
+exclude = ['src/anthropic/_files.py', '_dev/.*.py', 'tests/.*', 'examples/mcp_server_weather.py', 'examples/tools_with_mcp.py']
 
 strict_equality = true
 implicit_reexport = true

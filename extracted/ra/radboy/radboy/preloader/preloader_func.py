@@ -1095,6 +1095,56 @@ def circumferenceCircleDiameter():
 		circumference=2*Deimal(math.pi)*Decimal(fd['diameter']/2)
 		return circumference
 
+def sudokuCandidates():
+	#get the circumference of a circle using diameter
+	with localcontext() as ctx:
+		ctx.prec=int(db.detectGetOrSet("lsbld ROUNDTO default",4,setValue=False,literal=True))
+		'''
+		2π(d/2)
+		'''
+		fields={
+			'Game Symbols':{
+				'default':'123456789',
+				'type':'string'
+				},
+			'Symbols for Row':{
+			'default':'',
+			'type':'string'
+			},
+			'Symbols for Column':{
+			'default':'',
+			'type':'string'
+			},
+			'Symbols for Cell':{
+			'default':'',
+			'type':'string'
+			},
+			'Symbols for Right-Diagnal':{
+			'default':'',
+			'type':'string'
+			},
+			'Symbols for Left-Diagnal':{
+			'default':'',
+			'type':'string'
+			},
+		}
+		fd=FormBuilder(data=fields,passThruText=f"Sudoku Candidates? ")
+		if fd is None:
+			return
+		symbols=fd['Game Symbols']
+		sString=[]
+		for i in fd:
+			if i == 'Game Symbols':
+				continue
+			if isinstance(fd[i],str):
+				sString.append(fd[i])
+		sString=' '.join(sString)
+		cd=[]
+		for i in symbols:
+			if i not in sString:
+				cd.append(i)
+		
+		return cd
 '''
 Ellipse: area=πab
 , where 2a

@@ -22,19 +22,6 @@ def clientMock(ret):
     return clientModuleMock
 
 
-def mockComponentSection(*_args, **kwargs):
-    """Mock the PathFinder.getComponentSection to return individual componentSections."""
-    system = kwargs.get("system")
-    component = kwargs.get("component")
-    return f"/Systems/{system}/Production/Services/{component}"
-
-
-def mockURLSection(*_args, **kwargs):
-    """Mock the PathFinder.getSystemURLSection to return individual componentSections."""
-    system = kwargs.get("system")
-    return f"/Systems/{system}/Production/URLs/"
-
-
 class TestComponentSupervisionAgent(unittest.TestCase):
     """TestComponentSupervisionAgent class."""
 
@@ -148,7 +135,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                 "DataManagement": {
                     "FTS3Agent": {
                         "MEM": "0.3",
-                        "Setup": True,
                         "PID": "18128",
                         "RunitStatus": "Run",
                         "Module": "CleanFTSDBAgent",
@@ -162,7 +148,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                 "Framework": {
                     "ErrorMessageMonitor": {
                         "MEM": "0.3",
-                        "Setup": True,
                         "PID": "2303",
                         "RunitStatus": "Run",
                         "Module": "ErrorMessageMonitor",
@@ -176,7 +161,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                 "System": {
                     "Off": {
                         "MEM": "0.3",
-                        "Setup": True,
                         "PID": "---",
                         "RunitStatus": "Down",
                         "Module": "ErrorMessageMonitor",
@@ -190,7 +174,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
             }
         }
         agents["Agents"]["DataManagement"]["FTSAgent"] = {
-            "Setup": False,
             "PID": 0,
             "RunitStatus": "Unknown",
             "Module": "FTSAgent",
@@ -649,7 +632,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
             "Services": {
                 "Sys": {
                     "Serv1": {
-                        "Setup": True,
                         "PID": "18128",
                         "Port": "1001",
                         "RunitStatus": "Run",
@@ -657,7 +639,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                         "Installed": True,
                     },
                     "Serv2": {
-                        "Setup": True,
                         "PID": "18128",
                         "Port": "1002",
                         "RunitStatus": "Down",
@@ -665,7 +646,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                         "Installed": True,
                     },
                     "Serv3": {
-                        "Setup": True,
                         "PID": "18128",
                         "RunitStatus": "Run",
                         "Protocol": "https",
@@ -673,7 +653,6 @@ class TestComponentSupervisionAgent(unittest.TestCase):
                         "Installed": True,
                     },
                     "SystemAdministrator": {
-                        "Setup": True,
                         "PID": "18128",
                         "Port": "1003",
                         "RunitStatus": "Run",
@@ -688,22 +667,13 @@ class TestComponentSupervisionAgent(unittest.TestCase):
 
         with patch("DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.gConfig", new=gConfigMock), patch(
             "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.socket.gethostname", return_value=host
-        ), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getSystemInstance",
-            return_value="Decertification",
-        ), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getComponentSection",
-            side_effect=mockComponentSection,
-        ), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getSystemURLSection",
-            side_effect=mockURLSection,
         ):
             res = self.restartAgent.checkURLs()
         self.assertTrue(res["OK"])
         self.restartAgent.csAPI.modifyValue.assert_has_calls(
             [
-                call("/Systems/Sys/Production/URLs/Serv", ",".join(tempurls)),
-                call("/Systems/Sys/Production/URLs/Serv", ",".join(newurls)),
+                call("/Systems/Sys/URLs/Serv", ",".join(tempurls)),
+                call("/Systems/Sys/URLs/Serv", ",".join(newurls)),
             ],
             any_order=False,
         )
@@ -718,26 +688,14 @@ class TestComponentSupervisionAgent(unittest.TestCase):
         self.restartAgent.sysAdminClient.getOverallStatus.return_value = S_OK(dict(Services={}))
 
         self.restartAgent.csAPI.commit = MagicMock(return_value=S_ERROR("Nope"))
-        with patch("DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.gConfig", new=MagicMock()), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getSystemInstance",
-            return_value="Decertification",
-        ), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getComponentSection",
-            side_effect=mockComponentSection,
-        ):
+        with patch("DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.gConfig", new=MagicMock()):
             res = self.restartAgent.checkURLs()
         self.assertFalse(res["OK"])
         self.assertIn("Failed to commit", res["Message"])
         self.assertIn("Commit to CS failed", self.restartAgent.errors[0])
 
         self.restartAgent.csAPI.commit = MagicMock(return_value=S_OK())
-        with patch("DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.gConfig", new=MagicMock()), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getSystemInstance",
-            return_value="Decertification",
-        ), patch(
-            "DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.PathFinder.getComponentSection",
-            side_effect=mockComponentSection,
-        ):
+        with patch("DIRAC.FrameworkSystem.Agent.ComponentSupervisionAgent.gConfig", new=MagicMock()):
             res = self.restartAgent.checkURLs()
         self.assertTrue(res["OK"])
 

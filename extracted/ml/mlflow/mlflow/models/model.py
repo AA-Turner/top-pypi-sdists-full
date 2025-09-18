@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Literal, NamedTuple
@@ -38,7 +38,6 @@ from mlflow.tracking.fluent import (
     _set_active_model_id,
     _use_logged_model,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_logged_model_url,
     get_databricks_runtime_version,
@@ -420,7 +419,11 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
+        self.utc_time_created = str(
+            # In mlflow <= 3.3.0, `datetime.utcnow()` was used. To preserve the original behavior,
+            # use `.replace(tzinfo=None)` to make the timestamp naive.
+            utc_time_created or datetime.now(timezone.utc).replace(tzinfo=None)
+        )
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -640,7 +643,6 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    @experimental(version="2.21.0")
     @property
     def auth_policy(self) -> dict[str, dict[str, Any]]:
         """
@@ -652,7 +654,6 @@ class Model:
         """
         return self._auth_policy
 
-    @experimental(version="2.21.0")
     @auth_policy.setter
     def auth_policy(self, value: dict[str, Any] | AuthPolicy | None) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
@@ -1305,11 +1306,21 @@ class Model:
                     client.delete_logged_model_tag(model.model_id, MLFLOW_MODEL_IS_EXTERNAL)
                 # client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
-                # Associate prompts to the model Run
-                if prompts and run_id:
+                # Associate prompts to the model Run and LoggedModel
+                if prompts:
                     client = mlflow.MlflowClient()
-                    for prompt in prompts:
-                        client.link_prompt_version_to_run(run_id, prompt)
+                    for prompt_uri in prompts:
+                        # Link to run (handles both URIs and PromptVersion objects)
+                        if run_id:
+                            client.link_prompt_version_to_run(run_id, prompt_uri)
+
+                        # Link to LoggedModel - load prompt to get name/version
+                        prompt_obj = client.load_prompt(prompt_uri)
+                        client.link_prompt_version_to_model(
+                            name=prompt_obj.name,
+                            version=prompt_obj.version,
+                            model_id=model.model_id,
+                        )
 
                 # if the model_config kwarg is passed in, then log the model config as an params
                 if model_config := kwargs.get("model_config"):

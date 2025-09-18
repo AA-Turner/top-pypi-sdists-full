@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.73.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.74.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.73.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.74.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.73.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.74.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -160,6 +160,8 @@ __all__ = [
     "data_datadog_dashboard",
     "data_datadog_dashboard_list",
     "data_datadog_hosts",
+    "data_datadog_incident_notification_rule",
+    "data_datadog_incident_notification_template",
     "data_datadog_incident_type",
     "data_datadog_integration_aws_available_logs_services",
     "data_datadog_integration_aws_available_namespaces",
@@ -207,6 +209,8 @@ __all__ = [
     "domain_allowlist",
     "downtime",
     "downtime_schedule",
+    "incident_notification_rule",
+    "incident_notification_template",
     "incident_type",
     "integration_aws",
     "integration_aws_account",
@@ -327,6 +331,8 @@ from . import data_datadog_csm_threats_policies
 from . import data_datadog_dashboard
 from . import data_datadog_dashboard_list
 from . import data_datadog_hosts
+from . import data_datadog_incident_notification_rule
+from . import data_datadog_incident_notification_template
 from . import data_datadog_incident_type
 from . import data_datadog_integration_aws_available_logs_services
 from . import data_datadog_integration_aws_available_namespaces
@@ -374,6 +380,8 @@ from . import dataset
 from . import domain_allowlist
 from . import downtime
 from . import downtime_schedule
+from . import incident_notification_rule
+from . import incident_notification_template
 from . import incident_type
 from . import integration_aws
 from . import integration_aws_account

@@ -4,12 +4,13 @@
     everything locally instead of going to the DB.
 """
 import copy
-import time, datetime
+import datetime
+import time
 
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.Core.Utilities import DEncode
-from DIRAC import S_OK, S_ERROR, gLogger
-from DIRAC.WorkloadManagementSystem.Client.JobState.JobState import JobState
 from DIRAC.WorkloadManagementSystem.Client.JobState.JobManifest import JobManifest
+from DIRAC.WorkloadManagementSystem.Client.JobState.JobState import JobState
 
 
 class CachedJobState:
@@ -288,17 +289,18 @@ class CachedJobState:
         if majorStatus:
             record["status"] = majorStatus
         if minorStatus:
-            record["minor"] = minorStatus
+            record["minorStatus"] = minorStatus
         if appStatus:
-            record["application"] = appStatus
+            record["applicationStatus"] = appStatus
         if not record:
             return
         if not source:
             source = "Unknown"
         self.__jobLog.append([record, datetime.datetime.utcnow(), source])
 
-    def setStatus(self, majorStatus, minorStatus=None, appStatus=None, source=None):
-        self.__cacheAdd("att.Status", majorStatus)
+    def setStatus(self, majorStatus=None, minorStatus=None, appStatus=None, source=None):
+        if majorStatus:
+            self.__cacheAdd("att.Status", majorStatus)
         if minorStatus:
             self.__cacheAdd("att.MinorStatus", minorStatus)
         if appStatus:
@@ -306,21 +308,8 @@ class CachedJobState:
         self.__addLogRecord(majorStatus, minorStatus, appStatus, source)
         return S_OK()
 
-    def setMinorStatus(self, minorStatus, source=None):
-        self.__cacheAdd("att.MinorStatus", minorStatus)
-        self.__addLogRecord(minorStatus=minorStatus, source=source)
-        return S_OK()
-
     def getStatus(self):
         return self.__cacheResult(("att.Status", "att.MinorStatus"), self.__jobState.getStatus)
-
-    def setAppStatus(self, appStatus, source=None):
-        self.__cacheAdd("att.ApplicationStatus", appStatus)
-        self.__addLogRecord(appStatus=appStatus, source=source)
-        return S_OK()
-
-    def getAppStatus(self):
-        return self.__cacheResult("att.ApplicationStatus", self.__jobState.getAppStatus)
 
     #
     # Attribs
@@ -344,8 +333,6 @@ class CachedJobState:
 
     def getAttributes(self, nameList=None):
         return self.__cacheDict("att", self.__jobState.getAttributes, nameList)
-
-    # JobParameters --- REMOVED
 
     # Optimizer params
 
@@ -376,6 +363,9 @@ class CachedJobState:
 
     def getInputData(self):
         return self.__cacheResult("inputData", self.__jobState.getInputData)
+
+    def setInputData(self, inputData):
+        return self.__jobState.setInputData(inputData)
 
     def insertIntoTQ(self):
         if self.valid:

@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from logging import getLogger
 from pathlib import Path
@@ -8,6 +9,7 @@ from langchain_core.documents import Document
 from langchain_core.tools import ToolException
 
 from alita_sdk.runtime.langchain.document_loaders.constants import loaders_map, LoaderProperties
+from ...runtime.langchain.document_loaders.AlitaTextLoader import AlitaTextLoader
 from ...runtime.utils.utils import IndexerKeywords
 
 logger = getLogger(__name__)
@@ -54,7 +56,7 @@ Be as precise and thorough as possible in your responses. If something is unclea
 
 
 def parse_file_content(file_name=None, file_content=None, is_capture_image: bool = False, page_number: int = None,
-                       sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False) -> str | ToolException:
+                       sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False, prompt=None) -> str | ToolException:
     """Parse the content of a file based on its type and return the parsed content.
 
     Args:
@@ -71,6 +73,8 @@ def parse_file_content(file_name=None, file_content=None, is_capture_image: bool
     Raises:
         ToolException: If the file type is not supported or if there is an error reading the file.
         """
+    if not prompt:
+        prompt = image_processing_prompt
     loader = prepare_loader(
         file_name=file_name,
         file_content=file_content,
@@ -79,7 +83,8 @@ def parse_file_content(file_name=None, file_content=None, is_capture_image: bool
         sheet_name=sheet_name,
         llm=llm,
         file_path=file_path,
-        excel_by_sheets=excel_by_sheets
+        excel_by_sheets=excel_by_sheets,
+        prompt=prompt
     )
 
     if not loader:
@@ -120,7 +125,7 @@ def load_file_docs(file_name=None, file_content=None, is_capture_image: bool = F
     return loader.load()
 
 def get_loader_kwargs(loader_object, file_name=None, file_content=None, is_capture_image: bool = False, page_number: int = None,
-                    sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False):
+                    sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False, prompt=None):
     loader_kwargs = loader_object['kwargs']
     loader_kwargs.update({
         "file_path": file_path,
@@ -131,13 +136,15 @@ def get_loader_kwargs(loader_object, file_name=None, file_content=None, is_captu
         "page_number": page_number,
         "sheet_name": sheet_name,
         "excel_by_sheets": excel_by_sheets,
+        "prompt": prompt,
         "row_content": True,
         "json_documents": False
     })
     return loader_kwargs
 
 def prepare_loader(file_name=None, file_content=None, is_capture_image: bool = False, page_number: int = None,
-                       sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False):
+                       sheet_name: str = None, llm=None, file_path: str = None, excel_by_sheets: bool = False,
+                   prompt=None):
         if (file_path and (file_name or file_content)) or (not file_path and (not file_name or file_content is None)):
             raise ToolException("Either (file_name and file_content) or file_path must be provided, but not both.")
 
@@ -146,7 +153,7 @@ def prepare_loader(file_name=None, file_content=None, is_capture_image: bool = F
         loader_object = loaders_map.get(extension)
         if not loader_object:
             return None
-        loader_kwargs = get_loader_kwargs(loader_object, file_name, file_content, is_capture_image, page_number, sheet_name, llm, file_path, excel_by_sheets)
+        loader_kwargs = get_loader_kwargs(loader_object, file_name, file_content, is_capture_image, page_number, sheet_name, llm, file_path, excel_by_sheets, prompt)
         loader = loader_object['class'](**loader_kwargs)
         return loader
 
@@ -226,7 +233,8 @@ def process_content_by_type(content, filename: str, llm=None, chunking_config=No
     """Process the content of a file based on its type using a configured loader."""
     temp_file_path = None
     try:
-        extension = "." + filename.split('.')[-1].lower()
+        match = re.search(r'\.([^.]+)$', filename)
+        extension = f".{match.group(1).lower()}" if match else ".txt"
 
         with tempfile.NamedTemporaryFile(mode='w+b', suffix=extension, delete=False) as temp_file:
             temp_file_path = temp_file.name

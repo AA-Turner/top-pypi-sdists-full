@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.24 23:00:00                  #
+# Updated Date: 2025.09.17 07:00:00                  #
 # ================================================== #
 
 from PySide6.QtCore import Qt
@@ -72,7 +72,7 @@ class Output:
 
         nodes['icon.audio.output'] = IconLabel(":/icons/volume.svg", window=self.window)
         nodes['icon.audio.output'].setToolTip(trans("icon.audio.output"))
-        nodes['icon.audio.output'].clicked.connect(lambda: ctrl.plugins.toggle('audio_output'))
+        nodes['icon.audio.output'].clicked.connect(lambda: ctrl.plugins.toggle_audio_output())  # special case for AUDIO mode
 
         nodes['icon.audio.input'] = IconLabel(":/icons/mic.svg", window=self.window)
         nodes['icon.audio.input'].setToolTip(trans("icon.audio.input"))
@@ -85,6 +85,10 @@ class Output:
         nodes['icon.indexer'] = IconLabel(":/icons/db.svg", window=self.window)
         nodes['icon.indexer'].setToolTip("Indexer")
         nodes['icon.indexer'].clicked.connect(lambda: tools.get("indexer").toggle())
+
+        nodes['icon.remote_tool.web'] = IconLabel(":/icons/web_on.svg", window=self.window)
+        nodes['icon.remote_tool.web'].setToolTip(trans("icon.remote_tool.web"))
+        nodes['icon.remote_tool.web'].clicked.connect(lambda: ctrl.chat.remote_tools.toggle('web_search'))
 
         min_policy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
 
@@ -135,6 +139,7 @@ class Output:
         nodes['anim.loading'].hide()
 
         right_bar_layout = QHBoxLayout()
+        right_bar_layout.addWidget(nodes['icon.remote_tool.web'])
         right_bar_layout.addWidget(nodes['icon.video.capture'])
         right_bar_layout.addWidget(nodes['icon.audio.input'])
         right_bar_layout.addWidget(nodes['icon.audio.output'])

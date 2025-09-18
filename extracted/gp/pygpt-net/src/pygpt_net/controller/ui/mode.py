@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.01 23:00:00                  #
+# Updated Date: 2025.09.17 20:00:00                  #
 # ================================================== #
 
 from pygpt_net.core.types import (
@@ -59,11 +59,17 @@ class Mode:
         is_audio = mode == MODE_AUDIO
 
         if not is_audio:
-            self.window.ui.nodes['audio.auto_turn'].setVisible(False)
-            self.window.ui.nodes["audio.loop"].setVisible(False)
+            ui_nodes['audio.auto_turn'].setVisible(False)
+            ui_nodes["audio.loop"].setVisible(False)
+            if not ctrl.plugins.is_enabled('audio_output'):
+                ctrl.audio.toggle_output_icon(False)
         else:
-            self.window.ui.nodes['audio.auto_turn'].setVisible(True)
-            self.window.ui.nodes["audio.loop"].setVisible(True)
+            ui_nodes['audio.auto_turn'].setVisible(True)
+            ui_nodes["audio.loop"].setVisible(True)
+            if not ctrl.audio.is_muted():
+                ctrl.audio.toggle_output_icon(True)
+            else:
+                ctrl.audio.toggle_output_icon(False)
 
         if not is_assistant:
             ui_nodes['presets.widget'].setVisible(True)
@@ -188,6 +194,12 @@ class Mode:
 
         show = self.are_attachments(mode)
         ui_tabs['input'].setTabVisible(1, show)
+
+        # remote tools icon visibility
+        if not is_image and not is_completion:
+            ui_nodes['icon.remote_tool.web'].setVisible(True)
+        else:
+            ui_nodes['icon.remote_tool.web'].setVisible(False)
 
         ui_tabs['input'].setTabVisible(2, is_assistant)
         ui_tabs['input'].setTabVisible(3, (not is_assistant) and (not is_image))

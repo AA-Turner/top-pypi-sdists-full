@@ -1,54 +1,49 @@
-########################################################################
-# File: RequestValidator.py
-# Author: Krzysztof.Ciba@NOSPAMgmail.com
-# Date: 2012/09/18 07:55:16
-########################################################################
-""" :mod: RequestValidator
+""":mod: RequestValidator
 
-    ======================
+======================
 
-    .. module: RequestValidator
+.. module: RequestValidator
 
-    :synopsis: request validator
+:synopsis: request validator
 
-    .. moduleauthor:: Krzysztof.Ciba@NOSPAMgmail.com
+.. moduleauthor:: Krzysztof.Ciba@NOSPAMgmail.com
 
-    A general and simple request validator checking for required attributes and logic.
-    It checks if required attributes are set/unset but not for their values.
+A general and simple request validator checking for required attributes and logic.
+It checks if required attributes are set/unset but not for their values.
 
-    RequestValidator class implements the DIRACSingleton pattern, no global object is
-    required to keep a single instance.
+RequestValidator class implements the DIRACSingleton pattern, no global object is
+required to keep a single instance.
 
-    If you need to extend this one with your own specific checks consider:
+If you need to extend this one with your own specific checks consider:
 
-      * for adding Operation or Files required attributes use :any:`addReqAttrsCheck` function::
+  * for adding Operation or Files required attributes use :any:`addReqAttrsCheck` function::
 
-          RequestValidator().addReqAttrsCheck( "FooOperation", operationAttrs = [ "Bar", "Buzz"], filesAttrs = [ "LFN" ] )
+      RequestValidator().addReqAttrsCheck( "FooOperation", operationAttrs = [ "Bar", "Buzz"], filesAttrs = [ "LFN" ] )
 
-      * for adding generic check define a new callable object ( function or functor ) which takes only one argument,
-        say for functor::
+  * for adding generic check define a new callable object ( function or functor ) which takes only one argument,
+    say for functor::
 
-          class MyValidator( RequestValidator ):
+      class MyValidator( RequestValidator ):
 
-            @staticmethod
-            def hasFoo( request ):
-              if not request.Foo:
-                return S_ERROR("Foo not set")
-              return S_OK()
+        @staticmethod
+        def hasFoo( request ):
+          if not request.Foo:
+            return S_ERROR("Foo not set")
+          return S_OK()
 
-      * or function::
+  * or function::
 
-          def hasBar( request ):
-            if not request.Bar:
-              return S_ERROR("Bar not set")
-            return S_OK()
+      def hasBar( request ):
+        if not request.Bar:
+          return S_ERROR("Bar not set")
+        return S_OK()
 
-    and add this one to the validators set by calling `RequestValidator().addValidator`, i.e.::
+and add this one to the validators set by calling `RequestValidator().addValidator`, i.e.::
 
-      RequestValidator().addValidator( MyValidator.hasFoo )
-      RequestValidator().addValidator( hasFoo )
+  RequestValidator().addValidator( MyValidator.hasFoo )
+  RequestValidator().addValidator( hasFoo )
 
-    Notice that all validators should always return S_ERROR/S_OK, no exceptions from that whatsoever!
+Notice that all validators should always return S_ERROR/S_OK, no exceptions from that whatsoever!
 """
 
 import inspect
@@ -58,6 +53,7 @@ from DIRAC import S_OK, S_ERROR, gConfig, gLogger
 from DIRAC.Core.Security.Properties import FULL_DELEGATION, LIMITED_DELEGATION
 from DIRAC.Core.Utilities.DIRACSingleton import DIRACSingleton
 from DIRAC.ConfigurationSystem.Client import PathFinder
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getUsernameForDN
 
 
 class RequestValidator(metaclass=DIRACSingleton):
@@ -160,17 +156,10 @@ class RequestValidator(metaclass=DIRACSingleton):
         return S_OK()
 
     @staticmethod
-    def _hasDIRACSetup(request):
-        """required attribute - DIRACSetup"""
-        if not request.DIRACSetup:
-            return S_ERROR("DIRACSetup not set")
-        return S_OK()
-
-    @staticmethod
     def _hasOwner(request):
-        """required attributes OwnerDn and OwnerGroup"""
-        if not request.OwnerDN:
-            return S_ERROR(f"Request '{request.RequestName}' is missing OwnerDN value")
+        """required attributes Owner and OwnerGroup"""
+        if not (request.Owner or getattr(request, "OwnerDN", None)):
+            return S_ERROR(f"Request '{request.RequestName}' is missing both Owner and OwnerDN value")
         if not request.OwnerGroup:
             return S_ERROR(f"Request '{request.RequestName}' is missing OwnerGroup value")
         return S_OK()
@@ -268,7 +257,7 @@ class RequestValidator(metaclass=DIRACSingleton):
         CAUTION: meant to be called on the server side.
                 (does not make much sense otherwise)
 
-        Sets the ownerDN and ownerGroup of the Request from
+        Sets the owner and ownerGroup of the Request from
         the client's credentials.
 
         If they are already set, make sure the client is allowed to do so
@@ -280,21 +269,29 @@ class RequestValidator(metaclass=DIRACSingleton):
 
         :returns: True if everything is fine, False otherwise
         """
-
-        credDN = remoteCredentials["DN"]
+        credUserName = remoteCredentials["username"]
         credGroup = remoteCredentials["group"]
         credProperties = remoteCredentials["properties"]
 
+        # In case we have an old style request with only a DN and no Owner,
+        # get the Owner from the DN.
+        if getattr(request, "OwnerDN", None) and not getattr(request, "Owner", None):
+            res = getUsernameForDN(request.OwnerDN)
+            if not res["OK"]:
+                gLogger.error("Cannot Validate request", res)
+                return False
+            request.Owner = res["Value"]
+
         # If the owner or the group was not set, we use the one of the credentials
-        if not request.OwnerDN or not request.OwnerGroup:
-            request.OwnerDN = credDN
+        if not request.Owner or not request.OwnerGroup:
+            request.Owner = credUserName
             request.OwnerGroup = credGroup
             return True
 
-        # From here onward, we expect the ownerDN/group to already have a value
+        # From here onward, we expect the owner/group to already have a value
 
         # If the credentials in the Request match those from the credentials, it's OK
-        if request.OwnerDN == credDN and request.OwnerGroup == credGroup:
+        if request.Owner == credUserName and request.OwnerGroup == credGroup:
             return True
 
         # From here, something/someone is putting a request on behalf of someone else

@@ -82,6 +82,7 @@ from assisted_service_client.models.event import Event
 from assisted_service_client.models.event_list import EventList
 from assisted_service_client.models.feature import Feature
 from assisted_service_client.models.feature_support_level_id import FeatureSupportLevelId
+from assisted_service_client.models.fencing_credentials_params import FencingCredentialsParams
 from assisted_service_client.models.finalizing_stage import FinalizingStage
 from assisted_service_client.models.free_addresses_list import FreeAddressesList
 from assisted_service_client.models.free_addresses_request import FreeAddressesRequest

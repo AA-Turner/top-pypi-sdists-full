@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vesin-torch
-Version: 0.3.7
+Version: 0.3.8
 Summary: Computing neighbor lists for atomistic system, in TorchScript
 Author-email: Guillaume Fraux <guillaume.fraux@epfl.ch>
 License-Expression: BSD-3-Clause

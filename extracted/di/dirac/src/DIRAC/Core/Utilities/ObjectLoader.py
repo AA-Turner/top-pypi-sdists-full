@@ -1,9 +1,13 @@
-""" An utility to load modules and objects in DIRAC and extensions, being sure that the extensions are considered
+"""
+An utility to load modules and objects in DIRAC and extensions,
+being sure that the extensions are considered
 """
 import collections
+from importlib import import_module
 import os
 import re
 import pkgutil
+from typing import Any
 
 import DIRAC
 from DIRAC import gLogger, S_OK, S_ERROR
@@ -21,25 +25,13 @@ class ObjectLoader(metaclass=DIRACSingleton):
     ol.loadObject('TransformationSystem.Client.TransformationClient')
     """
 
-    def __init__(self, baseModules=False):
-        """init"""
+    def __init__(self, baseModules: list[str] = None) -> None:
         # We save the original arguments in case
         # we need to reinitialize the rootModules
-        # CAUTION: we cant do it after doing
-        # baseModules = ['DIRAC']
-        # because then baseModules, self.baseModules, and __rootModules
-        # are the same and edited in place by __generateRootModules !!
-        # (Think of it, it's a binding to a list)
-        self.originalBaseModules = baseModules
-        self._init(baseModules)
-
-    def _init(self, baseModules):
-        """Actually performs the initialization"""
         if not baseModules:
             baseModules = ["DIRAC"]
-        self.__rootModules = baseModules
-        self.__objs = {}
-        self.__generateRootModules(baseModules)
+        self.__baseModules = baseModules
+        self.__rootModules = self.__generateRootModules(baseModules)
 
     def reloadRootModules(self):
         """Retrigger the initialization of the rootModules.
@@ -49,13 +41,9 @@ class ObjectLoader(metaclass=DIRACSingleton):
         the initialization after the CS has been fully initialized in
         LocalConfiguration.enableCS
         """
-        # Load the original baseModule argument that was given
-        # to the constructor
-        baseModules = self.originalBaseModules
-        # and replay the init sequence
-        self._init(baseModules)
+        self.__rootModules = self.__generateRootModules(self.__baseModules)
 
-    def __rootImport(self, modName, hideExceptions=False):
+    def __rootImport(self, modName: str, hideExceptions: bool = False):
         """Auto search which root module has to be used"""
         for rootModule in self.__rootModules:
             impName = modName
@@ -69,18 +57,20 @@ class ObjectLoader(metaclass=DIRACSingleton):
                 return S_OK((impName, result["Value"]))
         return S_OK()
 
-    def __generateRootModules(self, baseModules):
+    def __generateRootModules(self, baseModules: list[str]) -> list[str]:
         """Iterate over all the possible root modules"""
-        self.__rootModules = baseModules
+        rootModules = baseModules
         for rootModule in reversed(extensionsByPriority()):
-            if rootModule not in self.__rootModules:
-                self.__rootModules.append(rootModule)
-        self.__rootModules.append("")
+            if rootModule not in rootModules:
+                rootModules.append(rootModule)
+        rootModules.append("")
 
         # Reversing the order because we want first to look in the extension(s)
-        self.__rootModules.reverse()
+        rootModules.reverse()
 
-    def loadModule(self, importString, hideExceptions=False):
+        return rootModules
+
+    def loadModule(self, importString: str, hideExceptions: bool = False):
         """Load a module from an import string"""
         result = self.__rootImport(importString, hideExceptions=hideExceptions)
         if not result["OK"]:
@@ -89,7 +79,7 @@ class ObjectLoader(metaclass=DIRACSingleton):
             return S_ERROR(DErrno.EIMPERR, f"No module {importString} found")
         return S_OK(result["Value"][1])
 
-    def loadObject(self, importString, objName=False, hideExceptions=False):
+    def loadObject(self, importString: str, objName: str = "", hideExceptions: bool = False):
         """Load an object from inside a module"""
         if not objName:
             objName = importString.split(".")[-1]
@@ -105,7 +95,9 @@ class ObjectLoader(metaclass=DIRACSingleton):
         except AttributeError:
             return S_ERROR(DErrno.EIMPERR, f"{importString} does not contain a {objName} object")
 
-    def getObjects(self, modulePath, reFilter=None, parentClass=None, recurse=False, continueOnError=False):
+    def getObjects(
+        self, modulePath: str, reFilter=None, parentClass=None, recurse: bool = False, continueOnError: bool = False
+    ):
         """Search for modules under a certain path
 
         modulePath is the import string needed to access the parent module.
@@ -175,14 +167,14 @@ class ObjectLoader(metaclass=DIRACSingleton):
         return S_OK(modules)
 
 
-def loadObjects(path, reFilter=None, parentClass=None):
+def loadObjects(path: str, reFilter=None, parentClass: object = None) -> dict[str, Any]:
     """
 
     Note: this does not work for editable install because it hardcodes
     DIRAC.__file__
     It is better to use ObjectLoader().getObjects()
 
-    :param str path: the path to the syetem for example: DIRAC/AccountingSystem
+    :param str path: the path to the system for example: DIRAC/AccountingSystem
     :param object reFilter: regular expression used to found the class
     :param object parentClass: class instance
     :return: dictionary containing the name of the class and its instance
@@ -208,16 +200,19 @@ def loadObjects(path, reFilter=None, parentClass=None):
     # Load them!
     loadedObjects = {}
 
-    for pythonClassName in objectsToLoad:
-        parentModule = objectsToLoad[pythonClassName]
+    for pythonClassName, parentModule in objectsToLoad.items():
         try:
             # Where parentModule can be DIRAC, pathList is something like [ "AccountingSystem", "Client", "Types" ]
             # And the python class name is.. well, the python class name
             objPythonPath = f"{parentModule}.{'.'.join(pathList)}.{pythonClassName}"
-            objModule = __import__(objPythonPath, globals(), locals(), pythonClassName)
+            objModule = import_module(objPythonPath)
+        except ImportError as e:
+            gLogger.error(f"No module {objPythonPath} found", str(e))
+            continue
+        try:
             objClass = getattr(objModule, pythonClassName)
-        except Exception as e:
-            gLogger.error("Can't load type", f"{parentModule}/{pythonClassName}: {str(e)}")
+        except AttributeError as e:
+            gLogger.error(f"{objPythonPath} does not contain a {pythonClassName} object", str(e))
             continue
         if parentClass == objClass:
             continue

@@ -4,33 +4,29 @@
     GOCDB downtimes that are modified or deleted are also synced.
 """
 import re
-from urllib.error import URLError
 from datetime import datetime, timedelta
 from operator import itemgetter
+from urllib.error import URLError
 
-from DIRAC import S_OK, S_ERROR, gConfig
-from DIRAC.Core.LCG.GOCDBClient import GOCDBClient
-from DIRAC.Core.Utilities.SiteSEMapping import getSEHosts, getStorageElementsHosts
+from DIRAC import S_ERROR, S_OK, gConfig
 from DIRAC.ConfigurationSystem.Client.Helpers.Path import cfgPath
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import (
+    getCESiteMapping,
     getFTS3Servers,
+    getGOCFTSName,
     getGOCSiteName,
     getGOCSites,
-    getGOCFTSName,
-    getCESiteMapping,
 )
+from DIRAC.Core.LCG.GOCDBClient import GOCDBClient
+from DIRAC.Core.Utilities.SiteSEMapping import getSEHosts, getStorageElementsHosts
 from DIRAC.Resources.Storage.StorageElement import StorageElement
 from DIRAC.ResourceStatusSystem.Client.ResourceManagementClient import ResourceManagementClient
 from DIRAC.ResourceStatusSystem.Command.Command import Command
 
-
 # conversion from DIRAC resource type to GOCDB service type
 diracToGOC_conversion = {
     # Computing elements
-    "CREAM": "CREAM-CE",  # deprecated
     "HTCondorCE": "org.opensciencegrid.htcondorce",
-    "ARC": "ARC-CE",
-    "ARC6": "ARC-CE",
     "AREX": "ARC-CE",
     # FTS
     "FTS3": "FTS",

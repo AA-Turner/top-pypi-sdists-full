@@ -35138,6 +35138,7 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
     _workspace: Optional[str] = None
     _author_is_current_user: Optional[bool] = None
     _author_rids: Optional[List[str]] = None
+    _is_archived: Optional[bool] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -35155,7 +35156,8 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             'not_': ConjureFieldDefinition('not', scout_checks_api_ChecklistSearchQuery),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
             'author_is_current_user': ConjureFieldDefinition('authorIsCurrentUser', bool),
-            'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid])
+            'author_rids': ConjureFieldDefinition('authorRids', List[scout_rids_api_UserRid]),
+            'is_archived': ConjureFieldDefinition('isArchived', bool)
         }
 
     def __init__(
@@ -35174,10 +35176,11 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             workspace: Optional[str] = None,
             author_is_current_user: Optional[bool] = None,
             author_rids: Optional[List[str]] = None,
+            is_archived: Optional[bool] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) != 1:
+            if (and_ is not None) + (or_ is not None) + (search_text is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (author_rid is not None) + (assignee_rid is not None) + (is_published is not None) + (not_ is not None) + (workspace is not None) + (author_is_current_user is not None) + (author_rids is not None) + (is_archived is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if and_ is not None:
@@ -35222,6 +35225,9 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             if author_rids is not None:
                 self._author_rids = author_rids
                 self._type = 'authorRids'
+            if is_archived is not None:
+                self._is_archived = is_archived
+                self._type = 'isArchived'
 
         elif type_of_union == 'and':
             if and_ is None:
@@ -35293,6 +35299,11 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._author_rids = author_rids
             self._type = 'authorRids'
+        elif type_of_union == 'isArchived':
+            if is_archived is None:
+                raise ValueError('a union value must not be None')
+            self._is_archived = is_archived
+            self._type = 'isArchived'
 
     @builtins.property
     def and_(self) -> Optional[List["scout_checks_api_ChecklistSearchQuery"]]:
@@ -35350,6 +35361,10 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
     def author_rids(self) -> Optional[List[str]]:
         return self._author_rids
 
+    @builtins.property
+    def is_archived(self) -> Optional[bool]:
+        return self._is_archived
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_checks_api_ChecklistSearchQueryVisitor):
             raise ValueError('{} is not an instance of scout_checks_api_ChecklistSearchQueryVisitor'.format(visitor.__class__.__name__))
@@ -35381,6 +35396,8 @@ class scout_checks_api_ChecklistSearchQuery(ConjureUnionType):
             return visitor._author_is_current_user(self.author_is_current_user)
         if self._type == 'authorRids' and self.author_rids is not None:
             return visitor._author_rids(self.author_rids)
+        if self._type == 'isArchived' and self.is_archived is not None:
+            return visitor._is_archived(self.is_archived)
 
 
 scout_checks_api_ChecklistSearchQuery.__name__ = "ChecklistSearchQuery"
@@ -35444,6 +35461,10 @@ class scout_checks_api_ChecklistSearchQueryVisitor:
 
     @abstractmethod
     def _author_rids(self, author_rids: List[str]) -> Any:
+        pass
+
+    @abstractmethod
+    def _is_archived(self, is_archived: bool) -> Any:
         pass
 
 
@@ -37220,8 +37241,6 @@ class scout_checks_api_SearchChecklistsRequest(ConjureBeanType):
 
     @builtins.property
     def archived_statuses(self) -> Optional[List["api_ArchivedStatus"]]:
-        """Default search status is NOT_ARCHIVED if none are provided. Allows for including archived checklists in search.
-        """
         return self._archived_statuses
 
 
@@ -80621,16 +80640,14 @@ class scout_savedviews_api_AssetSearchState(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_asset_api_AssetSortOptions]),
-            'query': ConjureFieldDefinition('query', scout_asset_api_SearchAssetsQuery),
-            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+            'query': ConjureFieldDefinition('query', scout_asset_api_SearchAssetsQuery)
         }
 
-    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+    __slots__: List[str] = ['_sort', '_query']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_asset_api_SearchAssetsQuery", sort: Optional["scout_asset_api_AssetSortOptions"] = None) -> None:
+    def __init__(self, query: "scout_asset_api_SearchAssetsQuery", sort: Optional["scout_asset_api_AssetSortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
-        self._archived_statuses = archived_statuses
 
     @builtins.property
     def sort(self) -> Optional["scout_asset_api_AssetSortOptions"]:
@@ -80639,10 +80656,6 @@ class scout_savedviews_api_AssetSearchState(ConjureBeanType):
     @builtins.property
     def query(self) -> "scout_asset_api_SearchAssetsQuery":
         return self._query
-
-    @builtins.property
-    def archived_statuses(self) -> List["api_ArchivedStatus"]:
-        return self._archived_statuses
 
 
 scout_savedviews_api_AssetSearchState.__name__ = "AssetSearchState"
@@ -80679,16 +80692,14 @@ class scout_savedviews_api_ChecklistSearchState(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_checks_api_SortOptions]),
-            'query': ConjureFieldDefinition('query', scout_checks_api_ChecklistSearchQuery),
-            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+            'query': ConjureFieldDefinition('query', scout_checks_api_ChecklistSearchQuery)
         }
 
-    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+    __slots__: List[str] = ['_sort', '_query']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_checks_api_ChecklistSearchQuery", sort: Optional["scout_checks_api_SortOptions"] = None) -> None:
+    def __init__(self, query: "scout_checks_api_ChecklistSearchQuery", sort: Optional["scout_checks_api_SortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
-        self._archived_statuses = archived_statuses
 
     @builtins.property
     def sort(self) -> Optional["scout_checks_api_SortOptions"]:
@@ -80697,10 +80708,6 @@ class scout_savedviews_api_ChecklistSearchState(ConjureBeanType):
     @builtins.property
     def query(self) -> "scout_checks_api_ChecklistSearchQuery":
         return self._query
-
-    @builtins.property
-    def archived_statuses(self) -> List["api_ArchivedStatus"]:
-        return self._archived_statuses
 
 
 scout_savedviews_api_ChecklistSearchState.__name__ = "ChecklistSearchState"
@@ -80922,16 +80929,14 @@ class scout_savedviews_api_RunSearchState(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'sort': ConjureFieldDefinition('sort', OptionalTypeWrapper[scout_run_api_SortOptions]),
-            'query': ConjureFieldDefinition('query', scout_run_api_SearchQuery),
-            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+            'query': ConjureFieldDefinition('query', scout_run_api_SearchQuery)
         }
 
-    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+    __slots__: List[str] = ['_sort', '_query']
 
-    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_run_api_SearchQuery", sort: Optional["scout_run_api_SortOptions"] = None) -> None:
+    def __init__(self, query: "scout_run_api_SearchQuery", sort: Optional["scout_run_api_SortOptions"] = None) -> None:
         self._sort = sort
         self._query = query
-        self._archived_statuses = archived_statuses
 
     @builtins.property
     def sort(self) -> Optional["scout_run_api_SortOptions"]:
@@ -80940,10 +80945,6 @@ class scout_savedviews_api_RunSearchState(ConjureBeanType):
     @builtins.property
     def query(self) -> "scout_run_api_SearchQuery":
         return self._query
-
-    @builtins.property
-    def archived_statuses(self) -> List["api_ArchivedStatus"]:
-        return self._archived_statuses
 
 
 scout_savedviews_api_RunSearchState.__name__ = "RunSearchState"
@@ -87973,7 +87974,7 @@ class secrets_api_SecretService(Service):
     """
 
     def create(self, auth_header: str, request: "secrets_api_CreateSecretRequest") -> "secrets_api_Secret":
-        """Create a new secret. The secret value is immutable after creation.
+        """Create a new secret.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -88286,16 +88287,18 @@ class secrets_api_UpdateSecretRequest(ConjureBeanType):
             'name': ConjureFieldDefinition('name', OptionalTypeWrapper[str]),
             'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
             'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
-            'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]])
+            'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
+            'decrypted_value': ConjureFieldDefinition('decryptedValue', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_name', '_description', '_properties', '_labels']
+    __slots__: List[str] = ['_name', '_description', '_properties', '_labels', '_decrypted_value']
 
-    def __init__(self, description: Optional[str] = None, labels: Optional[List[str]] = None, name: Optional[str] = None, properties: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, decrypted_value: Optional[str] = None, description: Optional[str] = None, labels: Optional[List[str]] = None, name: Optional[str] = None, properties: Optional[Dict[str, str]] = None) -> None:
         self._name = name
         self._description = description
         self._properties = properties
         self._labels = labels
+        self._decrypted_value = decrypted_value
 
     @builtins.property
     def name(self) -> Optional[str]:
@@ -88312,6 +88315,10 @@ class secrets_api_UpdateSecretRequest(ConjureBeanType):
     @builtins.property
     def labels(self) -> Optional[List[str]]:
         return self._labels
+
+    @builtins.property
+    def decrypted_value(self) -> Optional[str]:
+        return self._decrypted_value
 
 
 secrets_api_UpdateSecretRequest.__name__ = "UpdateSecretRequest"

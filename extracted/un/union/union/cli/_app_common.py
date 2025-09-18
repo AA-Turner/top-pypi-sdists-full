@@ -84,6 +84,7 @@ class ApplicationForFileGroup(click.RichGroup):
         self.project = project
         self.domain = domain
         self.debug = debug
+        # self.commands = self._get_commands()
 
     @property
     def apps(self) -> Dict[str, App]:
@@ -99,9 +100,8 @@ class ApplicationForFileGroup(click.RichGroup):
             spec = importlib.util.spec_from_file_location(module_name, self.filename)
             module = importlib.util.module_from_spec(spec)
             sys.modules[module_name] = module
-
-            sys.path.append(os.fspath(module_path))
             spec.loader.exec_module(module)
+            sys.path.append(os.fspath(module_path))
 
             from union.app._models import APP_REGISTRY
 
@@ -117,6 +117,23 @@ class ApplicationForFileGroup(click.RichGroup):
                 for k, v in APP_REGISTRY.apps.items()
             }
             return self._apps
+
+    def _get_commands(self, ctx: click.Context):
+        commands = {}
+        apps = self.apps
+        for app_name in apps.keys():
+            commands[app_name] = ApplicationCommand(
+                app=apps[app_name],
+                name=app_name,
+                project=ctx.params.get("project", _DEFAULT_PROJECT_BYOC),
+                domain=ctx.params.get("domain", _DEFAULT_DOMAIN),
+                debug=ctx.params.get("debug", False),
+            )
+        return commands
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        self.commands = self._get_commands(ctx)
+        super().format_help(ctx, formatter)
 
     def list_commands(self, ctx):
         return list(self.apps.keys())
@@ -187,6 +204,19 @@ class DeployApplicationGroupForFiles(click.RichGroup):
             self._files = [os.fspath(p) for p in Path(".").glob("*.py") if p.name != "__init__.py"]
             return self._files
 
+    def _get_commands(self, ctx: click.Context):
+        commands = {}
+        for filename in self.files:
+            commands[filename] = ApplicationForFileGroup(
+                filename=Path(filename),
+                name=filename,
+                help=f"{self.command_name} application in {filename}",
+                project=ctx.params.get("project", _DEFAULT_PROJECT_BYOC),
+                domain=ctx.params.get("domain", _DEFAULT_DOMAIN),
+                debug=ctx.params.get("debug", False),
+            )
+        return commands
+
     def invoke(self, ctx):
         if "name" in ctx.params and not ctx.protected_args:
             # Command is invoked with just `--name`
@@ -202,10 +232,14 @@ class DeployApplicationGroupForFiles(click.RichGroup):
 
         return super().invoke(ctx)
 
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        self.commands = self._get_commands(ctx)
+        super().format_help(ctx, formatter)
+
     def list_commands(self, ctx):
         return self.files
 
-    def get_command(self, ctx, filename):
+    def get_command(self, ctx: click.Context, filename: str) -> click.Command:
         return ApplicationForFileGroup(
             filename=Path(filename),
             name=filename,

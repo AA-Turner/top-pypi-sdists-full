@@ -184,6 +184,28 @@ class Tuple_String_String(google.protobuf.message.Message):
 global___Tuple_String_String = Tuple_String_String
 
 @typing.final
+class AiSplitTextRecursiveFormat(google.protobuf.message.Message):
+    """dataframe-ai.ir:5"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    AI_SPLIT_TEXT_RECURSIVE_FORMAT_MARKDOWN_FIELD_NUMBER: builtins.int
+    AI_SPLIT_TEXT_RECURSIVE_FORMAT_NONE_FIELD_NUMBER: builtins.int
+    ai_split_text_recursive_format_markdown: builtins.bool
+    ai_split_text_recursive_format_none: builtins.bool
+    def __init__(
+        self,
+        *,
+        ai_split_text_recursive_format_markdown: builtins.bool = ...,
+        ai_split_text_recursive_format_none: builtins.bool = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["ai_split_text_recursive_format_markdown", b"ai_split_text_recursive_format_markdown", "ai_split_text_recursive_format_none", b"ai_split_text_recursive_format_none", "variant", b"variant"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["ai_split_text_recursive_format_markdown", b"ai_split_text_recursive_format_markdown", "ai_split_text_recursive_format_none", b"ai_split_text_recursive_format_none", "variant", b"variant"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["variant", b"variant"]) -> typing.Literal["ai_split_text_recursive_format_markdown", "ai_split_text_recursive_format_none"] | None: ...
+
+global___AiSplitTextRecursiveFormat = AiSplitTextRecursiveFormat
+
+@typing.final
 class Callable(google.protobuf.message.Message):
     """fn.ir:25"""
 
@@ -2629,6 +2651,518 @@ class DataframeAgg(google.protobuf.message.Message):
 global___DataframeAgg = DataframeAgg
 
 @typing.final
+class DataframeAiAgg(google.protobuf.message.Message):
+    """dataframe-ai.ir:25"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    TASK_DESCRIPTION_FIELD_NUMBER: builtins.int
+    task_description: builtins.str
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+        task_description: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src", "task_description", b"task_description"]) -> None: ...
+
+global___DataframeAiAgg = DataframeAiAgg
+
+@typing.final
+class DataframeAiClassify(google.protobuf.message.Message):
+    """dataframe-ai.ir:32"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CATEGORIES_FIELD_NUMBER: builtins.int
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    KWARGS_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def categories(self) -> global___Expr: ...
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def kwargs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        categories: global___Expr | None = ...,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        kwargs: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["categories", b"categories", "df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["categories", b"categories", "df", b"df", "input_column", b"input_column", "kwargs", b"kwargs", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiClassify = DataframeAiClassify
+
+@typing.final
+class DataframeAiComplete(google.protobuf.message.Message):
+    """dataframe-ai.ir:10"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMNS_FIELD_NUMBER: builtins.int
+    MODEL_FIELD_NUMBER: builtins.int
+    MODEL_PARAMETERS_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    PROMPT_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    model: builtins.str
+    prompt: builtins.str
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_columns(self) -> global___Expr: ...
+    @property
+    def model_parameters(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_columns: global___Expr | None = ...,
+        model: builtins.str = ...,
+        model_parameters: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        prompt: builtins.str = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_columns", b"input_columns", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_columns", b"input_columns", "model", b"model", "model_parameters", b"model_parameters", "output_column", b"output_column", "prompt", b"prompt", "src", b"src"]) -> None: ...
+
+global___DataframeAiComplete = DataframeAiComplete
+
+@typing.final
+class DataframeAiCountTokens(google.protobuf.message.Message):
+    """dataframe-ai.ir:89"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    MODEL_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    PROMPT_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    model: builtins.str
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def prompt(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        model: builtins.str = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        prompt: global___Expr | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "output_column", b"output_column", "prompt", b"prompt", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "model", b"model", "output_column", b"output_column", "prompt", b"prompt", "src", b"src"]) -> None: ...
+
+global___DataframeAiCountTokens = DataframeAiCountTokens
+
+@typing.final
+class DataframeAiEmbed(google.protobuf.message.Message):
+    """dataframe-ai.ir:55"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    MODEL_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    model: builtins.str
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        model: builtins.str = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "model", b"model", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiEmbed = DataframeAiEmbed
+
+@typing.final
+class DataframeAiExtract(google.protobuf.message.Message):
+    """dataframe-ai.ir:82"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    RESPONSE_FORMAT_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def response_format(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        response_format: global___Expr | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "response_format", b"response_format", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "response_format", b"response_format", "src", b"src"]) -> None: ...
+
+global___DataframeAiExtract = DataframeAiExtract
+
+@typing.final
+class DataframeAiFilter(google.protobuf.message.Message):
+    """dataframe-ai.ir:19"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMNS_FIELD_NUMBER: builtins.int
+    PREDICATE_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    predicate: builtins.str
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_columns(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_columns: global___Expr | None = ...,
+        predicate: builtins.str = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_columns", b"input_columns", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_columns", b"input_columns", "predicate", b"predicate", "src", b"src"]) -> None: ...
+
+global___DataframeAiFilter = DataframeAiFilter
+
+@typing.final
+class DataframeAiParseDocument(google.protobuf.message.Message):
+    """dataframe-ai.ir:75"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    KWARGS_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def kwargs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        kwargs: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "kwargs", b"kwargs", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiParseDocument = DataframeAiParseDocument
+
+@typing.final
+class DataframeAiSentiment(google.protobuf.message.Message):
+    """dataframe-ai.ir:48"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CATEGORIES_FIELD_NUMBER: builtins.int
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def categories(self) -> global___Expr: ...
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        categories: global___Expr | None = ...,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["categories", b"categories", "df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["categories", b"categories", "df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiSentiment = DataframeAiSentiment
+
+@typing.final
+class DataframeAiSimilarity(google.protobuf.message.Message):
+    """dataframe-ai.ir:40"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT1_FIELD_NUMBER: builtins.int
+    INPUT2_FIELD_NUMBER: builtins.int
+    KWARGS_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input1(self) -> global___Expr: ...
+    @property
+    def input2(self) -> global___Expr: ...
+    @property
+    def kwargs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input1: global___Expr | None = ...,
+        input2: global___Expr | None = ...,
+        kwargs: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input1", b"input1", "input2", b"input2", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input1", b"input1", "input2", b"input2", "kwargs", b"kwargs", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiSimilarity = DataframeAiSimilarity
+
+@typing.final
+class DataframeAiSplitTextMarkdownHeader(google.protobuf.message.Message):
+    """dataframe-ai.ir:96"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CHUNK_SIZE_FIELD_NUMBER: builtins.int
+    DF_FIELD_NUMBER: builtins.int
+    HEADERS_TO_SPLIT_ON_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OVERLAP_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    TEXT_TO_SPLIT_FIELD_NUMBER: builtins.int
+    @property
+    def chunk_size(self) -> global___Expr: ...
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def headers_to_split_on(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def overlap(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    @property
+    def text_to_split(self) -> global___Expr: ...
+    def __init__(
+        self,
+        *,
+        chunk_size: global___Expr | None = ...,
+        df: global___Expr | None = ...,
+        headers_to_split_on: global___Expr | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        overlap: global___Expr | None = ...,
+        src: global___SrcPosition | None = ...,
+        text_to_split: global___Expr | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["chunk_size", b"chunk_size", "df", b"df", "headers_to_split_on", b"headers_to_split_on", "output_column", b"output_column", "overlap", b"overlap", "src", b"src", "text_to_split", b"text_to_split"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["chunk_size", b"chunk_size", "df", b"df", "headers_to_split_on", b"headers_to_split_on", "output_column", b"output_column", "overlap", b"overlap", "src", b"src", "text_to_split", b"text_to_split"]) -> None: ...
+
+global___DataframeAiSplitTextMarkdownHeader = DataframeAiSplitTextMarkdownHeader
+
+@typing.final
+class DataframeAiSplitTextRecursiveCharacter(google.protobuf.message.Message):
+    """dataframe-ai.ir:105"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CHUNK_SIZE_FIELD_NUMBER: builtins.int
+    DF_FIELD_NUMBER: builtins.int
+    FORMAT_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OVERLAP_FIELD_NUMBER: builtins.int
+    SEPARATORS_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    TEXT_TO_SPLIT_FIELD_NUMBER: builtins.int
+    @property
+    def chunk_size(self) -> global___Expr: ...
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def format(self) -> global___AiSplitTextRecursiveFormat: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def overlap(self) -> global___Expr: ...
+    @property
+    def separators(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    @property
+    def text_to_split(self) -> global___Expr: ...
+    def __init__(
+        self,
+        *,
+        chunk_size: global___Expr | None = ...,
+        df: global___Expr | None = ...,
+        format: global___AiSplitTextRecursiveFormat | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        overlap: global___Expr | None = ...,
+        separators: global___Expr | None = ...,
+        src: global___SrcPosition | None = ...,
+        text_to_split: global___Expr | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["chunk_size", b"chunk_size", "df", b"df", "format", b"format", "output_column", b"output_column", "overlap", b"overlap", "separators", b"separators", "src", b"src", "text_to_split", b"text_to_split"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["chunk_size", b"chunk_size", "df", b"df", "format", b"format", "output_column", b"output_column", "overlap", b"overlap", "separators", b"separators", "src", b"src", "text_to_split", b"text_to_split"]) -> None: ...
+
+global___DataframeAiSplitTextRecursiveCharacter = DataframeAiSplitTextRecursiveCharacter
+
+@typing.final
+class DataframeAiSummarizeAgg(google.protobuf.message.Message):
+    """dataframe-ai.ir:62"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiSummarizeAgg = DataframeAiSummarizeAgg
+
+@typing.final
+class DataframeAiTranscribe(google.protobuf.message.Message):
+    """dataframe-ai.ir:68"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DF_FIELD_NUMBER: builtins.int
+    INPUT_COLUMN_FIELD_NUMBER: builtins.int
+    KWARGS_FIELD_NUMBER: builtins.int
+    OUTPUT_COLUMN_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    @property
+    def df(self) -> global___Expr: ...
+    @property
+    def input_column(self) -> global___Expr: ...
+    @property
+    def kwargs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Tuple_String_Expr]: ...
+    @property
+    def output_column(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        df: global___Expr | None = ...,
+        input_column: global___Expr | None = ...,
+        kwargs: collections.abc.Iterable[global___Tuple_String_Expr] | None = ...,
+        output_column: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        src: global___SrcPosition | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "output_column", b"output_column", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["df", b"df", "input_column", b"input_column", "kwargs", b"kwargs", "output_column", b"output_column", "src", b"src"]) -> None: ...
+
+global___DataframeAiTranscribe = DataframeAiTranscribe
+
+@typing.final
 class DataframeAlias(google.protobuf.message.Message):
     """dataframe.ir:180"""
 
@@ -2994,7 +3528,7 @@ global___DataframeCollect = DataframeCollect
 
 @typing.final
 class DataframeCopyIntoTable(google.protobuf.message.Message):
-    """dataframe-io.ir:163"""
+    """dataframe-io.ir:165"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3087,12 +3621,13 @@ global___DataframeCount = DataframeCount
 
 @typing.final
 class DataframeCreateOrReplaceDynamicTable(google.protobuf.message.Message):
-    """dataframe-io.ir:147"""
+    """dataframe-io.ir:148"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CLUSTERING_KEYS_FIELD_NUMBER: builtins.int
     COMMENT_FIELD_NUMBER: builtins.int
+    COPY_GRANTS_FIELD_NUMBER: builtins.int
     DATA_RETENTION_TIME_FIELD_NUMBER: builtins.int
     DF_FIELD_NUMBER: builtins.int
     INITIALIZE_FIELD_NUMBER: builtins.int
@@ -3105,6 +3640,7 @@ class DataframeCreateOrReplaceDynamicTable(google.protobuf.message.Message):
     SRC_FIELD_NUMBER: builtins.int
     STATEMENT_PARAMS_FIELD_NUMBER: builtins.int
     WAREHOUSE_FIELD_NUMBER: builtins.int
+    copy_grants: builtins.bool
     is_transient: builtins.bool
     lag: builtins.str
     warehouse: builtins.str
@@ -3135,6 +3671,7 @@ class DataframeCreateOrReplaceDynamicTable(google.protobuf.message.Message):
         *,
         clustering_keys: collections.abc.Iterable[global___Expr] | None = ...,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        copy_grants: builtins.bool = ...,
         data_retention_time: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         df: global___Expr | None = ...,
         initialize: google.protobuf.wrappers_pb2.StringValue | None = ...,
@@ -3149,7 +3686,7 @@ class DataframeCreateOrReplaceDynamicTable(google.protobuf.message.Message):
         warehouse: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["comment", b"comment", "data_retention_time", b"data_retention_time", "df", b"df", "initialize", b"initialize", "max_data_extension_time", b"max_data_extension_time", "mode", b"mode", "name", b"name", "refresh_mode", b"refresh_mode", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["clustering_keys", b"clustering_keys", "comment", b"comment", "data_retention_time", b"data_retention_time", "df", b"df", "initialize", b"initialize", "is_transient", b"is_transient", "lag", b"lag", "max_data_extension_time", b"max_data_extension_time", "mode", b"mode", "name", b"name", "refresh_mode", b"refresh_mode", "src", b"src", "statement_params", b"statement_params", "warehouse", b"warehouse"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["clustering_keys", b"clustering_keys", "comment", b"comment", "copy_grants", b"copy_grants", "data_retention_time", b"data_retention_time", "df", b"df", "initialize", b"initialize", "is_transient", b"is_transient", "lag", b"lag", "max_data_extension_time", b"max_data_extension_time", "mode", b"mode", "name", b"name", "refresh_mode", b"refresh_mode", "src", b"src", "statement_params", b"statement_params", "warehouse", b"warehouse"]) -> None: ...
 
 global___DataframeCreateOrReplaceDynamicTable = DataframeCreateOrReplaceDynamicTable
 
@@ -3160,11 +3697,13 @@ class DataframeCreateOrReplaceView(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     COMMENT_FIELD_NUMBER: builtins.int
+    COPY_GRANTS_FIELD_NUMBER: builtins.int
     DF_FIELD_NUMBER: builtins.int
     IS_TEMP_FIELD_NUMBER: builtins.int
     NAME_FIELD_NUMBER: builtins.int
     SRC_FIELD_NUMBER: builtins.int
     STATEMENT_PARAMS_FIELD_NUMBER: builtins.int
+    copy_grants: builtins.bool
     is_temp: builtins.bool
     @property
     def comment(self) -> google.protobuf.wrappers_pb2.StringValue: ...
@@ -3180,6 +3719,7 @@ class DataframeCreateOrReplaceView(google.protobuf.message.Message):
         self,
         *,
         comment: google.protobuf.wrappers_pb2.StringValue | None = ...,
+        copy_grants: builtins.bool = ...,
         df: global___Expr | None = ...,
         is_temp: builtins.bool = ...,
         name: global___NameRef | None = ...,
@@ -3187,7 +3727,7 @@ class DataframeCreateOrReplaceView(google.protobuf.message.Message):
         statement_params: collections.abc.Iterable[global___Tuple_String_String] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["comment", b"comment", "df", b"df", "name", b"name", "src", b"src"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["comment", b"comment", "df", b"df", "is_temp", b"is_temp", "name", b"name", "src", b"src", "statement_params", b"statement_params"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["comment", b"comment", "copy_grants", b"copy_grants", "df", b"df", "is_temp", b"is_temp", "name", b"name", "src", b"src", "statement_params", b"statement_params"]) -> None: ...
 
 global___DataframeCreateOrReplaceView = DataframeCreateOrReplaceView
 
@@ -4950,6 +5490,20 @@ class Expr(google.protobuf.message.Message):
     COLUMN_WITHIN_GROUP_FIELD_NUMBER: builtins.int
     CREATE_DATAFRAME_FIELD_NUMBER: builtins.int
     DATAFRAME_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_CLASSIFY_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_COMPLETE_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_COUNT_TOKENS_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_EMBED_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_EXTRACT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_FILTER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_PARSE_DOCUMENT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SENTIMENT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SIMILARITY_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SPLIT_TEXT_MARKDOWN_HEADER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SPLIT_TEXT_RECURSIVE_CHARACTER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SUMMARIZE_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_TRANSCRIBE_FIELD_NUMBER: builtins.int
     DATAFRAME_ALIAS_FIELD_NUMBER: builtins.int
     DATAFRAME_ANALYTICS_COMPUTE_LAG_FIELD_NUMBER: builtins.int
     DATAFRAME_ANALYTICS_COMPUTE_LEAD_FIELD_NUMBER: builtins.int
@@ -5054,6 +5608,7 @@ class Expr(google.protobuf.message.Message):
     READ_XML_FIELD_NUMBER: builtins.int
     REDACTED_CONST_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_AGG_FIELD_NUMBER: builtins.int
+    RELATIONAL_GROUPED_DATAFRAME_AI_AGG_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_APPLY_IN_PANDAS_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_BUILTIN_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_PIVOT_FIELD_NUMBER: builtins.int
@@ -5178,6 +5733,34 @@ class Expr(google.protobuf.message.Message):
     def create_dataframe(self) -> global___CreateDataframe: ...
     @property
     def dataframe_agg(self) -> global___DataframeAgg: ...
+    @property
+    def dataframe_ai_agg(self) -> global___DataframeAiAgg: ...
+    @property
+    def dataframe_ai_classify(self) -> global___DataframeAiClassify: ...
+    @property
+    def dataframe_ai_complete(self) -> global___DataframeAiComplete: ...
+    @property
+    def dataframe_ai_count_tokens(self) -> global___DataframeAiCountTokens: ...
+    @property
+    def dataframe_ai_embed(self) -> global___DataframeAiEmbed: ...
+    @property
+    def dataframe_ai_extract(self) -> global___DataframeAiExtract: ...
+    @property
+    def dataframe_ai_filter(self) -> global___DataframeAiFilter: ...
+    @property
+    def dataframe_ai_parse_document(self) -> global___DataframeAiParseDocument: ...
+    @property
+    def dataframe_ai_sentiment(self) -> global___DataframeAiSentiment: ...
+    @property
+    def dataframe_ai_similarity(self) -> global___DataframeAiSimilarity: ...
+    @property
+    def dataframe_ai_split_text_markdown_header(self) -> global___DataframeAiSplitTextMarkdownHeader: ...
+    @property
+    def dataframe_ai_split_text_recursive_character(self) -> global___DataframeAiSplitTextRecursiveCharacter: ...
+    @property
+    def dataframe_ai_summarize_agg(self) -> global___DataframeAiSummarizeAgg: ...
+    @property
+    def dataframe_ai_transcribe(self) -> global___DataframeAiTranscribe: ...
     @property
     def dataframe_alias(self) -> global___DataframeAlias: ...
     @property
@@ -5383,6 +5966,8 @@ class Expr(google.protobuf.message.Message):
     @property
     def relational_grouped_dataframe_agg(self) -> global___RelationalGroupedDataframeAgg: ...
     @property
+    def relational_grouped_dataframe_ai_agg(self) -> global___RelationalGroupedDataframeAiAgg: ...
+    @property
     def relational_grouped_dataframe_apply_in_pandas(self) -> global___RelationalGroupedDataframeApplyInPandas: ...
     @property
     def relational_grouped_dataframe_builtin(self) -> global___RelationalGroupedDataframeBuiltin: ...
@@ -5498,6 +6083,20 @@ class Expr(google.protobuf.message.Message):
         column_within_group: global___ColumnWithinGroup | None = ...,
         create_dataframe: global___CreateDataframe | None = ...,
         dataframe_agg: global___DataframeAgg | None = ...,
+        dataframe_ai_agg: global___DataframeAiAgg | None = ...,
+        dataframe_ai_classify: global___DataframeAiClassify | None = ...,
+        dataframe_ai_complete: global___DataframeAiComplete | None = ...,
+        dataframe_ai_count_tokens: global___DataframeAiCountTokens | None = ...,
+        dataframe_ai_embed: global___DataframeAiEmbed | None = ...,
+        dataframe_ai_extract: global___DataframeAiExtract | None = ...,
+        dataframe_ai_filter: global___DataframeAiFilter | None = ...,
+        dataframe_ai_parse_document: global___DataframeAiParseDocument | None = ...,
+        dataframe_ai_sentiment: global___DataframeAiSentiment | None = ...,
+        dataframe_ai_similarity: global___DataframeAiSimilarity | None = ...,
+        dataframe_ai_split_text_markdown_header: global___DataframeAiSplitTextMarkdownHeader | None = ...,
+        dataframe_ai_split_text_recursive_character: global___DataframeAiSplitTextRecursiveCharacter | None = ...,
+        dataframe_ai_summarize_agg: global___DataframeAiSummarizeAgg | None = ...,
+        dataframe_ai_transcribe: global___DataframeAiTranscribe | None = ...,
         dataframe_alias: global___DataframeAlias | None = ...,
         dataframe_analytics_compute_lag: global___DataframeAnalyticsComputeLag | None = ...,
         dataframe_analytics_compute_lead: global___DataframeAnalyticsComputeLead | None = ...,
@@ -5600,6 +6199,7 @@ class Expr(google.protobuf.message.Message):
         read_xml: global___ReadXml | None = ...,
         redacted_const: global___RedactedConst | None = ...,
         relational_grouped_dataframe_agg: global___RelationalGroupedDataframeAgg | None = ...,
+        relational_grouped_dataframe_ai_agg: global___RelationalGroupedDataframeAiAgg | None = ...,
         relational_grouped_dataframe_apply_in_pandas: global___RelationalGroupedDataframeApplyInPandas | None = ...,
         relational_grouped_dataframe_builtin: global___RelationalGroupedDataframeBuiltin | None = ...,
         relational_grouped_dataframe_pivot: global___RelationalGroupedDataframePivot | None = ...,
@@ -5635,9 +6235,9 @@ class Expr(google.protobuf.message.Message):
         write_save: global___WriteSave | None = ...,
         write_table: global___WriteTable | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["variant", b"variant"]) -> typing.Literal["trait_bin_op", "trait_column_fn", "trait_const", "trait_extension_expr", "trait_fn_id_ref_expr", "trait_fn_name_ref_expr", "trait_read_file", "trait_unary_op", "trait_write_file", "add", "and", "apply_expr", "big_decimal_val", "big_int_val", "binary_val", "bit_and", "bit_or", "bit_xor", "bool_val", "builtin_fn", "call_table_function_expr", "column_alias", "column_apply__int", "column_apply__string", "column_asc", "column_between", "column_case_expr", "column_cast", "column_desc", "column_equal_nan", "column_equal_null", "column_in", "column_is_not_null", "column_is_null", "column_over", "column_regexp", "column_string_collate", "column_string_contains", "column_string_ends_with", "column_string_like", "column_string_starts_with", "column_string_substr", "column_try_cast", "column_within_group", "create_dataframe", "dataframe_agg", "dataframe_alias", "dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", "dataframe_cache_result", "dataframe_col", "dataframe_col_ilike", "dataframe_collect", "dataframe_copy_into_table", "dataframe_count", "dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", "dataframe_cross_join", "dataframe_cube", "dataframe_describe", "dataframe_distinct", "dataframe_drop", "dataframe_drop_duplicates", "dataframe_except", "dataframe_filter", "dataframe_first", "dataframe_flatten", "dataframe_group_by", "dataframe_group_by_grouping_sets", "dataframe_intersect", "dataframe_join", "dataframe_join_table_function", "dataframe_limit", "dataframe_na_drop__python", "dataframe_na_drop__scala", "dataframe_na_fill", "dataframe_na_replace", "dataframe_natural_join", "dataframe_pivot", "dataframe_random_split", "dataframe_reader", "dataframe_ref", "dataframe_rename", "dataframe_rollup", "dataframe_sample", "dataframe_select", "dataframe_show", "dataframe_sort", "dataframe_stat_approx_quantile", "dataframe_stat_corr", "dataframe_stat_cov", "dataframe_stat_cross_tab", "dataframe_stat_sample_by", "dataframe_to_df", "dataframe_to_local_iterator", "dataframe_to_pandas", "dataframe_to_pandas_batches", "dataframe_union", "dataframe_unpivot", "dataframe_with_column", "dataframe_with_column_renamed", "dataframe_with_columns", "dataframe_writer", "datatype_val", "directory", "div", "eq", "flatten", "float64_val", "fn_ref", "generator", "geq", "grouping_sets", "gt", "indirect_table_fn_id_ref", "indirect_table_fn_name_ref", "int64_val", "leq", "list_val", "lt", "merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", "mod", "mul", "neg", "neq", "not", "null_val", "object_get_item", "or", "pow", "python_date_val", "python_time_val", "python_timestamp_val", "range", "read_avro", "read_csv", "read_directory", "read_json", "read_load", "read_orc", "read_parquet", "read_table", "read_xml", "redacted_const", "relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", "row", "seq_map_val", "session_table_function", "sql", "sql_expr", "stored_procedure", "string_val", "sub", "table", "table_delete", "table_drop_table", "table_fn_call_alias", "table_fn_call_over", "table_merge", "table_sample", "table_update", "to_snowpark_pandas", "truncated_expr", "tuple_val", "udaf", "udf", "udtf", "write_copy_into_location", "write_csv", "write_insert_into", "write_json", "write_pandas", "write_parquet", "write_save", "write_table"] | None: ...
+    def HasField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_ai_agg", b"dataframe_ai_agg", "dataframe_ai_classify", b"dataframe_ai_classify", "dataframe_ai_complete", b"dataframe_ai_complete", "dataframe_ai_count_tokens", b"dataframe_ai_count_tokens", "dataframe_ai_embed", b"dataframe_ai_embed", "dataframe_ai_extract", b"dataframe_ai_extract", "dataframe_ai_filter", b"dataframe_ai_filter", "dataframe_ai_parse_document", b"dataframe_ai_parse_document", "dataframe_ai_sentiment", b"dataframe_ai_sentiment", "dataframe_ai_similarity", b"dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", b"dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", b"dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", b"dataframe_ai_summarize_agg", "dataframe_ai_transcribe", b"dataframe_ai_transcribe", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", b"relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_ai_agg", b"dataframe_ai_agg", "dataframe_ai_classify", b"dataframe_ai_classify", "dataframe_ai_complete", b"dataframe_ai_complete", "dataframe_ai_count_tokens", b"dataframe_ai_count_tokens", "dataframe_ai_embed", b"dataframe_ai_embed", "dataframe_ai_extract", b"dataframe_ai_extract", "dataframe_ai_filter", b"dataframe_ai_filter", "dataframe_ai_parse_document", b"dataframe_ai_parse_document", "dataframe_ai_sentiment", b"dataframe_ai_sentiment", "dataframe_ai_similarity", b"dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", b"dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", b"dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", b"dataframe_ai_summarize_agg", "dataframe_ai_transcribe", b"dataframe_ai_transcribe", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", b"relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["variant", b"variant"]) -> typing.Literal["trait_bin_op", "trait_column_fn", "trait_const", "trait_extension_expr", "trait_fn_id_ref_expr", "trait_fn_name_ref_expr", "trait_read_file", "trait_unary_op", "trait_write_file", "add", "and", "apply_expr", "big_decimal_val", "big_int_val", "binary_val", "bit_and", "bit_or", "bit_xor", "bool_val", "builtin_fn", "call_table_function_expr", "column_alias", "column_apply__int", "column_apply__string", "column_asc", "column_between", "column_case_expr", "column_cast", "column_desc", "column_equal_nan", "column_equal_null", "column_in", "column_is_not_null", "column_is_null", "column_over", "column_regexp", "column_string_collate", "column_string_contains", "column_string_ends_with", "column_string_like", "column_string_starts_with", "column_string_substr", "column_try_cast", "column_within_group", "create_dataframe", "dataframe_agg", "dataframe_ai_agg", "dataframe_ai_classify", "dataframe_ai_complete", "dataframe_ai_count_tokens", "dataframe_ai_embed", "dataframe_ai_extract", "dataframe_ai_filter", "dataframe_ai_parse_document", "dataframe_ai_sentiment", "dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", "dataframe_ai_transcribe", "dataframe_alias", "dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", "dataframe_cache_result", "dataframe_col", "dataframe_col_ilike", "dataframe_collect", "dataframe_copy_into_table", "dataframe_count", "dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", "dataframe_cross_join", "dataframe_cube", "dataframe_describe", "dataframe_distinct", "dataframe_drop", "dataframe_drop_duplicates", "dataframe_except", "dataframe_filter", "dataframe_first", "dataframe_flatten", "dataframe_group_by", "dataframe_group_by_grouping_sets", "dataframe_intersect", "dataframe_join", "dataframe_join_table_function", "dataframe_limit", "dataframe_na_drop__python", "dataframe_na_drop__scala", "dataframe_na_fill", "dataframe_na_replace", "dataframe_natural_join", "dataframe_pivot", "dataframe_random_split", "dataframe_reader", "dataframe_ref", "dataframe_rename", "dataframe_rollup", "dataframe_sample", "dataframe_select", "dataframe_show", "dataframe_sort", "dataframe_stat_approx_quantile", "dataframe_stat_corr", "dataframe_stat_cov", "dataframe_stat_cross_tab", "dataframe_stat_sample_by", "dataframe_to_df", "dataframe_to_local_iterator", "dataframe_to_pandas", "dataframe_to_pandas_batches", "dataframe_union", "dataframe_unpivot", "dataframe_with_column", "dataframe_with_column_renamed", "dataframe_with_columns", "dataframe_writer", "datatype_val", "directory", "div", "eq", "flatten", "float64_val", "fn_ref", "generator", "geq", "grouping_sets", "gt", "indirect_table_fn_id_ref", "indirect_table_fn_name_ref", "int64_val", "leq", "list_val", "lt", "merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", "mod", "mul", "neg", "neq", "not", "null_val", "object_get_item", "or", "pow", "python_date_val", "python_time_val", "python_timestamp_val", "range", "read_avro", "read_csv", "read_directory", "read_json", "read_load", "read_orc", "read_parquet", "read_table", "read_xml", "redacted_const", "relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", "row", "seq_map_val", "session_table_function", "sql", "sql_expr", "stored_procedure", "string_val", "sub", "table", "table_delete", "table_drop_table", "table_fn_call_alias", "table_fn_call_over", "table_merge", "table_sample", "table_update", "to_snowpark_pandas", "truncated_expr", "tuple_val", "udaf", "udf", "udtf", "write_copy_into_location", "write_csv", "write_insert_into", "write_json", "write_pandas", "write_parquet", "write_save", "write_table"] | None: ...
 
 global___Expr = Expr
 
@@ -6052,6 +6652,20 @@ class HasSrcPosition(google.protobuf.message.Message):
     COLUMN_WITHIN_GROUP_FIELD_NUMBER: builtins.int
     CREATE_DATAFRAME_FIELD_NUMBER: builtins.int
     DATAFRAME_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_CLASSIFY_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_COMPLETE_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_COUNT_TOKENS_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_EMBED_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_EXTRACT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_FILTER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_PARSE_DOCUMENT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SENTIMENT_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SIMILARITY_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SPLIT_TEXT_MARKDOWN_HEADER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SPLIT_TEXT_RECURSIVE_CHARACTER_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_SUMMARIZE_AGG_FIELD_NUMBER: builtins.int
+    DATAFRAME_AI_TRANSCRIBE_FIELD_NUMBER: builtins.int
     DATAFRAME_ALIAS_FIELD_NUMBER: builtins.int
     DATAFRAME_ANALYTICS_COMPUTE_LAG_FIELD_NUMBER: builtins.int
     DATAFRAME_ANALYTICS_COMPUTE_LEAD_FIELD_NUMBER: builtins.int
@@ -6157,6 +6771,7 @@ class HasSrcPosition(google.protobuf.message.Message):
     READ_XML_FIELD_NUMBER: builtins.int
     REDACTED_CONST_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_AGG_FIELD_NUMBER: builtins.int
+    RELATIONAL_GROUPED_DATAFRAME_AI_AGG_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_APPLY_IN_PANDAS_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_BUILTIN_FIELD_NUMBER: builtins.int
     RELATIONAL_GROUPED_DATAFRAME_PIVOT_FIELD_NUMBER: builtins.int
@@ -6292,6 +6907,34 @@ class HasSrcPosition(google.protobuf.message.Message):
     def create_dataframe(self) -> global___CreateDataframe: ...
     @property
     def dataframe_agg(self) -> global___DataframeAgg: ...
+    @property
+    def dataframe_ai_agg(self) -> global___DataframeAiAgg: ...
+    @property
+    def dataframe_ai_classify(self) -> global___DataframeAiClassify: ...
+    @property
+    def dataframe_ai_complete(self) -> global___DataframeAiComplete: ...
+    @property
+    def dataframe_ai_count_tokens(self) -> global___DataframeAiCountTokens: ...
+    @property
+    def dataframe_ai_embed(self) -> global___DataframeAiEmbed: ...
+    @property
+    def dataframe_ai_extract(self) -> global___DataframeAiExtract: ...
+    @property
+    def dataframe_ai_filter(self) -> global___DataframeAiFilter: ...
+    @property
+    def dataframe_ai_parse_document(self) -> global___DataframeAiParseDocument: ...
+    @property
+    def dataframe_ai_sentiment(self) -> global___DataframeAiSentiment: ...
+    @property
+    def dataframe_ai_similarity(self) -> global___DataframeAiSimilarity: ...
+    @property
+    def dataframe_ai_split_text_markdown_header(self) -> global___DataframeAiSplitTextMarkdownHeader: ...
+    @property
+    def dataframe_ai_split_text_recursive_character(self) -> global___DataframeAiSplitTextRecursiveCharacter: ...
+    @property
+    def dataframe_ai_summarize_agg(self) -> global___DataframeAiSummarizeAgg: ...
+    @property
+    def dataframe_ai_transcribe(self) -> global___DataframeAiTranscribe: ...
     @property
     def dataframe_alias(self) -> global___DataframeAlias: ...
     @property
@@ -6499,6 +7142,8 @@ class HasSrcPosition(google.protobuf.message.Message):
     @property
     def relational_grouped_dataframe_agg(self) -> global___RelationalGroupedDataframeAgg: ...
     @property
+    def relational_grouped_dataframe_ai_agg(self) -> global___RelationalGroupedDataframeAiAgg: ...
+    @property
     def relational_grouped_dataframe_apply_in_pandas(self) -> global___RelationalGroupedDataframeApplyInPandas: ...
     @property
     def relational_grouped_dataframe_builtin(self) -> global___RelationalGroupedDataframeBuiltin: ...
@@ -6627,6 +7272,20 @@ class HasSrcPosition(google.protobuf.message.Message):
         column_within_group: global___ColumnWithinGroup | None = ...,
         create_dataframe: global___CreateDataframe | None = ...,
         dataframe_agg: global___DataframeAgg | None = ...,
+        dataframe_ai_agg: global___DataframeAiAgg | None = ...,
+        dataframe_ai_classify: global___DataframeAiClassify | None = ...,
+        dataframe_ai_complete: global___DataframeAiComplete | None = ...,
+        dataframe_ai_count_tokens: global___DataframeAiCountTokens | None = ...,
+        dataframe_ai_embed: global___DataframeAiEmbed | None = ...,
+        dataframe_ai_extract: global___DataframeAiExtract | None = ...,
+        dataframe_ai_filter: global___DataframeAiFilter | None = ...,
+        dataframe_ai_parse_document: global___DataframeAiParseDocument | None = ...,
+        dataframe_ai_sentiment: global___DataframeAiSentiment | None = ...,
+        dataframe_ai_similarity: global___DataframeAiSimilarity | None = ...,
+        dataframe_ai_split_text_markdown_header: global___DataframeAiSplitTextMarkdownHeader | None = ...,
+        dataframe_ai_split_text_recursive_character: global___DataframeAiSplitTextRecursiveCharacter | None = ...,
+        dataframe_ai_summarize_agg: global___DataframeAiSummarizeAgg | None = ...,
+        dataframe_ai_transcribe: global___DataframeAiTranscribe | None = ...,
         dataframe_alias: global___DataframeAlias | None = ...,
         dataframe_analytics_compute_lag: global___DataframeAnalyticsComputeLag | None = ...,
         dataframe_analytics_compute_lead: global___DataframeAnalyticsComputeLead | None = ...,
@@ -6730,6 +7389,7 @@ class HasSrcPosition(google.protobuf.message.Message):
         read_xml: global___ReadXml | None = ...,
         redacted_const: global___RedactedConst | None = ...,
         relational_grouped_dataframe_agg: global___RelationalGroupedDataframeAgg | None = ...,
+        relational_grouped_dataframe_ai_agg: global___RelationalGroupedDataframeAiAgg | None = ...,
         relational_grouped_dataframe_apply_in_pandas: global___RelationalGroupedDataframeApplyInPandas | None = ...,
         relational_grouped_dataframe_builtin: global___RelationalGroupedDataframeBuiltin | None = ...,
         relational_grouped_dataframe_pivot: global___RelationalGroupedDataframePivot | None = ...,
@@ -6770,9 +7430,9 @@ class HasSrcPosition(google.protobuf.message.Message):
         write_save: global___WriteSave | None = ...,
         write_table: global___WriteTable | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_case_expr_clause", b"column_case_expr_clause", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "name_ref", b"name_ref", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_expr", b"trait_expr", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_window_spec_expr", b"trait_window_spec_expr", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "window_spec_empty", b"window_spec_empty", "window_spec_order_by", b"window_spec_order_by", "window_spec_partition_by", b"window_spec_partition_by", "window_spec_range_between", b"window_spec_range_between", "window_spec_rows_between", b"window_spec_rows_between", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_case_expr_clause", b"column_case_expr_clause", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "name_ref", b"name_ref", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_expr", b"trait_expr", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_window_spec_expr", b"trait_window_spec_expr", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "window_spec_empty", b"window_spec_empty", "window_spec_order_by", b"window_spec_order_by", "window_spec_partition_by", b"window_spec_partition_by", "window_spec_range_between", b"window_spec_range_between", "window_spec_rows_between", b"window_spec_rows_between", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["variant", b"variant"]) -> typing.Literal["trait_bin_op", "trait_column_fn", "trait_const", "trait_expr", "trait_extension_expr", "trait_fn_id_ref_expr", "trait_fn_name_ref_expr", "trait_read_file", "trait_unary_op", "trait_window_spec_expr", "trait_write_file", "add", "and", "apply_expr", "big_decimal_val", "big_int_val", "binary_val", "bit_and", "bit_or", "bit_xor", "bool_val", "builtin_fn", "call_table_function_expr", "column_alias", "column_apply__int", "column_apply__string", "column_asc", "column_between", "column_case_expr", "column_case_expr_clause", "column_cast", "column_desc", "column_equal_nan", "column_equal_null", "column_in", "column_is_not_null", "column_is_null", "column_over", "column_regexp", "column_string_collate", "column_string_contains", "column_string_ends_with", "column_string_like", "column_string_starts_with", "column_string_substr", "column_try_cast", "column_within_group", "create_dataframe", "dataframe_agg", "dataframe_alias", "dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", "dataframe_cache_result", "dataframe_col", "dataframe_col_ilike", "dataframe_collect", "dataframe_copy_into_table", "dataframe_count", "dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", "dataframe_cross_join", "dataframe_cube", "dataframe_describe", "dataframe_distinct", "dataframe_drop", "dataframe_drop_duplicates", "dataframe_except", "dataframe_filter", "dataframe_first", "dataframe_flatten", "dataframe_group_by", "dataframe_group_by_grouping_sets", "dataframe_intersect", "dataframe_join", "dataframe_join_table_function", "dataframe_limit", "dataframe_na_drop__python", "dataframe_na_drop__scala", "dataframe_na_fill", "dataframe_na_replace", "dataframe_natural_join", "dataframe_pivot", "dataframe_random_split", "dataframe_reader", "dataframe_ref", "dataframe_rename", "dataframe_rollup", "dataframe_sample", "dataframe_select", "dataframe_show", "dataframe_sort", "dataframe_stat_approx_quantile", "dataframe_stat_corr", "dataframe_stat_cov", "dataframe_stat_cross_tab", "dataframe_stat_sample_by", "dataframe_to_df", "dataframe_to_local_iterator", "dataframe_to_pandas", "dataframe_to_pandas_batches", "dataframe_union", "dataframe_unpivot", "dataframe_with_column", "dataframe_with_column_renamed", "dataframe_with_columns", "dataframe_writer", "datatype_val", "directory", "div", "eq", "flatten", "float64_val", "fn_ref", "generator", "geq", "grouping_sets", "gt", "indirect_table_fn_id_ref", "indirect_table_fn_name_ref", "int64_val", "leq", "list_val", "lt", "merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", "mod", "mul", "name_ref", "neg", "neq", "not", "null_val", "object_get_item", "or", "pow", "python_date_val", "python_time_val", "python_timestamp_val", "range", "read_avro", "read_csv", "read_directory", "read_json", "read_load", "read_orc", "read_parquet", "read_table", "read_xml", "redacted_const", "relational_grouped_dataframe_agg", "relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", "row", "seq_map_val", "session_table_function", "sql", "sql_expr", "stored_procedure", "string_val", "sub", "table", "table_delete", "table_drop_table", "table_fn_call_alias", "table_fn_call_over", "table_merge", "table_sample", "table_update", "to_snowpark_pandas", "truncated_expr", "tuple_val", "udaf", "udf", "udtf", "window_spec_empty", "window_spec_order_by", "window_spec_partition_by", "window_spec_range_between", "window_spec_rows_between", "write_copy_into_location", "write_csv", "write_insert_into", "write_json", "write_pandas", "write_parquet", "write_save", "write_table"] | None: ...
+    def HasField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_case_expr_clause", b"column_case_expr_clause", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_ai_agg", b"dataframe_ai_agg", "dataframe_ai_classify", b"dataframe_ai_classify", "dataframe_ai_complete", b"dataframe_ai_complete", "dataframe_ai_count_tokens", b"dataframe_ai_count_tokens", "dataframe_ai_embed", b"dataframe_ai_embed", "dataframe_ai_extract", b"dataframe_ai_extract", "dataframe_ai_filter", b"dataframe_ai_filter", "dataframe_ai_parse_document", b"dataframe_ai_parse_document", "dataframe_ai_sentiment", b"dataframe_ai_sentiment", "dataframe_ai_similarity", b"dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", b"dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", b"dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", b"dataframe_ai_summarize_agg", "dataframe_ai_transcribe", b"dataframe_ai_transcribe", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "name_ref", b"name_ref", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", b"relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_expr", b"trait_expr", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_window_spec_expr", b"trait_window_spec_expr", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "window_spec_empty", b"window_spec_empty", "window_spec_order_by", b"window_spec_order_by", "window_spec_partition_by", b"window_spec_partition_by", "window_spec_range_between", b"window_spec_range_between", "window_spec_rows_between", b"window_spec_rows_between", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["add", b"add", "and", b"and", "apply_expr", b"apply_expr", "big_decimal_val", b"big_decimal_val", "big_int_val", b"big_int_val", "binary_val", b"binary_val", "bit_and", b"bit_and", "bit_or", b"bit_or", "bit_xor", b"bit_xor", "bool_val", b"bool_val", "builtin_fn", b"builtin_fn", "call_table_function_expr", b"call_table_function_expr", "column_alias", b"column_alias", "column_apply__int", b"column_apply__int", "column_apply__string", b"column_apply__string", "column_asc", b"column_asc", "column_between", b"column_between", "column_case_expr", b"column_case_expr", "column_case_expr_clause", b"column_case_expr_clause", "column_cast", b"column_cast", "column_desc", b"column_desc", "column_equal_nan", b"column_equal_nan", "column_equal_null", b"column_equal_null", "column_in", b"column_in", "column_is_not_null", b"column_is_not_null", "column_is_null", b"column_is_null", "column_over", b"column_over", "column_regexp", b"column_regexp", "column_string_collate", b"column_string_collate", "column_string_contains", b"column_string_contains", "column_string_ends_with", b"column_string_ends_with", "column_string_like", b"column_string_like", "column_string_starts_with", b"column_string_starts_with", "column_string_substr", b"column_string_substr", "column_try_cast", b"column_try_cast", "column_within_group", b"column_within_group", "create_dataframe", b"create_dataframe", "dataframe_agg", b"dataframe_agg", "dataframe_ai_agg", b"dataframe_ai_agg", "dataframe_ai_classify", b"dataframe_ai_classify", "dataframe_ai_complete", b"dataframe_ai_complete", "dataframe_ai_count_tokens", b"dataframe_ai_count_tokens", "dataframe_ai_embed", b"dataframe_ai_embed", "dataframe_ai_extract", b"dataframe_ai_extract", "dataframe_ai_filter", b"dataframe_ai_filter", "dataframe_ai_parse_document", b"dataframe_ai_parse_document", "dataframe_ai_sentiment", b"dataframe_ai_sentiment", "dataframe_ai_similarity", b"dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", b"dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", b"dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", b"dataframe_ai_summarize_agg", "dataframe_ai_transcribe", b"dataframe_ai_transcribe", "dataframe_alias", b"dataframe_alias", "dataframe_analytics_compute_lag", b"dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", b"dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", b"dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", b"dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", b"dataframe_analytics_time_series_agg", "dataframe_cache_result", b"dataframe_cache_result", "dataframe_col", b"dataframe_col", "dataframe_col_ilike", b"dataframe_col_ilike", "dataframe_collect", b"dataframe_collect", "dataframe_copy_into_table", b"dataframe_copy_into_table", "dataframe_count", b"dataframe_count", "dataframe_create_or_replace_dynamic_table", b"dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", b"dataframe_create_or_replace_view", "dataframe_cross_join", b"dataframe_cross_join", "dataframe_cube", b"dataframe_cube", "dataframe_describe", b"dataframe_describe", "dataframe_distinct", b"dataframe_distinct", "dataframe_drop", b"dataframe_drop", "dataframe_drop_duplicates", b"dataframe_drop_duplicates", "dataframe_except", b"dataframe_except", "dataframe_filter", b"dataframe_filter", "dataframe_first", b"dataframe_first", "dataframe_flatten", b"dataframe_flatten", "dataframe_group_by", b"dataframe_group_by", "dataframe_group_by_grouping_sets", b"dataframe_group_by_grouping_sets", "dataframe_intersect", b"dataframe_intersect", "dataframe_join", b"dataframe_join", "dataframe_join_table_function", b"dataframe_join_table_function", "dataframe_limit", b"dataframe_limit", "dataframe_na_drop__python", b"dataframe_na_drop__python", "dataframe_na_drop__scala", b"dataframe_na_drop__scala", "dataframe_na_fill", b"dataframe_na_fill", "dataframe_na_replace", b"dataframe_na_replace", "dataframe_natural_join", b"dataframe_natural_join", "dataframe_pivot", b"dataframe_pivot", "dataframe_random_split", b"dataframe_random_split", "dataframe_reader", b"dataframe_reader", "dataframe_ref", b"dataframe_ref", "dataframe_rename", b"dataframe_rename", "dataframe_rollup", b"dataframe_rollup", "dataframe_sample", b"dataframe_sample", "dataframe_select", b"dataframe_select", "dataframe_show", b"dataframe_show", "dataframe_sort", b"dataframe_sort", "dataframe_stat_approx_quantile", b"dataframe_stat_approx_quantile", "dataframe_stat_corr", b"dataframe_stat_corr", "dataframe_stat_cov", b"dataframe_stat_cov", "dataframe_stat_cross_tab", b"dataframe_stat_cross_tab", "dataframe_stat_sample_by", b"dataframe_stat_sample_by", "dataframe_to_df", b"dataframe_to_df", "dataframe_to_local_iterator", b"dataframe_to_local_iterator", "dataframe_to_pandas", b"dataframe_to_pandas", "dataframe_to_pandas_batches", b"dataframe_to_pandas_batches", "dataframe_union", b"dataframe_union", "dataframe_unpivot", b"dataframe_unpivot", "dataframe_with_column", b"dataframe_with_column", "dataframe_with_column_renamed", b"dataframe_with_column_renamed", "dataframe_with_columns", b"dataframe_with_columns", "dataframe_writer", b"dataframe_writer", "datatype_val", b"datatype_val", "directory", b"directory", "div", b"div", "eq", b"eq", "flatten", b"flatten", "float64_val", b"float64_val", "fn_ref", b"fn_ref", "generator", b"generator", "geq", b"geq", "grouping_sets", b"grouping_sets", "gt", b"gt", "indirect_table_fn_id_ref", b"indirect_table_fn_id_ref", "indirect_table_fn_name_ref", b"indirect_table_fn_name_ref", "int64_val", b"int64_val", "leq", b"leq", "list_val", b"list_val", "lt", b"lt", "merge_delete_when_matched_clause", b"merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", b"merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", b"merge_update_when_matched_clause", "mod", b"mod", "mul", b"mul", "name_ref", b"name_ref", "neg", b"neg", "neq", b"neq", "not", b"not", "null_val", b"null_val", "object_get_item", b"object_get_item", "or", b"or", "pow", b"pow", "python_date_val", b"python_date_val", "python_time_val", b"python_time_val", "python_timestamp_val", b"python_timestamp_val", "range", b"range", "read_avro", b"read_avro", "read_csv", b"read_csv", "read_directory", b"read_directory", "read_json", b"read_json", "read_load", b"read_load", "read_orc", b"read_orc", "read_parquet", b"read_parquet", "read_table", b"read_table", "read_xml", b"read_xml", "redacted_const", b"redacted_const", "relational_grouped_dataframe_agg", b"relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", b"relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", b"relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", b"relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", b"relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", b"relational_grouped_dataframe_ref", "row", b"row", "seq_map_val", b"seq_map_val", "session_table_function", b"session_table_function", "sql", b"sql", "sql_expr", b"sql_expr", "stored_procedure", b"stored_procedure", "string_val", b"string_val", "sub", b"sub", "table", b"table", "table_delete", b"table_delete", "table_drop_table", b"table_drop_table", "table_fn_call_alias", b"table_fn_call_alias", "table_fn_call_over", b"table_fn_call_over", "table_merge", b"table_merge", "table_sample", b"table_sample", "table_update", b"table_update", "to_snowpark_pandas", b"to_snowpark_pandas", "trait_bin_op", b"trait_bin_op", "trait_column_fn", b"trait_column_fn", "trait_const", b"trait_const", "trait_expr", b"trait_expr", "trait_extension_expr", b"trait_extension_expr", "trait_fn_id_ref_expr", b"trait_fn_id_ref_expr", "trait_fn_name_ref_expr", b"trait_fn_name_ref_expr", "trait_read_file", b"trait_read_file", "trait_unary_op", b"trait_unary_op", "trait_window_spec_expr", b"trait_window_spec_expr", "trait_write_file", b"trait_write_file", "truncated_expr", b"truncated_expr", "tuple_val", b"tuple_val", "udaf", b"udaf", "udf", b"udf", "udtf", b"udtf", "variant", b"variant", "window_spec_empty", b"window_spec_empty", "window_spec_order_by", b"window_spec_order_by", "window_spec_partition_by", b"window_spec_partition_by", "window_spec_range_between", b"window_spec_range_between", "window_spec_rows_between", b"window_spec_rows_between", "write_copy_into_location", b"write_copy_into_location", "write_csv", b"write_csv", "write_insert_into", b"write_insert_into", "write_json", b"write_json", "write_pandas", b"write_pandas", "write_parquet", b"write_parquet", "write_save", b"write_save", "write_table", b"write_table"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["variant", b"variant"]) -> typing.Literal["trait_bin_op", "trait_column_fn", "trait_const", "trait_expr", "trait_extension_expr", "trait_fn_id_ref_expr", "trait_fn_name_ref_expr", "trait_read_file", "trait_unary_op", "trait_window_spec_expr", "trait_write_file", "add", "and", "apply_expr", "big_decimal_val", "big_int_val", "binary_val", "bit_and", "bit_or", "bit_xor", "bool_val", "builtin_fn", "call_table_function_expr", "column_alias", "column_apply__int", "column_apply__string", "column_asc", "column_between", "column_case_expr", "column_case_expr_clause", "column_cast", "column_desc", "column_equal_nan", "column_equal_null", "column_in", "column_is_not_null", "column_is_null", "column_over", "column_regexp", "column_string_collate", "column_string_contains", "column_string_ends_with", "column_string_like", "column_string_starts_with", "column_string_substr", "column_try_cast", "column_within_group", "create_dataframe", "dataframe_agg", "dataframe_ai_agg", "dataframe_ai_classify", "dataframe_ai_complete", "dataframe_ai_count_tokens", "dataframe_ai_embed", "dataframe_ai_extract", "dataframe_ai_filter", "dataframe_ai_parse_document", "dataframe_ai_sentiment", "dataframe_ai_similarity", "dataframe_ai_split_text_markdown_header", "dataframe_ai_split_text_recursive_character", "dataframe_ai_summarize_agg", "dataframe_ai_transcribe", "dataframe_alias", "dataframe_analytics_compute_lag", "dataframe_analytics_compute_lead", "dataframe_analytics_cumulative_agg", "dataframe_analytics_moving_agg", "dataframe_analytics_time_series_agg", "dataframe_cache_result", "dataframe_col", "dataframe_col_ilike", "dataframe_collect", "dataframe_copy_into_table", "dataframe_count", "dataframe_create_or_replace_dynamic_table", "dataframe_create_or_replace_view", "dataframe_cross_join", "dataframe_cube", "dataframe_describe", "dataframe_distinct", "dataframe_drop", "dataframe_drop_duplicates", "dataframe_except", "dataframe_filter", "dataframe_first", "dataframe_flatten", "dataframe_group_by", "dataframe_group_by_grouping_sets", "dataframe_intersect", "dataframe_join", "dataframe_join_table_function", "dataframe_limit", "dataframe_na_drop__python", "dataframe_na_drop__scala", "dataframe_na_fill", "dataframe_na_replace", "dataframe_natural_join", "dataframe_pivot", "dataframe_random_split", "dataframe_reader", "dataframe_ref", "dataframe_rename", "dataframe_rollup", "dataframe_sample", "dataframe_select", "dataframe_show", "dataframe_sort", "dataframe_stat_approx_quantile", "dataframe_stat_corr", "dataframe_stat_cov", "dataframe_stat_cross_tab", "dataframe_stat_sample_by", "dataframe_to_df", "dataframe_to_local_iterator", "dataframe_to_pandas", "dataframe_to_pandas_batches", "dataframe_union", "dataframe_unpivot", "dataframe_with_column", "dataframe_with_column_renamed", "dataframe_with_columns", "dataframe_writer", "datatype_val", "directory", "div", "eq", "flatten", "float64_val", "fn_ref", "generator", "geq", "grouping_sets", "gt", "indirect_table_fn_id_ref", "indirect_table_fn_name_ref", "int64_val", "leq", "list_val", "lt", "merge_delete_when_matched_clause", "merge_insert_when_not_matched_clause", "merge_update_when_matched_clause", "mod", "mul", "name_ref", "neg", "neq", "not", "null_val", "object_get_item", "or", "pow", "python_date_val", "python_time_val", "python_timestamp_val", "range", "read_avro", "read_csv", "read_directory", "read_json", "read_load", "read_orc", "read_parquet", "read_table", "read_xml", "redacted_const", "relational_grouped_dataframe_agg", "relational_grouped_dataframe_ai_agg", "relational_grouped_dataframe_apply_in_pandas", "relational_grouped_dataframe_builtin", "relational_grouped_dataframe_pivot", "relational_grouped_dataframe_ref", "row", "seq_map_val", "session_table_function", "sql", "sql_expr", "stored_procedure", "string_val", "sub", "table", "table_delete", "table_drop_table", "table_fn_call_alias", "table_fn_call_over", "table_merge", "table_sample", "table_update", "to_snowpark_pandas", "truncated_expr", "tuple_val", "udaf", "udf", "udtf", "window_spec_empty", "window_spec_order_by", "window_spec_partition_by", "window_spec_range_between", "window_spec_rows_between", "write_copy_into_location", "write_csv", "write_insert_into", "write_json", "write_pandas", "write_parquet", "write_save", "write_table"] | None: ...
 
 global___HasSrcPosition = HasSrcPosition
 
@@ -7739,8 +8399,38 @@ class RelationalGroupedDataframeAgg(google.protobuf.message.Message):
 global___RelationalGroupedDataframeAgg = RelationalGroupedDataframeAgg
 
 @typing.final
+class RelationalGroupedDataframeAiAgg(google.protobuf.message.Message):
+    """dataframe-grouped.ir:46"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EXPR_FIELD_NUMBER: builtins.int
+    GROUPED_DF_FIELD_NUMBER: builtins.int
+    SRC_FIELD_NUMBER: builtins.int
+    TASK_DESCRIPTION_FIELD_NUMBER: builtins.int
+    task_description: builtins.str
+    @property
+    def expr(self) -> global___Expr: ...
+    @property
+    def grouped_df(self) -> global___Expr: ...
+    @property
+    def src(self) -> global___SrcPosition: ...
+    def __init__(
+        self,
+        *,
+        expr: global___Expr | None = ...,
+        grouped_df: global___Expr | None = ...,
+        src: global___SrcPosition | None = ...,
+        task_description: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["expr", b"expr", "grouped_df", b"grouped_df", "src", b"src"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["expr", b"expr", "grouped_df", b"grouped_df", "src", b"src", "task_description", b"task_description"]) -> None: ...
+
+global___RelationalGroupedDataframeAiAgg = RelationalGroupedDataframeAiAgg
+
+@typing.final
 class RelationalGroupedDataframeApplyInPandas(google.protobuf.message.Message):
-    """dataframe-grouped.ir:45"""
+    """dataframe-grouped.ir:52"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -7805,7 +8495,7 @@ global___RelationalGroupedDataframeBuiltin = RelationalGroupedDataframeBuiltin
 
 @typing.final
 class RelationalGroupedDataframePivot(google.protobuf.message.Message):
-    """dataframe-grouped.ir:52"""
+    """dataframe-grouped.ir:59"""
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

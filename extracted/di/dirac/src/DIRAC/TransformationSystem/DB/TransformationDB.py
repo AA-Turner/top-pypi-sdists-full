@@ -1,9 +1,9 @@
-""" DIRAC Transformation DB
+"""DIRAC Transformation DB
 
-    Transformation database is used to collect and serve the necessary information
-    in order to automate the task of job preparation for high level transformations.
-    This class is typically used as a base class for more specific data processing
-    databases
+Transformation database is used to collect and serve the necessary information
+in order to automate the task of job preparation for high level transformations.
+This class is typically used as a base class for more specific data processing
+databases
 """
 
 import re
@@ -55,7 +55,7 @@ class TransformationDB(DB):
             "LongDescription",
             "CreationDate",
             "LastUpdate",
-            "AuthorDN",
+            "Author",
             "AuthorGroup",
             "Type",
             "Plugin",
@@ -129,7 +129,7 @@ class TransformationDB(DB):
         transName,
         description,
         longDescription,
-        authorDN,
+        author,
         authorGroup,
         transType,
         plugin,
@@ -151,7 +151,7 @@ class TransformationDB(DB):
         res = self._getTransformationID(transName, connection=connection)
         if res["OK"]:
             return S_ERROR(
-                "Transformation with name %s already exists with TransformationID = %d" % (transName, res["Value"])
+                f"Transformation with name {transName} already exists with TransformationID = {res['Value']}"
             )
         elif res["Message"] != "Transformation does not exist":
             return res
@@ -163,7 +163,7 @@ class TransformationDB(DB):
             "LongDescription": longDescription,
             "CreationDate": "UTC_TIMESTAMP()",
             "LastUpdate": "UTC_TIMESTAMP()",
-            "AuthorDN": authorDN,
+            "Author": author,
             "AuthorGroup": authorGroup,
             "Type": transType,
             "Plugin": plugin,
@@ -219,19 +219,19 @@ class TransformationDB(DB):
             originalID = res["Value"]
             # FIXME: this is not the right place to change status information, and in general the whole should not be here
             res = self.setTransformationParameter(
-                originalID, "Status", "Completing", author=authorDN, connection=connection
+                originalID, "Status", "Completing", author=author, connection=connection
             )
             if not res["OK"]:
                 gLogger.error("Failed to update parent transformation status: now deleting", res["Message"])
                 return self.deleteTransformation(transID, connection=connection)
             res = self.setTransformationParameter(
-                originalID, "AgentType", "Automatic", author=authorDN, connection=connection
+                originalID, "AgentType", "Automatic", author=author, connection=connection
             )
             if not res["OK"]:
                 gLogger.error("Failed to update parent transformation agent type, now deleting", res["Message"])
                 return self.deleteTransformation(transID, connection=connection)
-            message = "Creation of the derived transformation (%d)" % transID
-            self.__updateTransformationLogging(originalID, message, authorDN, connection=connection)
+            message = f"Creation of the derived transformation ({transID})"
+            self.__updateTransformationLogging(originalID, message, author, connection=connection)
             res = self.getTransformationFiles(condDict={"TransformationID": originalID}, connection=connection)
             if not res["OK"]:
                 gLogger.error("Could not get transformation files, now deleting", res["Message"])
@@ -265,9 +265,9 @@ class TransformationDB(DB):
                 res = self.__addFilesToTransformation(transID, fileIDs, connection=connection)
                 if not res["OK"]:
                     gLogger.error("Failed to add files to transformation", f"{transID} {res['Message']}")
-        message = "Created transformation %d" % transID
+        message = f"Created transformation {transID}"
 
-        self.__updateTransformationLogging(transID, message, authorDN, connection=connection)
+        self.__updateTransformationLogging(transID, message, author, connection=connection)
         return S_OK(transID)
 
     def getTransformations(
@@ -397,29 +397,18 @@ class TransformationDB(DB):
     def __updateTransformationParameter(self, transID, paramName, paramValue, connection=False):
         if paramName not in self.mutable:
             return S_ERROR(f"Can not update the '{paramName}' transformation parameter")
-        if paramName == "Body":
-            res = self._escapeString(paramValue)
-            if not res["OK"]:
-                return S_ERROR("Failed to parse parameter value")
-            paramValue = res["Value"]
-            req = "UPDATE Transformations SET %s=%s, LastUpdate=UTC_TIMESTAMP() WHERE TransformationID=%d" % (
-                paramName,
-                paramValue,
-                transID,
-            )
-            return self._update(req, conn=connection)
-        req = "UPDATE Transformations SET %s='%s', LastUpdate=UTC_TIMESTAMP() WHERE TransformationID=%d" % (
-            paramName,
-            paramValue,
-            transID,
-        )
+        res = self._escapeString(paramValue)
+        if not res["OK"]:
+            return S_ERROR("Failed to parse parameter value")
+        paramValue = res["Value"]
+        req = f"UPDATE Transformations SET {paramName}={paramValue}, LastUpdate=UTC_TIMESTAMP() WHERE TransformationID={transID}"
         return self._update(req, conn=connection)
 
     def _getTransformationID(self, transName, connection=False):
         """Method returns ID of transformation with the name=<name>"""
         try:
             transName = int(transName)
-            cmd = "SELECT TransformationID from Transformations WHERE TransformationID=%d;" % transName
+            cmd = f"SELECT TransformationID from Transformations WHERE TransformationID={transName};"
         except ValueError:
             if not isinstance(transName, str):
                 return S_ERROR("Transformation should be ID or name")
@@ -513,7 +502,7 @@ class TransformationDB(DB):
         return res
 
     def __addAdditionalTransformationParameter(self, transID, paramName, paramValue, connection=False):
-        req = "DELETE FROM AdditionalParameters WHERE TransformationID=%d AND ParameterName='%s'" % (transID, paramName)
+        req = f"DELETE FROM AdditionalParameters WHERE TransformationID={transID} AND ParameterName='{paramName}'"
         res = self._update(req, conn=connection)
         if not res["OK"]:
             return res
@@ -552,7 +541,7 @@ class TransformationDB(DB):
         """Remove the parameters associated to a transformation"""
         if parameters is None:
             parameters = []
-        req = "DELETE FROM AdditionalParameters WHERE TransformationID=%d" % transID
+        req = f"DELETE FROM AdditionalParameters WHERE TransformationID={transID}"
         if parameters:
             req = f"{req} AND ParameterName IN ({stringListToString(parameters)});"
         return self._update(req, conn=connection)
@@ -603,7 +592,6 @@ class TransformationDB(DB):
         offset=None,
         connection=False,
         columns=None,
-        include_web_records=True,
     ):
         """Get files for the supplied transformations with support for the web standard structure"""
         connection = self.__getConnection(connection)
@@ -642,12 +630,7 @@ class TransformationDB(DB):
 
         resultList = [dict(zip(columns, row)) for row in res["Value"]]
 
-        result = S_OK(resultList)
-        if include_web_records:
-            webList = [[str(item) if not isinstance(item, int) else item for item in row] for row in res["Value"]]
-            result["Records"] = webList
-            result["ParameterNames"] = columns
-        return result
+        return S_OK(resultList)
 
     def getFileSummary(self, lfns, connection=False):
         """Get file status summary in all the transformations"""
@@ -723,7 +706,7 @@ class TransformationDB(DB):
         res = self.getCounters("TransformationFiles", ["TransformationID", field], selection)
         if not res["OK"]:
             return res
-        countDict = {attrDict[field]: count for attrDict, count in res["Value"]}
+        countDict = {str(attrDict[field]): count for attrDict, count in res["Value"]}
         countDict["Total"] = sum(countDict.values())
         return S_OK(countDict)
 
@@ -766,15 +749,7 @@ class TransformationDB(DB):
                         if taskID:
                             # Should be readable up to 999,999 tasks: that field is an int(11) in the DB, not a string
                             taskID = 1000000 * int(originalID) + int(taskID)
-                    req = "%s (%d,'%s','%d',%d,'%s','%s',UTC_TIMESTAMP())," % (
-                        req,
-                        transID,
-                        status,
-                        taskID,
-                        fileID,
-                        targetSE,
-                        usedSE,
-                    )
+                    req = f"{req} ({transID},'{status}','{taskID}',{fileID},'{targetSE}','{usedSE}',UTC_TIMESTAMP()),"
             if not candidates:
                 continue
 
@@ -863,12 +838,12 @@ class TransformationDB(DB):
         """Delete the file associated to a given task of a given transformation
         from the TransformationFileTasks table for transformation with TransformationID and TaskID
         """
-        req = "DELETE FROM TransformationFileTasks WHERE TransformationID=%d AND TaskID=%d" % (transID, taskID)
+        req = f"DELETE FROM TransformationFileTasks WHERE TransformationID={transID} AND TaskID={taskID}"
         return self._update(req, conn=connection)
 
     def __deleteTransformationFileTasks(self, transID, connection=False):
         """Remove all associations between files, tasks and a transformation"""
-        req = "DELETE FROM TransformationFileTasks WHERE TransformationID = %d;" % transID
+        req = f"DELETE FROM TransformationFileTasks WHERE TransformationID = {transID}"
         res = self._update(req, conn=connection)
         if not res["OK"]:
             gLogger.error("Failed to delete transformation files/task history", res["Message"])
@@ -901,13 +876,9 @@ class TransformationDB(DB):
             return res
         if condDict is None:
             condDict = {}
-        webList = []
         resultList = []
         for row in res["Value"]:
-            # Prepare the structure for the web
-            rList = [str(item) if not isinstance(item, int) else item for item in row]
             taskDict = dict(zip(self.TASKSPARAMS, row))
-            webList.append(rList)
             if inputVector:
                 taskDict["InputVector"] = ""
                 taskID = taskDict["TaskID"]
@@ -920,7 +891,6 @@ class TransformationDB(DB):
                     return res
             resultList.append(taskDict)
         result = S_OK(resultList)
-        result["Records"] = webList
         result["ParameterNames"] = self.TASKSPARAMS
         return result
 
@@ -983,7 +953,7 @@ class TransformationDB(DB):
             res = self.__removeTransformationTask(transID, taskID, connection=connection)
             if not res["OK"]:
                 return res
-        message = "Deleted tasks from %d to %d" % (taskIDbottom, taskIDtop)
+        message = f"Deleted tasks from {taskIDbottom} to {taskIDtop}"
         self.__updateTransformationLogging(transID, message, author, connection=connection)
         return res
 
@@ -1074,17 +1044,17 @@ class TransformationDB(DB):
 
     def __deleteTransformationTasks(self, transID, connection=False):
         """Delete all the tasks from the TransformationTasks table for transformation with TransformationID"""
-        req = "DELETE FROM TransformationTasks WHERE TransformationID=%d" % transID
+        req = f"DELETE FROM TransformationTasks WHERE TransformationID={transID}"
         return self._update(req, conn=connection)
 
     def __deleteTransformationTask(self, transID, taskID, connection=False):
         """Delete the task from the TransformationTasks table for transformation with TransformationID"""
-        req = "DELETE FROM TransformationTasks WHERE TransformationID=%d AND TaskID=%d" % (transID, taskID)
+        req = f"DELETE FROM TransformationTasks WHERE TransformationID={transID} AND TaskID={taskID}"
         return self._update(req, conn=connection)
 
     def __deleteTransformationMetaQueries(self, transID, connection=False):
         """Delete all the meta queries from the TransformationMetaQueries table for transformation with TransformationID"""
-        req = "DELETE FROM TransformationMetaQueries WHERE TransformationID=%d" % transID
+        req = f"DELETE FROM TransformationMetaQueries WHERE TransformationID={transID}"
         return self._update(req, conn=connection)
 
     ####################################################################
@@ -1244,9 +1214,9 @@ class TransformationDB(DB):
 
     def __deleteTransformationTaskInputs(self, transID, taskID=0, connection=False):
         """Delete all the tasks inputs from the TaskInputs table for transformation with TransformationID"""
-        req = "DELETE FROM TaskInputs WHERE TransformationID=%d" % transID
+        req = f"DELETE FROM TaskInputs WHERE TransformationID={transID}"
         if taskID:
-            req = "%s AND TaskID=%d" % (req, int(taskID))
+            req = f"{req} AND TaskID={taskID}"
         return self._update(req, conn=connection)
 
     ###########################################################################
@@ -1254,19 +1224,19 @@ class TransformationDB(DB):
     # These methods manipulate the TransformationLog table
     #
 
-    def __updateTransformationLogging(self, transName, message, authorDN, connection=False):
+    def __updateTransformationLogging(self, transName, message, author, connection=False):
         """Update the Transformation log table with any modifications"""
-        if not authorDN:
+        if not author:
             res = getProxyInfo(False, False)
             if res["OK"]:
-                authorDN = res["Value"]["subject"]
+                author = res["Value"]["username"]
         res = self._getConnectionTransID(connection, transName)
         if not res["OK"]:
             return res
         connection = res["Value"]["Connection"]
         transID = res["Value"]["TransformationID"]
         req = "INSERT INTO TransformationLog (TransformationID,Message,Author,MessageDate)"
-        req = req + f" VALUES ({transID},'{message}','{authorDN}',UTC_TIMESTAMP());"
+        req = req + f" VALUES ({transID},'{message}','{author}',UTC_TIMESTAMP());"
         return self._update(req, conn=connection)
 
     def getTransformationLogging(self, transName, connection=False):
@@ -1282,36 +1252,24 @@ class TransformationDB(DB):
         if not res["OK"]:
             return res
         transList = []
-        for transID, message, authorDN, messageDate in res["Value"]:
+        for transID, message, author, messageDate in res["Value"]:
             transDict = {}
             transDict["TransformationID"] = transID
             transDict["Message"] = message
-            transDict["AuthorDN"] = authorDN
+            transDict["Author"] = author
             transDict["MessageDate"] = messageDate
             transList.append(transDict)
         return S_OK(transList)
 
     def __deleteTransformationLog(self, transID, connection=False):
         """Remove the entries in the transformation log for a transformation"""
-        req = "DELETE FROM TransformationLog WHERE TransformationID=%d;" % transID
+        req = f"DELETE FROM TransformationLog WHERE TransformationID={transID}"
         return self._update(req, conn=connection)
 
     ###########################################################################
     #
     # These methods manipulate the DataFiles table
     #
-    def __getAllFileIDs(self, connection=False):
-        """Get all the fileIDs for the supplied list of lfns"""
-        req = "SELECT LFN,FileID FROM DataFiles;"
-        res = self._query(req, conn=connection)
-        if not res["OK"]:
-            return res
-        fids = {}
-        lfns = {}
-        for lfn, fileID in res["Value"]:
-            fids[fileID] = lfn
-            lfns[lfn] = fileID
-        return S_OK((fids, lfns))
 
     def __getFileIDsForLfns(self, lfns, connection=False):
         """Get file IDs for the given list of lfns

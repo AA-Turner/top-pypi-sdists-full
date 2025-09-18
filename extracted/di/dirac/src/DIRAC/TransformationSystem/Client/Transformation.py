@@ -4,17 +4,15 @@ See the information about transformation parameters below.
 """
 import json
 
-from DIRAC import gLogger, gConfig, S_OK, S_ERROR
+from DIRAC import S_ERROR, S_OK, gConfig, gLogger
+from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
+from DIRAC.Core.Base.API import API
 from DIRAC.Core.Utilities.JEncode import encode
 from DIRAC.Core.Utilities.PromptUser import promptUser
-from DIRAC.Core.Base.API import API
+from DIRAC.MonitoringSystem.Client.WebAppClient import WebAppClient
+from DIRAC.RequestManagementSystem.Client.Operation import Operation
 from DIRAC.TransformationSystem.Client.BodyPlugin.BaseBody import BaseBody
 from DIRAC.TransformationSystem.Client.TransformationClient import TransformationClient
-from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
-from DIRAC.Core.Security.ProxyInfo import getProxyInfo
-from DIRAC.RequestManagementSystem.Client.Operation import Operation
-
-COMPONENT_NAME = "Transformation"
 
 
 class Transformation(API):
@@ -269,7 +267,7 @@ class Transformation(API):
         loggingList = res["Value"]
         if printOutput:
             self._printFormattedDictList(
-                loggingList, ["Message", "MessageDate", "AuthorDN"], "MessageDate", "MessageDate"
+                loggingList, ["Message", "MessageDate", "Author"], "MessageDate", "MessageDate"
             )
         return S_OK(loggingList)
 
@@ -426,62 +424,18 @@ class Transformation(API):
         return res
 
     #############################################################################
-    def getAuthorDNfromProxy(self):
-        """gets the AuthorDN and username of the transformation from the uploaded proxy"""
-        username = ""
-        author = ""
-        res = getProxyInfo()
-        if res["OK"]:
-            author = res["Value"]["identity"]
-            username = res["Value"]["username"]
-        else:
-            gLogger.error(f"Unable to get uploaded proxy Info {res['Message']} ")
-            return S_ERROR(res["Message"])
-
-        res = {"username": username, "authorDN": author}
-        return S_OK(res)
-
-    #############################################################################
     def getTransformationsByUser(
         self,
-        authorDN="",
         userName="",
         transID=[],
         transStatus=[],
-        outputFields=["TransformationID", "Status", "AgentType", "TransformationName", "CreationDate", "AuthorDN"],
+        outputFields=["TransformationID", "Status", "AgentType", "TransformationName", "CreationDate", "Author"],
         orderBy="TransformationID",
         printOutput=False,
     ):
         condDict = {}
-        if authorDN == "":
-            res = self.getAuthorDNfromProxy()
-            if not res["OK"]:
-                gLogger.error(res["Message"])
-                return S_ERROR(res["Message"])
-            else:
-                foundUserName = res["Value"]["username"]
-                foundAuthor = res["Value"]["authorDN"]
-                # If the username whom created the uploaded proxy is different than the provided username report error and exit
-                if not (userName == "" or userName == foundUserName):
-                    gLogger.error(
-                        "Couldn't resolve the authorDN for user '%s' from the uploaded proxy (proxy created by '%s')"
-                        % (userName, foundUserName)
-                    )
-                    return S_ERROR(
-                        "Couldn't resolve the authorDN for user '%s' from the uploaded proxy (proxy created by '%s')"
-                        % (userName, foundUserName)
-                    )
-
-                userName = foundUserName
-                authorDN = foundAuthor
-                gLogger.info(
-                    "Will list transformations created by user '%s' with status '%s'"
-                    % (userName, ", ".join(transStatus))
-                )
-        else:
-            gLogger.info(f"Will list transformations created by '{authorDN}' with status '{', '.join(transStatus)}'")
-
-        condDict["AuthorDN"] = authorDN
+        gLogger.info(f"Will list transformations created by user '{userName}' with status '{transStatus}'")
+        condDict["Author"] = userName
         if transID:
             condDict["TransformationID"] = transID
         if transStatus:
@@ -545,7 +499,7 @@ class Transformation(API):
         ]
         dictList = []
 
-        result = self.transClient.getTransformationSummaryWeb(condDict, orderby, start, maxitems)
+        result = WebAppClient().getTransformationSummaryWeb(condDict, orderby, start, maxitems)
         if not result["OK"]:
             self._prettyPrint(result)
             return result
@@ -561,15 +515,13 @@ class Transformation(API):
             except Exception as x:
                 print(f"Exception {str(x)} ")
 
-        if not len(dictList) > 0:
+        if not dictList:
             gLogger.error("No found transformations satisfying input condition")
             return S_ERROR("No found transformations satisfying input condition")
-        else:
-            print(
-                self._printFormattedDictList(
-                    dictList, paramShowNamesShort, paramShowNamesShort[0], paramShowNamesShort[0]
-                )
-            )
+
+        print(
+            self._printFormattedDictList(dictList, paramShowNamesShort, paramShowNamesShort[0], paramShowNamesShort[0])
+        )
 
         return S_OK(dictList)
 

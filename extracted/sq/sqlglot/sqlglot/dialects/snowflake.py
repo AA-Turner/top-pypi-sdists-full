@@ -6,6 +6,7 @@ from sqlglot import exp, generator, jsonpath, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
     Dialect,
     NormalizationStrategy,
+    annotate_with_type_lambda,
     build_timetostr_or_tochar,
     binary_from_function,
     build_default_decimal_type,
@@ -377,6 +378,7 @@ def _qualify_unnested_columns(expression: exp.Expression) -> exp.Expression:
 
         taken_source_names = set(scope.sources)
         column_source: t.Dict[str, exp.Identifier] = {}
+        unnest_to_identifier: t.Dict[exp.Unnest, exp.Identifier] = {}
 
         unnest_identifier: t.Optional[exp.Identifier] = None
         orig_expression = expression.copy()
@@ -429,6 +431,7 @@ def _qualify_unnested_columns(expression: exp.Expression) -> exp.Expression:
             if not isinstance(unnest_identifier, exp.Identifier):
                 return orig_expression
 
+            unnest_to_identifier[unnest] = unnest_identifier
             column_source.update({c.lower(): unnest_identifier for c in unnest_columns})
 
         for column in scope.columns:
@@ -442,6 +445,15 @@ def _qualify_unnested_columns(expression: exp.Expression) -> exp.Expression:
                 and len(scope.sources) == 1
                 and column.name.lower() != unnest_identifier.name.lower()
             ):
+                unnest_ancestor = column.find_ancestor(exp.Unnest, exp.Select)
+                ancestor_identifier = unnest_to_identifier.get(unnest_ancestor)
+                if (
+                    isinstance(unnest_ancestor, exp.Unnest)
+                    and ancestor_identifier
+                    and ancestor_identifier.name.lower() == unnest_identifier.name.lower()
+                ):
+                    continue
+
                 table = unnest_identifier
 
             column.set("table", table and table.copy())
@@ -506,8 +518,49 @@ class Snowflake(Dialect):
     ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN = False
     TRY_CAST_REQUIRES_STRING = True
 
+    TYPE_TO_EXPRESSIONS = {
+        **Dialect.TYPE_TO_EXPRESSIONS,
+        exp.DataType.Type.INT: {
+            *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.INT],
+            exp.Length,
+        },
+        exp.DataType.Type.VARCHAR: {
+            *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.VARCHAR],
+            exp.MD5,
+            exp.AIAgg,
+            exp.AISummarizeAgg,
+            exp.RegexpExtract,
+            exp.RegexpReplace,
+            exp.Repeat,
+            exp.Replace,
+            exp.SHA,
+            exp.SHA2,
+            exp.Space,
+            exp.Uuid,
+        },
+        exp.DataType.Type.BINARY: {
+            *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.BINARY],
+            exp.MD5Digest,
+            exp.SHA1Digest,
+            exp.SHA2Digest,
+        },
+        exp.DataType.Type.BIGINT: {
+            *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.BIGINT],
+            exp.MD5NumberLower64,
+            exp.MD5NumberUpper64,
+        },
+        exp.DataType.Type.ARRAY: {
+            exp.Split,
+        },
+    }
+
     ANNOTATORS = {
         **Dialect.ANNOTATORS,
+        **{
+            expr_type: annotate_with_type_lambda(data_type)
+            for data_type, expressions in TYPE_TO_EXPRESSIONS.items()
+            for expr_type in expressions
+        },
         **{
             expr_type: lambda self, e: self._annotate_by_args(e, "this")
             for expr_type in (
@@ -517,10 +570,7 @@ class Snowflake(Dialect):
             )
         },
         exp.ConcatWs: lambda self, e: self._annotate_by_args(e, "expressions"),
-        exp.Length: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.INT),
-        exp.Replace: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.Reverse: _annotate_reverse,
-        exp.Space: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
     }
 
     TIME_MAPPING = {
@@ -640,6 +690,10 @@ class Snowflake(Dialect):
             ),
             "HEX_DECODE_BINARY": exp.Unhex.from_arg_list,
             "IFF": exp.If.from_arg_list,
+            "MD5_HEX": exp.MD5.from_arg_list,
+            "MD5_BINARY": exp.MD5Digest.from_arg_list,
+            "MD5_NUMBER_LOWER64": exp.MD5NumberLower64.from_arg_list,
+            "MD5_NUMBER_UPPER64": exp.MD5NumberUpper64.from_arg_list,
             "LAST_DAY": lambda args: exp.LastDay(
                 this=seq_get(args, 0), unit=map_date_part(seq_get(args, 1))
             ),
@@ -647,12 +701,17 @@ class Snowflake(Dialect):
             "LENGTH": lambda args: exp.Length(this=seq_get(args, 0), binary=True),
             "NULLIFZERO": _build_if_from_nullifzero,
             "OBJECT_CONSTRUCT": _build_object_construct,
+            "OCTET_LENGTH": exp.ByteLength.from_arg_list,
             "REGEXP_EXTRACT_ALL": _build_regexp_extract(exp.RegexpExtractAll),
             "REGEXP_REPLACE": _build_regexp_replace,
             "REGEXP_SUBSTR": _build_regexp_extract(exp.RegexpExtract),
             "REGEXP_SUBSTR_ALL": _build_regexp_extract(exp.RegexpExtractAll),
             "REPLACE": build_replace_with_optional_replacement,
             "RLIKE": exp.RegexpLike.from_arg_list,
+            "SHA1_BINARY": exp.SHA1Digest.from_arg_list,
+            "SHA1_HEX": exp.SHA.from_arg_list,
+            "SHA2_BINARY": exp.SHA2Digest.from_arg_list,
+            "SHA2_HEX": exp.SHA2.from_arg_list,
             "SQUARE": lambda args: exp.Pow(this=seq_get(args, 0), expression=exp.Literal.number(2)),
             "TABLE": lambda args: exp.TableFromRows(this=seq_get(args, 0)),
             "TIMEADD": _build_date_time_add(exp.TimeAdd),
@@ -687,6 +746,7 @@ class Snowflake(Dialect):
             "VECTOR_L2_DISTANCE": exp.EuclideanDistance.from_arg_list,
             "ZEROIFNULL": _build_if_from_zeroifnull,
         }
+        FUNCTIONS.pop("PREDICT")
 
         FUNCTION_PARSERS = {
             **parser.Parser.FUNCTION_PARSERS,
@@ -790,6 +850,13 @@ class Snowflake(Dialect):
                     expressions,
                 ),
                 expressions=[e.this if isinstance(e, exp.Cast) else e for e in expressions],
+            ),
+        }
+
+        COLUMN_OPERATORS = {
+            **parser.Parser.COLUMN_OPERATORS,
+            TokenType.EXCLAMATION: lambda self, this, attr: self.expression(
+                exp.ModelAttribute, this=this, expression=attr
             ),
         }
 
@@ -904,7 +971,7 @@ class Snowflake(Dialect):
                 # Keys are strings in Snowflake's objects, see also:
                 # - https://docs.snowflake.com/en/sql-reference/data-types-semistructured
                 # - https://docs.snowflake.com/en/sql-reference/functions/object_construct
-                return self._parse_slice(self._parse_string())
+                return self._parse_slice(self._parse_string()) or self._parse_assignment()
 
             return self._parse_slice(self._parse_alias(self._parse_assignment(), explicit=True))
 
@@ -1195,6 +1262,7 @@ class Snowflake(Dialect):
         SINGLE_TOKENS = {
             **tokens.Tokenizer.SINGLE_TOKENS,
             "$": TokenType.PARAMETER,
+            "!": TokenType.EXCLAMATION,
         }
 
         VAR_SINGLE_TOKENS = {"$"}
@@ -1244,6 +1312,7 @@ class Snowflake(Dialect):
             exp.BitwiseAndAgg: rename_func("BITANDAGG"),
             exp.BitwiseOrAgg: rename_func("BITORAGG"),
             exp.BitwiseXorAgg: rename_func("BITXORAGG"),
+            exp.BitwiseNot: rename_func("BITNOT"),
             exp.BitwiseLeftShift: rename_func("BITSHIFTLEFT"),
             exp.BitwiseRightShift: rename_func("BITSHIFTRIGHT"),
             exp.Create: transforms.preprocess([_flatten_structured_types_unless_iceberg]),
@@ -1318,6 +1387,8 @@ class Snowflake(Dialect):
             ),
             exp.SHA: rename_func("SHA1"),
             exp.MD5Digest: rename_func("MD5_BINARY"),
+            exp.MD5NumberLower64: rename_func("MD5_NUMBER_LOWER64"),
+            exp.MD5NumberUpper64: rename_func("MD5_NUMBER_UPPER64"),
             exp.LowerHex: rename_func("TO_CHAR"),
             exp.SortArray: rename_func("ARRAY_SORT"),
             exp.StarMap: rename_func("OBJECT_CONSTRUCT"),
@@ -1356,6 +1427,7 @@ class Snowflake(Dialect):
             exp.VarMap: lambda self, e: var_map_sql(self, e, "OBJECT_CONSTRUCT"),
             exp.WeekOfYear: rename_func("WEEKOFYEAR"),
             exp.Xor: rename_func("BOOLXOR"),
+            exp.ByteLength: rename_func("OCTET_LENGTH"),
         }
 
         SUPPORTED_JSON_PATH_PARTS = {
@@ -1561,6 +1633,12 @@ class Snowflake(Dialect):
             return f"CLUSTER BY ({self.expressions(expression, flat=True)})"
 
         def struct_sql(self, expression: exp.Struct) -> str:
+            if len(expression.expressions) == 1:
+                arg = expression.expressions[0]
+                if arg.is_star or (isinstance(arg, exp.ILike) and arg.left.is_star):
+                    # Wildcard syntax: https://docs.snowflake.com/en/sql-reference/data-types-semistructured#object
+                    return f"{{{self.sql(expression.expressions[0])}}}"
+
             keys = []
             values = []
 
@@ -1734,3 +1812,6 @@ class Snowflake(Dialect):
                 return f"{self.sql(this)}:{self.sql(expression, 'expression')}"
 
             return super().dot_sql(expression)
+
+        def modelattribute_sql(self, expression: exp.ModelAttribute) -> str:
+            return f"{self.sql(expression, 'this')}!{self.sql(expression, 'expression')}"

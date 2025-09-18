@@ -1,7 +1,7 @@
 r'''
 # `datadog_integration_gcp_sts`
 
-Refer to the Terraform Registry for docs: [`datadog_integration_gcp_sts`](https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts).
+Refer to the Terraform Registry for docs: [`datadog_integration_gcp_sts`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IntegrationGcpSts(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.integrationGcpSts.IntegrationGcpSts",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts datadog_integration_gcp_sts}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts datadog_integration_gcp_sts}.'''
 
     def __init__(
         self,
@@ -61,6 +61,7 @@ class IntegrationGcpSts(
         is_resource_change_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         is_security_command_center_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         metric_namespace_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationGcpStsMetricNamespaceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        monitored_resource_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationGcpStsMonitoredResourceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
         resource_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -70,21 +71,22 @@ class IntegrationGcpSts(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts datadog_integration_gcp_sts} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts datadog_integration_gcp_sts} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_email: Your service account email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
-        :param account_tags: Tags to be associated with GCP metrics and service checks from your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
-        :param automute: Silence monitors for expected GCE instance shutdowns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
-        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
-        :param host_filters: Your Host Filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
-        :param is_cspm_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
-        :param is_per_project_quota_enabled: When enabled, Datadog includes the ``X-Goog-User-Project`` header to attribute Google Cloud billing and quota usage to the monitored project instead of the default service account project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
-        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
-        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
-        :param metric_namespace_configs: Configuration for a GCP metric namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
-        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
+        :param client_email: Your service account email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
+        :param account_tags: Tags to be associated with GCP metrics and service checks from your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
+        :param automute: Silence monitors for expected GCE instance shutdowns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
+        :param cloud_run_revision_filters: List of filters to limit the Cloud Run revisions that are pulled into Datadog by using tags. Only Cloud Run revision resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
+        :param host_filters: List of filters to limit the VM instances that are pulled into Datadog by using tags. Only VM instance resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
+        :param is_cspm_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
+        :param is_per_project_quota_enabled: When enabled, Datadog includes the ``X-Goog-User-Project`` header to attribute Google Cloud billing and quota usage to the monitored project instead of the default service account project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
+        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
+        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
+        :param metric_namespace_configs: Configurations for GCP metric namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
+        :param monitored_resource_configs: Configurations for GCP monitored resources. Only monitored resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#monitored_resource_configs IntegrationGcpSts#monitored_resource_configs}
+        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -108,6 +110,7 @@ class IntegrationGcpSts(
             is_resource_change_collection_enabled=is_resource_change_collection_enabled,
             is_security_command_center_enabled=is_security_command_center_enabled,
             metric_namespace_configs=metric_namespace_configs,
+            monitored_resource_configs=monitored_resource_configs,
             resource_collection_enabled=resource_collection_enabled,
             connection=connection,
             count=count,
@@ -133,7 +136,7 @@ class IntegrationGcpSts(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IntegrationGcpSts to import.
-        :param import_from_id: The id of the existing IntegrationGcpSts that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IntegrationGcpSts that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IntegrationGcpSts to import is found.
         '''
         if __debug__:
@@ -156,6 +159,19 @@ class IntegrationGcpSts(
             type_hints = typing.get_type_hints(_typecheckingstub__29d44c84b23c18e0b0c673e1e5f4d9991f79d99e2d33478d12a4f88f56456948)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putMetricNamespaceConfigs", [value]))
+
+    @jsii.member(jsii_name="putMonitoredResourceConfigs")
+    def put_monitored_resource_configs(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationGcpStsMonitoredResourceConfigs", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b7303bcec98dc68a3b4faf2c32f495a3c8845baeb0a2ab546dcd00edaa32269)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putMonitoredResourceConfigs", [value]))
 
     @jsii.member(jsii_name="resetAccountTags")
     def reset_account_tags(self) -> None:
@@ -193,6 +209,10 @@ class IntegrationGcpSts(
     def reset_metric_namespace_configs(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetMetricNamespaceConfigs", []))
 
+    @jsii.member(jsii_name="resetMonitoredResourceConfigs")
+    def reset_monitored_resource_configs(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMonitoredResourceConfigs", []))
+
     @jsii.member(jsii_name="resetResourceCollectionEnabled")
     def reset_resource_collection_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetResourceCollectionEnabled", []))
@@ -224,6 +244,13 @@ class IntegrationGcpSts(
     @jsii.member(jsii_name="metricNamespaceConfigs")
     def metric_namespace_configs(self) -> "IntegrationGcpStsMetricNamespaceConfigsList":
         return typing.cast("IntegrationGcpStsMetricNamespaceConfigsList", jsii.get(self, "metricNamespaceConfigs"))
+
+    @builtins.property
+    @jsii.member(jsii_name="monitoredResourceConfigs")
+    def monitored_resource_configs(
+        self,
+    ) -> "IntegrationGcpStsMonitoredResourceConfigsList":
+        return typing.cast("IntegrationGcpStsMonitoredResourceConfigsList", jsii.get(self, "monitoredResourceConfigs"))
 
     @builtins.property
     @jsii.member(jsii_name="accountTagsInput")
@@ -288,6 +315,13 @@ class IntegrationGcpSts(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMetricNamespaceConfigs"]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMetricNamespaceConfigs"]]], jsii.get(self, "metricNamespaceConfigsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="monitoredResourceConfigsInput")
+    def monitored_resource_configs_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMonitoredResourceConfigs"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMonitoredResourceConfigs"]]], jsii.get(self, "monitoredResourceConfigsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceCollectionEnabledInput")
@@ -466,6 +500,7 @@ class IntegrationGcpSts(
         "is_resource_change_collection_enabled": "isResourceChangeCollectionEnabled",
         "is_security_command_center_enabled": "isSecurityCommandCenterEnabled",
         "metric_namespace_configs": "metricNamespaceConfigs",
+        "monitored_resource_configs": "monitoredResourceConfigs",
         "resource_collection_enabled": "resourceCollectionEnabled",
     },
 )
@@ -490,6 +525,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         is_resource_change_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         is_security_command_center_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         metric_namespace_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationGcpStsMetricNamespaceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        monitored_resource_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["IntegrationGcpStsMonitoredResourceConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
         resource_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
@@ -500,17 +536,18 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_email: Your service account email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
-        :param account_tags: Tags to be associated with GCP metrics and service checks from your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
-        :param automute: Silence monitors for expected GCE instance shutdowns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
-        :param cloud_run_revision_filters: Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
-        :param host_filters: Your Host Filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
-        :param is_cspm_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
-        :param is_per_project_quota_enabled: When enabled, Datadog includes the ``X-Goog-User-Project`` header to attribute Google Cloud billing and quota usage to the monitored project instead of the default service account project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
-        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
-        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
-        :param metric_namespace_configs: Configuration for a GCP metric namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
-        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
+        :param client_email: Your service account email address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
+        :param account_tags: Tags to be associated with GCP metrics and service checks from your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
+        :param automute: Silence monitors for expected GCE instance shutdowns. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
+        :param cloud_run_revision_filters: List of filters to limit the Cloud Run revisions that are pulled into Datadog by using tags. Only Cloud Run revision resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
+        :param host_filters: List of filters to limit the VM instances that are pulled into Datadog by using tags. Only VM instance resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
+        :param is_cspm_enabled: Whether Datadog collects cloud security posture management resources from your GCP project. If enabled, requires ``resource_collection_enabled`` to also be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
+        :param is_per_project_quota_enabled: When enabled, Datadog includes the ``X-Goog-User-Project`` header to attribute Google Cloud billing and quota usage to the monitored project instead of the default service account project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
+        :param is_resource_change_collection_enabled: When enabled, Datadog scans for all resource change data in your Google Cloud environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
+        :param is_security_command_center_enabled: When enabled, Datadog will attempt to collect Security Command Center Findings. Note: This requires additional permissions on the service account. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
+        :param metric_namespace_configs: Configurations for GCP metric namespaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
+        :param monitored_resource_configs: Configurations for GCP monitored resources. Only monitored resources that apply to specified filters are imported into Datadog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#monitored_resource_configs IntegrationGcpSts#monitored_resource_configs}
+        :param resource_collection_enabled: When enabled, Datadog scans for all resources in your GCP environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -533,6 +570,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument is_resource_change_collection_enabled", value=is_resource_change_collection_enabled, expected_type=type_hints["is_resource_change_collection_enabled"])
             check_type(argname="argument is_security_command_center_enabled", value=is_security_command_center_enabled, expected_type=type_hints["is_security_command_center_enabled"])
             check_type(argname="argument metric_namespace_configs", value=metric_namespace_configs, expected_type=type_hints["metric_namespace_configs"])
+            check_type(argname="argument monitored_resource_configs", value=monitored_resource_configs, expected_type=type_hints["monitored_resource_configs"])
             check_type(argname="argument resource_collection_enabled", value=resource_collection_enabled, expected_type=type_hints["resource_collection_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "client_email": client_email,
@@ -569,6 +607,8 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["is_security_command_center_enabled"] = is_security_command_center_enabled
         if metric_namespace_configs is not None:
             self._values["metric_namespace_configs"] = metric_namespace_configs
+        if monitored_resource_configs is not None:
+            self._values["monitored_resource_configs"] = monitored_resource_configs
         if resource_collection_enabled is not None:
             self._values["resource_collection_enabled"] = resource_collection_enabled
 
@@ -640,7 +680,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_email(self) -> builtins.str:
         '''Your service account email address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#client_email IntegrationGcpSts#client_email}
         '''
         result = self._values.get("client_email")
         assert result is not None, "Required property 'client_email' is missing"
@@ -650,7 +690,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags to be associated with GCP metrics and service checks from your account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#account_tags IntegrationGcpSts#account_tags}
         '''
         result = self._values.get("account_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -661,25 +701,29 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Silence monitors for expected GCE instance shutdowns.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#automute IntegrationGcpSts#automute}
         '''
         result = self._values.get("automute")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cloud_run_revision_filters(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Tags to filter which Cloud Run revisions are imported into Datadog. Only revisions that meet specified criteria are monitored.
+        '''List of filters to limit the Cloud Run revisions that are pulled into Datadog by using tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
+        Only Cloud Run revision resources that apply to specified filters are imported into Datadog.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#cloud_run_revision_filters IntegrationGcpSts#cloud_run_revision_filters}
         '''
         result = self._values.get("cloud_run_revision_filters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def host_filters(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Your Host Filters.
+        '''List of filters to limit the VM instances that are pulled into Datadog by using tags.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
+        Only VM instance resources that apply to specified filters are imported into Datadog.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#host_filters IntegrationGcpSts#host_filters}
         '''
         result = self._values.get("host_filters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -692,7 +736,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If enabled, requires ``resource_collection_enabled`` to also be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_cspm_enabled IntegrationGcpSts#is_cspm_enabled}
         '''
         result = self._values.get("is_cspm_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -703,7 +747,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, Datadog includes the ``X-Goog-User-Project`` header to attribute Google Cloud billing and quota usage to the monitored project instead of the default service account project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_per_project_quota_enabled IntegrationGcpSts#is_per_project_quota_enabled}
         '''
         result = self._values.get("is_per_project_quota_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -714,7 +758,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, Datadog scans for all resource change data in your Google Cloud environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_resource_change_collection_enabled IntegrationGcpSts#is_resource_change_collection_enabled}
         '''
         result = self._values.get("is_resource_change_collection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -727,7 +771,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note: This requires additional permissions on the service account. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#is_security_command_center_enabled IntegrationGcpSts#is_security_command_center_enabled}
         '''
         result = self._values.get("is_security_command_center_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -736,12 +780,23 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric_namespace_configs(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMetricNamespaceConfigs"]]]:
-        '''Configuration for a GCP metric namespace.
+        '''Configurations for GCP metric namespaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#metric_namespace_configs IntegrationGcpSts#metric_namespace_configs}
         '''
         result = self._values.get("metric_namespace_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMetricNamespaceConfigs"]]], result)
+
+    @builtins.property
+    def monitored_resource_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMonitoredResourceConfigs"]]]:
+        '''Configurations for GCP monitored resources. Only monitored resources that apply to specified filters are imported into Datadog.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#monitored_resource_configs IntegrationGcpSts#monitored_resource_configs}
+        '''
+        result = self._values.get("monitored_resource_configs")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["IntegrationGcpStsMonitoredResourceConfigs"]]], result)
 
     @builtins.property
     def resource_collection_enabled(
@@ -749,7 +804,7 @@ class IntegrationGcpStsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, Datadog scans for all resources in your GCP environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#resource_collection_enabled IntegrationGcpSts#resource_collection_enabled}
         '''
         result = self._values.get("resource_collection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -779,8 +834,8 @@ class IntegrationGcpStsMetricNamespaceConfigs:
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#disabled IntegrationGcpSts#disabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#id IntegrationGcpSts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#disabled IntegrationGcpSts#disabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#id IntegrationGcpSts#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52e62b2ef8ed8a5c49a7fe48301a92873f89ecad65ce4a045cc7f61e1a18eaf9)
@@ -796,13 +851,13 @@ class IntegrationGcpStsMetricNamespaceConfigs:
     def disabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#disabled IntegrationGcpSts#disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#disabled IntegrationGcpSts#disabled}.'''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.73.0/docs/resources/integration_gcp_sts#id IntegrationGcpSts#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#id IntegrationGcpSts#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1006,12 +1061,244 @@ class IntegrationGcpStsMetricNamespaceConfigsOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-datadog.integrationGcpSts.IntegrationGcpStsMonitoredResourceConfigs",
+    jsii_struct_bases=[],
+    name_mapping={"filters": "filters", "type": "type"},
+)
+class IntegrationGcpStsMonitoredResourceConfigs:
+    def __init__(
+        self,
+        *,
+        filters: typing.Optional[typing.Sequence[builtins.str]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param filters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#filters IntegrationGcpSts#filters}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#type IntegrationGcpSts#type}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f90f5c251e9d596efa937a97da7b39aab6115e319fb294a7ec0a5f6c26f53731)
+            check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if filters is not None:
+            self._values["filters"] = filters
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def filters(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#filters IntegrationGcpSts#filters}.'''
+        result = self._values.get("filters")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/resources/integration_gcp_sts#type IntegrationGcpSts#type}.'''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntegrationGcpStsMonitoredResourceConfigs(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class IntegrationGcpStsMonitoredResourceConfigsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.integrationGcpSts.IntegrationGcpStsMonitoredResourceConfigsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c5d560325b13cf4e2117378d6116507d994f11c121002c2d971eeb3af6686d0)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "IntegrationGcpStsMonitoredResourceConfigsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__681607d7049a258b1a7203a78e0cb3f3c2266bc11acca428d81c635019d4beab)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("IntegrationGcpStsMonitoredResourceConfigsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fc9621333ac214d538919b183604709de85e7824f6478adcc611eae52c04db0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c1877ef7bfa253c49010bd3769a8f8d441671358ad78beadd38f303ec89946a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f49ba79aaefa3e8ca94fca8dfb2bf0cfa45713160863344917e5365fede2226)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IntegrationGcpStsMonitoredResourceConfigs]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IntegrationGcpStsMonitoredResourceConfigs]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IntegrationGcpStsMonitoredResourceConfigs]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90192afa0e2ee819c12270b8bdce6f674331a342e530870b1129e2f87bd53391)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class IntegrationGcpStsMonitoredResourceConfigsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-datadog.integrationGcpSts.IntegrationGcpStsMonitoredResourceConfigsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c10a9ae633a39cf8604503c06ef4c40f09c68e3f4178bda9bfe1e5f65637fe54)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetFilters")
+    def reset_filters(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFilters", []))
+
+    @jsii.member(jsii_name="resetType")
+    def reset_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetType", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="filtersInput")
+    def filters_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "filtersInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeInput")
+    def type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filters")
+    def filters(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "filters"))
+
+    @filters.setter
+    def filters(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32c7d2179a8b1dfa4cb7fb05de2b6fef359fe3561619c5249b74a6ad314f937f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b17aab50998b00b2a62db7e559066b68333a54804acc5fcb048f9c345302db2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, IntegrationGcpStsMonitoredResourceConfigs]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, IntegrationGcpStsMonitoredResourceConfigs]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, IntegrationGcpStsMonitoredResourceConfigs]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92fbe82aae028485e8993380fab9f8aeff90e2f9e134e546659156014ba516b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "IntegrationGcpSts",
     "IntegrationGcpStsConfig",
     "IntegrationGcpStsMetricNamespaceConfigs",
     "IntegrationGcpStsMetricNamespaceConfigsList",
     "IntegrationGcpStsMetricNamespaceConfigsOutputReference",
+    "IntegrationGcpStsMonitoredResourceConfigs",
+    "IntegrationGcpStsMonitoredResourceConfigsList",
+    "IntegrationGcpStsMonitoredResourceConfigsOutputReference",
 ]
 
 publication.publish()
@@ -1030,6 +1317,7 @@ def _typecheckingstub__c84867de42e3fa7da3b4d8f5f78c139a5e41ee55b2c9a2be7c8182f56
     is_resource_change_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     is_security_command_center_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     metric_namespace_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMetricNamespaceConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    monitored_resource_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMonitoredResourceConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
     resource_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -1053,6 +1341,12 @@ def _typecheckingstub__0ee3060a3e8684bb11742f8a1ad06ae355ab15ea0ca49195e0c77b66b
 
 def _typecheckingstub__29d44c84b23c18e0b0c673e1e5f4d9991f79d99e2d33478d12a4f88f56456948(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMetricNamespaceConfigs, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b7303bcec98dc68a3b4faf2c32f495a3c8845baeb0a2ab546dcd00edaa32269(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMonitoredResourceConfigs, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1136,6 +1430,7 @@ def _typecheckingstub__fa91227355a177c54847e7cb6b3524e1b745fc8a420062472100b328e
     is_resource_change_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     is_security_command_center_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     metric_namespace_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMetricNamespaceConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    monitored_resource_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[IntegrationGcpStsMonitoredResourceConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
     resource_collection_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1210,6 +1505,79 @@ def _typecheckingstub__debe80e20c5b99f202927e393164023a1722433dba244b093506ab2c8
 
 def _typecheckingstub__c269b205ee2093a48fa04a03093b94ca5566d8cc36f0205590f5c190471fd572(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, IntegrationGcpStsMetricNamespaceConfigs]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f90f5c251e9d596efa937a97da7b39aab6115e319fb294a7ec0a5f6c26f53731(
+    *,
+    filters: typing.Optional[typing.Sequence[builtins.str]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c5d560325b13cf4e2117378d6116507d994f11c121002c2d971eeb3af6686d0(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__681607d7049a258b1a7203a78e0cb3f3c2266bc11acca428d81c635019d4beab(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fc9621333ac214d538919b183604709de85e7824f6478adcc611eae52c04db0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c1877ef7bfa253c49010bd3769a8f8d441671358ad78beadd38f303ec89946a(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f49ba79aaefa3e8ca94fca8dfb2bf0cfa45713160863344917e5365fede2226(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90192afa0e2ee819c12270b8bdce6f674331a342e530870b1129e2f87bd53391(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[IntegrationGcpStsMonitoredResourceConfigs]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c10a9ae633a39cf8604503c06ef4c40f09c68e3f4178bda9bfe1e5f65637fe54(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32c7d2179a8b1dfa4cb7fb05de2b6fef359fe3561619c5249b74a6ad314f937f(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b17aab50998b00b2a62db7e559066b68333a54804acc5fcb048f9c345302db2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92fbe82aae028485e8993380fab9f8aeff90e2f9e134e546659156014ba516b9(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, IntegrationGcpStsMonitoredResourceConfigs]],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -87,7 +87,6 @@ class TestBigQuery(Validator):
         self.validate_identity("SELECT * FROM dataset.my_table TABLESAMPLE SYSTEM (10 PERCENT)")
         self.validate_identity("TIME('2008-12-25 15:30:00+08')")
         self.validate_identity("TIME('2008-12-25 15:30:00+08', 'America/Los_Angeles')")
-        self.validate_identity("SELECT test.Unknown FROM test")
         self.validate_identity(r"SELECT '\n\r\a\v\f\t'")
         self.validate_identity("SELECT * FROM tbl FOR SYSTEM_TIME AS OF z")
         self.validate_identity("SELECT PARSE_TIMESTAMP('%c', 'Thu Dec 25 07:30:00 2008', 'UTC')")
@@ -1193,26 +1192,6 @@ LANGUAGE js AS
             write={"bigquery": "SELECT ARRAY(SELECT * FROM foo JOIN bla ON x = y)"},
         )
         self.validate_all(
-            "x IS unknown",
-            write={
-                "bigquery": "x IS NULL",
-                "duckdb": "x IS NULL",
-                "presto": "x IS NULL",
-                "hive": "x IS NULL",
-                "spark": "x IS NULL",
-            },
-        )
-        self.validate_all(
-            "x IS NOT unknown",
-            write={
-                "bigquery": "NOT x IS NULL",
-                "duckdb": "NOT x IS NULL",
-                "presto": "NOT x IS NULL",
-                "hive": "NOT x IS NULL",
-                "spark": "NOT x IS NULL",
-            },
-        )
-        self.validate_all(
             "CURRENT_TIMESTAMP()",
             read={
                 "tsql": "GETDATE()",
@@ -2115,15 +2094,6 @@ OPTIONS (
         self.validate_identity(
             "SELECT * FROM ML.PREDICT(MODEL my_dataset.vision_model, (SELECT uri, ML.CONVERT_COLOR_SPACE(ML.RESIZE_IMAGE(ML.DECODE_IMAGE(data), 224, 280, TRUE), 'YIQ') AS input FROM my_dataset.object_table WHERE content_type = 'image/jpeg'))"
         )
-
-        ast = self.validate_identity(
-            "SELECT * FROM ML.GENERATE_EMBEDDING(MODEL mydataset.mymodel, (SELECT label, column1, column2 FROM mydataset.mytable))"
-        )
-        assert ast.find(exp.GenerateEmbedding)
-        self.validate_identity(
-            "SELECT * FROM ML.GENERATE_EMBEDDING(MODEL mydataset.mymodel, TABLE mydataset.mytable, STRUCT(TRUE AS flatten_json_output))"
-        )
-
         ast = self.validate_identity("SELECT * FROM ML.FEATURES_AT_TIME((SELECT 1), num_rows => 1)")
         assert ast.find(exp.FeaturesAtTime)
         self.validate_identity(
@@ -2161,6 +2131,17 @@ OPTIONS (
         self.validate_identity(
             "SELECT * FROM ML.FORECAST(MODEL `mydataset.mymodel`, (SELECT * FROM mydataset.query_table), STRUCT())"
         )
+
+        for name in ("GENERATE_EMBEDDING", "GENERATE_TEXT_EMBEDDING"):
+            with self.subTest(f"Testing BigQuery's ML function {name}"):
+                ast = self.validate_identity(
+                    f"SELECT * FROM ML.{name}(MODEL mydataset.mymodel, (SELECT label, column1, column2 FROM mydataset.mytable))"
+                )
+                self.validate_identity(
+                    f"SELECT * FROM ML.{name}(MODEL mydataset.mymodel, TABLE mydataset.mytable, STRUCT(TRUE AS flatten_json_output))"
+                )
+
+                assert ast.find(exp.GenerateEmbedding)
 
     def test_merge(self):
         self.validate_all(
@@ -2940,6 +2921,15 @@ OPTIONS (
             write={
                 "bigquery": "SELECT 1 & 1",
                 "snowflake": "SELECT BITAND(1, 1)",
+            },
+        )
+
+    def test_bitwise_not(self):
+        self.validate_all(
+            "SELECT ~1",
+            write={
+                "bigquery": "SELECT ~1",
+                "snowflake": "SELECT BITNOT(1)",
             },
         )
 

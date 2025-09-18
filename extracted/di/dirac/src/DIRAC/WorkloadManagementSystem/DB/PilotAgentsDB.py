@@ -6,7 +6,6 @@
     Available methods are:
 
     addPilotReferences()
-    addPilotTQReference()
     setPilotStatus()
     deletePilot()
     clearPilots()
@@ -21,15 +20,15 @@
 import datetime
 import decimal
 import threading
-from DIRAC.Core.Utilities.Decorators import deprecated
 
 import DIRAC.Core.Utilities.TimeUtilities as TimeUtilities
 from DIRAC import S_ERROR, S_OK
-from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getDNForUsername, getUsernameForDN, getVOForGroup
+from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getVOForGroup
 from DIRAC.ConfigurationSystem.Client.Helpers.Resources import getCESiteMapping
 from DIRAC.Core.Base.DB import DB
 from DIRAC.Core.Utilities import DErrno
 from DIRAC.Core.Utilities.MySQL import _quotedList
+from DIRAC.Core.Utilities.ReturnValues import returnValueOrRaise
 from DIRAC.FrameworkSystem.Client.Logger import contextLogger
 from DIRAC.ResourceStatusSystem.Client.SiteStatus import SiteStatus
 from DIRAC.WorkloadManagementSystem.Client import PilotStatus
@@ -50,7 +49,8 @@ class PilotAgentsDB(DB):
         self._defaultLogger = value
 
     ##########################################################################################
-    def addPilotReferences(self, pilotRef, ownerGroup, gridType="DIRAC", pilotStampDict={}):
+
+    def addPilotReferences(self, pilotRef, VO, gridType="DIRAC", pilotStampDict={}):
         """Add a new pilot job reference"""
         for ref in pilotRef:
             stamp = ""
@@ -58,10 +58,10 @@ class PilotAgentsDB(DB):
                 stamp = pilotStampDict[ref]
 
             req = (
-                "INSERT INTO PilotAgents( PilotJobReference, TaskQueueID, OwnerDN, "
-                + "OwnerGroup, Broker, GridType, SubmissionTime, LastUpdateTime, Status, PilotStamp ) "
-                + "VALUES ('%s',%d,%s,'%s','%s','%s',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'Submitted','%s')"
-                % (ref, 0, "Unknown", ownerGroup, "Unknown", gridType, stamp)
+                "INSERT INTO PilotAgents "
+                + "(PilotJobReference, VO, GridType, SubmissionTime, LastUpdateTime, Status, PilotStamp) "
+                + "VALUES ('%s','%s','%s',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'Submitted','%s')"
+                % (ref, VO, gridType, stamp)
             )
 
             result = self._update(req)
@@ -70,40 +70,6 @@ class PilotAgentsDB(DB):
 
             if "lastRowId" not in result:
                 return S_ERROR("PilotAgentsDB.addPilotReferences: Failed to retrieve a new Id.")
-
-        return S_OK()
-
-    @deprecated("Use addPilotReferences instead")
-    def addPilotTQReference(
-        self, pilotRef, taskQueueID, ownerDN, ownerGroup, broker="Unknown", gridType="DIRAC", pilotStampDict={}
-    ):
-        """Add a new pilot job reference"""
-
-        err = "PilotAgentsDB.addPilotTQReference: Failed to retrieve a new Id."
-
-        for ref in pilotRef:
-            stamp = ""
-            if ref in pilotStampDict:
-                stamp = pilotStampDict[ref]
-
-            res = self._escapeString(ownerDN)
-            if not res["OK"]:
-                return res
-            escapedOwnerDN = res["Value"]
-
-            req = (
-                "INSERT INTO PilotAgents( PilotJobReference, TaskQueueID, OwnerDN, "
-                + "OwnerGroup, Broker, GridType, SubmissionTime, LastUpdateTime, Status, PilotStamp ) "
-                + "VALUES ('%s',%d,%s,'%s','%s','%s',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'Submitted','%s')"
-                % (ref, int(taskQueueID), escapedOwnerDN, ownerGroup, broker, gridType, stamp)
-            )
-
-            result = self._update(req)
-            if not result["OK"]:
-                return result
-
-            if "lastRowId" not in result:
-                return S_ERROR(f"{err}")
 
         return S_OK()
 
@@ -221,26 +187,6 @@ class PilotAgentsDB(DB):
 
         return S_OK(result["Value"][0][0])
 
-    #########################################################################################
-    def getPilotGroups(self, groupList=["Status", "OwnerDN", "OwnerGroup", "GridType"], condDict={}):
-        """
-        Get all exisiting combinations of groupList Values
-        """
-
-        cmd = f"SELECT {', '.join(groupList)} from PilotAgents "
-
-        condList = []
-        for cond in condDict:
-            condList.append('{} in ( "{}" )'.format(cond, '", "'.join([str(y) for y in condDict[cond]])))
-
-        # the conditions should be escaped before hand, so it is not really nice to expose it this way...
-        if condList:
-            cmd += f" WHERE {' AND '.join(condList)} "
-
-        cmd += f" GROUP BY {', '.join(groupList)}"
-
-        return self._query(cmd)
-
     ##########################################################################################
     def deletePilots(self, pilotIDs, conn=False):
         """Delete Pilots with IDs in the given list from the PilotAgentsDB"""
@@ -305,26 +251,21 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
         return S_OK(idList)
 
     ##########################################################################################
-    def getPilotInfo(self, pilotRef=False, parentId=False, conn=False, paramNames=[], pilotID=False):
+    def getPilotInfo(self, pilotRef=False, conn=False, paramNames=[], pilotID=False):
         """Get all the information for the pilot job reference or reference list"""
 
         parameters = (
             [
                 "PilotJobReference",
-                "OwnerDN",
-                "OwnerGroup",
+                "VO",
                 "GridType",
-                "Broker",
                 "Status",
                 "DestinationSite",
                 "BenchMark",
-                "ParentID",
-                "OutputReady",
                 "AccountingSent",
                 "SubmissionTime",
                 "PilotID",
                 "LastUpdateTime",
-                "TaskQueueID",
                 "GridSite",
                 "PilotStamp",
                 "Queue",
@@ -335,7 +276,10 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
 
         cmd = f"SELECT {', '.join(parameters)} FROM PilotAgents"
         condSQL = []
-        for key, value in [("PilotJobReference", pilotRef), ("PilotID", pilotID), ("ParentID", parentId)]:
+        for key, value in [
+            ("PilotJobReference", pilotRef),
+            ("PilotID", pilotID),
+        ]:
             resList = []
             for v in value if isinstance(value, list) else [value] if value else []:
                 result = self._escapeString(v)
@@ -354,8 +298,6 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
             msg = "No pilots found"
             if pilotRef:
                 msg += f" for PilotJobReference(s): {pilotRef}"
-            if parentId:
-                msg += f" with parent id: {parentId}"
             return S_ERROR(DErrno.EWMSNOPILOT, msg)
 
         resDict = {}
@@ -416,17 +358,13 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
 
         result = self._escapeString(output)
         if not result["OK"]:
-            return S_ERROR("Failed to escape output string")
+            return result
         e_output = result["Value"]
         result = self._escapeString(error)
         if not result["OK"]:
-            return S_ERROR("Failed to escape error string")
-        e_error = result["Value"]
-        req = "INSERT INTO PilotOutput (PilotID,StdOutput,StdError) VALUES (%d,%s,%s)" % (pilotID, e_output, e_error)
-        result = self._update(req)
-        if not result["OK"]:
             return result
-        req = "UPDATE PilotAgents SET OutputReady='True' where PilotID=%d" % pilotID
+        e_error = result["Value"]
+        req = f"INSERT INTO PilotOutput (PilotID,StdOutput,StdError) VALUES ({pilotID}, {e_output}, {e_error})"
         return self._update(req)
 
     ##########################################################################################
@@ -456,7 +394,7 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
     def __getPilotID(self, pilotRef):
         """Get Pilot ID for the given pilot reference or a list of references"""
 
-        if isinstance(pilotRef, str):
+        if isinstance(pilotRef, (str, int)):
             req = f"SELECT PilotID from PilotAgents WHERE PilotJobReference='{pilotRef}'"
             result = self._query(req)
             if not result["OK"]:
@@ -464,9 +402,18 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
             if result["Value"]:
                 return int(result["Value"][0][0])
             return 0
-        refString = ",".join(["'" + ref + "'" for ref in pilotRef])
-        req = f"SELECT PilotID from PilotAgents WHERE PilotJobReference in ( {refString} )"
-        result = self._query(req)
+
+        sqlCmd = "CREATE TEMPORARY TABLE to_select_PilotAgents (PilotID VARCHAR(255) NOT NULL, PRIMARY KEY (PilotID)) ENGINE=MEMORY;"
+        returnValueOrRaise(self._update(sqlCmd))
+        try:
+            sqlCmd = "INSERT INTO to_select_PilotAgents (PilotID) VALUES ( %s )"
+            returnValueOrRaise(self._updatemany(sqlCmd, [(p,) for p in pilotRef]))
+            sqlCmd = "SELECT PilotID FROM PilotAgents JOIN to_select_PilotAgents USING (PilotID)"
+            result = self._query(sqlCmd)
+        finally:
+            sqlCmd = "DROP TEMPORARY TABLE to_select_PilotAgents"
+            returnValueOrRaise(self._update(sqlCmd))
+
         if not result["OK"]:
             return []
         if result["Value"]:
@@ -500,9 +447,10 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
         """Get IDs of Jobs that were executed by a pilot"""
         cmd = "SELECT pilotID,JobID FROM JobToPilotMapping "
         if isinstance(pilotID, list):
-            cmd = cmd + " WHERE pilotID IN (%s)" % ",".join(["%s" % x for x in pilotID])
+            pilotIDs_string = ",".join(str(int(x)) for x in pilotID)
+            cmd = f"{cmd} WHERE pilotID IN ({pilotIDs_string})"
         else:
-            cmd = cmd + f" WHERE pilotID = {pilotID}"
+            cmd = f"{cmd} WHERE pilotID = {pilotID}"
 
         result = self._query(cmd)
         if not result["OK"]:
@@ -510,35 +458,10 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
 
         resDict = {}
         for row in result["Value"]:
-            if not row[0] in resDict:
+            if row[0] not in resDict:
                 resDict[row[0]] = []
             resDict[row[0]].append(row[1])
         return S_OK(resDict)
-
-    ##########################################################################################
-    def getPilotsForTaskQueue(self, taskQueueID, gridType=None, limit=None):
-        """Get IDs of Pilot Agents that were submitted for the given taskQueue,
-        specify optionally the grid type, results are sorted by Submission time
-        an Optional limit can be set.
-        """
-
-        if gridType:
-            req = f"SELECT PilotID FROM PilotAgents WHERE TaskQueueID={taskQueueID} AND GridType='{gridType}' "
-        else:
-            req = f"SELECT PilotID FROM PilotAgents WHERE TaskQueueID={taskQueueID} "
-
-        req += "ORDER BY SubmissionTime DESC "
-
-        if limit:
-            req += f"LIMIT {limit}"
-
-        result = self._query(req)
-        if not result["OK"]:
-            return result
-        if result["Value"]:
-            pilotList = [x[0] for x in result["Value"]]
-            return S_OK(pilotList)
-        return S_ERROR(f"PilotJobReferences for TaskQueueID {taskQueueID} not found")
 
     ##########################################################################################
     def getPilotsForJobID(self, jobID):
@@ -619,61 +542,16 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
 
         return S_OK(summary_dict)
 
-    #   def getPilotSummaryShort( self, startTimeWindow = None, endTimeWindow = None, ce = '' ):
-    #     """
-    #     Spin off the method getPilotSummary. It is doing things in such a way that
-    #     do not make much sense. This method returns the pilots that were updated in the
-    #     time window [ startTimeWindow, endTimeWindow ), if they are present.
-    #     """
-    #
-    #     sqlSelect = 'SELECT DestinationSite,Status,count(Status) FROM PilotAgents'
-    #
-    #     whereSelect = []
-    #
-    #     if startTimeWindow is not None:
-    #       whereSelect.append( ' LastUpdateTime >= "%s"' % startTimeWindow )
-    #     if endTimeWindow is not None:
-    #       whereSelect.append( ' LastUpdateTime < "%s"' % endTimeWindow )
-    #     if ce:
-    #       whereSelect.append( ' DestinationSite = "%s"' % ce )
-    #
-    #     if whereSelect:
-    #       sqlSelect += ' WHERE'
-    #       sqlSelect += ' AND'.join( whereSelect )
-    #
-    #     sqlSelect += ' GROUP BY DestinationSite,Status'
-    #
-    #     resSelect = self._query( sqlSelect )
-    #     if not resSelect[ 'OK' ]:
-    #       return resSelect
-    #
-    #     result = { 'Total' : collections.defaultdict( int ) }
-    #
-    #     for row in resSelect[ 'Value' ]:
-    #
-    #       ceName, statusName, statusCount = row
-    #
-    #       if not ceName in result:
-    #         result[ ceName ] = {}
-    #       result[ ceName ][ statusName ] = int( statusCount )
-    #
-    #       result[ 'Total' ][ statusName ] += int( statusCount )
-    #
-    #     return S_OK( result )
-
     ##########################################################################################
-    def getGroupedPilotSummary(self, selectDict, columnList):
+    def getGroupedPilotSummary(self, columnList):
         """
         The simplified pilot summary based on getPilotSummaryWeb method. It calculates pilot efficiency
         based on the same algorithm as in the Web version, basically takes into account Done and
         Aborted pilots only from the last day. The selection is done entirely in SQL.
 
-        :param dict selectDict: A dictionary to pass additional conditions to select statements, i.e.
-                                it allows to define start time for Done and Aborted Pilots. Unused.
         :param list columnList: A list of column to consider when grouping to calculate efficiencies.
                            e.g. ['GridSite', 'DestinationSite'] is used to calculate efficiencies
-                           for sites and  CEs. If we want to add an OwnerGroup it would be:
-                           ['GridSite', 'DestinationSite', 'OwnerGroup'].
+                           for sites and  CEs.
         :return: S_OK/S_ERROR with a dict containing the ParameterNames and Records lists.
         """
 
@@ -692,8 +570,7 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
         rows = []
         columns = table.getColumnList()
         try:
-            groupIndex = columns.index("OwnerGroup")
-            # should probably change a column name to VO here as well to avoid confusion
+            groupIndex = columns.index("VO")
         except ValueError:
             groupIndex = None
         result = {"ParameterNames": columns}
@@ -1066,7 +943,7 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
     def getPilotMonitorSelectors(self):
         """Get distinct values for the Pilot Monitor page selectors"""
 
-        paramNames = ["OwnerDN", "OwnerGroup", "GridType", "Broker", "Status", "DestinationSite", "GridSite"]
+        paramNames = ["VO", "GridType", "Status", "DestinationSite", "GridSite"]
 
         resultDict = {}
         for param in paramNames:
@@ -1075,14 +952,6 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
                 resultDict[param] = result["Value"]
             else:
                 resultDict = []
-
-            if param == "OwnerDN":
-                userList = []
-                for dn in result["Value"]:
-                    resultUser = getUsernameForDN(dn)
-                    if resultUser["OK"]:
-                        userList.append(resultUser["Value"])
-                resultDict["Owner"] = userList
 
         return S_OK(resultDict)
 
@@ -1093,16 +962,7 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
         resultDict = {}
         if "LastUpdateTime" in selectDict:
             del selectDict["LastUpdateTime"]
-        if "Owner" in selectDict:
-            userList = selectDict["Owner"]
-            if not isinstance(userList, list):
-                userList = [userList]
-            dnList = []
-            for uName in userList:
-                uList = getDNForUsername(uName)["Value"]
-                dnList += uList
-            selectDict["OwnerDN"] = dnList
-            del selectDict["Owner"]
+
         startDate = selectDict.get("FromDate", None)
         if startDate:
             del selectDict["FromDate"]
@@ -1144,19 +1004,15 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
 
         paramNames = [
             "PilotJobReference",
-            "OwnerDN",
-            "OwnerGroup",
+            "VO",
             "GridType",
-            "Broker",
             "Status",
             "DestinationSite",
             "BenchMark",
-            "ParentID",
             "SubmissionTime",
             "PilotID",
             "LastUpdateTime",
             "CurrentJobID",
-            "TaskQueueID",
             "GridSite",
         ]
 
@@ -1195,7 +1051,7 @@ AND SubmissionTime < DATE_SUB(UTC_TIMESTAMP(),INTERVAL %d DAY)"
     def getSummarySnapshot(self, requestedFields=False):
         """Get the summary snapshot for a given combination"""
         if not requestedFields:
-            requestedFields = ["TaskQueueID", "GridSite", "GridType", "Status"]
+            requestedFields = ["GridSite", "GridType", "Status"]
         valueFields = ["COUNT(PilotID)"]
         defString = ", ".join(requestedFields)
         valueString = ", ".join(valueFields)

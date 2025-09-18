@@ -1,23 +1,19 @@
 """
 This is the interface to DIRAC PilotAgentsDB.
 """
-import shutil
 import datetime
+import shutil
 
-from DIRAC import S_OK, S_ERROR
-from DIRAC.Core.Utilities.Decorators import deprecated
 import DIRAC.Core.Utilities.TimeUtilities as TimeUtilities
-
-from DIRAC.Core.DISET.RequestHandler import RequestHandler
-from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
+from DIRAC import S_ERROR, S_OK
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
-from DIRAC.ConfigurationSystem.Client.Helpers.Registry import getUsernameForDN, getDNForUsername
+from DIRAC.Core.DISET.RequestHandler import RequestHandler, getServiceOption
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.WorkloadManagementSystem.Client import PilotStatus
 from DIRAC.WorkloadManagementSystem.Service.WMSUtilities import (
     getPilotCE,
-    setPilotCredentials,
     getPilotRef,
-    killPilotsInQueues,
+    setPilotCredentials,
 )
 
 
@@ -35,17 +31,10 @@ class PilotManagerHandler(RequestHandler):
         except RuntimeError as excp:
             return S_ERROR(f"Can't connect to DB: {excp}")
 
-        cls.pilotsLoggingDB = None
-        enablePilotsLogging = Operations().getValue("/Services/JobMonitoring/usePilotsLoggingFlag", False)
-        if enablePilotsLogging:
-            try:
-                result = ObjectLoader().loadObject("WorkloadManagementSystem.DB.PilotsLoggingDB", "PilotsLoggingDB")
-                if not result["OK"]:
-                    return result
-                cls.pilotsLoggingDB = result["Value"](parentLogger=cls.log)
-            except RuntimeError as excp:
-                return S_ERROR(f"Can't connect to DB: {excp}")
-
+        # prepare remote pilot plugin initialization
+        defaultOption, defaultClass = "DownloadPlugin", "FileCacheDownloadPlugin"
+        cls.configValue = getServiceOption(serviceInfoDict, defaultOption, defaultClass)
+        cls.loggingPlugin = None
         return S_OK()
 
     ##############################################################################
@@ -84,41 +73,55 @@ class PilotManagerHandler(RequestHandler):
     types_addPilotReferences = [list, str]
 
     @classmethod
-    def export_addPilotReferences(cls, pilotRef, ownerGroup, gridType="DIRAC", pilotStampDict={}):
+    def export_addPilotReferences(cls, pilotRef, VO, gridType="DIRAC", pilotStampDict={}):
         """Add a new pilot job reference"""
-        return cls.pilotAgentsDB.addPilotReferences(pilotRef, ownerGroup, gridType, pilotStampDict)
-
-    types_addPilotTQReference = [list, int, str, str]
-
-    @classmethod
-    @deprecated("Use addPilotReferences instead")
-    def export_addPilotTQReference(
-        cls, pilotRef, taskQueueID, ownerDN, ownerGroup, broker="Unknown", gridType="DIRAC", pilotStampDict={}
-    ):
-        """Add a new pilot job reference"""
-        return cls.pilotAgentsDB.addPilotTQReference(
-            pilotRef, taskQueueID, ownerDN, ownerGroup, broker, gridType, pilotStampDict
-        )
+        return cls.pilotAgentsDB.addPilotReferences(pilotRef, VO, gridType, pilotStampDict)
 
     ##############################################################################
     types_getPilotOutput = [str]
 
     def export_getPilotOutput(self, pilotReference):
-        """Get the pilot job standard output and standard error files for the Grid
-        job reference
         """
+        Get the pilot job standard output and standard error files for a pilot reference.
+        Handles both classic, CE-based logs and remote logs. The type of logs returned is determined
+        by the server.
+
+        :param str pilotReference: pilot reference (e.g. htcondorce://ce13.pic.es/19126986.5)
+        :return: S_OK or S_ERROR
+        :rtype: dict
+        """
+
         result = self.pilotAgentsDB.getPilotInfo(pilotReference)
         if not result["OK"]:
-            self.log.error("Failed to get info for pilot", result["Message"])
+            self.log.error("Failed to get info for pilot", f"{pilotReference}: {result['Message']}")
             return S_ERROR("Failed to get info for pilot")
         if not result["Value"]:
-            self.log.warn("The pilot info is empty", pilotReference)
+            self.log.warn("The pilot info is empty for", pilotReference)
             return S_ERROR("Pilot info is empty")
 
         pilotDict = result["Value"][pilotReference]
+        opsHelper = Operations(vo=pilotDict["VO"])
+        remote = opsHelper.getValue("Pilot/RemoteLogsPriority", False)
+        # classic logs first, by default
+        funcs = [self._getPilotOutput, self._getRemotePilotOutput]
+        if remote:
+            self.log.info("Trying to retrieve output of pilot", f"{pilotReference} remotely first")
+            funcs.reverse()
 
-        owner = pilotDict["OwnerDN"]
-        group = pilotDict["OwnerGroup"]
+        result = funcs[0](pilotReference, pilotDict)
+        if not result["OK"]:
+            self.log.warn(
+                "Failed getting output for pilot", f"{pilotReference}. Will try another approach: {result['Message']}"
+            )
+            result = funcs[1](pilotReference, pilotDict)
+            return result
+        else:
+            return result
+
+    def _getPilotOutput(self, pilotReference, pilotDict):
+        """Get the pilot job standard output and standard error files for the Grid
+        job reference
+        """
 
         # FIXME: What if the OutputSandBox is not StdOut and StdErr, what do we do with other files?
         result = self.pilotAgentsDB.getPilotOutput(pilotReference)
@@ -129,8 +132,7 @@ class PilotManagerHandler(RequestHandler):
                 resultDict = {}
                 resultDict["StdOut"] = stdout
                 resultDict["StdErr"] = error
-                resultDict["OwnerDN"] = owner
-                resultDict["OwnerGroup"] = group
+                resultDict["VO"] = pilotDict["VO"]
                 resultDict["FileList"] = []
                 return S_OK(resultDict)
             else:
@@ -167,11 +169,41 @@ class PilotManagerHandler(RequestHandler):
         resultDict = {}
         resultDict["StdOut"] = stdout
         resultDict["StdErr"] = error
-        resultDict["OwnerDN"] = owner
-        resultDict["OwnerGroup"] = group
+        resultDict["VO"] = pilotDict["VO"]
         resultDict["FileList"] = []
         shutil.rmtree(ce.ceParameters["WorkingDirectory"])
         return S_OK(resultDict)
+
+    def _getRemotePilotOutput(self, pilotReference, pilotDict):
+        """
+        Get remote pilot log files.
+
+        :param str pilotReference:
+        :return: S_OK Dirac object
+        :rtype: dict
+        """
+
+        pilotStamp = pilotDict["PilotStamp"]
+
+        if self.loggingPlugin is None:
+            result = ObjectLoader().loadObject(
+                f"WorkloadManagementSystem.Client.PilotLoggingPlugins.{self.configValue}", self.configValue
+            )
+            if not result["OK"]:
+                self.log.error("Failed to load LoggingPlugin", f"{self.configValue}: {result['Message']}")
+                return result
+
+            componentClass = result["Value"]
+            self.loggingPlugin = componentClass()
+            self.log.info("Loaded: PilotLoggingPlugin class", self.configValue)
+
+        res = self.loggingPlugin.getRemotePilotLogs(pilotStamp, pilotDict["VO"])
+
+        if res["OK"]:
+            res["Value"]["VO"] = pilotDict["VO"]
+            res["Value"]["FileList"] = []
+        # return res, correct or not
+        return res
 
     ##############################################################################
     types_getPilotInfo = [[list, str]]
@@ -205,14 +237,13 @@ class PilotManagerHandler(RequestHandler):
         result = self.pilotAgentsDB.getPilotInfo(pilotReference)
         if not result["OK"]:
             self.log.error("Failed to get info for pilot", result["Message"])
-            return S_ERROR("Failed to get info for pilot")
+            result
         if not result["Value"]:
             self.log.warn("The pilot info is empty", pilotReference)
             return S_ERROR("Pilot info is empty")
 
         pilotDict = result["Value"][pilotReference]
-        result = getPilotCE(pilotDict)
-        if not result["OK"]:
+        if not (result := getPilotCE(pilotDict))["OK"]:
             return result
 
         ce = result["Value"]
@@ -221,12 +252,10 @@ class PilotManagerHandler(RequestHandler):
             return S_ERROR(f"Pilot logging not available for {pilotDict['GridType']} CEs")
 
         # Set proxy or token for the CE
-        result = setPilotCredentials(ce, pilotDict)
-        if not result["OK"]:
+        if not (result := setPilotCredentials(ce, pilotDict))["OK"]:
             return result
 
-        result = getPilotRef(pilotReference, pilotDict)
-        if not result["OK"]:
+        if not (result := getPilotRef(pilotReference, pilotDict))["OK"]:
             return result
         pRef = result["Value"]
 
@@ -249,122 +278,30 @@ class PilotManagerHandler(RequestHandler):
         return cls.pilotAgentsDB.getPilotSummary(startdate, enddate)
 
     ##############################################################################
-    types_getPilotMonitorWeb = [dict, list, int, int]
+    types_getGroupedPilotSummary = [list]
 
     @classmethod
-    def export_getPilotMonitorWeb(cls, selectDict, sortList, startItem, maxItems):
-        """Get the summary of the pilot information for a given page in the
-        pilot monitor in a generic format
-        """
-
-        return cls.pilotAgentsDB.getPilotMonitorWeb(selectDict, sortList, startItem, maxItems)
-
-    ##############################################################################
-    types_getPilotMonitorSelectors = []
-
-    @classmethod
-    def export_getPilotMonitorSelectors(cls):
-        """Get all the distinct selector values for the Pilot Monitor web portal page"""
-
-        return cls.pilotAgentsDB.getPilotMonitorSelectors()
-
-    ##############################################################################
-    types_getPilotSummaryWeb = [dict, list, int, int]
-
-    @classmethod
-    def export_getPilotSummaryWeb(cls, selectDict, sortList, startItem, maxItems):
-        """Get the summary of the pilot information for a given page in the
-        pilot monitor in a generic format
-        """
-
-        return cls.pilotAgentsDB.getPilotSummaryWeb(selectDict, sortList, startItem, maxItems)
-
-    ##############################################################################
-    types_getGroupedPilotSummary = [dict, list]
-
-    @classmethod
-    def export_getGroupedPilotSummary(cls, selectDict, columnList):
+    def export_getGroupedPilotSummary(cls, columnList):
         """
         Get pilot summary showing grouped by columns in columnList, all pilot states
         and pilot efficiencies in a single row.
 
-        :param selectDict: additional arguments to SELECT clause
         :param columnList: a list of columns to GROUP BY (less status column)
         :return: a dictionary containing column names and data records
         """
-        return cls.pilotAgentsDB.getGroupedPilotSummary(selectDict, columnList)
+        return cls.pilotAgentsDB.getGroupedPilotSummary(columnList)
 
     ##############################################################################
     types_getPilots = [[str, int]]
 
     @classmethod
     def export_getPilots(cls, jobID):
-        """Get pilot references and their states for :
-        - those pilots submitted for the TQ where job is sitting
-        - (or) the pilots executing/having executed the Job
-        """
-
-        pilots = []
+        """Get pilots executing/having executed the Job"""
         result = cls.pilotAgentsDB.getPilotsForJobID(int(jobID))
-        if not result["OK"]:
-            if result["Message"].find("not found") == -1:
-                return S_ERROR("Failed to get pilot: " + result["Message"])
-        else:
-            pilots += result["Value"]
-        if not pilots:
-            # Pilots were not found try to look in the Task Queue
-            taskQueueID = 0
-            try:
-                result = ObjectLoader().loadObject("WorkloadManagementSystem.DB.TaskQueueDB", "TaskQueueDB")
-                if not result["OK"]:
-                    return result
-                tqDB = result["Value"]()
-            except RuntimeError as excp:
-                return S_ERROR(f"Can't connect to DB: {excp}")
-            result = tqDB.getTaskQueueForJob(int(jobID))
-            if result["OK"] and result["Value"]:
-                taskQueueID = result["Value"]
-            if taskQueueID:
-                result = cls.pilotAgentsDB.getPilotsForTaskQueue(taskQueueID, limit=10)
-                if not result["OK"]:
-                    return S_ERROR("Failed to get pilot: " + result["Message"])
-                pilots += result["Value"]
+        if not result["OK"] or not result["Value"]:
+            return S_ERROR(f"Failed to get pilot for Job {int(jobID)}: {result.get('Message', '')}")
 
-        if not pilots:
-            return S_ERROR("Failed to get pilot for Job %d" % int(jobID))
-
-        return cls.pilotAgentsDB.getPilotInfo(pilotID=pilots)
-
-    ##############################################################################
-    types_killPilot = [[str, list]]
-
-    @classmethod
-    @deprecated("Removed from DIRAC v9 (use DIRAC.Interfaces.API.DiracAdmin.DiracAdmin().killPilot() instead)")
-    def export_killPilot(cls, pilotRefList):
-        """Kill the specified pilots"""
-        # Make a list if it is not yet
-        pilotRefs = list(pilotRefList)
-        if isinstance(pilotRefList, str):
-            pilotRefs = [pilotRefList]
-
-        # Regroup pilots per site and per owner
-        pilotRefDict = {}
-        for pilotReference in pilotRefs:
-            result = cls.pilotAgentsDB.getPilotInfo(pilotReference)
-            if not result["OK"] or not result["Value"]:
-                return S_ERROR("Failed to get info for pilot " + pilotReference)
-
-            pilotDict = result["Value"][pilotReference]
-            owner = pilotDict["OwnerDN"]
-            group = pilotDict["OwnerGroup"]
-            queue = "@@@".join([owner, group, pilotDict["GridSite"], pilotDict["DestinationSite"], pilotDict["Queue"]])
-            gridType = pilotDict["GridType"]
-            pilotRefDict.setdefault(queue, {})
-            pilotRefDict[queue].setdefault("PilotList", [])
-            pilotRefDict[queue]["PilotList"].append(pilotReference)
-            pilotRefDict[queue]["GridType"] = gridType
-
-        return killPilotsInQueues(pilotRefDict)
+        return cls.pilotAgentsDB.getPilotInfo(pilotID=result["Value"])
 
     ##############################################################################
     types_setJobForPilot = [[str, int], str]
@@ -421,64 +358,6 @@ class PilotManagerHandler(RequestHandler):
         return cls.pilotAgentsDB.countPilots(condDict, older, newer, timeStamp)
 
     ##########################################################################################
-    types_getCounters = [str, list, dict]
-
-    @classmethod
-    def export_getCounters(cls, table, keys, condDict, newer=None, timeStamp="SubmissionTime"):
-        """Set the pilot agent status"""
-
-        return cls.pilotAgentsDB.getCounters(table, keys, condDict, newer=newer, timeStamp=timeStamp)
-
-    ##############################################################################
-    types_getPilotStatistics = [str, dict]
-
-    @classmethod
-    def export_getPilotStatistics(cls, attribute, selectDict):
-        """Get pilot statistics distribution per attribute value with a given selection"""
-
-        startDate = selectDict.get("FromDate", None)
-        if startDate:
-            del selectDict["FromDate"]
-
-        if startDate is None:
-            startDate = selectDict.get("LastUpdate", None)
-            if startDate:
-                del selectDict["LastUpdate"]
-        endDate = selectDict.get("ToDate", None)
-        if endDate:
-            del selectDict["ToDate"]
-
-        # Owner attribute is not part of PilotAgentsDB
-        # It has to be converted into a OwnerDN
-        owners = selectDict.get("Owner")
-        if owners:
-            ownerDNs = []
-            for owner in owners:
-                result = getDNForUsername(owner)
-                if not result["OK"]:
-                    return result
-                ownerDNs.append(result["Value"])
-
-            selectDict["OwnerDN"] = ownerDNs
-            del selectDict["Owner"]
-
-        result = cls.pilotAgentsDB.getCounters(
-            "PilotAgents", [attribute], selectDict, newer=startDate, older=endDate, timeStamp="LastUpdateTime"
-        )
-        statistics = {}
-        if result["OK"]:
-            for status, count in result["Value"]:
-                if "OwnerDN" in status:
-                    userName = getUsernameForDN(status["OwnerDN"])
-                    if userName["OK"]:
-                        status["OwnerDN"] = userName["Value"]
-                    statistics[status["OwnerDN"]] = count
-                else:
-                    statistics[status[attribute]] = count
-
-        return S_OK(statistics)
-
-    ##############################################################################
     types_deletePilots = [[list, str, int]]
 
     @classmethod
@@ -494,17 +373,6 @@ class PilotManagerHandler(RequestHandler):
         result = cls.pilotAgentsDB.deletePilots(pilotIDs)
         if not result["OK"]:
             return result
-        if cls.pilotsLoggingDB:
-            pilotIDs = result["Value"]
-            pilots = cls.pilotAgentsDB.getPilotInfo(pilotID=pilotIDs)
-            if not pilots["OK"]:
-                return pilots
-            pilotRefs = []
-            for pilot in pilots:
-                pilotRefs.append(pilot["PilotJobReference"])
-            result = cls.pilotsLoggingDB.deletePilotsLogging(pilotRefs)
-            if not result["OK"]:
-                return result
 
         return S_OK()
 
@@ -513,19 +381,4 @@ class PilotManagerHandler(RequestHandler):
 
     @classmethod
     def export_clearPilots(cls, interval=30, aborted_interval=7):
-        result = cls.pilotAgentsDB.clearPilots(interval, aborted_interval)
-        if not result["OK"]:
-            return result
-        if cls.pilotsLoggingDB:
-            pilotIDs = result["Value"]
-            pilots = cls.pilotAgentsDB.getPilotInfo(pilotID=pilotIDs)
-            if not pilots["OK"]:
-                return pilots
-            pilotRefs = []
-            for pilot in pilots:
-                pilotRefs.append(pilot["PilotJobReference"])
-            result = cls.pilotsLoggingDB.deletePilotsLogging(pilotRefs)
-            if not result["OK"]:
-                return result
-
-        return S_OK()
+        return cls.pilotAgentsDB.clearPilots(interval, aborted_interval)

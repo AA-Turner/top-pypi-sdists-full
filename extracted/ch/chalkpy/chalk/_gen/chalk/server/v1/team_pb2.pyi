@@ -316,27 +316,6 @@ class UpdateEnvironmentResponse(_message.Message):
     environment: _environment_pb2.Environment
     def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
 
-class UpdateEnvironmentTeamRequest(_message.Message):
-    __slots__ = ("id", "update", "update_mask")
-    ID_FIELD_NUMBER: _ClassVar[int]
-    UPDATE_FIELD_NUMBER: _ClassVar[int]
-    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    update: UpdateEnvironmentOperation
-    update_mask: _field_mask_pb2.FieldMask
-    def __init__(
-        self,
-        id: _Optional[str] = ...,
-        update: _Optional[_Union[UpdateEnvironmentOperation, _Mapping]] = ...,
-        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
-    ) -> None: ...
-
-class UpdateEnvironmentTeamResponse(_message.Message):
-    __slots__ = ("environment",)
-    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
-    environment: _environment_pb2.Environment
-    def __init__(self, environment: _Optional[_Union[_environment_pb2.Environment, _Mapping]] = ...) -> None: ...
-
 class GetTeamRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

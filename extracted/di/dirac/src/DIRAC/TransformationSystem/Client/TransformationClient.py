@@ -1,9 +1,10 @@
-""" Class that contains client access to the transformation DB handler. """
+"""Class that contains client access to the transformation DB handler."""
 
 from DIRAC import S_OK, S_ERROR, gLogger
 from DIRAC.Core.Base.Client import Client, createClient
 from DIRAC.Core.Utilities.List import breakListIntoChunks
-from DIRAC.Core.Utilities.JEncode import decode as jdecode
+from DIRAC.Core.Utilities.ReturnValues import convertToReturnValue, returnValueOrRaise
+from DIRAC.Core.Utilities.JEncode import decode as jdecode, strToIntDict
 from DIRAC.ConfigurationSystem.Client.Helpers.Operations import Operations
 from DIRAC.TransformationSystem.Client import TransformationStatus
 from DIRAC.TransformationSystem.Client import TransformationFilesStatus
@@ -47,13 +48,6 @@ class TransformationClient(Client):
 
         getFileSummary(lfns)
         exists(lfns)
-
-    Web monitoring tools
-
-        getDistinctAttributeValues(attribute, selectDict)
-        getTransformationStatusCounters()
-        getTransformationSummary()
-        getTransformationSummaryWeb(selectDict, sortList, startItem, maxItems)
     """
 
     def __init__(self, **kwargs):
@@ -62,8 +56,8 @@ class TransformationClient(Client):
         super().__init__(**kwargs)
         opsH = Operations()
         self.maxResetCounter = opsH.getValue("Transformations/FilesMaxResetCounter", 10)
-
-        self.setServer("Transformation/TransformationManager")
+        if "url" not in kwargs:
+            self.setServer("Transformation/TransformationManager")
 
     def setServer(self, url):
         self.serverURL = url
@@ -177,7 +171,7 @@ class TransformationClient(Client):
             timeStamp = "LastUpdate"
 
         if "LFN" not in condDict:
-            res = rpcClient.getTransformationFilesAsJsonString(
+            res = rpcClient.getTransformationFiles(
                 condDict, older, newer, timeStamp, orderAttribute, offset, maxfiles, columns
             )
             if not res["OK"]:
@@ -208,7 +202,7 @@ class TransformationClient(Client):
             # Apply the offset to the list of LFNs
             condDict["LFN"] = lfnList[offsetToApply : offsetToApply + limit]
             # No limit and no offset as the list is limited already
-            res = rpcClient.getTransformationFilesAsJsonString(
+            res = rpcClient.getTransformationFiles(
                 condDict, older, newer, timeStamp, orderAttribute, None, None, columns
             )
             if not res["OK"]:
@@ -591,3 +585,19 @@ class TransformationClient(Client):
     def addDirectory(self, path, force=False):
         rpcClient = self._getRPC()
         return rpcClient.addDirectory(path, force)
+
+    @convertToReturnValue
+    def getTransformationFilesCount(self, transName, field, selection=None, **kwargs):
+        if not selection:
+            selection = {}
+        rpcClient = self._getRPC(**kwargs)
+
+        files_count = returnValueOrRaise(rpcClient.getTransformationFilesCount(transName, field, selection))
+        # Some of these fields are LHCb specific, however:
+        # * it seems only LHCb uses this method
+        # * it will not be necessary with diracx & pydantic anymore
+        if field in ["TransformationID", "FileID", "TaskID", "ErrorCount", "RunNumber", "Size"]:
+            total = files_count.pop("Total")
+            files_count = strToIntDict(files_count)
+            files_count["Total"] = total
+        return files_count

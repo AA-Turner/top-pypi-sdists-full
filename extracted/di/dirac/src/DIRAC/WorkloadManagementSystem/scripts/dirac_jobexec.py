@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-########################################################################
-# File :    dirac-jobexec
-# Author :  Stuart Paterson
-########################################################################
 """ The dirac-jobexec script is equipped to execute workflows that
     are specified via their XML description.  The main client of
     this script is the Job Wrapper.
@@ -13,6 +9,7 @@ import sys
 
 import DIRAC
 from DIRAC.Core.Base.Script import Script
+from DIRAC.Core.Utilities.ReturnValues import S_ERROR
 
 
 @Script()
@@ -91,18 +88,20 @@ def main():
             parDict[name] = value
 
     gLogger.debug("PYTHONPATH:\n%s" % ("\n".join(sys.path)))
-    jobExec = jobexec(jobXMLfile, parDict)
+    try:
+        jobExec = jobexec(jobXMLfile, parDict)
+    except Exception as e:
+        gLogger.exception("Workflow execution failed")
+        jobExec = S_ERROR(f"Workflow execution failed: {e}")
     if not jobExec["OK"]:
-        gLogger.debug("Workflow execution finished with errors, exiting")
+        gLogger.notice("Workflow execution finished with errors, exiting")
         if jobExec["Errno"]:
-            os._exit(jobExec["Errno"])
+            sys.exit(jobExec["Errno"])
         else:
-            os._exit(1)
+            sys.exit(1)
     else:
         gLogger.debug("Workflow execution successful, exiting")
-        # dirac_jobexec might interact with ARC library which cannot be closed using a simple sys.exit(0)
-        # See https://bugzilla.nordugrid.org/show_bug.cgi?id=4022 for further details
-        os._exit(0)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

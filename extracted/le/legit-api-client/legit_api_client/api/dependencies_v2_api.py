@@ -19,7 +19,7 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictStr
 from typing import List, Optional
 from typing_extensions import Annotated
-from legit_api_client.models.customer_facing_dependency_dto import CustomerFacingDependencyDto
+from legit_api_client.models.customer_facing_dependency_dto_customer_facing_cursor_paged_dto import CustomerFacingDependencyDtoCustomerFacingCursorPagedDto
 from legit_api_client.models.dependency_category import DependencyCategory
 from legit_api_client.models.package_source import PackageSource
 from legit_api_client.models.package_type import PackageType
@@ -69,7 +69,7 @@ class DependenciesV2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> List[CustomerFacingDependencyDto]:
+    ) -> CustomerFacingDependencyDtoCustomerFacingCursorPagedDto:
         """Get dependencies
 
         Get dependencies matching the query params filters. 
@@ -137,7 +137,7 @@ class DependenciesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[CustomerFacingDependencyDto]",
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -176,7 +176,7 @@ class DependenciesV2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[List[CustomerFacingDependencyDto]]:
+    ) -> ApiResponse[CustomerFacingDependencyDtoCustomerFacingCursorPagedDto]:
         """Get dependencies
 
         Get dependencies matching the query params filters. 
@@ -244,7 +244,7 @@ class DependenciesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[CustomerFacingDependencyDto]",
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -351,7 +351,7 @@ class DependenciesV2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[CustomerFacingDependencyDto]",
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -471,6 +471,320 @@ class DependenciesV2Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v2.0/dependencies',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_repository_ids_for_dependency_v2(
+        self,
+        dependency_id: StrictStr,
+        page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
+        page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
+        search: Optional[StrictStr] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[str]:
+        """Get the repositories related to a dependency
+
+        Get the repository ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param page_number:
+        :type page_number: int
+        :param page_size:
+        :type page_size: int
+        :param search:
+        :type search: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_repository_ids_for_dependency_v2_serialize(
+            dependency_id=dependency_id,
+            page_number=page_number,
+            page_size=page_size,
+            search=search,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_repository_ids_for_dependency_v2_with_http_info(
+        self,
+        dependency_id: StrictStr,
+        page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
+        page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
+        search: Optional[StrictStr] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[str]]:
+        """Get the repositories related to a dependency
+
+        Get the repository ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param page_number:
+        :type page_number: int
+        :param page_size:
+        :type page_size: int
+        :param search:
+        :type search: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_repository_ids_for_dependency_v2_serialize(
+            dependency_id=dependency_id,
+            page_number=page_number,
+            page_size=page_size,
+            search=search,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_repository_ids_for_dependency_v2_without_preload_content(
+        self,
+        dependency_id: StrictStr,
+        page_number: Optional[Annotated[int, Field(le=2147483647, strict=True, ge=1)]] = None,
+        page_size: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = None,
+        search: Optional[StrictStr] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the repositories related to a dependency
+
+        Get the repository ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param page_number:
+        :type page_number: int
+        :param page_size:
+        :type page_size: int
+        :param search:
+        :type search: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_repository_ids_for_dependency_v2_serialize(
+            dependency_id=dependency_id,
+            page_number=page_number,
+            page_size=page_size,
+            search=search,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_repository_ids_for_dependency_v2_serialize(
+        self,
+        dependency_id,
+        page_number,
+        page_size,
+        search,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if dependency_id is not None:
+            _path_params['dependencyId'] = dependency_id
+        # process the query parameters
+        if page_number is not None:
+            
+            _query_params.append(('pageNumber', page_number))
+            
+        if page_size is not None:
+            
+            _query_params.append(('pageSize', page_size))
+            
+        if search is not None:
+            
+            _query_params.append(('search', search))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/dependencies/{dependencyId}/related-repositories',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

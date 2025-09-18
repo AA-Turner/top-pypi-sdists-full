@@ -2754,6 +2754,18 @@ pub struct VenvArgs {
     #[clap(long, short, overrides_with = "allow_existing", value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_VENV_CLEAR)]
     pub clear: bool,
 
+    /// Fail without prompting if any existing files or directories are present at the target path.
+    ///
+    /// By default, when a TTY is available, `uv venv` will prompt to clear a non-empty directory.
+    /// When `--no-clear` is used, the command will exit with an error instead of prompting.
+    #[clap(
+        long,
+        overrides_with = "clear",
+        conflicts_with = "allow_existing",
+        hide = true
+    )]
+    pub no_clear: bool,
+
     /// Preserve any existing files or directories at the target path.
     ///
     /// By default, `uv venv` will exit with an error if the given path is non-empty. The
@@ -3077,7 +3089,7 @@ pub struct RunArgs {
     /// Optional dependencies are defined via `project.optional-dependencies` in a `pyproject.toml`.
     ///
     /// This option is only available when running in a project.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, conflicts_with = "all_extras", conflicts_with = "only_group", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
@@ -3085,7 +3097,7 @@ pub struct RunArgs {
     /// Optional dependencies are defined via `project.optional-dependencies` in a `pyproject.toml`.
     ///
     /// This option is only available when running in a project.
-    #[arg(long, conflicts_with = "extra")]
+    #[arg(long, conflicts_with = "extra", conflicts_with = "only_group")]
     pub all_extras: bool,
 
     /// Exclude the specified optional dependencies, if `--all-extras` is supplied.
@@ -3192,8 +3204,8 @@ pub struct RunArgs {
     ///
     /// Can be provided multiple times, with subsequent files overriding values defined in previous
     /// files.
-    #[arg(long, value_delimiter = ' ', env = EnvVars::UV_ENV_FILE)]
-    pub env_file: Vec<PathBuf>,
+    #[arg(long, env = EnvVars::UV_ENV_FILE)]
+    pub env_file: Vec<String>,
 
     /// Avoid reading environment variables from a `.env` file.
     #[arg(long, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_ENV_FILE)]
@@ -3396,7 +3408,7 @@ pub struct SyncArgs {
     ///
     /// Note that all optional dependencies are always included in the resolution; this option only
     /// affects the selection of packages to install.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, conflicts_with = "all_extras", conflicts_with = "only_group", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Select the output format.
@@ -3410,7 +3422,7 @@ pub struct SyncArgs {
     ///
     /// Note that all optional dependencies are always included in the resolution; this option only
     /// affects the selection of packages to install.
-    #[arg(long, conflicts_with = "extra")]
+    #[arg(long, conflicts_with = "extra", conflicts_with = "only_group")]
     pub all_extras: bool,
 
     /// Exclude the specified optional dependencies, if `--all-extras` is supplied.
@@ -4247,11 +4259,11 @@ pub struct ExportArgs {
     /// Include optional dependencies from the specified extra name.
     ///
     /// May be provided more than once.
-    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    #[arg(long, conflicts_with = "all_extras", conflicts_with = "only_group", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
-    #[arg(long, conflicts_with = "extra")]
+    #[arg(long, conflicts_with = "extra", conflicts_with = "only_group")]
     pub all_extras: bool,
 
     /// Exclude the specified optional dependencies, if `--all-extras` is supplied.
@@ -6635,11 +6647,12 @@ pub struct PublishArgs {
     )]
     pub token: Option<String>,
 
-    /// Configure using trusted publishing through GitHub Actions.
+    /// Configure trusted publishing.
     ///
-    /// By default, uv checks for trusted publishing when running in GitHub Actions, but ignores it
-    /// if it isn't configured or the workflow doesn't have enough permissions (e.g., a pull request
-    /// from a fork).
+    /// By default, uv checks for trusted publishing when running in a supported environment, but
+    /// ignores it if it isn't configured.
+    ///
+    /// uv's supported environments for trusted publishing include GitHub Actions and GitLab CI/CD.
     #[arg(long)]
     pub trusted_publishing: Option<TrustedPublishing>,
 
@@ -6664,14 +6677,15 @@ pub struct PublishArgs {
     /// Check an index URL for existing files to skip duplicate uploads.
     ///
     /// This option allows retrying publishing that failed after only some, but not all files have
-    /// been uploaded, and handles error due to parallel uploads of the same file.
+    /// been uploaded, and handles errors due to parallel uploads of the same file.
     ///
     /// Before uploading, the index is checked. If the exact same file already exists in the index,
     /// the file will not be uploaded. If an error occurred during the upload, the index is checked
     /// again, to handle cases where the identical file was uploaded twice in parallel.
     ///
     /// The exact behavior will vary based on the index. When uploading to PyPI, uploading the same
-    /// file succeeds even without `--check-url`, while most other indexes error.
+    /// file succeeds even without `--check-url`, while most other indexes error. When uploading to
+    /// pyx, the index URL can be inferred automatically from the publish URL.
     ///
     /// The index must provide one of the supported hashes (SHA-256, SHA-384, or SHA-512).
     #[arg(long, env = EnvVars::UV_PUBLISH_CHECK_URL)]

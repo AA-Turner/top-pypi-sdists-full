@@ -1,32 +1,27 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: storage3
-Version: 0.12.2
+Version: 2.19.0
 Summary: Supabase Storage client for Python.
-License: MIT
-Author: Joel Lee
-Author-email: joel@joellee.org
-Requires-Python: >=3.9,<4.0
+Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand Krishna
+Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Anand Krishna <anand2312@proton.me>
+License-Expression: MIT
+Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: deprecation (>=2.1.0,<3.0.0)
-Requires-Dist: httpx[http2] (>=0.26,<0.29)
-Requires-Dist: pydantic (==2.11.7)
-Project-URL: Documentation, https://supabase.github.io/storage-py
-Project-URL: Homepage, https://supabase.github.io/storage-py
-Project-URL: Repository, https://github.com/supabase/storage-py
+Requires-Dist: httpx[http2]>=0.26,<0.29
+Requires-Dist: deprecation>=2.1.0
+Requires-Dist: pydantic>=2.11.7
+Maintainer: Leonardo Santiago
+Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
+Requires-Python: >=3.9
+Project-URL: documentation, https://supabase.github.io/storage-py
+Project-URL: homepage, https://supabase.github.io/storage-py
+Project-URL: repository, https://github.com/supabase/supabase-py
 Description-Content-Type: text/markdown
 
 # Storage-py
 
 Python Client library to interact with Supabase Storage.
-
-
 
 ## How to use
 
@@ -53,4 +48,3 @@ async def file_upload():
   await storage_client.from_("bucket").upload("/folder/file.png", file_object, {"content-type": "image/png"})
 ```
 If no mime type is given, the default `text/plain` will be used.
-

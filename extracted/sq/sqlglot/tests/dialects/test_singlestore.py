@@ -24,6 +24,11 @@ class TestSingleStore(Validator):
         self.validate_identity("SELECT e'text'")
         self.validate_identity("SELECT E'text'", "SELECT e'text'")
 
+    def test_national_strings(self):
+        self.validate_all(
+            "SELECT 'text'", read={"": "SELECT N'text'", "singlestore": "SELECT 'text'"}
+        )
+
     def test_restricted_keywords(self):
         self.validate_identity("SELECT * FROM abs", "SELECT * FROM `abs`")
         self.validate_identity("SELECT * FROM ABS", "SELECT * FROM `ABS`")
@@ -948,3 +953,15 @@ class TestSingleStore(Validator):
     def test_alter(self):
         self.validate_identity("ALTER TABLE t CHANGE middle_initial middle_name")
         self.validate_identity("ALTER TABLE t MODIFY COLUMN name TEXT COLLATE 'binary'")
+
+    def test_constraints(self):
+        self.validate_all(
+            "CREATE TABLE ComputedColumnConstraint (points INT, score AS (points * 2) PERSISTED AUTO NOT NULL)",
+            read={
+                "": "CREATE TABLE ComputedColumnConstraint (points INT, score AS (points * 2) PERSISTED NOT NULL)",
+                "singlestore": "CREATE TABLE ComputedColumnConstraint (points INT, score AS (points * 2) AUTO NOT NULL)",
+            },
+        )
+        self.validate_identity(
+            "CREATE TABLE ComputedColumnConstraint (points INT, score AS (points * 2) PERSISTED BIGINT NOT NULL)"
+        )

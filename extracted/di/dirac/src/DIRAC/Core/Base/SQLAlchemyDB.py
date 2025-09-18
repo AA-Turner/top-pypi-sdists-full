@@ -3,6 +3,7 @@
 
     Uses sqlalchemy
 """
+
 import datetime
 from urllib import parse as urlparse
 from sqlalchemy import create_engine, desc, exc
@@ -13,6 +14,7 @@ from sqlalchemy.orm.query import Query
 from DIRAC import gConfig, gLogger, S_OK, S_ERROR
 from DIRAC.Core.Base.DIRACDB import DIRACDB
 from DIRAC.ConfigurationSystem.Client.Utilities import getDBParameters
+from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 
 
 class SQLAlchemyDB(DIRACDB):
@@ -30,6 +32,8 @@ class SQLAlchemyDB(DIRACDB):
 
         self.extensions = gConfig.getValue("DIRAC/Extensions", [])
         self.tablesList = []
+
+        self.objectLoader = ObjectLoader()
 
     def _initializeConnection(self, dbPath):
         """
@@ -67,26 +71,10 @@ class SQLAlchemyDB(DIRACDB):
 
         for table in tablesList:
             if table not in tablesInDB:
-                found = False
-                # is it in the extension? (fully or extended)
-                for ext in self.extensions:
-                    try:
-                        getattr(
-                            __import__(ext + self.__class__.__module__, globals(), locals(), [table]), table
-                        ).__table__.create(
-                            self.engine
-                        )  # pylint: disable=no-member
-                        found = True
-                        break
-                    except (ImportError, AttributeError):
-                        continue
-                # If not found in extensions, import it from DIRAC base.
-                if not found:
-                    getattr(
-                        __import__(self.__class__.__module__, globals(), locals(), [table]), table
-                    ).__table__.create(
-                        self.engine
-                    )  # pylint: disable=no-member
+                result = self.objectLoader.loadObject(self.__class__.__module__, table)
+                if not result["OK"]:
+                    return result
+                result["Value"].__table__.create(self.engine)
             else:
                 gLogger.debug(f"Table {table} already exists")
 
@@ -103,18 +91,10 @@ class SQLAlchemyDB(DIRACDB):
         # expire_on_commit is set to False so that we can still use the object after we close the session
         session = self.sessionMaker_o(expire_on_commit=False)  # FIXME: should we use this flag elsewhere?
 
-        found = False
-        for ext in self.extensions:
-            try:
-                tableRow_o = getattr(__import__(ext + self.__class__.__module__, globals(), locals(), [table]), table)()
-                found = True
-                break
-            except (ImportError, AttributeError):
-                continue
-        # If not found in extensions, import it from DIRAC base (this same module).
-        if not found:
-            tableRow_o = getattr(__import__(self.__class__.__module__, globals(), locals(), [table]), table)()
-
+        result = self.objectLoader.loadObject(self.__class__.__module__, table)
+        if not result["OK"]:
+            return result
+        tableRow_o = result["Value"]()
         tableRow_o.fromDict(params)
 
         try:
@@ -131,6 +111,8 @@ class SQLAlchemyDB(DIRACDB):
         finally:
             session.close()
 
+        return S_OK()
+
     def select(self, table, params):
         """
         Uses params to build conditional SQL statement ( WHERE ... ).
@@ -144,18 +126,10 @@ class SQLAlchemyDB(DIRACDB):
 
         session = self.sessionMaker_o()
 
-        # finding the table
-        found = False
-        for ext in self.extensions:
-            try:
-                table_c = getattr(__import__(ext + self.__class__.__module__, globals(), locals(), [table]), table)
-                found = True
-                break
-            except (ImportError, AttributeError):
-                continue
-        # If not found in extensions, import it from DIRAC base (this same module).
-        if not found:
-            table_c = getattr(__import__(self.__class__.__module__, globals(), locals(), [table]), table)
+        result = self.objectLoader.loadObject(self.__class__.__module__, table)
+        if not result["OK"]:
+            return result
+        table_c = result["Value"]
 
         # handling query conditions found in 'Meta'
         columnNames = [column.lower() for column in params.get("Meta", {}).get("columns", [])]
@@ -239,17 +213,10 @@ class SQLAlchemyDB(DIRACDB):
         """
         session = self.sessionMaker_o()
 
-        found = False
-        for ext in self.extensions:
-            try:
-                table_c = getattr(__import__(ext + self.__class__.__module__, globals(), locals(), [table]), table)
-                found = True
-                break
-            except (ImportError, AttributeError):
-                continue
-        # If not found in extensions, import it from DIRAC base (this same module).
-        if not found:
-            table_c = getattr(__import__(self.__class__.__module__, globals(), locals(), [table]), table)
+        result = self.objectLoader.loadObject(self.__class__.__module__, table)
+        if not result["OK"]:
+            return result
+        table_c = result["Value"]
 
         # handling query conditions found in 'Meta'
         older = params.get("Meta", {}).get("older", None)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: miniopy-async
-Version: 1.23.3
+Version: 1.23.4
 Summary: Asynchronous MinIO Client SDK for Python
 Home-page: https://github.com/hlf20010508/miniopy-async
 License: Apache-2.0

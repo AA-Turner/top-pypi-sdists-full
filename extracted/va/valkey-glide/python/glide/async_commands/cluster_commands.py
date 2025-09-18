@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Dict, List, Mapping, Optional, Union, cast
 
-from glide.async_commands.batch import ClusterBatch
-from glide.async_commands.batch_options import ClusterBatchOptions
-from glide.async_commands.command_args import ObjectType
-from glide.async_commands.core import (
-    CoreCommands,
+from glide.glide import ClusterScanCursor, Script
+from glide_shared.commands.batch import ClusterBatch
+from glide_shared.commands.batch_options import ClusterBatchOptions
+from glide_shared.commands.command_args import ObjectType
+from glide_shared.commands.core_options import (
     FlushMode,
     FunctionRestorePolicy,
     InfoSection,
 )
-from glide.constants import (
+from glide_shared.constants import (
     TOK,
     TClusterResponse,
     TEncodable,
@@ -21,11 +21,11 @@ from glide.constants import (
     TFunctionStatsSingleNodeResponse,
     TResult,
 )
-from glide.exceptions import RequestError
-from glide.protobuf.command_request_pb2 import RequestType
-from glide.routes import Route
+from glide_shared.exceptions import RequestError
+from glide_shared.protobuf.command_request_pb2 import RequestType
+from glide_shared.routes import Route
 
-from ..glide import ClusterScanCursor, Script
+from .core import CoreCommands
 
 
 class ClusterCommands(CoreCommands):
@@ -1421,7 +1421,7 @@ class ClusterCommands(CoreCommands):
 
         Examples:
             >>> lua_script = Script("return { KEYS[1], ARGV[1] }")
-            >>> await client.invoke_script(lua_script, keys=["foo"], args=["bar"] );
+            >>> await client.invoke_script(lua_script, keys=["foo"], args=["bar"])
                 [b"foo", b"bar"]
         """
         return await self._execute_script(script.get_hash(), keys, args)

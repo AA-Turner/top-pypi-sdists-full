@@ -6261,7 +6261,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                                 'X-API-Key': key
                             }
                         ])
-        # print(f"{items=}")
+        print(f"{items=}")
 
         while True:
             random.shuffle(items)
@@ -6278,12 +6278,12 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                                 print(f"{name=} {data=}")
 
                         if is_TON:
-                            result['balance'] = data['balance']
+                            result['balance'] = data.get('balance', 0)
                             return result
 
                         result['wallet_address'] = data['wallet_address']['address']
                         result['decimals'] = data['jetton']['decimals']
-                        result['balance'] = data['balance']
+                        result['balance'] = data.get('balance', 0)
                         print(f"{name=} {result=}")
                     else:
                         if is_TON: url = f"https://{pfx_testnet}toncenter.com/api/v3/accountStates?address={address}&include_boc=false"
@@ -7833,6 +7833,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
     page = data.get('page', '')
     connectedAddress = data.get('connectedAddress', '')
     USER_TID = chat_id
+    USER_DT = USER_HID = None
     USER_VARS = json.loads(USER_VARS_)
     USER_LSTS = json.loads(USER_LSTS_)
     USER_GAMES = {}
@@ -7842,12 +7843,13 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
 
     print(f"upd_user_data_main: {lc=}, {USER_LSTS=}")
     try:
-        sql = f"SELECT USER_TID, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS FROM \"USER\" WHERE USER_TID=$1"
+        sql = (f"SELECT USER_TID, USER_HID, USER_DT, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS "
+               f"FROM \"USER\" WHERE USER_TID=$1")
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # region data
         if len(data_user):
-            USER_TID, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
+            USER_TID, USER_HID, USER_DT, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
@@ -7880,10 +7882,10 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
         USER_VARS['USER_ISPREMIUM'] = is_premium
         lz = USER_VARS.get('USER_LZ', 'en')
 
-        if not USER_VARS.get('USER_DT') and not USER_VARS.get('USER_UTM') and utm:
-            USER_VARS['USER_UTM'] = utm
-        if not USER_VARS.get('USER_DT'):
-            USER_VARS['USER_DT'] = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+        if not USER_DT:
+            USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+            USER_HID = hashlib.blake2b(f"{'tid'}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+            if utm: USER_VARS['USER_UTM'] = utm
         print(f"after {USER_VARS=}")
         # endregion
 
@@ -7941,20 +7943,23 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
 
         sql = f""" 
         INSERT INTO \"USER\" (
-            USER_TID, USER_USERNAME, USER_FULLNAME, USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS
+            USER_TID, USER_HID, USER_USERNAME, USER_FULLNAME, USER_ISPREMIUM, 
+            USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (USER_TID) DO UPDATE
         SET 
+            USER_HID = EXCLUDED.USER_HID,
             USER_USERNAME = EXCLUDED.USER_USERNAME,
             USER_FULLNAME = EXCLUDED.USER_FULLNAME,
+            USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
             USER_LZ = EXCLUDED.USER_LZ,
             USER_DT = EXCLUDED.USER_DT,
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, username, full_name, lz, USER_VARS['USER_DT'],
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, lz, USER_DT,
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)
@@ -7978,6 +7983,7 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
     page = data.get('page', '')
     connectedAddress = data.get('connectedAddress', '')
     USER_TID = chat_id
+    USER_DT = USER_HID = None
     USER_VARS = json.loads(USER_VARS_)
     USER_LSTS = json.loads(USER_LSTS_)
     USER_GAMES = {}
@@ -7996,12 +8002,13 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         elif PROJECT_USERNAME == 'FereyUserBot':
             schema_name = 'UB'
         
-        sql = f"SELECT USER_TID, USER_GAMES, USER_VARS, USER_LSTS FROM {schema_name}_{tid}.USER WHERE USER_TID=$1"
+        sql = (f"SELECT USER_TID, USER_HID, USER_DT, USER_GAMES, USER_VARS, USER_LSTS "
+               f"FROM {schema_name}_{tid}.USER WHERE USER_TID=$1")
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # region data
         if len(data_user):
-            USER_TID, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
+            USER_TID, USER_HID, USER_DT, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
@@ -8032,6 +8039,8 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now.strftime('%Y-%m')]))
         USER_VARS['USER_SIG'] = usr_sig
         USER_VARS['USER_ISPREMIUM'] = is_premium
+        if not USER_DT: USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+        if not USER_HID: USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
         # endregion
 
         # region tx
@@ -8059,18 +8068,22 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
 
         sql = f""" 
         INSERT INTO {schema_name}_{tid}.USER (
-            USER_TID, USER_USERNAME, USER_FULLNAME, USER_GAMES, USER_VARS, USER_LSTS
+            USER_TID, USER_HID, USER_USERNAME, USER_FULLNAME, USER_ISPREMIUM, 
+            USER_DT, USER_GAMES, USER_VARS, USER_LSTS
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (USER_TID) DO UPDATE
         SET 
+            USER_HID = EXCLUDED.USER_HID,
             USER_USERNAME = EXCLUDED.USER_USERNAME,
             USER_FULLNAME = EXCLUDED.USER_FULLNAME,
+            USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
+            USER_DT = EXCLUDED.USER_DT,
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, username, full_name,
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_DT,
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)

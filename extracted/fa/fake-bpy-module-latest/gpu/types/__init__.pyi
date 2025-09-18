@@ -76,101 +76,6 @@ class GPUBatch:
                 :type buf: GPUVertBuf
         """
 
-class GPUFrameBuffer:
-    """This object gives access to framebuffer functionalities.
-    When a layer is specified in a argument, a single layer of a 3D or array texture is attached to the frame-buffer.
-    For cube map textures, layer is translated into a cube map face.
-    """
-
-    is_bound: typing.Any
-    """ Checks if this is the active frame-buffer in the context."""
-
-    def bind(self) -> None:
-        """Context manager to ensure balanced bind calls, even in the case of an error."""
-
-    def clear(
-        self,
-        *,
-        color: collections.abc.Sequence[float] | None = None,
-        depth: float | None = None,
-        stencil: int | None = None,
-    ) -> None:
-        """Fill color, depth and stencil textures with specific value.
-        Common values: color=(0.0, 0.0, 0.0, 1.0), depth=1.0, stencil=0.
-
-                :param color: Sequence of 3 or 4 floats representing (r, g, b, a).
-                :type color: collections.abc.Sequence[float] | None
-                :param depth: depth value.
-                :type depth: float | None
-                :param stencil: stencil value.
-                :type stencil: int | None
-        """
-
-    def read_color(
-        self,
-        x: int,
-        y,
-        xsize,
-        ysize,
-        channels: int,
-        slot: int,
-        format: str,
-        *,
-        data: Buffer = data,
-    ) -> Buffer:
-        """Read a block of pixels from the frame buffer.
-
-                :param x: Lower left corner of a rectangular block of pixels.
-                :type x: int
-                :param y:
-                :param xsize: Dimensions of the pixel rectangle.
-                :param ysize:
-                :param channels: Number of components to read.
-                :type channels: int
-                :param slot: The framebuffer slot to read data from.
-                :type slot: int
-                :param format: The format that describes the content of a single channel.
-        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 & 10_11_11_REV.
-        UINT_24_8 is deprecated, use FLOAT instead.
-                :type format: str
-                :param data: Optional Buffer object to fill with the pixels values.
-                :type data: Buffer
-                :return: The Buffer with the read pixels.
-                :rtype: Buffer
-        """
-
-    def read_depth(
-        self, x: int, y, xsize: int, ysize, *, data: Buffer = data
-    ) -> Buffer:
-        """Read a pixel depth block from the frame buffer.
-
-        :param x: Lower left corner of a rectangular block of pixels.
-        :type x: int
-        :param y:
-        :param xsize: Dimensions of the pixel rectangle.
-        :type xsize: int
-        :param ysize:
-        :param data: Optional Buffer object to fill with the pixels values.
-        :type data: Buffer
-        :return: The Buffer with the read pixels.
-        :rtype: Buffer
-        """
-
-    def viewport_get(self) -> None:
-        """Returns position and dimension to current viewport."""
-
-    def viewport_set(self, x: int, y, xsize: int, ysize) -> None:
-        """Set the viewport for this framebuffer object.
-        Note: The viewport state is not saved upon framebuffer rebind.
-
-                :param x: lower left corner of the viewport_set rectangle, in pixels.
-                :type x: int
-                :param y:
-                :param xsize: width and height of the viewport_set.
-                :type xsize: int
-                :param ysize:
-        """
-
 class GPUIndexBuf:
     """Contains an index buffer."""
 
@@ -1078,4 +983,99 @@ class GPUVertFormat:
         converted to a normal 4 byte float when used.
         Possible values are FLOAT, INT or INT_TO_FLOAT_UNIT.
                 :type fetch_mode: str
+        """
+
+class gpu:
+    """This object gives access to framebuffer functionalities.
+    When a layer is specified in a argument, a single layer of a 3D or array texture is attached to the frame-buffer.
+    For cube map textures, layer is translated into a cube map face.
+    """
+
+    is_bound: typing.Any
+    """ Checks if this is the active frame-buffer in the context."""
+
+    def bind(self) -> None:
+        """Context manager to ensure balanced bind calls, even in the case of an error."""
+
+    def clear(
+        self,
+        *,
+        color: collections.abc.Sequence[float] | None = None,
+        depth: float | None = None,
+        stencil: int | None = None,
+    ) -> None:
+        """Fill color, depth and stencil textures with specific value.
+        Common values: color=(0.0, 0.0, 0.0, 1.0), depth=1.0, stencil=0.
+
+                :param color: Sequence of 3 or 4 floats representing (r, g, b, a).
+                :type color: collections.abc.Sequence[float] | None
+                :param depth: depth value.
+                :type depth: float | None
+                :param stencil: stencil value.
+                :type stencil: int | None
+        """
+
+    def read_color(
+        self,
+        x: int,
+        y,
+        xsize,
+        ysize,
+        channels: int,
+        slot: int,
+        format: str,
+        *,
+        data: Buffer = data,
+    ) -> Buffer:
+        """Read a block of pixels from the frame buffer.
+
+                :param x: Lower left corner of a rectangular block of pixels.
+                :type x: int
+                :param y:
+                :param xsize: Dimensions of the pixel rectangle.
+                :param ysize:
+                :param channels: Number of components to read.
+                :type channels: int
+                :param slot: The framebuffer slot to read data from.
+                :type slot: int
+                :param format: The format that describes the content of a single channel.
+        Possible values are FLOAT, INT, UINT, UBYTE, UINT_24_8 & 10_11_11_REV.
+        UINT_24_8 is deprecated, use FLOAT instead.
+                :type format: str
+                :param data: Optional Buffer object to fill with the pixels values.
+                :type data: Buffer
+                :return: The Buffer with the read pixels.
+                :rtype: Buffer
+        """
+
+    def read_depth(
+        self, x: int, y, xsize: int, ysize, *, data: Buffer = data
+    ) -> Buffer:
+        """Read a pixel depth block from the frame buffer.
+
+        :param x: Lower left corner of a rectangular block of pixels.
+        :type x: int
+        :param y:
+        :param xsize: Dimensions of the pixel rectangle.
+        :type xsize: int
+        :param ysize:
+        :param data: Optional Buffer object to fill with the pixels values.
+        :type data: Buffer
+        :return: The Buffer with the read pixels.
+        :rtype: Buffer
+        """
+
+    def viewport_get(self) -> None:
+        """Returns position and dimension to current viewport."""
+
+    def viewport_set(self, x: int, y, xsize: int, ysize) -> None:
+        """Set the viewport for this framebuffer object.
+        Note: The viewport state is not saved upon framebuffer rebind.
+
+                :param x: lower left corner of the viewport_set rectangle, in pixels.
+                :type x: int
+                :param y:
+                :param xsize: width and height of the viewport_set.
+                :type xsize: int
+                :param ysize:
         """

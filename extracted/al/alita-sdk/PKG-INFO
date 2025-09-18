@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.326
+Version: 0.3.331
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -74,8 +74,7 @@ Requires-Dist: paramiko==3.3.1; extra == "tools"
 Requires-Dist: pygithub==2.3.0; extra == "tools"
 Requires-Dist: python-gitlab==4.5.0; extra == "tools"
 Requires-Dist: gitpython==3.1.43; extra == "tools"
-Requires-Dist: atlassian-python-api~=3.41; extra == "tools"
-Requires-Dist: atlassian_python_api==3.41.16; extra == "tools"
+Requires-Dist: atlassian-python-api~=4.0.7; extra == "tools"
 Requires-Dist: jira==3.8.0; extra == "tools"
 Requires-Dist: qtest-swagger-client==0.0.3; extra == "tools"
 Requires-Dist: testrail-api==1.13.2; extra == "tools"

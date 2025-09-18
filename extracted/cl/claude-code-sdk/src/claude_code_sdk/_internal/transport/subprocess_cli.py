@@ -150,6 +150,9 @@ class SubprocessCLITransport(Transport):
                 # String or Path format: pass directly as file path or JSON string
                 cmd.extend(["--mcp-config", str(self._options.mcp_servers)])
 
+        if self._options.include_partial_messages:
+            cmd.append("--include-partial-messages")
+
         # Add extra args for future CLI flags
         for flag, value in self._options.extra_args.items():
             if value is None:
@@ -201,6 +204,7 @@ class SubprocessCLITransport(Transport):
                 stderr=stderr_dest,
                 cwd=self._cwd,
                 env=process_env,
+                user=self._options.user,
             )
 
             if self._process.stdout:

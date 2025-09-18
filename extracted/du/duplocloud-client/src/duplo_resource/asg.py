@@ -198,7 +198,7 @@ class DuploAsg(DuploTenantResourceV2):
     Raises:
       DuploError: If neither min nor max is provided, or if the scaling operation fails.
     """
-    if not min and not max:
+    if min is None and max is None:
       raise DuploError("Must provide either min or max")
     asg = self.find(name)
     data = {
@@ -207,9 +207,9 @@ class DuploAsg(DuploTenantResourceV2):
       "MinSize": asg.get("MinSize", None),# this really is a string unlike the other two? 
       "MaxSize": asg.get("MaxSize", None),
     }
-    if min:
+    if min is not None:
       data["MinSize"] = str(min)
-    if max:
+    if max is not None:
       data["MaxSize"] = max
     return self.update(data)
   
@@ -227,3 +227,41 @@ class DuploAsg(DuploTenantResourceV2):
       return img.get("ImageId")
     except IndexError:
       raise DuploError(f"Image for agent '{agent}' not found", 404)
+
+  @Command()
+  def update_allocation_tags(self,
+                            name: args.NAME,
+                            allocationtags: args.ALLOCATION_TAGS) -> dict:
+    """Update the allocation tag for an Auto Scaling Group.
+
+    Updates the allocation tag for an existing Auto Scaling Group. The allocation tag
+    is used to specify custom allocation rules for the ASG instances.
+
+    Usage: CLI Usage
+      ```sh
+      duploctl asg update_allocation_tags <name> <allocationtags>
+      ```
+
+    Example: Update an ASG with new allocation tag
+      ```sh
+      duploctl asg update_allocation_tags duploservices-test-asg duploctl
+      ```
+
+    Args:
+      name: The name of an existing ASG
+      allocationtags: The new allocation tag value to set
+
+    Returns:
+      message: Success message and the updated ASG allocation tag.
+    """
+    asg = self.find(name)
+    tenant_id = self.tenant["TenantId"]
+    payload = {
+        "ComponentId": asg["FriendlyName"],
+        "ComponentType": 3,
+        "Key": "AllocationTags",
+        "Value": allocationtags,
+        "State": "create"
+    }
+    self.duplo.post(f"subscriptions/{tenant_id}/UpdateCustomData", payload)
+    return {"message": f"Successfully updated allocation tag for asg '{name}'"}

@@ -1,17 +1,12 @@
 #!/usr/bin/env python
 """ File Catalog Client Command Line Interface. """
-# TODO: This should be modernised to use subprocess(32)
-try:
-    import commands
-except ImportError:
-    # Python 3's subprocess module contains a compatibility layer
-    import subprocess as commands
 import os.path
 import time
 import sys
 import getopt
+import uuid
 
-from DIRAC import S_ERROR, S_OK
+from DIRAC import S_ERROR
 from DIRAC.Core.Utilities.ReturnValues import returnSingleResult
 from DIRAC.Core.Base.CLI import CLI
 from DIRAC.Core.Security.ProxyInfo import getProxyInfo
@@ -583,7 +578,7 @@ class FileCatalogClientCLI(CLI):
         infoDict["Size"] = int(args[2])
         infoDict["SE"] = args[3]
         if args[4] == "None":
-            _status, guid = commands.getstatusoutput("uuidgen")
+            guid = str(uuid.uuid4())
         else:
             guid = args[4]
         infoDict["GUID"] = guid
@@ -1249,8 +1244,6 @@ class FileCatalogClientCLI(CLI):
                         dList.printListing(reverse, timeorder, sizeorder, humanread)
                     else:
                         dList.printOrdered()
-                else:
-                    print("Error:", result["Value"]["Failed"])
             else:
                 print("Error:", result["Message"])
         except Exception as x:

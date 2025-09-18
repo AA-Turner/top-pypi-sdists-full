@@ -1,15 +1,19 @@
 """ This object is a wrapper for setting and getting jobs states
 """
-import datetime
-
-from DIRAC import gLogger, S_OK, S_ERROR
-from DIRAC.WorkloadManagementSystem.Client.JobState.JobManifest import JobManifest
+from DIRAC import S_ERROR, S_OK, gLogger
 from DIRAC.WorkloadManagementSystem.Client import JobStatus
+from DIRAC.WorkloadManagementSystem.Client.JobState.JobManifest import JobManifest
 from DIRAC.WorkloadManagementSystem.DB.JobDB import JobDB
 from DIRAC.WorkloadManagementSystem.DB.JobLoggingDB import JobLoggingDB
-from DIRAC.WorkloadManagementSystem.DB.TaskQueueDB import TaskQueueDB, singleValueDefFields, multiValueDefFields
-from DIRAC.WorkloadManagementSystem.Service.JobPolicy import RIGHT_GET_INFO, RIGHT_RESCHEDULE
-from DIRAC.WorkloadManagementSystem.Service.JobPolicy import RIGHT_RESET, RIGHT_CHANGE_STATUS
+from DIRAC.WorkloadManagementSystem.DB.TaskQueueDB import TaskQueueDB, multiValueDefFields, singleValueDefFields
+from DIRAC.WorkloadManagementSystem.Service.JobPolicy import (
+    RIGHT_CHANGE_STATUS,
+    RIGHT_GET_INFO,
+    RIGHT_RESCHEDULE,
+    RIGHT_RESET,
+    RIGHT_SUBMIT,
+)
+from DIRAC.WorkloadManagementSystem.Utilities.JobStatusUtility import JobStatusUtility
 
 
 class JobState:
@@ -34,17 +38,13 @@ class JobState:
             JobState.__db.logDB = JobLoggingDB()
             JobState.__db.tqDB = TaskQueueDB()
 
-    def __init__(self, jid, source="Unknown"):
+    def __init__(self, jid):
         self.__jid = jid
-        self.__source = str(source)
         self.checkDBAccess()
 
     @property
     def jid(self):
         return self.__jid
-
-    def setSource(self, source):
-        self.__source = source
 
     def getManifest(self, rawData=False):
         result = JobState.__db.jobDB.getJobJDL(self.__jid)
@@ -101,7 +101,7 @@ class JobState:
             return S_OK(False)
         gLogger.verbose(f"Job {self.__jid}: About to execute trace. Current state {initialState}")
 
-        data = {"att": [], "jobp": [], "optp": []}
+        data = {"att": [], "optp": []}
         for key in cache:
             for dk in data:
                 if key.find(f"{dk}.") == 0:
@@ -113,11 +113,6 @@ class JobState:
             result = self.__retryFunction(
                 5, JobState.__db.jobDB.setJobAttributes, (self.__jid, attN, attV), {"update": True}
             )
-            if not result["OK"]:
-                return result
-
-        if data["jobp"]:
-            result = self.__retryFunction(5, JobState.__db.jobDB.setJobParameters, (self.__jid, data["jobp"]))
             if not result["OK"]:
                 return result
 
@@ -164,50 +159,10 @@ class JobState:
 
     right_setStatus = RIGHT_GET_INFO
 
-    def setStatus(self, majorStatus, minorStatus=None, appStatus=None, source=None, updateTime=None):
-        try:
-            self.__checkType(majorStatus, str)
-            self.__checkType(minorStatus, str, canBeNone=True)
-            self.__checkType(appStatus, str, canBeNone=True)
-            self.__checkType(source, str, canBeNone=True)
-            self.__checkType(updateTime, datetime.datetime, canBeNone=True)
-        except TypeError as excp:
-            return S_ERROR(str(excp))
-        result = JobState.__db.jobDB.setJobStatus(
-            self.__jid, status=majorStatus, minorStatus=minorStatus, applicationStatus=appStatus
+    def setStatus(self, majorStatus=None, minorStatus=None, appStatus=None, source=None):
+        return JobStatusUtility(self.__db.jobDB, self.__db.logDB).setJobStatus(
+            self.jid, status=majorStatus, minorStatus=minorStatus, appStatus=appStatus, source=source
         )
-        if not result["OK"]:
-            return result
-        # HACK: Cause joblogging is crappy
-        if not minorStatus:
-            minorStatus = "idem"
-        if not appStatus:
-            appStatus = "idem"
-        if not source:
-            source = self.__source
-        return JobState.__db.logDB.addLoggingRecord(
-            self.__jid,
-            status=majorStatus,
-            minorStatus=minorStatus,
-            applicationStatus=appStatus,
-            date=updateTime,
-            source=source,
-        )
-
-    right_getMinorStatus = RIGHT_GET_INFO
-
-    def setMinorStatus(self, minorStatus, source=None, updateTime=None):
-        try:
-            self.__checkType(minorStatus, str)
-            self.__checkType(source, str, canBeNone=True)
-        except TypeError as excp:
-            return S_ERROR(str(excp))
-        result = JobState.__db.jobDB.setJobStatus(self.__jid, minorStatus=minorStatus)
-        if not result["OK"]:
-            return result
-        if not source:
-            source = self.__source
-        return JobState.__db.logDB.addLoggingRecord(self.__jid, minorStatus=minorStatus, date=updateTime, source=source)
 
     def getStatus(self):
         result = JobState.__db.jobDB.getJobAttributes(self.__jid, ["Status", "MinorStatus"])
@@ -217,23 +172,6 @@ class JobState:
         if data:
             return S_OK((data["Status"], data["MinorStatus"]))
         return S_ERROR("Job %d not found in the JobDB" % int(self.__jid))
-
-    right_setAppStatus = RIGHT_GET_INFO
-
-    def setAppStatus(self, appStatus, source=None, updateTime=None):
-        try:
-            self.__checkType(appStatus, str)
-            self.__checkType(source, str, canBeNone=True)
-        except TypeError as excp:
-            return S_ERROR(str(excp))
-        result = JobState.__db.jobDB.setJobStatus(self.__jid, applicationStatus=appStatus)
-        if not result["OK"]:
-            return result
-        if not source:
-            source = self.__source
-        return JobState.__db.logDB.addLoggingRecord(
-            self.__jid, applicationStatus=appStatus, date=updateTime, source=source
-        )
 
     right_getAppStatus = RIGHT_GET_INFO
 
@@ -380,26 +318,10 @@ class JobState:
     def getInputData(self):
         return JobState.__db.jobDB.getInputData(self.__jid)
 
-    @classmethod
-    def checkInputDataStructure(cls, pDict):
-        if not isinstance(pDict, dict):
-            return S_ERROR("Input data has to be a dictionary")
-        for lfn in pDict:
-            if "Replicas" not in pDict[lfn]:
-                return S_ERROR(f"Missing replicas for lfn {lfn}")
-                replicas = pDict[lfn]["Replicas"]
-                for seName in replicas:
-                    if "SURL" not in replicas or "Disk" not in replicas:
-                        return S_ERROR(f"Missing SURL or Disk for {seName}:{lfn} replica")
-        return S_OK()
+    right_setInputData = RIGHT_SUBMIT
 
-    right_setInputData = RIGHT_GET_INFO
-
-    def set_InputData(self, lfnData):
-        result = self.checkInputDataStructure(lfnData)
-        if not result["OK"]:
-            return result
-        return JobState.__db.jobDB.setInputData(self.__jid, lfnData)
+    def setInputData(self, inputData):
+        return JobState.__db.jobDB.setInputData(self.__jid, inputData)
 
     right_insertIntoTQ = RIGHT_CHANGE_STATUS
 

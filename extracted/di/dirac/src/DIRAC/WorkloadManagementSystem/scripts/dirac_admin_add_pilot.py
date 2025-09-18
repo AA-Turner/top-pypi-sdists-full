@@ -8,11 +8,12 @@ the same can't be true for pilots started in the vacuum (i.e. without SiteDirect
 This script is here to solve specifically this issue, even though it can be used for other things too.
 
 Example:
-  $ dirac-admin-add-pilot htcondor:123456 user_DN user_group DIRAC A11D8D2E-60F8-17A6-5520-E2276F41 --Status=Running
+  $ dirac-admin-add-pilot htcondor:123456 dteam DIRAC A11D8D2E-60F8-17A6-5520-E2276F41 --Status=Running
 
 """
 
-from DIRAC import S_OK, S_ERROR, gLogger, exit as DIRACExit
+from DIRAC import S_ERROR, S_OK, gLogger
+from DIRAC import exit as DIRACExit
 from DIRAC.Core.Base.Script import Script
 
 
@@ -24,10 +25,8 @@ class Params:
     def __init__(self):
         """C'or"""
         self.status = False
-        self.taskQueueID = 0
         self.switches = [
             ("", "status=", "sets the pilot status", self.setStatus),
-            ("t:", "taskQueueID=", "sets the taskQueueID", self.setTaskQueueID),
         ]
 
     def setStatus(self, value):
@@ -44,22 +43,6 @@ class Params:
         self.status = value
         return S_OK()
 
-    def setTaskQueueID(self, value):
-        """sets self.taskQueueID
-
-        :param value: option argument
-
-        :return: S_OK()/S_ERROR()
-        """
-        # TODO: remove this comment from v9.0
-        gLogger.notice("Notice: 'TaskQueueID' will be removed from the pilotAgentsDB in v9.0.")
-
-        try:
-            self.taskQueueID = int(value)
-        except ValueError:
-            return S_ERROR("TaskQueueID has to be a number")
-        return S_OK()
-
 
 @Script()
 def main():
@@ -70,15 +53,14 @@ def main():
 
     Script.registerSwitches(params.switches)
     Script.registerArgument("pilotRef: pilot reference")
-    Script.registerArgument("ownerDN: pilot owner DN")
-    Script.registerArgument("ownerGroup: pilot owner group")
+    Script.registerArgument("VO: VO, or pilot owner group")
     Script.registerArgument("gridType: grid type")
     Script.registerArgument("pilotStamp: DIRAC pilot stamp")
 
     Script.parseCommandLine(ignoreErrors=False)
 
     # Get grouped positional arguments
-    pilotRef, ownerDN, ownerGroup, gridType, pilotStamp = Script.getPositionalArgs(group=True)
+    pilotRef, VO, gridType, pilotStamp = Script.getPositionalArgs(group=True)
 
     # Import the required DIRAC modules
     from DIRAC.Core.Utilities import DErrno
@@ -92,9 +74,7 @@ def main():
         if not DErrno.cmpError(res, DErrno.EWMSNOPILOT):
             gLogger.error(res["Message"])
             DIRACExit(1)
-        res = pmc.addPilotTQReference(
-            [pilotRef], params.taskQueueID, ownerDN, ownerGroup, "Unknown", gridType, {pilotRef: pilotStamp}
-        )
+        res = pmc.addPilotReferences([pilotRef], VO, gridType, {pilotRef: pilotStamp})
         if not res["OK"]:
             gLogger.error(res["Message"])
             DIRACExit(1)

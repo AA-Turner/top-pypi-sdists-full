@@ -43,9 +43,11 @@ class ModelReference:
                 if internal_frame is not None:
                     definition_frame = internal_frame.f_back
                     if definition_frame is not None:
-                        filename = definition_frame.f_code.co_filename
-                        source_line_start = definition_frame.f_lineno
-                        source_code, source_line_start, source_line_end = get_source_object_starting(definition_frame)
+                        calling_frame = definition_frame.f_back
+                        if calling_frame is not None:
+                            filename = calling_frame.f_code.co_filename
+                            source_line_start = calling_frame.f_lineno
+                            source_code, source_line_start, source_line_end = get_source_object_starting(calling_frame)
                     del internal_frame
             except Exception:
                 pass
