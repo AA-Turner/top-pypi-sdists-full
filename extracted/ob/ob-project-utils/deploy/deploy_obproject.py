@@ -205,7 +205,7 @@ def deploy_apps():
     try:
         for app_dir in listdir("deployments"):
             num_apps += 1
-            root = os.path.join("deployments", app_dir)
+            root = os.path.join(cwd, "deployments", app_dir)
             os.chdir(root)
 
             # TODO: Include packages under src/ automatically,

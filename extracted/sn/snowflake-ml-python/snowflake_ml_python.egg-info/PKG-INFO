@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.13.0
+Version: 1.14.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -409,6 +409,16 @@ be compatibility issues. Server-side functionality that `snowflake-ml-python` de
 NOTE: Version 1.7.0 is used as example here. Please choose the the latest version.
 
 # Release History
+
+## 1.14.0
+
+### Bug Fixes
+
+### Behavior Changes
+
+### New Features
+
+* ML Job: The `additional_payloads` argument is now **deprecated** in favor of `imports`.
 
 ## 1.13.0
 

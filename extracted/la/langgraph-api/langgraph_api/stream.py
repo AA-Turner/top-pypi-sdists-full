@@ -8,9 +8,11 @@ import langgraph.version
 import langsmith
 import structlog
 from langchain_core.messages import (
+    AIMessageChunk,
     # TODO: Remove explicit dependency
     BaseMessage,
     BaseMessageChunk,
+    ToolMessageChunk,
     convert_to_messages,
     message_chunk_to_message,
 )
@@ -286,11 +288,23 @@ async def astream_state(
                             msg_, meta = cast(
                                 tuple[BaseMessage | dict, dict[str, Any]], chunk
                             )
-                            msg = (
-                                convert_to_messages([msg_])[0]
-                                if isinstance(msg_, dict)
-                                else cast(BaseMessage, msg_)
-                            )
+                            is_chunk = False
+                            if isinstance(msg_, dict):
+                                if (
+                                    "chunk" in msg_.get("type", "").lower()
+                                    or "chunk" in msg_.get("role", "").lower()
+                                ):
+                                    if "ai" in msg_.get("role", "").lower():
+                                        msg = AIMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    elif "tool" in msg_.get("role", "").lower():
+                                        msg = ToolMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    else:
+                                        msg = BaseMessageChunk(**msg_)  # type: ignore[arg-type]
+                                    is_chunk = True
+                                else:
+                                    msg = convert_to_messages([msg_])[0]
+                            else:
+                                msg = cast(BaseMessage, msg_)
                             if msg.id in messages:
                                 messages[msg.id] += msg
                             else:
@@ -302,7 +316,11 @@ async def astream_state(
                                     if isinstance(msg, BaseMessageChunk)
                                     else "messages/complete"
                                 ),
-                                [message_chunk_to_message(messages[msg.id])],
+                                [
+                                    message_chunk_to_message(messages[msg.id])
+                                    if not is_chunk
+                                    else messages[msg.id]
+                                ],
                             )
                     elif mode in stream_mode:
                         if subgraphs and ns:
@@ -370,12 +388,23 @@ async def astream_state(
                         msg_, meta = cast(
                             tuple[BaseMessage | dict, dict[str, Any]], chunk
                         )
-                        msg = (
-                            convert_to_messages([msg_])[0]
-                            if isinstance(msg_, dict)
-                            else cast(BaseMessage, msg_)
-                        )
-
+                        is_chunk = False
+                        if isinstance(msg_, dict):
+                            if (
+                                "chunk" in msg_.get("type", "").lower()
+                                or "chunk" in msg_.get("role", "").lower()
+                            ):
+                                if "ai" in msg_.get("role", "").lower():
+                                    msg = AIMessageChunk(**msg_)  # type: ignore[arg-type]
+                                elif "tool" in msg_.get("role", "").lower():
+                                    msg = ToolMessageChunk(**msg_)  # type: ignore[arg-type]
+                                else:
+                                    msg = BaseMessageChunk(**msg_)  # type: ignore[arg-type]
+                                is_chunk = True
+                            else:
+                                msg = convert_to_messages([msg_])[0]
+                        else:
+                            msg = cast(BaseMessage, msg_)
                         if msg.id in messages:
                             messages[msg.id] += msg
                         else:
@@ -387,7 +416,11 @@ async def astream_state(
                                 if isinstance(msg, BaseMessageChunk)
                                 else "messages/complete"
                             ),
-                            [message_chunk_to_message(messages[msg.id])],
+                            [
+                                message_chunk_to_message(messages[msg.id])
+                                if not is_chunk
+                                else messages[msg.id]
+                            ],
                         )
                 elif mode in stream_mode:
                     if subgraphs and ns:

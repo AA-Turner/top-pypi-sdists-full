@@ -2,6 +2,7 @@ import click
 
 from adam.commands.command import Command
 from adam.commands.deploy.undeploy_frontend import UndeployFrontend
+from adam.commands.deploy.undeploy_pg_agent import UndeployPgAgent
 from adam.commands.deploy.undeploy_pod import UndeployPod
 from adam.repl_state import ReplState
 from adam.utils import lines_to_tabular, log, log2
@@ -40,7 +41,7 @@ class Undeploy(Command):
                 Command.display_help()
 
     def cmd_list():
-        return [UndeployFrontend(), UndeployPod()]
+        return [UndeployFrontend(), UndeployPod(), UndeployPgAgent()]
 
     def completion(self, state: ReplState):
         if state.sts:

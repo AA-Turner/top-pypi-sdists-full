@@ -32,6 +32,7 @@ from .literals import (
     ExpirationCriterionType,
     FallbackActionType,
     MessagingDataTypeType,
+    NetworkTypeType,
     PushNotificationTypeType,
     SearchFieldOperatorType,
     SortOrderType,
@@ -117,6 +118,7 @@ __all__ = (
     "GetChannelMessageResponseTypeDef",
     "GetChannelMessageStatusRequestTypeDef",
     "GetChannelMessageStatusResponseTypeDef",
+    "GetMessagingSessionEndpointRequestTypeDef",
     "GetMessagingSessionEndpointResponseTypeDef",
     "GetMessagingStreamingConfigurationsRequestTypeDef",
     "GetMessagingStreamingConfigurationsResponseTypeDef",
@@ -418,6 +420,10 @@ class GetChannelMessageStatusRequestTypeDef(TypedDict):
     MessageId: str
     ChimeBearer: str
     SubChannelId: NotRequired[str]
+
+
+class GetMessagingSessionEndpointRequestTypeDef(TypedDict):
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class MessagingSessionEndpointTypeDef(TypedDict):

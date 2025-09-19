@@ -7,7 +7,7 @@ A2A Protocol specification:
 https://a2a-protocol.org/dev/specification/
 
 The implementation currently supports JSON-RPC 2.0 transport only.
-Streaming (SSE) and push notifications are not implemented.
+Push notifications are not implemented.
 """
 
 import functools
@@ -16,18 +16,19 @@ from datetime import UTC, datetime
 from typing import Any, Literal, NotRequired, cast
 
 import orjson
+import structlog
 from langgraph_sdk.client import LangGraphClient, get_client
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse, Response
-from structlog import getLogger
 from typing_extensions import TypedDict
 
 from langgraph_api import __version__
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
+from langgraph_api.sse import EventSourceResponse
 from langgraph_api.utils.cache import LRUCache
 
-logger = getLogger(__name__)
+logger = structlog.stdlib.get_logger(__name__)
 
 # Cache for assistant schemas (assistant_id -> schemas dict)
 _assistant_schemas_cache = LRUCache[dict[str, Any]](max_size=1000, ttl=60)
@@ -286,6 +287,101 @@ def _extract_a2a_response(result: dict[str, Any]) -> str:
     return str(last_message)
 
 
+def _lc_stream_items_to_a2a_message(
+    items: list[dict[str, Any]],
+    *,
+    task_id: str,
+    context_id: str,
+    role: Literal["agent", "user"] = "agent",
+) -> dict[str, Any]:
+    """Convert LangChain stream "messages/*" items into a valid A2A Message.
+
+    This takes the list found in a messages/* StreamPart's data field and
+    constructs a single A2A Message object, concatenating textual content and
+    preserving select structured metadata into a DataPart.
+
+    Args:
+        items: List of LangChain message dicts from stream (e.g., with keys like
+            "content", "type", "response_metadata", "tool_calls", etc.)
+        task_id: The A2A task ID this message belongs to
+        context_id: The A2A context ID (thread) for grouping
+        role: A2A role; defaults to "agent" for streamed assistant output
+
+    Returns:
+        A2A Message dict with required fields and minimally valid parts.
+    """
+    # Aggregate any text content across items
+    text_parts: list[str] = []
+    # Collect a small amount of structured data for debugging/traceability
+    extra_data: dict[str, Any] = {}
+
+    def _sse_safe_text(s: str) -> str:
+        return s.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        content = it.get("content")
+        if isinstance(content, str) and content:
+            text_parts.append(_sse_safe_text(content))
+
+        # Preserve a couple of useful fields if present
+        # Keep this small to avoid bloating the message payload
+        rm = it.get("response_metadata")
+        if isinstance(rm, dict) and rm:
+            extra_data.setdefault("response_metadata", rm)
+        tc = it.get("tool_calls")
+        if isinstance(tc, list) and tc:
+            extra_data.setdefault("tool_calls", tc)
+
+    parts: list[dict[str, Any]] = []
+    if text_parts:
+        parts.append({"kind": "text", "text": "".join(text_parts)})
+    if extra_data:
+        parts.append({"kind": "data", "data": extra_data})
+
+    # Ensure we always produce a minimally valid A2A Message
+    if not parts:
+        parts = [{"kind": "text", "text": ""}]
+
+    return {
+        "role": role,
+        "parts": parts,
+        "messageId": str(uuid.uuid4()),
+        "taskId": task_id,
+        "contextId": context_id,
+        "kind": "message",
+    }
+
+
+def _lc_items_to_status_update_event(
+    items: list[dict[str, Any]],
+    *,
+    task_id: str,
+    context_id: str,
+    state: str = "working",
+) -> dict[str, Any]:
+    """Build a TaskStatusUpdateEvent embedding a converted A2A Message.
+
+    This avoids emitting standalone Message results (which some clients reject)
+    and keeps message content within the status update per spec.
+    """
+    message = _lc_stream_items_to_a2a_message(
+        items, task_id=task_id, context_id=context_id, role="agent"
+    )
+    return {
+        "taskId": task_id,
+        "contextId": context_id,
+        "kind": "status-update",
+        "status": {
+            "state": state,
+            "message": message,
+            "timestamp": datetime.now(UTC).isoformat(),
+        },
+        "final": False,
+    }
+
+
 def _map_runs_create_error_to_rpc(
     exception: Exception, assistant_id: str, thread_id: str | None = None
 ) -> dict[str, Any]:
@@ -519,9 +615,6 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
     except orjson.JSONDecodeError:
         return create_error_response("Invalid JSON payload", 400)
 
-    if not is_valid_accept_header(request):
-        return create_error_response("Accept header must include application/json", 400)
-
     if not isinstance(message, dict):
         return create_error_response("Invalid message format", 400)
 
@@ -533,6 +626,18 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
     # Route based on message type
     id_ = message.get("id")
     method = message.get("method")
+
+    accept_header = request.headers.get("Accept") or ""
+    if method == "message/stream":
+        if "text/event-stream" not in accept_header:
+            return create_error_response(
+                "Accept header must include text/event-stream for streaming", 400
+            )
+    else:
+        if "application/json" not in accept_header:
+            return create_error_response(
+                "Accept header must include application/json", 400
+            )
 
     if id_ is not None and method:
         # JSON-RPC request
@@ -551,19 +656,6 @@ async def handle_post_request(request: ApiRequest, assistant_id: str) -> Respons
             "response, or notification",
             400,
         )
-
-
-def is_valid_accept_header(request: ApiRequest) -> bool:
-    """Check if Accept header contains supported content types.
-
-    Args:
-        request: The incoming request
-
-    Returns:
-        True if header contains application/json
-    """
-    accept_header = request.headers.get("Accept", "")
-    return "application/json" in accept_header
 
 
 def create_error_response(message: str, status_code: int) -> Response:
@@ -603,9 +695,10 @@ async def handle_jsonrpc_request(
     """
     method = message["method"]
     params = message.get("params", {})
-
     # Route to appropriate A2A method handler
-    if method == "message/send":
+    if method == "message/stream":
+        return await handle_message_stream(request, params, assistant_id, message["id"])
+    elif method == "message/send":
         result_or_error = await handle_message_send(request, params, assistant_id)
     elif method == "tasks/get":
         result_or_error = await handle_tasks_get(request, params)
@@ -949,7 +1042,9 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
     required = input_schema.get("required", [])
 
     assistant_name = assistant["name"]
-    assistant_description = assistant.get("description", f"{assistant_name} assistant")
+    assistant_description = (
+        assistant.get("description") or f"{assistant_name} assistant"
+    )
 
     # For now, each assistant has one main skill - itself
     skills = [
@@ -978,10 +1073,11 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         scheme = request.url.scheme
         host = request.url.hostname or "localhost"
         port = request.url.port
+        path = request.url.path.removesuffix("/.well-known/agent-card.json")
         if port and (
             (scheme == "http" and port != 80) or (scheme == "https" and port != 443)
         ):
-            base_url = f"{scheme}://{host}:{port}"
+            base_url = f"{scheme}://{host}:{port}{path}"
         else:
             base_url = f"{scheme}://{host}"
 
@@ -992,7 +1088,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         "url": f"{base_url}/a2a/{assistant_id}",
         "preferredTransport": "JSONRPC",
         "capabilities": {
-            "streaming": False,  # Not implemented yet
+            "streaming": True,
             "pushNotifications": False,  # Not implemented yet
             "stateTransitionHistory": False,
         },
@@ -1060,6 +1156,281 @@ async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
             status_code=500,
             media_type="application/json",
         )
+
+
+# ============================================================================
+# Message Streaming
+# ============================================================================
+
+
+async def handle_message_stream(
+    request: ApiRequest,
+    params: dict[str, Any],
+    assistant_id: str,
+    rpc_id: str | int,
+) -> Response:
+    """Handle message/stream requests and stream JSON-RPC responses via SSE.
+
+    Each SSE "data" is a JSON-RPC 2.0 response object. We emit:
+    - An initial TaskStatusUpdateEvent with state "submitted".
+    - Optionally a TaskStatusUpdateEvent with state "working" on first update.
+    - A final Task result when the run completes.
+    - A JSON-RPC error if anything fails.
+    """
+    client = _client()
+
+    async def stream_body():
+        try:
+            message = params.get("message")
+            if not message:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "Missing 'message' in params",
+                        },
+                    },
+                )
+                return
+
+            parts = message.get("parts", [])
+            if not parts:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "Message must contain at least one part",
+                        },
+                    },
+                )
+                return
+
+            try:
+                assistant = await _get_assistant(client, assistant_id, request.headers)
+                await _validate_supports_messages(
+                    client, assistant, request.headers, parts
+                )
+            except ValueError as e:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": str(e),
+                        },
+                    },
+                )
+                return
+
+            # Process A2A message parts into LangChain messages format
+            try:
+                message_role = message.get("role", "user")
+                input_content = _process_a2a_message_parts(parts, message_role)
+            except ValueError as e:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_CONTENT_TYPE_NOT_SUPPORTED,
+                            "message": str(e),
+                        },
+                    },
+                )
+                return
+
+            run = await client.runs.create(
+                thread_id=message.get("contextId"),
+                assistant_id=assistant_id,
+                stream_mode=["messages", "values"],
+                if_not_exists="create",
+                input=input_content,
+                headers=request.headers,
+            )
+            context_id = run["thread_id"]
+            # Emit initial Task object to establish task context
+            initial_task = {
+                "id": run["run_id"],
+                "contextId": context_id,
+                "history": [
+                    {
+                        **message,
+                        "taskId": run["run_id"],
+                        "contextId": context_id,
+                        "kind": "message",
+                    }
+                ],
+                "kind": "task",
+                "status": {
+                    "state": "submitted",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            }
+            yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": initial_task})
+            task_id = run["run_id"]
+            stream = client.runs.join_stream(
+                run_id=task_id,
+                thread_id=context_id,
+                headers=request.headers,
+            )
+            result = None
+            err = None
+            notified_is_working = False
+            async for chunk in stream:
+                try:
+                    if chunk.event == "metadata":
+                        data = chunk.data or {}
+                        if data.get("status") == "run_done":
+                            final_message = None
+                            if isinstance(result, dict):
+                                try:
+                                    final_text = _extract_a2a_response(result)
+                                    final_message = {
+                                        "role": "agent",
+                                        "parts": [{"kind": "text", "text": final_text}],
+                                        "messageId": str(uuid.uuid4()),
+                                        "taskId": task_id,
+                                        "contextId": context_id,
+                                        "kind": "message",
+                                    }
+                                except Exception:
+                                    await logger.aexception(
+                                        "Failed to extract final message from result",
+                                        result=result,
+                                    )
+                            if final_message is None:
+                                final_message = {
+                                    "role": "agent",
+                                    "parts": [{"kind": "text", "text": str(result)}],
+                                    "messageId": str(uuid.uuid4()),
+                                    "taskId": task_id,
+                                    "contextId": context_id,
+                                    "kind": "message",
+                                }
+                            completed = {
+                                "taskId": task_id,
+                                "contextId": context_id,
+                                "kind": "status-update",
+                                "status": {
+                                    "state": "completed",
+                                    "message": final_message,
+                                    "timestamp": datetime.now(UTC).isoformat(),
+                                },
+                                "final": True,
+                            }
+                            yield (
+                                b"message",
+                                {"jsonrpc": "2.0", "id": rpc_id, "result": completed},
+                            )
+                            return
+                        if data.get("run_id") and not notified_is_working:
+                            notified_is_working = True
+                            yield (
+                                b"message",
+                                {
+                                    "jsonrpc": "2.0",
+                                    "id": rpc_id,
+                                    "result": {
+                                        "taskId": task_id,
+                                        "contextId": context_id,
+                                        "kind": "status-update",
+                                        "status": {"state": "working"},
+                                        "final": False,
+                                    },
+                                },
+                            )
+                    elif chunk.event == "error":
+                        err = chunk.data
+                    elif chunk.event == "values":
+                        err = None  # Error was retriable
+                        result = chunk.data
+                    elif chunk.event.startswith("messages"):
+                        err = None  # Error was retriable
+                        items = chunk.data or []
+                        if isinstance(items, list) and items:
+                            update = _lc_items_to_status_update_event(
+                                items,
+                                task_id=task_id,
+                                context_id=context_id,
+                                state="working",
+                            )
+                            yield (
+                                b"message",
+                                {"jsonrpc": "2.0", "id": rpc_id, "result": update},
+                            )
+                    else:
+                        await logger.awarning(
+                            "Ignoring unknown event type: " + chunk.event
+                        )
+
+                except Exception as e:
+                    await logger.aexception("Failed to process message stream")
+                    err = {"error": type(e).__name__, "message": str(e)}
+                    continue
+
+            # If we exit unexpectedly, send a final status based on error presence
+            final_message = None
+            if isinstance(err, dict) and ("__error__" in err or "error" in err):
+                msg = (
+                    err.get("__error__", {}).get("error")
+                    if isinstance(err.get("__error__"), dict)
+                    else err.get("message")
+                )
+                await logger.aerror("Failed to process message stream", err=err)
+                final_message = {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": str(msg or "")}],
+                    "messageId": str(uuid.uuid4()),
+                    "taskId": task_id,
+                    "contextId": context_id,
+                    "kind": "message",
+                }
+            fallback = {
+                "taskId": task_id,
+                "contextId": context_id,
+                "kind": "status-update",
+                "status": {
+                    "state": "failed" if err else "completed",
+                    **({"message": final_message} if final_message else {}),
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+                "final": True,
+            }
+            yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": fallback})
+        except Exception as e:
+            await logger.aerror(
+                f"Error in message/stream for assistant {assistant_id}: {str(e)}",
+                exc_info=True,
+            )
+            yield (
+                b"message",
+                {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {
+                        "code": ERROR_CODE_INTERNAL_ERROR,
+                        "message": f"Internal server error: {str(e)}",
+                    },
+                },
+            )
+
+    async def consume_():
+        async for chunk in stream_body():
+            await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)
+            yield chunk
+
+    return EventSourceResponse(
+        consume_(), headers={"Content-Type": "text/event-stream"}
+    )
 
 
 # ============================================================================

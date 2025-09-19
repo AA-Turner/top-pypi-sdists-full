@@ -16,5 +16,8 @@ readme = "README.md"
 pyo3 = { workspace = true, features = [] }
 regex.workspace = true
 
+[features]
+ry = []
+
 [lints]
 workspace = true

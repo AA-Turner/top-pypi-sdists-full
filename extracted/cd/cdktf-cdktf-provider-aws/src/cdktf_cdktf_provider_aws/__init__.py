@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.13.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.14.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.13.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.14.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -471,6 +471,7 @@ __all__ = [
     "connect_user_hierarchy_group",
     "connect_user_hierarchy_structure",
     "connect_vocabulary",
+    "controltower_baseline",
     "controltower_control",
     "controltower_landing_zone",
     "costoptimizationhub_enrollment_status",
@@ -541,6 +542,7 @@ __all__ = [
     "data_aws_bedrock_inference_profiles",
     "data_aws_bedrockagent_agent_versions",
     "data_aws_billing_service_account",
+    "data_aws_billing_views",
     "data_aws_budgets_budget",
     "data_aws_caller_identity",
     "data_aws_canonical_user_id",
@@ -883,6 +885,11 @@ __all__ = [
     "data_aws_oam_links",
     "data_aws_oam_sink",
     "data_aws_oam_sinks",
+    "data_aws_odb_cloud_autonomous_vm_cluster",
+    "data_aws_odb_cloud_exadata_infrastructure",
+    "data_aws_odb_cloud_vm_cluster",
+    "data_aws_odb_network",
+    "data_aws_odb_network_peering_connection",
     "data_aws_opensearch_domain",
     "data_aws_opensearchserverless_access_policy",
     "data_aws_opensearchserverless_collection",
@@ -1707,6 +1714,11 @@ __all__ = [
     "oam_link",
     "oam_sink",
     "oam_sink_policy",
+    "odb_cloud_autonomous_vm_cluster",
+    "odb_cloud_exadata_infrastructure",
+    "odb_cloud_vm_cluster",
+    "odb_network",
+    "odb_network_peering_connection",
     "opensearch_authorize_vpc_endpoint_access",
     "opensearch_domain",
     "opensearch_domain_policy",
@@ -2623,6 +2635,7 @@ from . import connect_user
 from . import connect_user_hierarchy_group
 from . import connect_user_hierarchy_structure
 from . import connect_vocabulary
+from . import controltower_baseline
 from . import controltower_control
 from . import controltower_landing_zone
 from . import costoptimizationhub_enrollment_status
@@ -2693,6 +2706,7 @@ from . import data_aws_bedrock_inference_profile
 from . import data_aws_bedrock_inference_profiles
 from . import data_aws_bedrockagent_agent_versions
 from . import data_aws_billing_service_account
+from . import data_aws_billing_views
 from . import data_aws_budgets_budget
 from . import data_aws_caller_identity
 from . import data_aws_canonical_user_id
@@ -3035,6 +3049,11 @@ from . import data_aws_oam_link
 from . import data_aws_oam_links
 from . import data_aws_oam_sink
 from . import data_aws_oam_sinks
+from . import data_aws_odb_cloud_autonomous_vm_cluster
+from . import data_aws_odb_cloud_exadata_infrastructure
+from . import data_aws_odb_cloud_vm_cluster
+from . import data_aws_odb_network
+from . import data_aws_odb_network_peering_connection
 from . import data_aws_opensearch_domain
 from . import data_aws_opensearchserverless_access_policy
 from . import data_aws_opensearchserverless_collection
@@ -3859,6 +3878,11 @@ from . import notificationscontacts_email_contact
 from . import oam_link
 from . import oam_sink
 from . import oam_sink_policy
+from . import odb_cloud_autonomous_vm_cluster
+from . import odb_cloud_exadata_infrastructure
+from . import odb_cloud_vm_cluster
+from . import odb_network
+from . import odb_network_peering_connection
 from . import opensearch_authorize_vpc_endpoint_access
 from . import opensearch_domain
 from . import opensearch_domain_policy

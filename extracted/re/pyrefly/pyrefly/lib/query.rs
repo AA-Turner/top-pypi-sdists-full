@@ -19,6 +19,7 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_python::qname::QName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_types::callable::FuncMetadata;
@@ -26,7 +27,8 @@ use pyrefly_types::callable::Function;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::literal::Lit;
-use pyrefly_types::qname::QName;
+use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedKind;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::Forallable;
@@ -38,11 +40,14 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use pyrefly_util::visit::Visit;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -146,14 +151,53 @@ fn is_static_method(ty: &Type) -> bool {
     }
 }
 
+fn bound_of_type_var(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Quantified(box Quantified {
+            kind: QuantifiedKind::TypeVar,
+            restriction: Restriction::Bound(bound),
+            ..
+        })
+        | Type::QuantifiedValue(box Quantified {
+            kind: QuantifiedKind::TypeVar,
+            restriction: Restriction::Bound(bound),
+            ..
+        }) => Some(bound),
+        _ => None,
+    }
+}
+
+fn bound_of_type_var_decl(ty: &Type) -> Option<(&QName, &Type)> {
+    if let Type::TypeVar(tv) = ty
+        && let Restriction::Bound(bound) = tv.restriction()
+    {
+        Some((tv.qname(), bound))
+    } else {
+        None
+    }
+}
+
 fn type_to_string(ty: &Type) -> String {
     let mut ctx = TypeDisplayContext::new(&[ty]);
     ctx.always_display_module_name();
-    let text = ctx.display(ty).to_string();
     if is_static_method(ty) {
-        format!("typing.StaticMethod[{text}]")
+        format!("typing.StaticMethod[{}]", ctx.display(ty))
+    } else if let Some(bound) = bound_of_type_var(ty) {
+        // pyre1 compatibility: return bound for type variable
+        format!(
+            "Variable[{} (bound to {})]",
+            ctx.display(ty),
+            type_to_string(bound)
+        )
+    } else if let Some((qname, bound)) = bound_of_type_var_decl(ty) {
+        // pyre1 compatibility: return bound for type variable
+        format!(
+            "Variable[{} (bound to {})]",
+            qname.id(),
+            type_to_string(bound)
+        )
     } else {
-        text
+        ctx.display(ty).to_string()
     }
 }
 
@@ -168,6 +212,11 @@ impl Query {
     }
 
     fn make_handle(&self, name: ModuleName, path: ModulePath) -> Handle {
+        let config = self.state.config_finder().python_file(name.dupe(), &path);
+        if config.source_db.read().is_some() {
+            panic!("Pyrefly doesn't support sourcedb-powered queries yet");
+        }
+        // TODO(connernilsen): make this work with build systems
         Handle::new(name, path, self.sys_info.dupe())
     }
 
@@ -196,7 +245,7 @@ impl Query {
 
     /// Load the given files and return any errors associated with them
     pub fn add_files(&self, files: Vec<(ModuleName, ModulePath)>) -> Vec<String> {
-        self.files.lock().extend(files.clone());
+        self.files.lock().extend(files.iter().cloned());
         let mut transaction = self
             .state
             .new_committable_transaction(Require::Exports, None);
@@ -315,6 +364,7 @@ impl Query {
                 FunctionKind::CallbackProtocol(cls) => {
                     format!("{}.__call__", qname_to_string(cls.qname()))
                 }
+                FunctionKind::Final => String::from("typing.Final"),
                 _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
             }
         }
@@ -755,7 +805,7 @@ impl Query {
         }
 
         let mut res = Vec::new();
-        fn f<'a>(
+        fn process_expr<'a>(
             x: &Expr,
             module_info: &ModuleInfo,
             answers: &Answers,
@@ -798,10 +848,56 @@ impl Query {
                 });
             }
 
-            x.recurse(&mut |x| f(x, module_info, answers, transaction, handle, res));
+            x.recurse(&mut |x| process_expr(x, module_info, answers, transaction, handle, res));
         }
 
-        ast.visit(&mut |x| f(x, &module_info, &answers, &transaction, &handle, &mut res));
+        fn add_decorators<'a>(
+            decorators: &[Decorator],
+            module_info: &ModuleInfo,
+            answers: &Answers,
+            transaction: &Transaction<'a>,
+            handle: &Handle,
+            res: &mut Vec<(DisplayRange, Callee)>,
+        ) {
+            for dec in decorators {
+                if matches!(dec.expression, Expr::Name(_) | Expr::Attribute(_))
+                    && let Some(call_ty) = answers.get_type_trace(dec.expression.range())
+                {
+                    callee_from_type(
+                        &call_ty,
+                        None,
+                        dec.expression.range(),
+                        None,
+                        module_info,
+                        transaction,
+                        handle,
+                        answers,
+                    )
+                    .into_iter()
+                    .for_each(|callee| {
+                        res.push((module_info.display_range(dec.expression.range()), callee));
+                    });
+                }
+            }
+        }
+
+        for stmt in &ast.body {
+            match &stmt {
+                Stmt::ClassDef(StmtClassDef {
+                    decorator_list: d, ..
+                })
+                | Stmt::FunctionDef(StmtFunctionDef {
+                    decorator_list: d, ..
+                }) => {
+                    add_decorators(d, &module_info, &answers, &transaction, &handle, &mut res);
+                }
+                _ => {}
+            }
+            stmt.visit(&mut |x| {
+                process_expr(x, &module_info, &answers, &transaction, &handle, &mut res)
+            });
+        }
+
         Some(res)
     }
 

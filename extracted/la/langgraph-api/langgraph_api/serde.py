@@ -152,6 +152,7 @@ def json_loads(content: bytes | Fragment | dict) -> Any:
     return orjson.loads(cast(bytes, content))
 
 
+# Do not use. orjson holds the GIL the entire time it's running anyway.
 async def ajson_loads(content: bytes | Fragment) -> Any:
     return await asyncio.to_thread(json_loads, content)
 

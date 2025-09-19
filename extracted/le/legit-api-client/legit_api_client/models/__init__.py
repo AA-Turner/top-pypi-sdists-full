@@ -179,6 +179,7 @@ from legit_api_client.models.secret_issue_validity_status import SecretIssueVali
 from legit_api_client.models.secrets_data_dto import SecretsDataDto
 from legit_api_client.models.severity import Severity
 from legit_api_client.models.snoozed_type import SnoozedType
+from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto
 from legit_api_client.models.tag_source import TagSource
 from legit_api_client.models.user_dto import UserDto

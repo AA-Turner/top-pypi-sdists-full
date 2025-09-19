@@ -37,7 +37,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.10",
+        "dagster==1.11.11",
         "requests>=2,<3",
     ],
     zip_safe=False,

@@ -1,6 +1,6 @@
 [project]
 name = "retell-sdk"
-version = "4.46.0"
+version = "4.47.0"
 description = "The official Python library for the retell API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -58,7 +58,6 @@ dev-dependencies = [
     "dirty-equals>=0.6.0",
     "importlib-metadata>=6.7.0",
     "rich>=13.7.1",
-    "nest_asyncio==1.6.0",
     "pytest-xdist>=3.6.1",
 ]
 

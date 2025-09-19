@@ -161,17 +161,8 @@ def test_inventory_matches_api(
             and (item.name == "git_changelog" or item.name.startswith("git_changelog."))
         ):
             obj = loader.modules_collection[item.name]
-            if obj.path not in public_api_paths and not any(path in public_api_paths for path in obj.aliases):  # noqa: SIM102
-                # YORE: Bump 3: Replace block with line 8.
-                if obj.path not in (
-                    "git_changelog.build",
-                    "git_changelog.cli",
-                    "git_changelog.commit",
-                    "git_changelog.providers",
-                    "git_changelog.templates",
-                    "git_changelog.versioning",
-                ):
-                    not_in_api.append(item.name)
+            if obj.path not in public_api_paths and not any(path in public_api_paths for path in obj.aliases):
+                not_in_api.append(item.name)
     msg = "Inventory objects not in public API (try running `make run mkdocs build`):\n{paths}"
     assert not not_in_api, msg.format(paths="\n".join(sorted(not_in_api)))
 

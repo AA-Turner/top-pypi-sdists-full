@@ -15,17 +15,10 @@ const REVISION_CONFIG = {
         {
             name: "N_JOBS_PER_WORKER",
             value: "100",
-            value_from: "secret",
             type: "secret"
         }
     ],
-    shareable: false,
-    container_spec: {
-        cpu: null,
-        memory_mb: null,
-        min_scale: 10,
-        max_scale: null
-    }
+    shareable: false
 };
 
 // Expected deployment statuses in order
@@ -61,6 +54,7 @@ async function updateRevision() {
         if (createResponse.status === 409) {
             console.log('⚠️  A new revision is already in progress. Continuing to poll existing deployment...');
         } else if (!createResponse.ok) {
+            console.log(createResponse);
             throw new Error(`Failed to create revision: ${createResponse.status} ${createResponse.statusText}`);
         } else {
             const newRevision = await createResponse.json();

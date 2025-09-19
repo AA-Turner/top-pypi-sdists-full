@@ -283,12 +283,6 @@ if(DEFINED OHOS AND x${OHOS} STREQUAL xOHOS)
   )
 endif()
 
-if(SHERPA_ONNX_ENABLE_GPU)
-  target_link_libraries(sherpa-onnx-core
-    onnxruntime_providers_shared
-  )
-endif()
-
 if(SHERPA_ONNX_ENABLE_RKNN)
   if(DEFINED ENV{SHERPA_ONNX_RKNN_TOOLKIT2_LIB_DIR})
     target_link_libraries(sherpa-onnx-core -L$ENV{SHERPA_ONNX_RKNN_TOOLKIT2_LIB_DIR} -lrknnrt)
@@ -297,7 +291,7 @@ if(SHERPA_ONNX_ENABLE_RKNN)
   endif()
 endif()
 
-if((BUILD_SHARED_LIBS OR SHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE) AND NOT DEFINED onnxruntime_lib_files)
+if(TARGET onnxruntime)
   target_link_libraries(sherpa-onnx-core onnxruntime)
 else()
   target_link_libraries(sherpa-onnx-core ${onnxruntime_lib_files})
@@ -524,6 +518,11 @@ if(SHERPA_ONNX_ENABLE_PORTAUDIO AND SHERPA_ONNX_ENABLE_BINARY)
     microphone.cc
   )
 
+  add_executable(sherpa-onnx-vad-microphone-simulated-streaming-asr
+    sherpa-onnx-vad-microphone-simulated-streaming-asr.cc
+    microphone.cc
+  )
+
   add_executable(sherpa-onnx-vad-with-offline-asr
     sherpa-onnx-vad-with-offline-asr.cc
   )
@@ -554,6 +553,7 @@ if(SHERPA_ONNX_ENABLE_PORTAUDIO AND SHERPA_ONNX_ENABLE_BINARY)
     sherpa-onnx-microphone-offline-audio-tagging
     sherpa-onnx-microphone-offline-speaker-identification
     sherpa-onnx-vad-microphone
+    sherpa-onnx-vad-microphone-simulated-streaming-asr
     sherpa-onnx-vad-microphone-offline-asr
     sherpa-onnx-vad-with-offline-asr
     sherpa-onnx-vad-with-online-asr

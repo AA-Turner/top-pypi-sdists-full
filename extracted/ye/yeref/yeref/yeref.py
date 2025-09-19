@@ -265,6 +265,8 @@ GROUPP_CUSER_ = '☐☑☐☐☑'
 GROUPP_CADMIN_ = '☑☐'
 GROUPP_CPAY_ = '☐☐'
 GROUPP_CCOMMENT_ = '☑☑'
+GROUPP_CDECOR_ = '☐☐☐'
+GROUPP_CSYSTEM_ = '☑'
 
 CHANNEL_CONFIG_ = '☑☑☑☐☐☐☐'
 CHANNEL_CCHECK_ = '☑☐☐☐☐'
@@ -2566,12 +2568,11 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
             if db_pool:
                 async with db_pool.acquire() as conn:
                     result = await conn.fetch(sql, *(param or ()))
-                    if "WHERE TRG_CONTENT LIKE '%\"isTriggered\": true%'" in sql:
-                        pass
-                    elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql:
-                        pass
-                    elif "WHERE POST_DT <= NOW()" in sql:
-                        pass
+                    if "WHERE TRG_CONTENT LIKE '%\"isTriggered\": true%'" in sql: pass
+                    elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql: pass
+                    elif "<= NOW()" in sql: pass
+                    elif "SELECT CHANNEL_TID, CHANNEL_LZ FROM" in sql: pass
+                    elif "SELECT GROUPP_TID, GROUPP_LZ FROM" in sql: pass
                     else:
                         logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
             else:

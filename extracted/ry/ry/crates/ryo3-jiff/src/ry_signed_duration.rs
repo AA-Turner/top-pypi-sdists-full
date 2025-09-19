@@ -1,6 +1,7 @@
 use crate::JiffRoundMode;
 use crate::JiffSignedDuration;
 use crate::JiffUnit;
+use crate::errors::map_py_overflow_err;
 use crate::errors::map_py_value_err;
 use crate::pydatetime_conversions::signed_duration_from_pyobject;
 use crate::round::RySignedDurationRound;
@@ -11,21 +12,30 @@ use pyo3::prelude::*;
 
 use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::PyOverflowError;
 use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyTuple};
-use ryo3_macro_rules::{any_repr, py_overflow_error, py_type_err, py_value_err, py_value_error};
+use ryo3_macro_rules::{
+    any_repr, py_overflow_error, py_type_err, py_value_err, py_value_error, py_zero_division_err,
+};
 use ryo3_std::time::PyDuration;
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Div;
 use std::ops::Mul;
 use std::str::FromStr;
 
 const NANOS_PER_SEC: i32 = 1_000_000_000;
+// const NANOS_PER_MILLI: i32 = 1_000_000;
+// const NANOS_PER_MICRO: i32 = 1_000;
+// const MILLIS_PER_SEC: i64 = 1_000;
+// const MICROS_PER_SEC: i64 = 1_000_000;
+const SECS_PER_MINUTE: i64 = 60;
+const MINS_PER_HOUR: i64 = 60;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[pyclass(name = "SignedDuration", module = "ry.ryo3", frozen)]
+#[pyclass(name = "SignedDuration", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RySignedDuration(pub(crate) SignedDuration);
 
 impl RySignedDuration {
@@ -100,7 +110,7 @@ impl RySignedDuration {
     fn from_str(s: &str) -> PyResult<Self> {
         SignedDuration::from_str(s)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -147,7 +157,7 @@ impl RySignedDuration {
     fn to_timespan(&self) -> PyResult<RySpan> {
         Span::try_from(self.0)
             .map(RySpan::from)
-            .map_err(|e| PyErr::new::<PyOverflowError, _>(format!("{e}")))
+            .map_err(map_py_overflow_err)
     }
 
     fn __abs__(&self) -> Self {
@@ -160,6 +170,16 @@ impl RySignedDuration {
 
     fn unsigned_abs(&self) -> PyDuration {
         PyDuration::from(self.0.unsigned_abs())
+    }
+
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt == "#" {
+            Ok(format!("{:#}", self.0))
+        } else if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            py_type_err!("Invalid format specifier '{fmt}' for SignedDuration")
+        }
     }
 
     #[pyo3(signature = (*, friendly=false))]
@@ -226,11 +246,26 @@ impl RySignedDuration {
         self.__mul__(other)
     }
 
-    fn __div__(&self, other: i32) -> PyResult<Self> {
-        self.0
-            .checked_div(other)
-            .map(Self::from)
-            .ok_or_else(|| py_overflow_error!())
+    fn __truediv__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        if let Ok(dur) = other.cast_exact::<Self>() {
+            self.div_duration_f64(dur.get())?.into_bound_py_any(py)
+        } else if let Ok(n) = other.extract::<i32>() {
+            if n == 0 {
+                py_zero_division_err!("Cannot divide SignedDuration by zero")
+            } else {
+                self.checked_div(n)
+                    .map(|d| d.into_bound_py_any(py))
+                    .ok_or_else(|| py_overflow_error!())?
+            }
+        } else if let Ok(n) = other.extract::<f64>() {
+            self.div_f64(n)?.into_bound_py_any(py)
+        } else {
+            py_type_err!("Unsupported type for division with SignedDuration")
+        }
     }
 
     fn __neg__(&self) -> PyResult<Self> {
@@ -283,8 +318,17 @@ impl RySignedDuration {
     // FROM NUMS
     // =========
     #[staticmethod]
-    fn from_hours(hours: i64) -> Self {
-        Self(SignedDuration::from_hours(hours))
+    fn from_hours(hours: i64) -> PyResult<Self> {
+        const MIN_HOUR: i64 = i64::MIN / (SECS_PER_MINUTE * MINS_PER_HOUR);
+        // OK because (SECS_PER_MINUTE*MINS_PER_HOUR)!={-1,0}.
+        const MAX_HOUR: i64 = i64::MAX / (SECS_PER_MINUTE * MINS_PER_HOUR);
+        if (MIN_HOUR..=MAX_HOUR).contains(&hours) {
+            Ok(Self(SignedDuration::from_hours(hours)))
+        } else {
+            Err(py_overflow_error!(
+                "hours value {hours} out of range [{MIN_HOUR}, {MAX_HOUR}]"
+            ))
+        }
     }
 
     #[staticmethod]
@@ -298,8 +342,16 @@ impl RySignedDuration {
     }
 
     #[staticmethod]
-    fn from_mins(mins: i64) -> Self {
-        Self(SignedDuration::from_mins(mins))
+    fn from_mins(mins: i64) -> PyResult<Self> {
+        const MIN_MINUTE: i64 = i64::MIN / SECS_PER_MINUTE;
+        const MAX_MINUTE: i64 = i64::MAX / SECS_PER_MINUTE;
+        if (MIN_MINUTE..=MAX_MINUTE).contains(&mins) {
+            Ok(Self(SignedDuration::from_mins(mins)))
+        } else {
+            Err(py_overflow_error!(
+                "minutes value {mins} out of range [{MIN_MINUTE}, {MAX_MINUTE}]"
+            ))
+        }
     }
 
     #[staticmethod]
@@ -334,15 +386,19 @@ impl RySignedDuration {
     fn as_hours(&self) -> i64 {
         self.0.as_hours()
     }
+
     fn as_micros(&self) -> i128 {
         self.0.as_micros()
     }
+
     fn as_millis(&self) -> i128 {
         self.0.as_millis()
     }
+
     fn as_millis_f32(&self) -> f32 {
         self.0.as_millis_f32()
     }
+
     fn as_millis_f64(&self) -> f64 {
         self.0.as_millis_f64()
     }
@@ -383,33 +439,50 @@ impl RySignedDuration {
         self.0.checked_sub(other.0).map(Self::from)
     }
 
-    fn div_duration_f32(&self, other: &Self) -> f32 {
-        self.0.div_duration_f32(other.0)
+    fn div_duration_f32(&self, other: &Self) -> PyResult<f32> {
+        if other.0.is_zero() {
+            py_zero_division_err!("Cannot divide SignedDuration by zero")
+        } else {
+            Ok(self.0.div_duration_f32(other.0))
+        }
     }
 
-    fn div_duration_f64(&self, other: &Self) -> f64 {
-        self.0.div_duration_f64(other.0)
+    fn div_duration_f64(&self, other: &Self) -> PyResult<f64> {
+        if other.0.is_zero() {
+            py_zero_division_err!("Cannot divide SignedDuration by zero")
+        } else {
+            Ok(self.0.div_duration_f64(other.0))
+        }
     }
 
     fn div_f32(&self, n: f32) -> PyResult<Self> {
+        if n == 0.0 {
+            return py_zero_division_err!("Cannot divide SignedDuration by zero");
+        }
         let secs = self.as_secs_f32().mul(n);
         Self::py_try_from_secs_f32(secs)
     }
 
     fn div_f64(&self, n: f64) -> PyResult<Self> {
-        let secs = self.as_secs_f64().mul(n);
+        if n == 0.0 {
+            return py_zero_division_err!("Cannot divide SignedDuration by zero");
+        }
+        let secs = self.as_secs_f64().div(n);
         Self::py_try_from_secs_f64(secs)
     }
 
     fn mul_f32(&self, n: f32) -> Self {
         Self::from(self.0.mul_f32(n))
     }
+
     fn mul_f64(&self, n: f64) -> Self {
         Self::from(self.0.mul_f64(n))
     }
+
     fn saturating_add(&self, other: &Self) -> Self {
         Self::from(self.0.saturating_add(other.0))
     }
+
     fn saturating_mul(&self, other: i32) -> Self {
         Self::from(self.0.saturating_mul(other))
     }
@@ -425,12 +498,15 @@ impl RySignedDuration {
     fn signum(&self) -> i8 {
         self.0.signum()
     }
+
     fn subsec_micros(&self) -> i32 {
         self.0.subsec_micros()
     }
+
     fn subsec_millis(&self) -> i32 {
         self.0.subsec_millis()
     }
+
     fn subsec_nanos(&self) -> i32 {
         self.0.subsec_nanos()
     }
@@ -460,34 +536,34 @@ impl RySignedDuration {
         self.0
             .round(dt_round)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn _round(&self, dt_round: &RySignedDurationRound) -> PyResult<Self> {
         self.0
             .round(dt_round.jiff_round)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[staticmethod]
     fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = value.py();
-        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
             Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
             Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
         } else if value.is_exact_instance_of::<Self>() {
             value.into_bound_py_any(py)
-        } else if let Ok(v) = value.downcast_exact::<PyFloat>() {
+        } else if let Ok(v) = value.cast_exact::<PyFloat>() {
             let f = v.extract::<f64>()?;
             if f.is_nan() || f.is_infinite() {
                 return py_value_err!("Cannot convert NaN or infinite float to SignedDuration");
             }
             Self::py_try_from_secs_f64(f).and_then(|dt| dt.into_bound_py_any(py))
-        } else if let Ok(v) = value.downcast_exact::<PyInt>() {
+        } else if let Ok(v) = value.cast_exact::<PyInt>() {
             let i = v.extract::<i64>()?;
             Self::from(SignedDuration::new(i, 0)).into_bound_py_any(py)
         } else if let Ok(d) = value.extract::<SignedDuration>() {

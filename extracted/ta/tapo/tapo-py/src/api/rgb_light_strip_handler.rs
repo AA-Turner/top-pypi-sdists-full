@@ -27,7 +27,7 @@ impl PyRgbLightStripHandler {
 }
 
 impl PyHandlerExt for PyRgbLightStripHandler {
-    fn get_inner_handler(&self) -> Arc<RwLock<(impl HandlerExt + 'static)>> {
+    fn get_inner_handler(&self) -> Arc<RwLock<impl HandlerExt + 'static>> {
         Arc::clone(&self.inner)
     }
 }
@@ -75,7 +75,7 @@ impl PyRgbLightStripHandler {
             handler.read().await.deref(),
             RgbLightStripHandler::get_device_info_json,
         )?;
-        Python::with_gil(|py| tapo::python::serde_object_to_py_dict(py, &result))
+        Python::attach(|py| tapo::python::serde_object_to_py_dict(py, &result))
     }
 
     pub async fn get_device_usage(&self) -> PyResult<DeviceUsageEnergyMonitoringResult> {

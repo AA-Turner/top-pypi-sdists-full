@@ -34,6 +34,10 @@ def get_package_version():
     if "-DSHERPA_ONNX_ENABLE_GPU=ON" in cmake_args:
         extra_version = "+cuda"
 
+    cuda_version = os.environ.get("SHERPA_ONNX_CUDA_VERSION", "")
+    if cuda_version:
+        extra_version += cuda_version
+
     latest_version += extra_version
 
     return latest_version
@@ -101,7 +105,7 @@ setuptools.setup(
         ],
     },
     license="Apache licensed, as found in the LICENSE file",
-    install_requires=["sherpa-onnx-core==1.12.13"] if need_split_package() else None,
+    install_requires=["sherpa-onnx-core==1.12.14"] if need_split_package() else None,
 )
 
 with open("sherpa-onnx/python/sherpa_onnx/__init__.py", "r") as f:

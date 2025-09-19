@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.10.1",
+    "version": "21.11.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -368,6 +368,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.connect_user_hierarchy_group",
         "cdktf_cdktf_provider_aws.connect_user_hierarchy_structure",
         "cdktf_cdktf_provider_aws.connect_vocabulary",
+        "cdktf_cdktf_provider_aws.controltower_baseline",
         "cdktf_cdktf_provider_aws.controltower_control",
         "cdktf_cdktf_provider_aws.controltower_landing_zone",
         "cdktf_cdktf_provider_aws.costoptimizationhub_enrollment_status",
@@ -438,6 +439,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.data_aws_bedrock_inference_profiles",
         "cdktf_cdktf_provider_aws.data_aws_bedrockagent_agent_versions",
         "cdktf_cdktf_provider_aws.data_aws_billing_service_account",
+        "cdktf_cdktf_provider_aws.data_aws_billing_views",
         "cdktf_cdktf_provider_aws.data_aws_budgets_budget",
         "cdktf_cdktf_provider_aws.data_aws_caller_identity",
         "cdktf_cdktf_provider_aws.data_aws_canonical_user_id",
@@ -780,6 +782,11 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.data_aws_oam_links",
         "cdktf_cdktf_provider_aws.data_aws_oam_sink",
         "cdktf_cdktf_provider_aws.data_aws_oam_sinks",
+        "cdktf_cdktf_provider_aws.data_aws_odb_cloud_autonomous_vm_cluster",
+        "cdktf_cdktf_provider_aws.data_aws_odb_cloud_exadata_infrastructure",
+        "cdktf_cdktf_provider_aws.data_aws_odb_cloud_vm_cluster",
+        "cdktf_cdktf_provider_aws.data_aws_odb_network",
+        "cdktf_cdktf_provider_aws.data_aws_odb_network_peering_connection",
         "cdktf_cdktf_provider_aws.data_aws_opensearch_domain",
         "cdktf_cdktf_provider_aws.data_aws_opensearchserverless_access_policy",
         "cdktf_cdktf_provider_aws.data_aws_opensearchserverless_collection",
@@ -1604,6 +1611,11 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.oam_link",
         "cdktf_cdktf_provider_aws.oam_sink",
         "cdktf_cdktf_provider_aws.oam_sink_policy",
+        "cdktf_cdktf_provider_aws.odb_cloud_autonomous_vm_cluster",
+        "cdktf_cdktf_provider_aws.odb_cloud_exadata_infrastructure",
+        "cdktf_cdktf_provider_aws.odb_cloud_vm_cluster",
+        "cdktf_cdktf_provider_aws.odb_network",
+        "cdktf_cdktf_provider_aws.odb_network_peering_connection",
         "cdktf_cdktf_provider_aws.opensearch_authorize_vpc_endpoint_access",
         "cdktf_cdktf_provider_aws.opensearch_domain",
         "cdktf_cdktf_provider_aws.opensearch_domain_policy",
@@ -2173,7 +2185,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.10.1.jsii.tgz"
+            "provider-aws@21.11.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

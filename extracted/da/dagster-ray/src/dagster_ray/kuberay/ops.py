@@ -1,0 +1,74 @@
+import dagster as dg
+from pydantic import Field
+
+from dagster_ray._base.constants import DEFAULT_DEPLOYMENT_NAME
+from dagster_ray.kuberay.client.raycluster.client import RayClusterClient
+
+
+class DeleteKubeRayClustersConfig(dg.Config):
+    namespace: str = "ray"
+    cluster_names: list[str] = Field(default_factory=list, description="List of RayCluster names to delete")
+
+
+@dg.op(description="Deletes RayCluster resources from Kubernetes", name="delete_kuberay_clusters")
+def delete_kuberay_clusters_op(
+    context: dg.OpExecutionContext,
+    config: DeleteKubeRayClustersConfig,
+    kuberay_client: dg.ResourceParam[RayClusterClient],
+) -> None:
+    for cluster_name in config.cluster_names:
+        try:
+            if kuberay_client.get(name=cluster_name, namespace=config.namespace).get("items"):
+                kuberay_client.delete(name=cluster_name, namespace=config.namespace)
+                context.log.info(f"RayCluster {config.namespace}/{cluster_name} deleted!")
+            else:
+                context.log.warning(f"RayCluster {config.namespace}/{cluster_name} doesn't exist")
+        except Exception as e:  # noqa
+            context.log.exception(f"Couldn't delete RayCluster {config.namespace}/{cluster_name}")
+
+
+class CleanupKuberayClustersConfig(dg.Config):
+    namespace: str = "kuberay"
+    label_selector: str = Field(
+        default=f"dagster/deployment={DEFAULT_DEPLOYMENT_NAME}", description="Label selector to filter RayClusters"
+    )
+
+
+@dg.op(
+    description="Deletes RayCluster resources which do not correspond to any active Dagster Runs in this deployment from Kubernetes",
+    name="cleanup_kuberay_clusters",
+)
+def cleanup_kuberay_clusters_op(
+    context: dg.OpExecutionContext,
+    config: CleanupKuberayClustersConfig,
+    kuberay_client: dg.ResourceParam[RayClusterClient],
+) -> None:
+    current_runs = context.instance.get_runs(
+        filters=dg.RunsFilter(
+            statuses=[
+                dg.DagsterRunStatus.STARTED,
+                dg.DagsterRunStatus.QUEUED,
+                dg.DagsterRunStatus.CANCELING,
+            ]
+        )
+    )
+
+    clusters = kuberay_client.list(
+        namespace=config.namespace,
+        label_selector=config.label_selector,
+    )["items"]
+
+    # filter clusters by current runs using dagster.io/run-id label
+
+    old_cluster_names = [
+        cluster["metadata"]["name"]
+        for cluster in clusters
+        if not any(run.run_id == cluster["metadata"]["labels"]["dagster/run-id"] for run in current_runs)
+    ]
+
+    for cluster_name in old_cluster_names:
+        try:
+            kuberay_client.delete(name=cluster_name, namespace=config.namespace)
+            context.log.info(f"RayCluster {config.namespace}/{cluster_name} deleted!")
+        except:  # noqa
+            context.log.exception(f"Couldn't delete RayCluster {config.namespace}/{cluster_name}")

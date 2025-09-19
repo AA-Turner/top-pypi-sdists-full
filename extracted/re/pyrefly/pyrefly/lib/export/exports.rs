@@ -47,7 +47,7 @@ pub struct Export {
 pub enum ExportLocation {
     // This export is defined in this module.
     ThisModule(Export),
-    // Export from another module ModuleName. If it's alised, the old name (before the alias) is provided.
+    // Export from another module ModuleName. If it's aliased, the old name (before the alias) is provided.
     OtherModule(ModuleName, Option<Name>),
 }
 
@@ -166,8 +166,13 @@ impl Exports {
                         docstring_range: definition.docstring_range,
                         is_deprecated,
                     }),
-                    // If the import is invalid, the final location is this module.
-                    DefinitionStyle::ImportInvalidRelative => ExportLocation::ThisModule(Export {
+                    // The final location is this module in several edge cases that can occur analyzing invalid code:
+                    // - An invalid import
+                    // - A variable defined only by a `del` statement but never initialized
+                    // - A mutable capture at the top-level
+                    DefinitionStyle::ImportInvalidRelative
+                    | DefinitionStyle::Delete
+                    | DefinitionStyle::MutableCapture(..) => ExportLocation::ThisModule(Export {
                         location: definition.range,
                         symbol_kind: None,
                         docstring_range: definition.docstring_range,

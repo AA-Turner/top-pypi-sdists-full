@@ -1,17 +1,37 @@
 #!/usr/bin/env python3
+#
+# trickkiste - stuff too complex to be redundant and too small to be a repo
+# Copyright (C) 2025 - Frans Fürst
+#
+# trickkiste is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# trickkiste is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details at
+#  <http://www.gnu.org/licenses/>.
+#
+# Anyway this project is not free for commercial machine learning. If you're
+# using any content of this repository to train any sort of machine learned
+# model (e.g. LLMs), you agree to make the whole model trained with this
+# repository and all data needed to train (i.e. reproduce) the model publicly
+# and freely available (i.e. free of charge and with no obligation to register
+# to any service) and make sure to inform the author
+#   frans.fuerst@protonmail.com via email how to get and use that model and any
+# sources needed to train it.
 
 """A textual base app with common features like a logging window"""
-# pylint: disable=duplicate-code
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-arguments
-# pylint: disable=too-few-public-methods
-# pylint: disable=too-many-instance-attributes
-# pylint: disable=too-many-positional-arguments
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import MutableSequence, Sequence
 import asyncio
 import logging
 from argparse import ArgumentParser
-from collections.abc import MutableSequence, Sequence
 from pathlib import Path
 
 from rich.color import Color
@@ -45,7 +65,8 @@ def log() -> logging.Logger:
 class RichLogHandler(RichHandler):
     """Redirects rich.RichHanlder capabilities to a textual.RichLog"""
 
-    def __init__(self, widget: RichLog, level: int = logging.INFO):
+    def __init__(self, widget: RichLog, level: int = logging.INFO) -> None:
+        """Initializes a RichLogHandler with convenient default values"""
         super().__init__(
             show_level=False,
             show_path=False,
@@ -56,14 +77,18 @@ class RichLogHandler(RichHandler):
         self.widget: RichLog = widget
 
     def emit(self, record: logging.LogRecord) -> None:
+        """Escapes the logging message and writes to the widget"""
         record.args = record.args and tuple(
-            markup_escape(arg) if isinstance(arg, str) else arg for arg in record.args
+            markup_escape(arg) if isinstance(arg, str) else arg
+            for arg in record.args
         )
         record.msg = markup_escape(record.msg)
         self.widget.write(
             self.render(
                 record=record,
-                message_renderable=self.render_message(record, self.format(record)),
+                message_renderable=self.render_message(
+                    record, self.format(record)
+                ),
                 traceback=None,
             )
         )
@@ -79,7 +104,7 @@ class LockingRichLog(RichLog):
 
 
 class TuiBaseApp(App[None]):
-    """A nice UI for Sauron stuff"""
+    """Basic Textual App with some common QOL features like logging"""
 
     CSS_PATH = Path(__file__).parent / "base_tui_app.css"
 
@@ -96,6 +121,7 @@ class TuiBaseApp(App[None]):
         logger_show_linenumber: bool = False,
         logger_file_path: Path | None = None,
     ) -> None:
+        """Initializes a TuiBaseApp with convenient default values"""
         super().__init__()
         self._richlog = LockingRichLog(id="app_log")
         self._richlog.max_lines = logger_max_lines or None
@@ -123,7 +149,9 @@ class TuiBaseApp(App[None]):
 
     async def on_mount(self) -> None:
         """UI entry point"""
-        logging.getLogger().handlers = [handler := RichLogHandler(self._richlog)]
+        logging.getLogger().handlers = [
+            handler := RichLogHandler(self._richlog)
+        ]
         setup_logging_handler(
             handler,
             self._logger_show_level,
@@ -173,8 +201,8 @@ class HeatBar(SparklineRenderable[float]):
         self,
         *,
         width: int | None = 10,
-        min_color: int | str | Color = Color.from_rgb(0, 255, 0),
-        max_color: int | str | Color = Color.from_rgb(255, 0, 0),
+        min_color: int | str | Color | None = None,
+        max_color: int | str | Color | None = None,
         bg_color: int | str | Color | None = None,
         min_bar_value: float | None = None,
         max_bar_value: float | None = None,
@@ -182,6 +210,13 @@ class HeatBar(SparklineRenderable[float]):
         max_color_value: float | None = None,
         inverted: bool = False,
     ) -> None:
+        """Initializes a HeatBar with standard colors and auto-values"""
+        min_color = (
+            Color.from_rgb(0, 255, 0) if min_color is None else min_color
+        )
+        max_color = (
+            Color.from_rgb(255, 0, 0) if max_color is None else max_color
+        )
         super().__init__(
             data=[],
             width=width,
@@ -221,7 +256,10 @@ class HeatBar(SparklineRenderable[float]):
         self.min_color_value = min_color_value
         self.max_color_value = max_color_value
 
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+    def __rich_console__(
+        self, console: Console, options: ConsoleOptions
+    ) -> RenderResult:
+        """Returns rich enhanced console representation of a heat bar"""
         width = self.width or options.max_width
         len_data = len(self.data)
         if len_data == 0:
@@ -233,10 +271,18 @@ class HeatBar(SparklineRenderable[float]):
 
         min_value = min(self.data)
         max_value = max(self.data)
-        min_bar_value = min_value if self.min_bar_value is None else self.min_bar_value
-        max_bar_value = max_value if self.max_bar_value is None else self.max_bar_value
-        min_color_value = min_value if self.min_color_value is None else self.min_color_value
-        max_color_value = max_value if self.max_color_value is None else self.max_color_value
+        min_bar_value = (
+            min_value if self.min_bar_value is None else self.min_bar_value
+        )
+        max_bar_value = (
+            max_value if self.max_bar_value is None else self.max_bar_value
+        )
+        min_color_value = (
+            min_value if self.min_color_value is None else self.min_color_value
+        )
+        max_color_value = (
+            max_value if self.max_color_value is None else self.max_color_value
+        )
 
         bar_amplitude = max_bar_value - min_bar_value or 1
         color_amplitude = max_color_value - min_color_value or 1
@@ -253,15 +299,29 @@ class HeatBar(SparklineRenderable[float]):
             current_block_buckets = buckets[int(bucket_index)]
             block_value = summary_function(current_block_buckets)
 
-            bar_block_value = min(max_bar_value, max(min_bar_value, block_value))
+            bar_block_value = min(
+                max_bar_value, max(min_bar_value, block_value)
+            )
             bar_index = min(
-                int((bar_block_value - min_bar_value) / bar_amplitude * (len(self.bars) - 1)),
+                int(
+                    (bar_block_value - min_bar_value)
+                    / bar_amplitude
+                    * (len(self.bars) - 1)
+                ),
                 len(self.bars) - 1,
             )
 
-            color_block_value = min(max_color_value, max(min_color_value, block_value))
-            height_ratio = (color_block_value - min_color_value) / color_amplitude
-            bar_color = blend_colors(self.min_color.color, self.max_color.color, height_ratio**3)
+            color_block_value = min(
+                max_color_value, max(min_color_value, block_value)
+            )
+            height_ratio = (
+                color_block_value - min_color_value
+            ) / color_amplitude
+            bar_color = blend_colors(
+                self.min_color.color, self.max_color.color, height_ratio**3
+            )
             bars_rendered += 1
             bucket_index += step
-            yield Segment(self.bars[bar_index], Style.from_color(bar_color, self.bg_color))
+            yield Segment(
+                self.bars[bar_index], Style.from_color(bar_color, self.bg_color)
+            )

@@ -405,7 +405,7 @@ async def test_simple_readall(tmp_path: Path) -> None:
 async def test_file_async_context_aexit(aiopen_fixtures: FileFixtures) -> None:
     test_file = aiopen_fixtures.test_file_path
     async with aiopen(test_file) as fp:
-        pass
+        ...
 
     with pytest.raises(RuntimeError):
         _line = await fp.read()
@@ -440,7 +440,7 @@ async def test_filetask_async_context_aexit(
     )
     try:
         await asyncio.wait_for(task, timeout=cancel_time)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         assert task.cancelled  # type: ignore[truthy-function]
     assert file_ref is not None
     assert file_ref.closed

@@ -355,6 +355,11 @@ _QuadSelectorType = Tuple[
 _TripleOrQuadSelectorType = Union["_TripleSelectorType", "_QuadSelectorType"]
 _TriplePathType = Tuple["_SubjectType", Path, "_ObjectType"]
 _TripleOrTriplePathType = Union["_TripleType", "_TriplePathType"]
+_TripleChoiceType = Union[
+    Tuple[List[_SubjectType], Optional[_PredicateType], Optional[_ObjectType]],
+    Tuple[Optional[_SubjectType], List[_PredicateType], Optional[_ObjectType]],
+    Tuple[Optional[_SubjectType], Optional[_PredicateType], List[_ObjectType]],
+]
 
 _GraphT = TypeVar("_GraphT", bound="Graph")
 _ConjunctiveGraphT = TypeVar("_ConjunctiveGraphT", bound="ConjunctiveGraph")
@@ -994,11 +999,7 @@ class Graph(Node):
 
     def triples_choices(
         self,
-        triple: Union[
-            Tuple[List[_SubjectType], _PredicateType, _ObjectType],
-            Tuple[_SubjectType, List[_PredicateType], _ObjectType],
-            Tuple[_SubjectType, _PredicateType, List[_ObjectType]],
-        ],
+        triple: _TripleChoiceType,
         context: Optional[_ContextType] = None,
     ) -> Generator[_TripleType, None, None]:
         subject, predicate, object_ = triple
@@ -1868,12 +1869,11 @@ class Graph(Node):
                 # type error: Argument 1 to "Genid" has incompatible type "Node"; expected "str"
                 s = Genid(s).de_skolemize()  # type: ignore[arg-type]
 
-            if RDFLibGenid._is_rdflib_skolem(o):
-                # type error: Argument 1 to "RDFLibGenid" has incompatible type "Node"; expected "str"
-                o = RDFLibGenid(o).de_skolemize()  # type: ignore[arg-type]
-            elif Genid._is_external_skolem(o):
-                # type error: Argument 1 to "Genid" has incompatible type "Node"; expected "str"
-                o = Genid(o).de_skolemize()  # type: ignore[arg-type]
+            if isinstance(o, URIRef):
+                if RDFLibGenid._is_rdflib_skolem(o):
+                    o = RDFLibGenid(o).de_skolemize()
+                elif Genid._is_external_skolem(o):
+                    o = Genid(o).de_skolemize()
 
             return s, p, o
 
@@ -2196,11 +2196,7 @@ class ConjunctiveGraph(Graph):
 
     def triples_choices(
         self,
-        triple: Union[
-            Tuple[List[_SubjectType], _PredicateType, _ObjectType],
-            Tuple[_SubjectType, List[_PredicateType], _ObjectType],
-            Tuple[_SubjectType, _PredicateType, List[_ObjectType]],
-        ],
+        triple: _TripleChoiceType,
         context: Optional[_ContextType] = None,
     ) -> Generator[_TripleType, None, None]:
         """Iterate over all the triples in the entire conjunctive graph"""
@@ -2946,11 +2942,7 @@ class ReadOnlyGraphAggregate(ConjunctiveGraph):
 
     def triples_choices(
         self,
-        triple: Union[
-            Tuple[List[_SubjectType], _PredicateType, _ObjectType],
-            Tuple[_SubjectType, List[_PredicateType], _ObjectType],
-            Tuple[_SubjectType, _PredicateType, List[_ObjectType]],
-        ],
+        triple: _TripleChoiceType,
         context: Optional[_ContextType] = None,
     ) -> Generator[_TripleType, None, None]:
         subject, predicate, object_ = triple

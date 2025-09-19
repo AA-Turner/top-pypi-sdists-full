@@ -40,7 +40,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.10",
+        "dagster==1.11.11",
         # Follow the version support constraints for dbt Core: https://docs.getdbt.com/docs/dbt-versions/core
         f"dbt-core>=1.7,<{DBT_CORE_VERSION_UPPER_BOUND}",
         "Jinja2",
@@ -64,6 +64,7 @@ setup(
             "dagster-duckdb",
             "dagster-duckdb-pandas",
             "dbt-duckdb<1.9.2",  # concurrency issues
+            "duckdb<1.4.0",  # compat issues
         ],
     },
     entry_points={

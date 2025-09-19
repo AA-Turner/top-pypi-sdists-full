@@ -4,29 +4,25 @@ from tapo import PowerStripPlugHandler
 from tapo.responses import DeviceInfoPowerStripResult, PowerStripPlugResult
 
 class PowerStripHandler:
-    """Handler for the [P300](https://www.tapo.com/en/search/?q=P300),
-    [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
-    [P316M](https://www.tp-link.com/us/search/?q=P316M) devices.
+    """Handler for the [P300](https://www.tp-link.com/en/search/?q=P300) and
+    [P306](https://www.tp-link.com/us/search/?q=P306) devices.
     """
 
     def __init__(self, handler: object):
         """Private constructor.
         It should not be called from outside the tapo library.
         """
-
     async def refresh_session(self) -> None:
         """Refreshes the authentication session."""
-
     async def get_device_info(self) -> DeviceInfoPowerStripResult:
         """Returns *device info* as `DeviceInfoPowerStripResult`.
         It is not guaranteed to contain all the properties returned from the Tapo API.
         If the deserialization fails, or if a property that you care about it's not present,
-        try `HubHandler.get_device_info_json`.
+        try `PowerStripHandler.get_device_info_json`.
 
         Returns:
-            DeviceInfoPowerStripResult: Device info of Tapo P300, P304M and P316M. Superset of `DeviceInfoGenericResult`.
+            DeviceInfoPowerStripResult: Device info of Tapo P300, P304M, P306 and P316M. Superset of `DeviceInfoGenericResult`.
         """
-
     async def get_device_info_json(self) -> dict:
         """Returns *device info* as json.
         It contains all the properties returned from the Tapo API.
@@ -34,7 +30,6 @@ class PowerStripHandler:
         Returns:
             dict: Device info as a dictionary.
         """
-
     async def get_child_device_list(
         self,
     ) -> List[PowerStripPlugResult]:
@@ -46,7 +41,6 @@ class PowerStripHandler:
         Returns:
             dict: Device info as a dictionary.
         """
-
     async def get_child_device_list_json(self) -> dict:
         """Returns *child device list* as json.
         It contains all the properties returned from the Tapo API.
@@ -54,7 +48,6 @@ class PowerStripHandler:
         Returns:
             dict: Device info as a dictionary.
         """
-
     async def get_child_device_component_list_json(self) -> dict:
         """Returns *child device component list* as json.
         It contains all the properties returned from the Tapo API.
@@ -62,7 +55,6 @@ class PowerStripHandler:
         Returns:
             dict: Device info as a dictionary.
         """
-
     async def plug(
         self,
         device_id: Optional[str] = None,
@@ -77,9 +69,8 @@ class PowerStripHandler:
             position (Optional[str]): The Position of the device
 
         Returns:
-            PowerStripPlugHandler: Handler for the [P300](https://www.tapo.com/en/search/?q=P300),
-            [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
-            [P316M](https://www.tp-link.com/us/search/?q=P316M) child plugs.
+            PowerStripPlugHandler: Handler for the [P300](https://www.tp-link.com/en/search/?q=P300) and
+            [P306](https://www.tp-link.com/us/search/?q=P306) child plugs.
 
         Example:
             ```python

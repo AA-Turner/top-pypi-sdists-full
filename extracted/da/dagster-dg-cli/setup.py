@@ -35,15 +35,19 @@ setup(
     packages=find_packages(exclude=["dagster_dg_cli_tests*"]),
     include_package_data=True,
     install_requires=[
-        "dagster-dg-core==1.11.10",
-        "dagster==1.11.10",
-        "dagster-cloud-cli==1.11.10",
-        "anthropic; python_version>='3.10'",  # anthropic not available for 3.9
-        "claude-code-sdk>=0.0.19; python_version>='3.10'",  # claude-code-sdk not available for 3.9
-        "mcp; python_version>='3.10'",  # mcp not available for 3.9
+        "dagster-dg-core==1.11.11",
+        "dagster==1.11.11",
+        "dagster-cloud-cli==1.11.11",
         "typer",
     ],
-    extras_require={"test": ["syrupy>=4.0.0"]},
+    extras_require={
+        "test": ["syrupy>=4.0.0"],
+        "ai": [
+            "anthropic; python_version>='3.10'",
+            "claude-code-sdk>=0.0.19; python_version>='3.10'",
+            "mcp; python_version>='3.10'",
+        ],
+    },
     entry_points={
         "console_scripts": [
             "dg = dagster_dg_cli.cli:main",

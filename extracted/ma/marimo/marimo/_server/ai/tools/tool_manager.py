@@ -1,19 +1,27 @@
 # Copyright 2024 Marimo. All rights reserved.
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from starlette.applications import (
+    Starlette,  # noqa: TCH002 - required at runtime
+)
+
 from marimo import _loggers
+from marimo._ai._tools.base import ToolBase, ToolContext
+from marimo._ai._tools.tools_registry import SUPPORTED_BACKEND_AND_MCP_TOOLS
 from marimo._config.config import CopilotMode
-from marimo._config.manager import get_default_config_manager
+from marimo._server.ai.mcp import get_mcp_client
 from marimo._server.ai.tools.types import (
-    BackendTool,
     FunctionArgs,
-    Tool,
-    ToolResult,
+    ToolCallResult,
+    ToolDefinition,
     ToolSource,
     ValidationFunction,
 )
+from marimo._server.api.deps import AppState
+from marimo._utils.once import once
 
 if TYPE_CHECKING:
     from mcp.types import (  # type: ignore[import-not-found]
@@ -27,39 +35,42 @@ LOGGER = _loggers.marimo_logger()
 class ToolManager:
     """Centralized manager for backend and frontend tools, with dynamic MCP tool access."""
 
-    def __init__(self) -> None:
+    def __init__(self, app: Starlette) -> None:
         """Initialize the tool manager."""
-        self._tools: dict[str, Tool] = {}
+        self._tools: dict[str, ToolDefinition] = {}
         self._backend_handlers: dict[str, Callable[[FunctionArgs], Any]] = {}
         self._validation_functions: dict[str, ValidationFunction] = {}
+        self.app: Starlette = app
 
-        # TODO: this may be stale if the config is updated after the tool manager is created
-        self._config = get_default_config_manager(
-            current_path=None
-        ).get_config()
-        self._enable_mcp_tools = self._config.get("experimental", {}).get(
-            "mcp_docs", False
-        )
+    @cached_property
+    def _enable_mcp_tools(self) -> bool:
+        # This may be stale but it is ok, since we want to enable MCP on startup
+        app_state = AppState.from_app(self.app)
+        config = app_state.config_manager.get_config()
+        return bool(config.get("experimental", {}).get("mcp_docs", False))
 
-        # Add backend tools here
-        # backend_tools = [SampleTool()]
-        # for tool in backend_tools:
-        #     self.register_backend_tool(tool)
+    @once
+    def _init_backend_tools(self) -> None:
+        """Initialize backend tools. We lazily register tools here instead of in the constructor for performance"""
+        context = ToolContext(app=self.app)
 
-    def register_backend_tool(self, tool: BackendTool[Any]) -> None:
+        for tool in SUPPORTED_BACKEND_AND_MCP_TOOLS:
+            tool_with_context = tool(context)
+            self._register_backend_tool(tool_with_context)
+
+    def _register_backend_tool(self, tool: ToolBase[Any, Any]) -> None:
         """Register a backend tool with its handler function and optional validator."""
-        tool_definition = tool.tool
-        if tool_definition.source != "backend":
-            raise ValueError("Tool source must be 'backend'")
-
-        name = tool_definition.name
+        name = tool.name
+        tool_definition, validation_function = tool.as_backend_tool(
+            mode=["ask"]
+        )
         self._tools[name] = tool_definition
-        self._backend_handlers[name] = tool.handler
-        self._validation_functions[name] = tool.validator
+        self._backend_handlers[name] = tool.__call__
+        self._validation_functions[name] = validation_function
 
         LOGGER.debug(f"Registered backend tool: {name}")
 
-    def register_frontend_tool(self, tool: Tool) -> None:
+    def _register_frontend_tool(self, tool: ToolDefinition) -> None:
         """Register a frontend tool (definition only - no handler or validator needed)."""
         if tool.source != "frontend":
             raise ValueError("Tool source must be 'frontend'")
@@ -67,22 +78,32 @@ class ToolManager:
         self._tools[tool.name] = tool
         LOGGER.debug(f"Registered frontend tool: {tool.name}")
 
-    def get_all_tools(self) -> list[Tool]:
+    def _get_all_tools(self) -> list[ToolDefinition]:
         """Get all available frontend, backend, and MCP tools."""
+        self._init_backend_tools()
+
         local_tools = list(self._tools.values())
-        mcp_tools = self.list_mcp_tools()
+        mcp_tools = self._list_mcp_tools()
         all_tools = local_tools + mcp_tools
         return all_tools
 
-    def get_tools_for_mode(self, mode: CopilotMode) -> list[Tool]:
-        """Get all tools available for a specific mode."""
-        all_tools = self.get_all_tools()
+    def get_tools_for_mode(self, mode: CopilotMode) -> list[ToolDefinition]:
+        """Get all tools available for a specific mode.
+
+        Args:
+            mode: The mode to get tools for.
+
+        Returns:
+            A list of tool definitions available for the given mode.
+        """
+        all_tools = self._get_all_tools()
         return [tool for tool in all_tools if mode in tool.mode]
 
-    def get_tool(
+    def _get_tool(
         self, name: str, source: Optional[ToolSource] = None
-    ) -> Optional[Tool]:
+    ) -> Optional[ToolDefinition]:
         """Get tool definition by name."""
+
         if source:
             if source == "backend":
                 # Check if it's a backend tool
@@ -96,24 +117,24 @@ class ToolManager:
                     return tool
             elif source == "mcp":
                 # Check MCP tools
-                mcp_tools = self.list_mcp_tools()
+                mcp_tools = self._list_mcp_tools()
                 for mcp_tool in mcp_tools:
                     if mcp_tool.name == name:
                         return mcp_tool
             return None
         else:
             # No source specified, check all sources
-            all_tools = self.get_all_tools()
+            all_tools = self._get_all_tools()
             for tool in all_tools:
                 if tool.name == name:
                     return tool
             return None
 
-    def validate_backend_tool_arguments(
+    def _validate_backend_tool_arguments(
         self, tool_name: str, arguments: FunctionArgs
     ) -> tuple[bool, str]:
         """Validate tool arguments using tool-specific or basic validation."""
-        tool = self.get_tool(tool_name)
+        tool = self._get_tool(tool_name)
         if not tool:
             return False, f"Tool '{tool_name}' not found"
 
@@ -145,23 +166,21 @@ class ToolManager:
 
         return True, ""
 
-    def list_mcp_tools(self) -> list[Tool]:
+    def _list_mcp_tools(self) -> list[ToolDefinition]:
         """Get all MCP tools from the MCP client."""
         if not self._enable_mcp_tools:
             return []
 
         try:
-            from marimo._server.ai.mcp import get_mcp_client
-
             mcp_client = get_mcp_client()
             mcp_tools = mcp_client.get_all_tools()
-            return [self.convert_mcp_tool(tool) for tool in mcp_tools]
+            return [self._convert_mcp_tool(tool) for tool in mcp_tools]
 
         except Exception as e:
             LOGGER.error(f"Failed to get MCP tools: {str(e)}")
             return []
 
-    def convert_mcp_tool(self, mcp_tool: MCPRawTool) -> Tool:
+    def _convert_mcp_tool(self, mcp_tool: MCPRawTool) -> ToolDefinition:
         """Convert an MCP tool to marimo Tool format."""
         # Get namespaced name from meta field (meta is dict[str, Any] | None)
         meta = mcp_tool.meta or {}
@@ -170,7 +189,7 @@ class ToolManager:
         )
 
         # Convert to marimo Tool format
-        return Tool(
+        return ToolDefinition(
             name=namespaced_name or mcp_tool.name,
             description=mcp_tool.description or "No description available",
             parameters=mcp_tool.inputSchema,
@@ -181,12 +200,22 @@ class ToolManager:
 
     async def invoke_tool(
         self, tool_name: str, arguments: FunctionArgs
-    ) -> ToolResult:
-        """Invoke a tool by name and return the result."""
-        tool = self.get_tool(tool_name)
+    ) -> ToolCallResult:
+        """Invoke a tool by name and return the result.
+
+        Args:
+            tool_name: The name of the tool to invoke.
+            arguments: The arguments to pass to the tool.
+
+        Returns:
+            A ToolCallResult containing the result of the tool invocation.
+        """
+        self._init_backend_tools()
+
+        tool = self._get_tool(tool_name)
 
         if not tool:
-            return ToolResult(
+            return ToolCallResult(
                 tool_name=tool_name,
                 result=None,
                 error=f"Internal error: Tool '{tool_name}' not found.",
@@ -195,7 +224,7 @@ class ToolManager:
         if tool.source == "frontend":
             system_error = f"Frontend tool '{tool_name}' cannot be invoked in the backend. Frontend tools must be executed in the client."
             LOGGER.error(system_error)
-            return ToolResult(
+            return ToolCallResult(
                 tool_name=tool_name,
                 result=None,
                 error=f"Internal error: Tool '{tool_name}' is a frontend tool and cannot be executed on the server.",
@@ -205,10 +234,10 @@ class ToolManager:
             if tool.source == "backend":
                 # Handle backend tools
                 is_valid, validation_error = (
-                    self.validate_backend_tool_arguments(tool_name, arguments)
+                    self._validate_backend_tool_arguments(tool_name, arguments)
                 )
                 if not is_valid:
-                    return ToolResult(
+                    return ToolCallResult(
                         tool_name=tool_name,
                         result=None,
                         error=f"Invalid arguments for tool '{tool_name}': {validation_error}",
@@ -219,13 +248,13 @@ class ToolManager:
                         f"No handler found for backend tool '{tool_name}'."
                     )
                     LOGGER.error(system_error)
-                    return ToolResult(
+                    return ToolCallResult(
                         tool_name=tool_name,
                         result=None,
                         error=f"Internal error: Tool '{tool_name}' cannot be invoked.",
                     )
                 result = await self._call_handler(handler, arguments)
-                return ToolResult(
+                return ToolCallResult(
                     tool_name=tool_name, result=result, error=None
                 )
 
@@ -234,8 +263,6 @@ class ToolManager:
                 call_result = await self._invoke_mcp_tool(tool_name, arguments)
 
                 # Check if the result indicates an error using the MCP client
-                from marimo._server.ai.mcp import get_mcp_client
-
                 mcp_client = get_mcp_client()
 
                 if mcp_client.is_error_result(call_result):
@@ -251,7 +278,7 @@ class ToolManager:
                     LOGGER.error(
                         f"MCP tool '{tool_name}' returned error: {error_text}"
                     )
-                    return ToolResult(
+                    return ToolCallResult(
                         tool_name=tool_name, result=None, error=error_text
                     )
 
@@ -262,7 +289,7 @@ class ToolManager:
                     if success_messages
                     else "MCP tool completed successfully with no text output"
                 )
-                return ToolResult(
+                return ToolCallResult(
                     tool_name=tool_name, result=result_text, error=None
                 )
 
@@ -270,7 +297,7 @@ class ToolManager:
                 # Unknown tool source
                 system_error = f"Unknown tool source: {tool.source} for tool {tool_name}. Supported sources are: backend, frontend, mcp."
                 LOGGER.error(system_error)
-                return ToolResult(
+                return ToolCallResult(
                     tool_name=tool_name,
                     result=None,
                     error=f"Internal error: Tool configuration error for tool {tool_name}.",
@@ -279,7 +306,7 @@ class ToolManager:
         except Exception as e:
             error_message = f"Error invoking tool '{tool_name}': {str(e)}"
             LOGGER.error(error_message)
-            return ToolResult(
+            return ToolCallResult(
                 tool_name=tool_name, result=None, error=str(error_message)
             )
 
@@ -304,8 +331,6 @@ class ToolManager:
         self, tool_name: str, arguments: FunctionArgs
     ) -> CallToolResult:
         """Invoke an MCP tool via the MCP client."""
-        from marimo._server.ai.mcp import get_mcp_client
-
         mcp_client = get_mcp_client()
 
         # Create properly typed parameters for the MCP tool
@@ -322,12 +347,18 @@ class ToolManager:
 _TOOL_MANAGER: Optional[ToolManager] = None
 
 
-def get_tool_manager() -> ToolManager:
-    """Get the global tool manager instance, initializing it if needed."""
+def setup_tool_manager(app: Starlette) -> None:
+    """Setup the tool manager with the app."""
     global _TOOL_MANAGER
     if _TOOL_MANAGER is None:
-        _TOOL_MANAGER = ToolManager()
+        _TOOL_MANAGER = ToolManager(app)
         LOGGER.info(
             f"ToolManager initialized with {len(_TOOL_MANAGER._tools)} backend/frontend tools"
         )
+
+
+def get_tool_manager() -> ToolManager:
+    """Get the global tool manager instance."""
+    if _TOOL_MANAGER is None:
+        raise ValueError("ToolManager not initialized")
     return _TOOL_MANAGER

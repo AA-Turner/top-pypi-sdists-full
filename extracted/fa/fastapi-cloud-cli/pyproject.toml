@@ -40,7 +40,7 @@ dependencies = [
     "pydantic[email] >= 1.6.1",
     "sentry-sdk >= 2.20.0",
 ]
-version = "0.1.5"
+version = "0.2.0"
 
 [project.license]
 text = "MIT"

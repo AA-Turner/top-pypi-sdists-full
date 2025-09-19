@@ -1,6 +1,5 @@
 use std::ops::Deref;
 
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use tapo::requests::{Color, ColorLightSetDeviceInfoParams};
 
@@ -85,25 +84,24 @@ impl PyColorLightSetDeviceInfoParams {
     }
 
     async fn send(&self, handler: Py<PyAny>) -> PyResult<()> {
-        if let Some(handler) =
-            Python::with_gil(|py| handler.extract::<PyColorLightHandler>(py).ok())
+        if let Some(handler) = Python::attach(|py| handler.extract::<PyColorLightHandler>(py).ok())
         {
             return self._send_to_inner_handler(handler).await;
         }
 
         if let Some(handler) =
-            Python::with_gil(|py| handler.extract::<PyRgbLightStripHandler>(py).ok())
+            Python::attach(|py| handler.extract::<PyRgbLightStripHandler>(py).ok())
         {
             return self._send_to_inner_handler(handler).await;
         }
 
         if let Some(handler) =
-            Python::with_gil(|py| handler.extract::<PyRgbicLightStripHandler>(py).ok())
+            Python::attach(|py| handler.extract::<PyRgbicLightStripHandler>(py).ok())
         {
             return self._send_to_inner_handler(handler).await;
         }
 
-        Err(PyErr::new::<PyTypeError, _>(
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
             "Invalid handler type. Must be one of `PyColorLightHandler`, `PyRgbLightStripHandler` or `PyRgbicLightStripHandler`",
         ))
     }

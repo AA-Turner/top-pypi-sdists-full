@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.71.0
+Version: 0.73.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -8,20 +8,23 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
+Requires-Dist: beautifulsoup4>=4.13.4
 Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.177.0
+Requires-Dist: crewai>=0.186.1
 Requires-Dist: docker>=7.1.0
-Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
 Requires-Dist: openai>=1.12.0
 Requires-Dist: portalocker==2.7.0
 Requires-Dist: pydantic>=2.6.1
+Requires-Dist: pypdf>=5.9.0
 Requires-Dist: pyright>=1.1.350
+Requires-Dist: python-docx>=1.2.0
 Requires-Dist: pytube>=15.0.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: stagehand>=0.4.1
 Requires-Dist: tiktoken>=0.8.0
+Requires-Dist: youtube-transcript-api>=1.2.2
 Provides-Extra: apify
 Requires-Dist: langchain-apify<1.0.0,>=0.1.2; extra == 'apify'
 Provides-Extra: beautifulsoup4
@@ -60,10 +63,14 @@ Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.13; extra == 'mongodb'
 Provides-Extra: multion
 Requires-Dist: multion>=1.1.0; extra == 'multion'
+Provides-Extra: mysql
+Requires-Dist: pymysql>=1.1.1; extra == 'mysql'
 Provides-Extra: oxylabs
 Requires-Dist: oxylabs==2.0.0; extra == 'oxylabs'
 Provides-Extra: patronus
 Requires-Dist: patronus>=0.0.16; extra == 'patronus'
+Provides-Extra: postgresql
+Requires-Dist: psycopg2-binary>=2.9.10; extra == 'postgresql'
 Provides-Extra: qdrant-client
 Requires-Dist: qdrant-client>=1.12.1; extra == 'qdrant-client'
 Provides-Extra: rag

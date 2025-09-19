@@ -120,6 +120,8 @@ struct aws_s3_request_metrics {
         uint32_t stream_id;
         /* CRT error code when the aws_s3_request finishes. */
         int error_code;
+        /* Retry attempt. */
+        uint32_t retry_attempt;
     } crt_info_metrics;
 
     struct aws_ref_count ref_count;
@@ -155,9 +157,18 @@ struct aws_s3_request {
     /* Owning meta request. */
     struct aws_s3_meta_request *meta_request;
 
+    /* The buffer size to be allocated for the request, defaults the part size. */
+    size_t buffer_size;
     /* Request body to use when sending the request. The contents of this body will be re-used if a request is
      * retried.*/
     struct aws_byte_buf request_body;
+
+    /* Set when the request will be streaming from file directly instead of the request_body. */
+    bool fio_streaming;
+    /* If file I/O options configure streaming. The request body will be streaming from this. If a request is retried,
+     * this stream will be recreated. */
+    struct aws_input_stream *request_body_stream;
+    uint64_t content_length;
 
     /**
      * Ticket to acquire the buffer.
@@ -306,10 +317,7 @@ AWS_S3_API
 struct aws_s3_request *aws_s3_request_release(struct aws_s3_request *request);
 
 AWS_S3_API
-struct aws_s3_request_metrics *aws_s3_request_metrics_new(
-    struct aws_allocator *allocator,
-    const struct aws_s3_request *request,
-    const struct aws_http_message *message);
+struct aws_s3_request_metrics *aws_s3_request_metrics_new(struct aws_allocator *allocator);
 
 AWS_EXTERN_C_END
 

@@ -31,6 +31,7 @@ from fireworks.fw_config import (
     SORT_FWS,
     WFLOCK_EXPIRATION_KILL,
     WFLOCK_EXPIRATION_SECS,
+    STREAM_LOGLEVEL
 )
 from fireworks.utilities.fw_serializers import FWSerializable, reconstitute_dates, recursive_dict
 from fireworks.utilities.fw_utilities import get_fw_logger
@@ -190,7 +191,7 @@ class LaunchPad(FWSerializable):
 
         # set up logger
         self.logdir = logdir
-        self.strm_lvl = strm_lvl or "INFO"
+        self.strm_lvl = strm_lvl or STREAM_LOGLEVEL
         self.m_logger = get_fw_logger("launchpad", l_dir=self.logdir, stream_level=self.strm_lvl)
 
         self.user_indices = user_indices or []
@@ -203,10 +204,11 @@ class LaunchPad(FWSerializable):
                 raise ValueError("Must specify a database name when using a MongoDB URI string.")
             self.db = self.connection[self.name]
         else:
+            if not "socketTimeoutMS" in self.mongoclient_kwargs:
+                self.mongoclient_kwargs["socketTimeoutMS"] = MONGO_SOCKET_TIMEOUT_MS
             self.connection = MongoClient(
                 self.host,
                 self.port,
-                socketTimeoutMS=MONGO_SOCKET_TIMEOUT_MS,
                 username=self.username,
                 password=self.password,
                 authSource=self.authsource,
@@ -453,7 +455,7 @@ class LaunchPad(FWSerializable):
             pull_spec_mods (bool): Whether the new Workflow should pull the FWActions of the parent
                 fw_ids
         """
-        wf = self.get_wf_by_fw_id(fw_ids[0])
+        wf = self.get_wf_by_fw_id_lzyfw(fw_ids[0])
         updated_ids = wf.append_wf(new_wf, fw_ids, detour=detour, pull_spec_mods=pull_spec_mods)
         with WFLock(self, fw_ids[0]):
             self._update_wf(wf, updated_ids)

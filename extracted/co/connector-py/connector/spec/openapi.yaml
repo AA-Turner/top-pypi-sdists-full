@@ -3353,7 +3353,7 @@ components:
           description: |-
             Integration specific identifier that uniquely identifies an application instance or tenant.
             Example: lumos.slack.com or lumostester.slack.com
-          x-semantic: application-id
+          x-semantic: application-instance-id
         name:
           type: string
           description: 'The name or identifier of the application. ex: slack.com'
@@ -3405,15 +3405,15 @@ components:
       description: Model containing information about an application an account has access to
       x-unique-hash:
         - account_id
-        - application_id
+        - application_instance_id
     ApplicationActivityRecord:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/ActivityRecord'
       description: A single record of an activity that occurred within the system.
@@ -3422,11 +3422,11 @@ components:
     ApplicationEntitlementAssociation:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/FoundEntitlementAssociation'
       description: '- A link between a user account and their granted entitlement.'
@@ -3434,20 +3434,20 @@ components:
         - account_id
         - integration_specific_entitlement_id
         - integration_specific_resource_id
-        - application_id
+        - application_instance_id
     ApplicationEntitlementData:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/FoundEntitlementData'
       description: An entitlement representing an authorization or permission that can be granted to users within the connector.
       example:
-        application_id: slack.com
+        application_instance_id: slack.com
         entitlement_type: org_role
         integration_specific_id: member
         integration_specific_resource_id: ''
@@ -3455,21 +3455,21 @@ components:
       x-unique-hash:
         - integration_specific_id
         - integration_specific_resource_id
-        - application_id
+        - application_instance_id
     ApplicationResourceData:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/FoundResourceData'
       description: Resource data describing a resource within the connector.
       x-unique-hash:
         - integration_specific_id
-        - application_id
+        - application_instance_id
     ApplicationStatus:
       type: string
       enum:
@@ -3497,12 +3497,12 @@ components:
     AssignApplicationEntitlement:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The identifier of the application to unassign the entitlement in
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/AssignEntitlement'
       description: Request payload for assigning an entitlement
@@ -4694,24 +4694,24 @@ components:
     GetApplication:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The ID of the application to retrieve
-          x-semantic: application-id
+          x-semantic: application-instance-id
       description: Request parameters for getting a specific application.
       x-capability-level: read
     GetApplicationAccount:
       type: object
       required:
-        - application_id
+        - application_instance_id
         - account_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The unique id of the application to fetch the application assignment for.
-          x-semantic: application-id
+          x-semantic: application-instance-id
         account_id:
           type: string
           description: The unique id of the account to fetch application assignemnt for.
@@ -6206,13 +6206,13 @@ components:
     UnassignApplication:
       type: object
       required:
-        - application_id
+        - application_instance_id
         - account_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The id of the application to create the account in
-          x-semantic: application-id
+          x-semantic: application-instance-id
         account_id:
           type: string
           description: The integration specific id of the account to assign the application to
@@ -6222,12 +6222,12 @@ components:
     UnassignApplicationEntitlement:
       type: object
       required:
-        - application_id
+        - application_instance_id
       properties:
-        application_id:
+        application_instance_id:
           type: string
           description: The identifier of the application to assign the entitlement in
-          x-semantic: application-id
+          x-semantic: application-instance-id
       allOf:
         - $ref: '#/components/schemas/UnassignEntitlement'
       description: Parameters required to unassign an entitlement from a user account

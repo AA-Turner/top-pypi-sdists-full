@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple-repository
-Version: 0.10.1
+Version: 0.10.2
 Summary: The core simple repository (PEP-503) interface, including powerful component implementations suitable for use in repository clients and servers
 Author: Phil Elson, Ivan Sinkarenko, Francesco Iannaccone, Wouter Koorn
 Project-URL: Homepage, https://github.com/simple-repository/simple-repository

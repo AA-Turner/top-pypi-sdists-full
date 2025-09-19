@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from .constants import JSONReturnType
+from .constants import STRING_DELIMITERS, JSONReturnType
 from .json_context import ContextValues
 
 if TYPE_CHECKING:
@@ -112,4 +112,25 @@ def parse_object(self: "JSONParser") -> dict[str, JSONReturnType]:
         self.skip_whitespaces_at()
 
     self.index += 1
+
+    # Check if there are more key-value pairs after the closing brace
+    # This handles cases like '{"key": "value"}, "key2": "value2"}'
+    # But only if we're not in a nested context
+    if not self.context.empty:
+        return obj
+
+    self.skip_whitespaces_at()
+    if (self.get_char_at() or "") != ",":
+        return obj
+    self.index += 1
+    self.skip_whitespaces_at()
+    if (self.get_char_at() or "") not in STRING_DELIMITERS:
+        return obj
+    self.log(
+        "Found a comma and string delimiter after object closing brace, checking for additional key-value pairs",
+    )
+    additional_obj = self.parse_object()
+    if isinstance(additional_obj, dict):
+        obj.update(additional_obj)
+
     return obj

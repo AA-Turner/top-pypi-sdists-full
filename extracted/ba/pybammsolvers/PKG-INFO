@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pybammsolvers
-Version: 0.2.0
+Version: 0.3.0
 Summary: Python interface for the IDAKLU solver
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: casadi==3.6.7
-Requires-Dist: numpy<2.0
+Requires-Dist: numpy
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"

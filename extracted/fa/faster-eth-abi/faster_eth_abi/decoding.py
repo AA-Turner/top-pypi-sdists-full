@@ -2,16 +2,25 @@ import abc
 import decimal
 from typing import (
     Any,
-    Generator,
+    Callable,
+    Final,
+    Optional,
     Tuple,
+    Union,
 )
 
 from faster_eth_utils import (
     big_endian_to_int,
     to_normalized_address,
-    to_tuple,
 )
 
+from faster_eth_abi._decoding import (
+    decode_dynamic_array,
+    decode_head_tail,
+    decode_sized_array,
+    decode_tuple,
+    read_fixed_byte_size_data_from_stream,
+)
 from faster_eth_abi.base import (
     BaseCoder,
 )
@@ -32,6 +41,10 @@ from faster_eth_abi.utils.numeric import (
     abi_decimal_context,
     ceil32,
 )
+
+DynamicDecoder = Union[
+    "HeadTailDecoder", "SizedArrayDecoder", "DynamicArrayDecoder", "ByteStringDecoder"
+]
 
 
 class BaseDecoder(BaseCoder, metaclass=abc.ABCMeta):
@@ -65,29 +78,18 @@ class HeadTailDecoder(BaseDecoder):
 
     is_dynamic = True
 
-    tail_decoder = None
+    tail_decoder: Optional[DynamicDecoder] = None
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.tail_decoder is None:
             raise ValueError("No `tail_decoder` set")
 
     def decode(self, stream: ContextFramesBytesIO) -> Any:
-        # Decode the offset and move the stream cursor forward 32 bytes
-        start_pos = decode_uint_256(stream)
-        # Jump ahead to the start of the value
-        stream.push_frame(start_pos)
+        return decode_head_tail(self, stream)
 
-        # assertion check for mypy
-        if self.tail_decoder is None:
-            raise AssertionError("`tail_decoder` is None")
-        # Decode the value
-        value = self.tail_decoder(stream)
-        # Return the cursor
-        stream.pop_frame()
-
-        return value
+    __call__ = decode
 
 
 class TupleDecoder(BaseDecoder):
@@ -102,8 +104,11 @@ class TupleDecoder(BaseDecoder):
         )
 
         self.is_dynamic = any(getattr(d, "is_dynamic", False) for d in self.decoders)
+        self.len_of_head = sum(
+            getattr(decoder, "array_size", 1) for decoder in self.decoders
+        )
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.decoders is None:
@@ -114,11 +119,7 @@ class TupleDecoder(BaseDecoder):
         Verify that all pointers point to a valid location in the stream.
         """
         current_location = stream.tell()
-        len_of_head = sum(
-            decoder.array_size if hasattr(decoder, "array_size") else 1
-            for decoder in self.decoders
-        )
-        end_of_offsets = current_location + 32 * len_of_head
+        end_of_offsets = current_location + 32 * self.len_of_head
         total_stream_length = len(stream.getbuffer())
         for decoder in self.decoders:
             if isinstance(decoder, HeadTailDecoder):
@@ -143,11 +144,10 @@ class TupleDecoder(BaseDecoder):
         # return the stream to its original location for actual decoding
         stream.seek(current_location)
 
-    @to_tuple  # type: ignore [misc]
-    def decode(self, stream: ContextFramesBytesIO) -> Generator[Any, None, None]:
-        self.validate_pointers(stream)
-        for decoder in self.decoders:
-            yield decoder(stream)
+    def decode(self, stream: ContextFramesBytesIO) -> Tuple[Any, ...]:
+        return decode_tuple(self, stream)
+
+    __call__ = decode
 
     @parse_tuple_type_str
     def from_type_str(cls, abi_type, registry):
@@ -161,7 +161,7 @@ class TupleDecoder(BaseDecoder):
 class SingleDecoder(BaseDecoder):
     decoder_fn = None
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.decoder_fn is None:
@@ -180,17 +180,19 @@ class SingleDecoder(BaseDecoder):
 
         return value
 
-    def read_data_from_stream(self, stream):
+    __call__ = decode
+
+    def read_data_from_stream(self, stream: ContextFramesBytesIO) -> bytes:
         raise NotImplementedError("Must be implemented by subclasses")
 
-    def split_data_and_padding(self, raw_data):
+    def split_data_and_padding(self, raw_data: bytes) -> Tuple[bytes, bytes]:
         return raw_data, b""
 
 
 class BaseArrayDecoder(BaseDecoder):
     item_decoder = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         # Use a head-tail decoder to decode dynamic elements
@@ -199,7 +201,7 @@ class BaseArrayDecoder(BaseDecoder):
                 tail_decoder=self.item_decoder,
             )
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.item_decoder is None:
@@ -246,47 +248,36 @@ class BaseArrayDecoder(BaseDecoder):
 
 
 class SizedArrayDecoder(BaseArrayDecoder):
-    array_size = None
+    array_size: int = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.is_dynamic = self.item_decoder.is_dynamic
 
-    @to_tuple
     def decode(self, stream):
-        if self.item_decoder is None:
-            raise AssertionError("`item_decoder` is None")
+        return decode_sized_array(self, stream)
 
-        self.validate_pointers(stream, self.array_size)
-        for _ in range(self.array_size):
-            yield self.item_decoder(stream)
+    __call__ = decode
 
 
 class DynamicArrayDecoder(BaseArrayDecoder):
     # Dynamic arrays are always dynamic, regardless of their elements
     is_dynamic = True
 
-    @to_tuple
-    def decode(self, stream):
-        array_size = decode_uint_256(stream)
-        stream.push_frame(32)
-        if self.item_decoder is None:
-            raise AssertionError("`item_decoder` is None")
+    def decode(self, stream: ContextFramesBytesIO) -> Tuple[Any, ...]:
+        return decode_dynamic_array(self, stream)
 
-        self.validate_pointers(stream, array_size)
-        for _ in range(array_size):
-            yield self.item_decoder(stream)
-        stream.pop_frame()
+    __call__ = decode
 
 
 class FixedByteSizeDecoder(SingleDecoder):
-    decoder_fn = None
-    value_bit_size = None
-    data_byte_size = None
-    is_big_endian = None
+    decoder_fn: Callable[[bytes], Any] = None
+    value_bit_size: int = None
+    data_byte_size: int = None
+    is_big_endian: bool = None
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.value_bit_size is None:
@@ -306,18 +297,10 @@ class FixedByteSizeDecoder(SingleDecoder):
         if self.value_bit_size > self.data_byte_size * 8:
             raise ValueError("Value byte size exceeds data size")
 
-    def read_data_from_stream(self, stream):
-        data = stream.read(self.data_byte_size)
+    def read_data_from_stream(self, stream: ContextFramesBytesIO) -> bytes:
+        return read_fixed_byte_size_data_from_stream(self, stream)
 
-        if len(data) != self.data_byte_size:
-            raise InsufficientDataBytes(
-                f"Tried to read {self.data_byte_size} bytes, "
-                f"only got {len(data)} bytes."
-            )
-
-        return data
-
-    def split_data_and_padding(self, raw_data):
+    def split_data_and_padding(self, raw_data: bytes) -> Tuple[bytes, bytes]:
         value_byte_size = self._get_value_byte_size()
         padding_size = self.data_byte_size - value_byte_size
 
@@ -330,7 +313,7 @@ class FixedByteSizeDecoder(SingleDecoder):
 
         return data, padding_bytes
 
-    def validate_padding_bytes(self, value, padding_bytes):
+    def validate_padding_bytes(self, value: Any, padding_bytes: bytes) -> None:
         value_byte_size = self._get_value_byte_size()
         padding_size = self.data_byte_size - value_byte_size
 
@@ -406,7 +389,7 @@ class SignedIntegerDecoder(Fixed32ByteSizeDecoder):
         else:
             return value
 
-    def validate_padding_bytes(self, value, padding_bytes):
+    def validate_padding_bytes(self, value: Any, padding_bytes: bytes) -> None:
         value_byte_size = self._get_value_byte_size()
         padding_size = self.data_byte_size - value_byte_size
 
@@ -444,7 +427,7 @@ class BaseFixedDecoder(Fixed32ByteSizeDecoder):
     frac_places = None
     is_big_endian = True
 
-    def validate(self):
+    def validate(self) -> None:
         super().validate()
 
         if self.frac_places is None:
@@ -483,7 +466,7 @@ class SignedFixedDecoder(BaseFixedDecoder):
 
         return decimal_value
 
-    def validate_padding_bytes(self, value, padding_bytes):
+    def validate_padding_bytes(self, value: Any, padding_bytes: bytes) -> None:
         value_byte_size = self._get_value_byte_size()
         padding_size = self.data_byte_size - value_byte_size
 
@@ -514,7 +497,7 @@ class ByteStringDecoder(SingleDecoder):
     def decoder_fn(data):
         return data
 
-    def read_data_from_stream(self, stream):
+    def read_data_from_stream(self, stream: ContextFramesBytesIO) -> bytes:
         data_length = decode_uint_256(stream)
         padded_length = ceil32(data_length)
 
@@ -534,7 +517,7 @@ class ByteStringDecoder(SingleDecoder):
 
         return data[:data_length]
 
-    def validate_padding_bytes(self, value, padding_bytes):
+    def validate_padding_bytes(self, value: Any, padding_bytes: bytes) -> None:
         pass
 
     @parse_type_str("bytes")
@@ -543,21 +526,21 @@ class ByteStringDecoder(SingleDecoder):
 
 
 class StringDecoder(ByteStringDecoder):
-    def __init__(self, handle_string_errors="strict"):
-        self.bytes_errors = handle_string_errors
+    def __init__(self, handle_string_errors: str = "strict") -> None:
+        self.bytes_errors: Final = handle_string_errors
         super().__init__()
 
     @parse_type_str("string")
     def from_type_str(cls, abi_type, registry):
         return cls()
 
-    def decode(self, stream):
+    def decode(self, stream: ContextFramesBytesIO) -> str:
         raw_data = self.read_data_from_stream(stream)
         data, padding_bytes = self.split_data_and_padding(raw_data)
-        value = self.decoder_fn(data, self.bytes_errors)
-        self.validate_padding_bytes(value, padding_bytes)
-        return value
+        return self.decoder_fn(data, self.bytes_errors)
+
+    __call__ = decode
 
     @staticmethod
-    def decoder_fn(data, handle_string_errors="strict"):
+    def decoder_fn(data: bytes, handle_string_errors: str = "strict") -> str:
         return data.decode("utf-8", errors=handle_string_errors)

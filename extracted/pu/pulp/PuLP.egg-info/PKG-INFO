@@ -1,31 +1,47 @@
 Metadata-Version: 2.4
 Name: PuLP
-Version: 3.2.2
+Version: 3.3.0
 Summary: PuLP is an LP modeler written in python. PuLP can generate MPS or LP files and call GLPK, COIN CLP/CBC, CPLEX, and GUROBI to solve linear problems.
 Author: J.S. Roy
 Author-email: "S.A. Mitchell" <pulp@stuartmitchell.com>, Franco Peschiera <pchtsp@gmail.com>
 Maintainer-email: Franco Peschiera <pchtsp@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: source, https://github.com/coin-or/pulp
 Project-URL: download, https://github.com/coin-or/pulp/archive/master.zip
 Keywords: Optimization,Linear Programming,Operations Research
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
+License-File: LICENSE
 Provides-Extra: open-py
-Requires-Dist: cylp; sys_platform != "win32" and extra == "open-py"
+Requires-Dist: cylp; extra == "open-py"
 Requires-Dist: highspy; extra == "open-py"
 Requires-Dist: pyscipopt; extra == "open-py"
 Provides-Extra: public-py
 Requires-Dist: gurobipy; extra == "public-py"
 Requires-Dist: coptpy; extra == "public-py"
 Requires-Dist: xpress; extra == "public-py"
+Requires-Dist: cplex; (sys_platform != "darwin" or python_full_version < "3.12") and extra == "public-py"
+Provides-Extra: highs
+Requires-Dist: highspy; extra == "highs"
+Provides-Extra: scip
+Requires-Dist: pyscipopt; extra == "scip"
+Provides-Extra: gurobi
+Requires-Dist: gurobipy; extra == "gurobi"
+Provides-Extra: xpress
+Requires-Dist: xpress; extra == "xpress"
+Provides-Extra: copt
+Requires-Dist: coptpy; extra == "copt"
+Provides-Extra: cplex
+Requires-Dist: cplex; (sys_platform != "darwin" or python_full_version < "3.12") and extra == "cplex"
+Provides-Extra: mosek
+Requires-Dist: mosek; extra == "mosek"
+Dynamic: license-file
 
 pulp
 **************************
@@ -56,6 +72,25 @@ The easiest way to install PuLP is with ``pip``. If ``pip`` is available on your
 
 Otherwise follow the download instructions on the `PyPi page <https://pypi.python.org/pypi/PuLP>`_.
 
+Installing solvers
+----------------------
+
+PuLP can use a variety of solvers. The default solver is the COIN-OR CBC solver, which is included with PuLP. If you want to use other solvers, PuLP offers a quick way to install most solvers via their pypi package (some require a commercial license for running or for running large models)::
+
+    python -m pip install pulp[gurobi]
+    python -m pip install pulp[cplex]
+    python -m pip install pulp[xpress]
+    python -m pip install pulp[scip]
+    python -m pip install pulp[highs]
+    python -m pip install pulp[copt]
+    python -m pip install pulp[mosek]
+    python -m pip install pulp[cylp]
+
+
+If you want to install all open source solvers (scip, highs, cylp), you can use the shortcut::
+    python -m pip install pulp[open_py]
+
+For more information on how to install solvers, see the `guide on configuring solvers <https://coin-or.github.io/pulp/guides/how_to_configure_solvers.html>`_.
 
 Quickstart 
 ===============

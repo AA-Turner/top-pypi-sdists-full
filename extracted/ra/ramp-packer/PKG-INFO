@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ramp-packer
-Version: 2.5.15
+Version: 2.5.16
 Summary: Packs for Redis modules into a distributable format
 License: BSD-2-Clause
+License-File: LICENSE
 Author: Redis OSS
 Author-email: oss@redis.com
 Requires-Python: >=3.7,<4
@@ -18,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Requires-Dist: PyYAML (>=6.0,<7.0)
 Requires-Dist: click (>=8,<9)

@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4256"
+__version__ = "1.1.4266"
 
 # Define package exports
 __all__ = [
@@ -212,6 +212,7 @@ __all__ = [
     "SecretsDataDto",
     "Severity",
     "SnoozedType",
+    "StringCustomerFacingCursorPagedDto",
     "TagDto",
     "TagSource",
     "UserDto",
@@ -426,6 +427,7 @@ from legit_api_client.models.secret_issue_validity_status import SecretIssueVali
 from legit_api_client.models.secrets_data_dto import SecretsDataDto as SecretsDataDto
 from legit_api_client.models.severity import Severity as Severity
 from legit_api_client.models.snoozed_type import SnoozedType as SnoozedType
+from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto as StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto as TagDto
 from legit_api_client.models.tag_source import TagSource as TagSource
 from legit_api_client.models.user_dto import UserDto as UserDto

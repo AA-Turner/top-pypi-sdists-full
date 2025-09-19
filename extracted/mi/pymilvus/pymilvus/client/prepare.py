@@ -28,11 +28,12 @@ from .constants import (
     ITER_SEARCH_LAST_BOUND_KEY,
     ITER_SEARCH_V2_KEY,
     ITERATOR_FIELD,
-    JSON_CAST_TYPE,
     JSON_PATH,
+    JSON_TYPE,
     PAGE_RETAIN_ORDER_FIELD,
     RANK_GROUP_SCORER,
     REDUCE_STOP_FOR_BEST,
+    STRICT_CAST,
     STRICT_GROUP_SIZE,
 )
 from .types import (
@@ -582,15 +583,17 @@ class Prepare:
                     if key in entity:
                         continue
 
+                    # Skip missing field validation for partial updates
+                    # Also skip set null value or default value for partial updates,
+                    # in case of field is updated to null
+                    if partial_update:
+                        continue
                     field_info, field_data = field_info_map[key], fields_data[key]
                     if field_info.get("nullable", False) or field_info.get("default_value", None):
                         field_data.valid_data.append(False)
                         field_len[key] += 1
                         entity_helper.pack_field_value_to_field_data(None, field_data, field_info)
                     else:
-                        # Skip missing field validation for partial updates
-                        if partial_update:
-                            continue
                         raise DataNotMatchException(
                             message=ExceptionsMessage.InsertMissedField % key
                         )
@@ -605,6 +608,16 @@ class Prepare:
 
         except (TypeError, ValueError) as e:
             raise DataNotMatchException(message=ExceptionsMessage.DataTypeInconsistent) from e
+
+        if partial_update:
+            # cause partial_update won't set null for missing fields,
+            # so the field_len must be the same
+            row_counts = {v for v in field_len.values() if v > 0}
+            if len(row_counts) > 1:
+                counts = list(row_counts)
+                raise DataNotMatchException(
+                    message=ExceptionsMessage.InsertFieldsLenInconsistent % (counts[0], counts[1])
+                )
 
         fields_data = {k: v for k, v in fields_data.items() if field_len[k] > 0}
         request.fields_data.extend(fields_data.values())
@@ -1055,22 +1068,26 @@ class Prepare:
         if json_path is not None:
             search_params[JSON_PATH] = json_path
 
-        json_cast_type = kwargs.get(JSON_CAST_TYPE)
-        if json_cast_type is not None:
-            if json_cast_type == DataType.INT8:
-                search_params[JSON_CAST_TYPE] = "Int8"
-            elif json_cast_type == DataType.INT16:
-                search_params[JSON_CAST_TYPE] = "Int16"
-            elif json_cast_type == DataType.INT32:
-                search_params[JSON_CAST_TYPE] = "Int32"
-            elif json_cast_type == DataType.INT64:
-                search_params[JSON_CAST_TYPE] = "Int64"
-            elif json_cast_type == DataType.BOOL:
-                search_params[JSON_CAST_TYPE] = "Bool"
-            elif json_cast_type in (DataType.VARCHAR, DataType.STRING):
-                search_params[JSON_CAST_TYPE] = "VarChar"
+        json_type = kwargs.get(JSON_TYPE)
+        if json_type is not None:
+            if json_type == DataType.INT8:
+                search_params[JSON_TYPE] = "Int8"
+            elif json_type == DataType.INT16:
+                search_params[JSON_TYPE] = "Int16"
+            elif json_type == DataType.INT32:
+                search_params[JSON_TYPE] = "Int32"
+            elif json_type == DataType.INT64:
+                search_params[JSON_TYPE] = "Int64"
+            elif json_type == DataType.BOOL:
+                search_params[JSON_TYPE] = "Bool"
+            elif json_type in (DataType.VARCHAR, DataType.STRING):
+                search_params[JSON_TYPE] = "VarChar"
             else:
-                raise ParamError(message=f"Unsupported json cast type: {json_cast_type}")
+                raise ParamError(message=f"Unsupported json cast type: {json_type}")
+
+        strict_cast = kwargs.get(STRICT_CAST)
+        if strict_cast is not None:
+            search_params[STRICT_CAST] = strict_cast
 
         if param.get("metric_type") is not None:
             search_params["metric_type"] = param["metric_type"]

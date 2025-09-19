@@ -14,7 +14,8 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Debug, Clone)]
-#[pyclass(name = "TimeZone", module = "ry.ryo3", frozen)]
+#[pyclass(name = "TimeZone", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTimeZone(pub(crate) std::sync::Arc<TimeZone>);
 
 impl From<TimeZone> for RyTimeZone {
@@ -110,9 +111,9 @@ impl RyTimeZone {
     }
 
     fn __eq__<'py>(&self, other: &'py Bound<'py, PyAny>) -> PyResult<bool> {
-        if let Ok(other) = other.downcast::<Self>() {
+        if let Ok(other) = other.cast::<Self>() {
             Ok(self.0.eq(&other.get().0))
-        } else if let Ok(other) = other.downcast::<PyString>() {
+        } else if let Ok(other) = other.cast::<PyString>() {
             let other_str = other.extract::<&str>()?;
             Ok(self.0.iana_name() == Some(other_str))
         } else {

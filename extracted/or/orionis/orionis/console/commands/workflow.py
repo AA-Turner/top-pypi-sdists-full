@@ -6,7 +6,19 @@ from rich.panel import Panel
 
 class WorkFlowGithubCommand(BaseCommand):
     """
-    Command class to display usage information for the Orionis CLI.
+    Runs the test suite and displays the results in the Orionis CLI workflow.
+
+    This command executes the project's test suite using the provided reactor. If any tests fail or errors occur,
+    it displays a summary panel and prevents further workflow actions by raising an exception.
+
+    Attributes
+    ----------
+    timestamps : bool
+        Indicates whether timestamps will be shown in the command output.
+    signature : str
+        Command signature for invocation.
+    description : str
+        Brief description of the command's purpose.
     """
 
     # Indicates whether timestamps will be shown in the command output

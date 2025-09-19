@@ -5,7 +5,7 @@ from orionis.test.contracts.kernel import ITestKernel
 
 class TestCommand(BaseCommand):
     """
-    Command class to display usage information for the Orionis CLI.
+    Command class to execute all automated tests using the configured test kernel for the Orionis application.
 
     Attributes
     ----------

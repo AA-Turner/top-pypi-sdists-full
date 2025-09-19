@@ -873,7 +873,9 @@ class TestMetadataScalingFactor(TestCase):
     and timedelta64 dtypes.
     """
 
-    def test_datetime(self, jitargs={'forceobj':True}):
+    def test_datetime(self, jitargs=None):
+        if jitargs is None:
+            jitargs = {'forceobj': True}
         eq = jit(**jitargs)(eq_usecase)
         self.assertTrue(eq(DT('2014', '10Y'), DT('2010')))
 
@@ -881,7 +883,9 @@ class TestMetadataScalingFactor(TestCase):
         with self.assertTypingError():
             self.test_datetime(jitargs={'nopython':True})
 
-    def test_timedelta(self, jitargs={'forceobj':True}):
+    def test_timedelta(self, jitargs=None):
+        if jitargs is None:
+            jitargs = {'forceobj': True}
         eq = jit(**jitargs)(eq_usecase)
         self.assertTrue(eq(TD(2, '10Y'), TD(20, 'Y')))
 
@@ -1195,6 +1199,26 @@ class TestDatetimeTypeOps(TestCase):
         ]
         for fn, arg in itertools.product(fns, args):
             check(fn, arg)
+
+
+class TestDatetimeIssues(TestCase):
+    def test_10y_issue_9585(self):
+        @njit
+        def f(x):
+            return x + 1
+
+        arr = np.array('2010', dtype='datetime64[10Y]')
+
+        with self.assertRaises(TypingError) as e:
+            f(arr)
+
+        message = e.exception.args[0]
+
+        argument_index = "argument 0"
+        self.assertIn(argument_index, message)
+
+        unsupported_type = "Unsupported array dtype: datetime64[10Y]"
+        self.assertIn(unsupported_type, message)
 
 
 if __name__ == '__main__':

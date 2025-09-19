@@ -152,6 +152,7 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::globs::Globs;
+use pyrefly_util::includes::Includes as _;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
@@ -975,15 +976,22 @@ impl Server {
         {
             Some(DisplayTypeErrors::ForceOn) => TypeErrorDisplayStatus::EnabledInIdeConfig,
             Some(DisplayTypeErrors::ForceOff) => TypeErrorDisplayStatus::DisabledInIdeConfig,
-            Some(DisplayTypeErrors::Default) | None => {
-                if matches!(config.source, ConfigSource::Synthetic) {
-                    TypeErrorDisplayStatus::DisabledDueToMissingConfigFile
-                } else if config.disable_type_errors_in_ide(path) {
-                    TypeErrorDisplayStatus::DisabledInConfigFile
-                } else {
-                    TypeErrorDisplayStatus::EnabledInConfigFile
+            Some(DisplayTypeErrors::Default) | None => match &config.source {
+                // In this case, we don't have a config file.
+                ConfigSource::Synthetic => TypeErrorDisplayStatus::DisabledDueToMissingConfigFile,
+                // In this case, we have a config file like mypy.ini, but we don't parse it.
+                // We only use it as a sensible project root, and create a default config anyways.
+                // Therefore, we should treat it as if we don't have any config.
+                ConfigSource::Marker(_) => TypeErrorDisplayStatus::DisabledDueToMissingConfigFile,
+                // We actually have a pyrefly.toml, so we can decide based on the config.
+                ConfigSource::File(_) => {
+                    if config.disable_type_errors_in_ide(path) {
+                        TypeErrorDisplayStatus::DisabledInConfigFile
+                    } else {
+                        TypeErrorDisplayStatus::EnabledInConfigFile
+                    }
                 }
-            }
+            },
         }
     }
 

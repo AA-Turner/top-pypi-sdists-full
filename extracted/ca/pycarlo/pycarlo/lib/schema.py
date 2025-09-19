@@ -1600,6 +1600,16 @@ class DataProductMetric(sgqlc.types.Enum):
     )
 
 
+class DataShareType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `SNOWFLAKE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SNOWFLAKE",)
+
+
 class DataSourceType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -6726,6 +6736,19 @@ class DataProfilerWidgetDataInput(sgqlc.types.Input):
     """Widget configuration"""
 
 
+class DataShareInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "account", "region")
+    type = sgqlc.types.Field(DataShareType, graphql_name="type")
+    """Type of data share (default: 'snowflake')"""
+
+    account = sgqlc.types.Field(String, graphql_name="account")
+    """Data share account identifier (optional if account has only one)"""
+
+    region = sgqlc.types.Field(String, graphql_name="region")
+    """Data share region (optional if account has only one)"""
+
+
 class DataSourceSchemaInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("fields",)
@@ -9923,6 +9946,24 @@ class UCSExplicitAlertConditionInput(sgqlc.types.Input):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class UpdateDataShareInput(sgqlc.types.Input):
+    """Input for updating Snowflake data share configuration"""
+
+    __schema__ = schema
+    __field_names__ = ("enabled", "account_id", "account_name", "data_share")
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """Whether to enable data sharing"""
+
+    account_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountId")
+    """UUID of the account to update"""
+
+    account_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountName")
+    """Name of the account (validation)"""
+
+    data_share = sgqlc.types.Field(DataShareInput, graphql_name="dataShare")
+    """Input data share attributes"""
 
 
 class UpdateUserStateInput(sgqlc.types.Input):
@@ -17616,6 +17657,21 @@ class DataResponseType(sgqlc.types.Type):
     """Provides metadata that describes how response is structured."""
 
 
+class DataShareOutput(sgqlc.types.Type):
+    """Data share configuration details"""
+
+    __schema__ = schema
+    __field_names__ = ("type", "account", "region")
+    type = sgqlc.types.Field(String, graphql_name="type")
+    """Type of data share (e.g., 'snowflake')"""
+
+    account = sgqlc.types.Field(String, graphql_name="account")
+    """Data share account identifier"""
+
+    region = sgqlc.types.Field(String, graphql_name="region")
+    """Data share region"""
+
+
 class DataSourceEvaluationResult(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -24876,6 +24932,7 @@ class Mutation(sgqlc.types.Type):
         "link_azure_devops_installation",
         "delete_azure_devops_installation",
         "set_azure_devops_source_selections",
+        "update_data_share",
         "test_confluent_kafka_credentials",
         "test_confluent_kafka_connect_credentials",
         "test_msk_kafka_credentials",
@@ -28608,6 +28665,30 @@ class Mutation(sgqlc.types.Type):
     * `installation_uuid` (`UUID!`): Internal UUID of the Azure DevOps
       installation
     * `selections` (`[AzureDevopsSourceSelectionInput]`)None
+    """
+
+    update_data_share = sgqlc.types.Field(
+        "UpdateDataShare",
+        graphql_name="updateDataShare",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpdateDataShareInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Update data sharing configuration for an
+    account
+
+    Arguments:
+
+    * `input` (`UpdateDataShareInput!`): Data share configuration
     """
 
     test_confluent_kafka_credentials = sgqlc.types.Field(
@@ -55806,6 +55887,7 @@ class Query(sgqlc.types.Type):
                 ),
                 ("field_type", sgqlc.types.Arg(FieldType, graphql_name="fieldType", default=None)),
                 ("version", sgqlc.types.Arg(Int, graphql_name="version", default=None)),
+                ("monitor_type", sgqlc.types.Arg(String, graphql_name="monitorType", default=None)),
             )
         ),
     )
@@ -55820,6 +55902,7 @@ class Query(sgqlc.types.Type):
     * `field_type` (`FieldType`): Field type for which to return field
       metrics
     * `version` (`Int`): Version of the monitor
+    * `monitor_type` (`String`): Filter by monitor type
     """
 
     get_comparison_monitor_field_metric_definitions = sgqlc.types.Field(
@@ -65967,6 +66050,33 @@ class UpdateDataProductSharing(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Status of the sharing operation."""
+
+
+class UpdateDataShare(sgqlc.types.Type):
+    """Update data sharing configuration for an account. This allows
+    Customer Success team to enable/disable data sharing without
+    requiring data engineering intervention.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field("UpdateDataShareOutput", graphql_name="result")
+    """Result of the data share update operation"""
+
+
+class UpdateDataShareOutput(sgqlc.types.Type):
+    """Result of updating data share configuration"""
+
+    __schema__ = schema
+    __field_names__ = ("success", "data_share", "message")
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the operation was successful"""
+
+    data_share = sgqlc.types.Field(DataShareOutput, graphql_name="dataShare")
+    """Updated data share configuration (null if disabled)"""
+
+    message = sgqlc.types.Field(String, graphql_name="message")
+    """Success or error message"""
 
 
 class UpdateDatabricksMetastoreCredentialsV2Mutation(sgqlc.types.Type):

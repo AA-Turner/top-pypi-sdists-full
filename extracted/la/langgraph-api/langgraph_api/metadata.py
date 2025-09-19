@@ -7,6 +7,8 @@ import langgraph.version
 import orjson
 import structlog
 
+import langgraph_api.config as config
+from langgraph_api.auth.custom import get_auth_instance
 from langgraph_api.config import (
     LANGGRAPH_CLOUD_LICENSE_KEY,
     LANGSMITH_API_KEY,
@@ -17,7 +19,9 @@ from langgraph_api.config import (
     USES_STORE_TTL,
     USES_THREAD_TTL,
 )
+from langgraph_api.graph import GRAPHS, is_js_graph
 from langgraph_api.http import http_request
+from langgraph_api.js.base import is_js_path
 from langgraph_license.validation import plus_features_enabled
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -72,6 +76,36 @@ if LANGSMITH_AUTH_ENDPOINT:
         )
 
 
+def _lang_usage_metadata() -> tuple[dict[str, str], dict[str, int]]:
+    js_graph_count = sum(1 for graph_id in GRAPHS if is_js_graph(graph_id))
+    py_graph_count = len(GRAPHS) - js_graph_count
+
+    auth_instance = get_auth_instance()
+    custom_auth_enabled = auth_instance is not None
+    custom_js_auth_enabled = auth_instance == "js"
+
+    js_proxy_middleware_enabled = False
+    if (
+        config.HTTP_CONFIG
+        and (app := config.HTTP_CONFIG.get("app"))
+        and isinstance(app, str)
+    ):
+        app_path = app.split(":", 1)[0]  # type: ignore[possibly-unresolved-reference]
+        js_proxy_middleware_enabled = is_js_path(app_path)
+
+    tags = {
+        "langgraph.platform.uses_custom_auth": str(custom_auth_enabled),
+        "langgraph.platform.uses_js_custom_auth": str(custom_js_auth_enabled),
+        "langgraph.platform.uses_js_proxy_middleware": str(js_proxy_middleware_enabled),
+    }
+    measures = {
+        "langgraph.platform.py_graphs": py_graph_count,
+        "langgraph.platform.js_graphs": js_graph_count,
+    }
+
+    return tags, measures
+
+
 def incr_runs(*, incr: int = 1) -> None:
     global RUN_COUNTER
     RUN_COUNTER += incr
@@ -111,6 +145,7 @@ async def metadata_loop() -> None:
         RUN_COUNTER = 0
         NODE_COUNTER = 0
         FROM_TIMESTAMP = to_timestamp
+        usage_tags, usage_measures = _lang_usage_metadata()
 
         base_payload = {
             "from_timestamp": from_timestamp,
@@ -131,10 +166,12 @@ async def metadata_loop() -> None:
                 "user_app.uses_custom_auth": str(USES_CUSTOM_AUTH),
                 "user_app.uses_thread_ttl": str(USES_THREAD_TTL),
                 "user_app.uses_store_ttl": str(USES_STORE_TTL),
+                **usage_tags,
             },
             "measures": {
                 "langgraph.platform.runs": runs,
                 "langgraph.platform.nodes": nodes,
+                **usage_measures,
             },
             "logs": [],
         }

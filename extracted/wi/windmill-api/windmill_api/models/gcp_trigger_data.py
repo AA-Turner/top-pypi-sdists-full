@@ -33,6 +33,8 @@ class GcpTriggerData:
         delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]):
         enabled (Union[Unset, bool]):
         auto_acknowledge_msg (Union[Unset, bool]):
+        ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
+            provided, defaults to the subscription's acknowledgment deadline (600 seconds).
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GcpTriggerDataErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, GcpTriggerDataRetry]):
@@ -50,6 +52,7 @@ class GcpTriggerData:
     delivery_config: Union[Unset, "GcpTriggerDataDeliveryConfig"] = UNSET
     enabled: Union[Unset, bool] = UNSET
     auto_acknowledge_msg: Union[Unset, bool] = UNSET
+    ack_deadline: Union[Unset, int] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GcpTriggerDataErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GcpTriggerDataRetry"] = UNSET
@@ -75,6 +78,7 @@ class GcpTriggerData:
 
         enabled = self.enabled
         auto_acknowledge_msg = self.auto_acknowledge_msg
+        ack_deadline = self.ack_deadline
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -108,6 +112,8 @@ class GcpTriggerData:
             field_dict["enabled"] = enabled
         if auto_acknowledge_msg is not UNSET:
             field_dict["auto_acknowledge_msg"] = auto_acknowledge_msg
+        if ack_deadline is not UNSET:
+            field_dict["ack_deadline"] = ack_deadline
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -158,6 +164,8 @@ class GcpTriggerData:
 
         auto_acknowledge_msg = d.pop("auto_acknowledge_msg", UNSET)
 
+        ack_deadline = d.pop("ack_deadline", UNSET)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -187,6 +195,7 @@ class GcpTriggerData:
             delivery_config=delivery_config,
             enabled=enabled,
             auto_acknowledge_msg=auto_acknowledge_msg,
+            ack_deadline=ack_deadline,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

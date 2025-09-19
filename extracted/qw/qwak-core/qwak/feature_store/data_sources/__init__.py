@@ -2,6 +2,7 @@ from qwak.feature_store.data_sources.batch.athena import AthenaSource
 from qwak.feature_store.data_sources.batch.big_query import BigQuerySource
 from qwak.feature_store.data_sources.batch.clickhouse import ClickhouseSource
 from qwak.feature_store.data_sources.batch.csv import CsvSource
+from qwak.feature_store.data_sources.batch.unity_catalog import UnityCatalogSource
 from qwak.feature_store.data_sources.batch.elastic_search import ElasticSearchSource
 from qwak.feature_store.data_sources.batch.filesystem.aws import (
     AnonymousS3Configuration,
@@ -52,6 +53,7 @@ __all__ = [
     "RedshiftSource",
     "SnowflakeSource",
     "VerticaSource",
+    "UnityCatalogSource",
     "KafkaSource",
     "Deserializer",
     "CustomDeserializer",

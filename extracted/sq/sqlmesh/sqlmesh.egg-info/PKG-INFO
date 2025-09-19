@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.220.1
+Version: 0.220.2
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -258,7 +258,7 @@ Provides-Extra: dev
 Requires-Dist: agate; extra == "dev"
 Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: clickhouse-connect; extra == "dev"
-Requires-Dist: cryptography; extra == "dev"
+Requires-Dist: cryptography<46.0.0; extra == "dev"
 Requires-Dist: databricks-sql-connector; extra == "dev"
 Requires-Dist: dbt-bigquery; extra == "dev"
 Requires-Dist: dbt-core; extra == "dev"
@@ -330,7 +330,7 @@ Requires-Dist: redshift_connector; extra == "redshift"
 Provides-Extra: slack
 Requires-Dist: slack_sdk; extra == "slack"
 Provides-Extra: snowflake
-Requires-Dist: cryptography; extra == "snowflake"
+Requires-Dist: cryptography<46.0.0; extra == "snowflake"
 Requires-Dist: snowflake-connector-python[pandas,secure-local-storage]; extra == "snowflake"
 Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
 Provides-Extra: trino
@@ -344,7 +344,6 @@ Requires-Dist: pyarrow; extra == "web"
 Provides-Extra: lsp
 Requires-Dist: fastapi==0.115.5; extra == "lsp"
 Requires-Dist: watchfiles>=0.19.0; extra == "lsp"
-Requires-Dist: uvicorn[standard]==0.22.0; extra == "lsp"
 Requires-Dist: sse-starlette>=0.2.2; extra == "lsp"
 Requires-Dist: pyarrow; extra == "lsp"
 Requires-Dist: pygls<2.0.0,>=1.2.0; extra == "lsp"

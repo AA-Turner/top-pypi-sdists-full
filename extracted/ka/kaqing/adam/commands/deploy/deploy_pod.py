@@ -2,7 +2,7 @@ from kubernetes import client
 import yaml
 
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import deploy_frontend, gen_labels
+from adam.commands.deploy.deploy_utils import creating, deploy_frontend, gen_labels
 from adam.config import Config
 from adam.k8s_utils.config_maps import ConfigMaps
 from adam.k8s_utils.deployment import Deployments
@@ -48,7 +48,11 @@ class DeployPod(Command):
         additional_cluster_roles = Config().get('pod.sa.additional-cluster-roles', 'c3aiops-k8ssandra-operator').split(',')
         label_selector = Config().get('pod.label-selector', 'run=ops')
         labels = gen_labels(label_selector)
-        ServiceAccounts.replicate(sa_name, state.namespace, sa_proto, labels=labels, add_cluster_roles=additional_cluster_roles)
+
+        creating('service account', lambda: ServiceAccounts.replicate(sa_name,
+                                                                      state.namespace,
+                                                                      sa_proto, labels=labels,
+                                                                      add_cluster_roles=additional_cluster_roles))
 
         settings_filename = 'settings.yaml'
         settings_path = f'/kaqing/{settings_filename}'
@@ -68,9 +72,13 @@ class DeployPod(Command):
             return state
 
         cm_name = Config().get('pod.cm.name', 'ops')
-        ConfigMaps.create(cm_name, state.namespace, {
+        map_data = {
             settings_filename : settings_data
-        }, labels=labels)
+        }
+        creating('config map', lambda: ConfigMaps.create(cm_name,
+                                                         state.namespace,
+                                                         map_data,
+                                                         labels=labels))
 
         pod_name = Config().get('pod.name', 'ops')
         image = Config().get('pod.image', 'seanahnsf/kaqing')
@@ -79,11 +87,14 @@ class DeployPod(Command):
                 add=["SYS_PTRACE"]
             )
         )
-        Deployments.create(state.namespace, pod_name, image,
-                           env={'NAMESPACE': state.namespace},
-                           container_security_context=security_context,
-                           labels=labels, sa_name=sa_name,
-                           config_map_mount=ConfigMapMount(cm_name, settings_filename, settings_path))
+        creating('deployment', lambda: Deployments.create(state.namespace,
+                                                  pod_name,
+                                                  image,
+                                                  env={'NAMESPACE': state.namespace},
+                                                  container_security_context=security_context,
+                                                  labels=labels,
+                                                  sa_name=sa_name,
+                                                  config_map_mount=ConfigMapMount(cm_name, settings_filename, settings_path)))
 
         uri = deploy_frontend(pod_name, state.namespace, label_selector)
 

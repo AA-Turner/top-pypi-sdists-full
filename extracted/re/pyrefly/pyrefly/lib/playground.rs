@@ -26,6 +26,7 @@ use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lined_buffer::DisplayPos;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::lined_buffer::LineNumber;
+use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
 use ruff_text_size::TextSize;
 use serde::Serialize;
@@ -64,6 +65,17 @@ impl SourceDatabase for PlaygroundSourceDatabase {
 
     fn lookup(&self, module_name: &ModuleName, _: Option<&Path>) -> Option<ModulePath> {
         self.module_mappings.get(module_name).cloned()
+    }
+
+    fn handle_from_module_path(&self, path: ModulePath) -> Handle {
+        // It should be fine to just iterate through this naively, since there generally
+        // shouldn't be too many files open in the web editor.
+        let name = self
+            .module_mappings
+            .iter()
+            .find(|(_, p)| *p == &path)
+            .map_or_else(ModuleName::unknown, |(n, _)| n.dupe());
+        Handle::new(name, path, self.sys_info.dupe())
     }
 }
 
@@ -229,7 +241,7 @@ impl Playground {
         }
 
         let source_db = PlaygroundSourceDatabase::new(module_mappings, self.sys_info.dupe());
-        config.source_db = Some(ArcId::new(Box::new(source_db) as Box<dyn SourceDatabase>));
+        config.source_db = Arc::new(RwLock::new(Some(Box::new(source_db))));
 
         config.configure();
         let config = ArcId::new(config);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mage-ai
-Version: 0.9.77
+Version: 0.9.78
 Summary: Mage is a tool for building and deploying data pipelines.
 Home-page: https://github.com/mage-ai/mage-ai
 Author: Mage
@@ -12,6 +12,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cachetools
+Requires-Dist: click<8.2.0
 Requires-Dist: Faker==4.14.0
 Requires-Dist: GitPython==3.1.41
 Requires-Dist: Jinja2==3.1.3
@@ -41,6 +42,7 @@ Requires-Dist: memory_profiler
 Requires-Dist: newrelic==8.8.0
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: pandas>=1.3.0
+Requires-Dist: paramiko==3.5.1
 Requires-Dist: polars==1.29.0
 Requires-Dist: protobuf>=4.25.0
 Requires-Dist: psutil==5.9.8

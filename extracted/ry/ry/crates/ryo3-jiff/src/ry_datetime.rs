@@ -18,10 +18,9 @@ use jiff::civil::{Date, DateTime, DateTimeRound, Time, Weekday};
 use jiff::tz::TimeZone;
 use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
-use ryo3_macro_rules::{any_repr, py_type_err};
+use ryo3_macro_rules::{any_repr, py_type_err, py_type_error};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
@@ -30,7 +29,8 @@ use std::str::FromStr;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-#[pyclass(name = "DateTime", module = "ry.ryo3", frozen)]
+#[pyclass(name = "DateTime", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDateTime(pub(crate) DateTime);
 
 impl From<DateTime> for RyDateTime {
@@ -220,7 +220,7 @@ impl RyDateTime {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(ob) = other.downcast::<Self>() {
+        if let Ok(ob) = other.cast::<Self>() {
             let span = self.0.sub(ob.get().0);
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
             Ok(obj)
@@ -393,18 +393,16 @@ impl RyDateTime {
         let mut builder = self.0.with();
         if let Some(obj) = obj {
             // if obj is a Zoned, use it as the base
-            if let Ok(zoned) = obj.downcast::<RyDate>() {
+            if let Ok(zoned) = obj.cast::<RyDate>() {
                 // if obj is a Zoned, use it as the base
                 let date = zoned.extract::<RyDate>()?;
                 builder = builder.date(date.0);
-            } else if let Ok(time) = obj.downcast::<RyTime>() {
+            } else if let Ok(time) = obj.cast::<RyTime>() {
                 // if obj is a Time, use it as the base
                 let time = time.extract::<RyTime>()?;
                 builder = builder.time(time.0);
             } else {
-                return Err(PyErr::new::<PyTypeError, _>(format!(
-                    "obj must be a Date or Time; given: {obj}",
-                )));
+                return Err(py_type_error!("obj must be a Date or Time; given: {obj}"));
             }
         }
         // only override if the Option is Some
@@ -542,6 +540,10 @@ impl RyDateTime {
         Self::from(self.0.start_of_day())
     }
 
+    fn __format__(&self, fmt: &str) -> String {
+        self.0.strftime(fmt).to_string()
+    }
+
     fn strftime(&self, fmt: &str) -> String {
         self.0.strftime(fmt).to_string()
     }
@@ -571,6 +573,7 @@ impl RyDateTime {
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
+
     #[pyo3(
        signature = (datetime, *, smallest=None, largest = None, mode = None, increment = None),
     )]
@@ -641,18 +644,18 @@ impl RyDateTime {
     #[staticmethod]
     fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = value.py();
-        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
             Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
             Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
         } else if value.is_exact_instance_of::<Self>() {
             value.into_bound_py_any(py)
-        } else if let Ok(d) = value.downcast_exact::<RyZoned>() {
+        } else if let Ok(d) = value.cast_exact::<RyZoned>() {
             let dt = d.get().time();
             dt.into_bound_py_any(py)
-        } else if let Ok(d) = value.downcast_exact::<RyTimestamp>() {
+        } else if let Ok(d) = value.cast_exact::<RyTimestamp>() {
             let dt = d.get().time();
             dt.into_bound_py_any(py)
         } else if let Ok(d) = value.extract::<JiffDateTime>() {

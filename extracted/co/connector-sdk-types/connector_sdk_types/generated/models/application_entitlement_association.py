@@ -24,7 +24,7 @@ class ApplicationEntitlementAssociation(BaseModel):
     - A link between a user account and their granted entitlement.
     """
 
-    application_id: StrictStr
+    application_instance_id: StrictStr
     account_id: StrictStr = Field(
         description="The ID of the account that has been granted the entitlement."
     )
@@ -48,7 +48,7 @@ class ApplicationEntitlementAssociation(BaseModel):
                 "account_id",
                 "integration_specific_entitlement_id",
                 "integration_specific_resource_id",
-                "application_id",
+                "application_instance_id",
             ]
         },
     )
@@ -104,7 +104,7 @@ class ApplicationEntitlementAssociation(BaseModel):
                 self.account_id,
                 self.integration_specific_entitlement_id,
                 self.integration_specific_resource_id,
-                self.application_id,
+                self.application_instance_id,
             )
         )
 
@@ -115,10 +115,10 @@ class ApplicationEntitlementAssociation(BaseModel):
             self.account_id,
             self.integration_specific_entitlement_id,
             self.integration_specific_resource_id,
-            self.application_id,
+            self.application_instance_id,
         ) == (
             other.account_id,
             other.integration_specific_entitlement_id,
             other.integration_specific_resource_id,
-            other.application_id,
+            other.application_instance_id,
         )

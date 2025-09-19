@@ -1,32 +1,45 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sssom
-Version: 0.4.16
+Version: 0.4.17
 Summary: Operations on SSSOM mapping tables
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: Chris Mungall
 Author-email: cjmungall@lbl.gov
-Requires-Python: >=3.9,<4.0.0
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10,<4.0.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Provides-Extra: docs
+Provides-Extra: networkx
+Provides-Extra: pansql
+Provides-Extra: rdflib-endpoint
+Provides-Extra: scipy
 Requires-Dist: click (>=8.1.6)
 Requires-Dist: curies (>=0.10.18)
-Requires-Dist: deprecation (>=2.1.0,<3.0.0)
-Requires-Dist: importlib-resources (>=6.1.1,<7.0.0)
+Requires-Dist: deprecation (>=2.1.0)
+Requires-Dist: fastapi ; extra == "rdflib-endpoint"
+Requires-Dist: httpx ; extra == "rdflib-endpoint"
 Requires-Dist: linkml (>1.7.10)
-Requires-Dist: linkml-runtime (>=1.7.5,<2.0.0)
-Requires-Dist: networkx[networkx] (>=3.1)
+Requires-Dist: linkml-runtime (>=1.7.5)
+Requires-Dist: myst-parser (>=0.18.1) ; extra == "docs"
+Requires-Dist: networkx (>=3.1) ; extra == "networkx"
 Requires-Dist: pandas (>1.0.3)
-Requires-Dist: pansql[pansql] (>=0.0.1)
-Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
+Requires-Dist: pansql (>=0.0.1) ; extra == "pansql"
+Requires-Dist: pyyaml (>=6.0.1)
 Requires-Dist: rdflib (>=6.0.0)
-Requires-Dist: scipy[scipy]
+Requires-Dist: rdflib-endpoint ; extra == "rdflib-endpoint"
+Requires-Dist: scipy ; extra == "scipy"
 Requires-Dist: sparqlwrapper (>=2.0.0)
-Requires-Dist: sssom-schema (>=1.0.0,<2.0.0)
+Requires-Dist: sphinx (>=6.1.3) ; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints (>=1.2.0) ; extra == "docs"
+Requires-Dist: sphinx-click (>=4.3.0) ; extra == "docs"
+Requires-Dist: sphinx-rtd-theme (>=1.0.0) ; extra == "docs"
+Requires-Dist: sssom-schema (==1.0.0)
+Requires-Dist: uvicorn ; extra == "rdflib-endpoint"
 Requires-Dist: validators (>=0.20.0)
 Description-Content-Type: text/markdown
 
@@ -53,17 +66,33 @@ Description-Content-Type: text/markdown
 
 <img src="https://github.com/tis-lab/closed-illustrations/raw/master/logos/sssom-logos/sssom_logo_black_banner.png" />
 
-SSSOM (Simple Standard for Sharing Ontology Mappings) is a TSV and RDF/OWL standard for ontology mappings
+A Python library and command line interface (CLI) for working with
+[SSSOM (Simple Standard for Sharing Ontology Mappings)](https://github.com/mapping-commons/sssom).
 
+## Getting Started
+
+A SSSOM TSV can be parsed with
+
+```python
+import sssom
+
+# other SSSOM files can be found on https://mapping-commons.github.io
+url = "https://raw.githubusercontent.com/mapping-commons/mh_mapping_initiative/master/mappings/mp_hp_eye_impc.sssom.tsv"
+
+# TSV can be parsed into a mapping set dataframe object,
+# which includes a pandas DataFrame, a curies.Converter,
+# and metadata
+msdf = sssom.parse_tsv(url)
+
+# SSSOM comes with several "write" functions
+sssom.write_tsv(msdf, "test.tsv")
+sssom.write_json(msdf, "test.json")
+sssom.write_owl(msdf, "test.owl")
+sssom.write_rdf(msdf, "test.ttl")
 ```
-WARNING: 
-    The export formats (json, rdf) of sssom-py are not yet finalised! 
-    Please expect changes in future releases!
-```
 
-See https://github.com/OBOFoundry/SSSOM
-
-This is a python library and command line toolkit for working with SSSOM. It also defines a schema for SSSOM.
+> [!WARNING]  
+> The export formats (json, rdf) of sssom-py are not yet finalised! Expect changes in future releases.
 
 ## Documentation
 

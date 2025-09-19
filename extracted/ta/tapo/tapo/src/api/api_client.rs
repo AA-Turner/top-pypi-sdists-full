@@ -6,11 +6,6 @@ use log::debug;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 
-use crate::api::protocol::{TapoProtocol, TapoProtocolExt};
-use crate::api::{
-    ColorLightHandler, GenericDeviceHandler, HubHandler, LightHandler, PlugEnergyMonitoringHandler,
-    PlugHandler, PowerStripHandler, RgbLightStripHandler, RgbicLightStripHandler,
-};
 use crate::error::{Error, TapoResponseError};
 use crate::requests::{
     ControlChildParams, EmptyParams, EnergyDataInterval, GetChildDeviceListParams,
@@ -21,6 +16,14 @@ use crate::responses::{
     ControlChildResult, CurrentPowerResult, DecodableResultExt, EnergyDataResult,
     EnergyUsageResult, SupportedAlarmTypeListResult, TapoMultipleResponse, TapoResponseExt,
     TapoResult, validate_response,
+};
+
+use super::discovery::DeviceDiscovery;
+use super::protocol::{TapoProtocol, TapoProtocolExt};
+use super::{
+    ColorLightHandler, GenericDeviceHandler, HubHandler, LightHandler, PlugEnergyMonitoringHandler,
+    PlugHandler, PowerStripEnergyMonitoringHandler, PowerStripHandler, RgbLightStripHandler,
+    RgbicLightStripHandler,
 };
 
 const TERMINAL_UUID: &str = "00-00-00-00-00-00";
@@ -88,6 +91,29 @@ impl ApiClient {
     pub fn with_timeout(mut self, timeout: Duration) -> ApiClient {
         self.timeout = Some(timeout);
         self
+    }
+
+    /// Discovers one or more devices located at a specified unicast or broadcast IP address.
+    ///
+    /// # Arguments
+    /// * `target` - The IP address at which the discovery will take place.
+    ///   This address can be either a unicast (e.g. `192.168.1.10`) or a
+    ///   broadcast address (e.g. `192.168.1.255`, `255.255.255.255`, etc.).
+    /// * `timeout_s` - The maximum time to wait for a response from the device(s) in seconds.
+    ///   Must be between `1` and `60`.
+    pub async fn discover_devices(
+        self,
+        target: impl Into<String>,
+        timeout_s: u64,
+    ) -> Result<DeviceDiscovery, Error> {
+        if !(1..=60).contains(&timeout_s) {
+            return Err(Error::Validation {
+                field: "timeout_s".to_string(),
+                message: "Must be between 1 and 60 seconds".to_string(),
+            });
+        }
+
+        Ok(DeviceDiscovery::new(self, target, Duration::from_secs(timeout_s)).await?)
     }
 }
 
@@ -487,7 +513,7 @@ impl ApiClient {
         Ok(PowerStripHandler::new(self))
     }
 
-    /// Specializes the given [`ApiClient`] into an authenticated [`PowerStripHandler`].
+    /// Specializes the given [`ApiClient`] into an authenticated [`PowerStripEnergyMonitoringHandler`].
     ///
     /// # Arguments
     ///
@@ -507,13 +533,42 @@ impl ApiClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn p304(mut self, ip_address: impl Into<String>) -> Result<PowerStripHandler, Error> {
+    pub async fn p304(
+        mut self,
+        ip_address: impl Into<String>,
+    ) -> Result<PowerStripEnergyMonitoringHandler, Error> {
+        self.login(ip_address).await?;
+
+        Ok(PowerStripEnergyMonitoringHandler::new(self))
+    }
+
+    /// Specializes the given [`ApiClient`] into an authenticated [`PowerStripHandler`].
+    ///
+    /// # Arguments
+    ///
+    /// * `ip_address` - the IP address of the device
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use tapo::ApiClient;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let device = ApiClient::new("tapo-username@example.com", "tapo-password")
+    ///     .p306("192.168.1.100")
+    ///     .await?;
+    /// let child_device_list = device.get_child_device_list().await?;
+    /// println!("Child device list: {child_device_list:?}");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn p306(mut self, ip_address: impl Into<String>) -> Result<PowerStripHandler, Error> {
         self.login(ip_address).await?;
 
         Ok(PowerStripHandler::new(self))
     }
 
-    /// Specializes the given [`ApiClient`] into an authenticated [`PowerStripHandler`].
+    /// Specializes the given [`ApiClient`] into an authenticated [`PowerStripEnergyMonitoringHandler`].
     ///
     /// # Arguments
     ///
@@ -533,10 +588,13 @@ impl ApiClient {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn p316(mut self, ip_address: impl Into<String>) -> Result<PowerStripHandler, Error> {
+    pub async fn p316(
+        mut self,
+        ip_address: impl Into<String>,
+    ) -> Result<PowerStripEnergyMonitoringHandler, Error> {
         self.login(ip_address).await?;
 
-        Ok(PowerStripHandler::new(self))
+        Ok(PowerStripEnergyMonitoringHandler::new(self))
     }
 
     /// Specializes the given [`ApiClient`] into an authenticated [`HubHandler`].

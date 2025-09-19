@@ -256,7 +256,7 @@ class ReqtestServer(Server):
     def install_signal_handlers(self) -> None:
         # Disable the default installation of handlers for signals such as SIGTERM,
         # because it can only be done in the main thread.
-        pass  # pragma: nocover
+        ...  # pragma: nocover
 
     async def serve(self, sockets: Any = None) -> None:
         self.restart_requested = asyncio.Event()
@@ -286,7 +286,7 @@ class ReqtestServer(Server):
 
             try:
                 await asyncio.wait_for(self.restart_requested.wait(), timeout=0.1)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
             self.restart_requested.clear()

@@ -43,13 +43,13 @@ if WHEEL_CMD in sys.argv:
             # For more information about python compatibility tags, check out:
             # https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/
 
-            # We support Python 3.9+
+            # We support Python 3.10+
             # coupling: if you drop support for some python, you'll probably
             # have to update 'python_requires' at the end of this file
             # and a few workflows as show for example in this PR:
             # https://github.com/semgrep/semgrep-proprietary/pull/2606/files
             # coupling: semgrep.libsonnet default_python_version
-            python = "cp39.cp310.cp311.py39.py310.py311"
+            python = "cp310.cp311.py310.py311"
 
             # We don't require a specific Python ABI
             abi = "none"
@@ -122,11 +122,12 @@ install_requires = [
     "defusedxml~=0.7.1",
     "exceptiongroup~=1.2.0",
     "glom~=22.1",
-    "jsonschema~=4.6",
-    "opentelemetry-api~=1.25.0",
-    "opentelemetry-sdk~=1.25.0",
-    "opentelemetry-exporter-otlp-proto-http~=1.25.0",
-    "opentelemetry-instrumentation-requests~=0.46b0",
+    "mcp==1.12.2",
+    "jsonschema~=4.20.0",
+    "opentelemetry-api~=1.37.0",
+    "opentelemetry-sdk~=1.37.0",
+    "opentelemetry-exporter-otlp-proto-http~=1.37.0",
+    "opentelemetry-instrumentation-requests~=0.58b0",
     "packaging>=21.0",
     "peewee~=3.14",
     "requests~=2.22",
@@ -136,12 +137,13 @@ install_requires = [
     "typing-extensions~=4.2",
     "urllib3~=2.0",
     "wcmatch~=8.3",
+    "pywin32==311; sys_platform == 'win32'",
 ]
 
 
 setuptools.setup(
     name="semgrep",
-    version="1.136.0",
+    version="1.137.0",
     author="Semgrep Inc.",
     author_email="support@semgrep.com",
     description="Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.",
@@ -167,12 +169,11 @@ setuptools.setup(
         "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
         "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Topic :: Security",
         "Topic :: Software Development :: Quality Assurance",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     zip_safe=False,
 )

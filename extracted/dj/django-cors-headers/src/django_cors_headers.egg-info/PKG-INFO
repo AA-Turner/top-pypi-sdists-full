@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-cors-headers
-Version: 4.8.0
+Version: 4.9.0
 Summary: django-cors-headers is a Django application for handling the server headers required for Cross-Origin Resource Sharing (CORS).
 Author-email: Otto Yiu <otto@live.ca>
 Maintainer-email: Adam Johnson <me@adamj.eu>
@@ -16,6 +16,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
@@ -86,7 +87,7 @@ Requirements
 
 Python 3.9 to 3.14 supported.
 
-Django 4.2 to 5.2 supported.
+Django 4.2 to 6.0 supported.
 
 Setup
 -----

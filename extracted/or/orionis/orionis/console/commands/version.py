@@ -6,16 +6,19 @@ from orionis.metadata import framework
 
 class VersionCommand(BaseCommand):
     """
-    VersionCommand is a console command that displays the current version and metadata of the Orionis framework.
+    Displays the current version and metadata of the Orionis framework.
+
+    This command outputs the framework's version, author, Python requirements, documentation, and repository links
+    in a formatted panel for the user.
 
     Attributes
     ----------
     timestamps : bool
-        Indicates whether timestamps should be included (default: False).
+        Indicates whether timestamps will be shown in the command output.
     signature : str
-        The command signature used to invoke this command ("version").
+        Command signature used to invoke this command ("version").
     description : str
-        A brief description of what the command does.
+        Description of the command's purpose.
     """
 
     # Indicates whether timestamps will be shown in the command output

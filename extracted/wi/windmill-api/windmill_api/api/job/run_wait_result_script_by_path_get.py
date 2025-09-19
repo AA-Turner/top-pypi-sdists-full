@@ -19,6 +19,7 @@ def _get_kwargs(
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
     payload: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -36,6 +37,8 @@ def _get_kwargs(
     params["queue_limit"] = queue_limit
 
     params["payload"] = payload
+
+    params["skip_preprocessor"] = skip_preprocessor
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -79,6 +82,7 @@ def sync_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
     payload: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run script by path with get
 
@@ -92,6 +96,7 @@ def sync_detailed(
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
         payload (Union[Unset, None, str]):
+        skip_preprocessor (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,6 +116,7 @@ def sync_detailed(
         include_header=include_header,
         queue_limit=queue_limit,
         payload=payload,
+        skip_preprocessor=skip_preprocessor,
     )
 
     response = client.get_httpx_client().request(
@@ -132,6 +138,7 @@ async def asyncio_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
     payload: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run script by path with get
 
@@ -145,6 +152,7 @@ async def asyncio_detailed(
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
         payload (Union[Unset, None, str]):
+        skip_preprocessor (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,6 +172,7 @@ async def asyncio_detailed(
         include_header=include_header,
         queue_limit=queue_limit,
         payload=payload,
+        skip_preprocessor=skip_preprocessor,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

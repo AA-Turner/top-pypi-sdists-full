@@ -1,7 +1,6 @@
 
 [project]
 name = "dagster-ray"
-urls = { repository = "https://github.com/danielgafni/dagster-ray" }
 description = "Dagster integration library for Ray"
 authors = [
     {name = "Daniel Gafni", email = "danielgafni16@gmail.com"},
@@ -32,6 +31,11 @@ dependencies = [
 ]
 
 dynamic = ["version"]
+
+[project.urls]
+GitHub = "https://github.com/danielgafni/dagster-ray"
+Documentation = "https://danielgafni.github.io/dagster-ray/"
+Changelog = "https://github.com/danielgafni/dagster-ray/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 run_launcher = [
@@ -71,10 +75,26 @@ dev = [
     "pip>=24.2",
     "ipython>=8.12.3",
     "syrupy>=4.9.1",
+    "pytest-env>=1.1.3",
+]
+docs = [
+    "griffe>=1.14.0",
+    "griffe-pydantic>=1.1.7",
+    "mike>=2.1.3",
+    "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.2",
+    "mkdocs-material>=9.6.20",
+    "mkdocs-section-index>=0.3.10",
+    "mkdocstrings[python]>=0.30.0",
 ]
 
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dagster_ray"]
+
 [tool.hatch.version]
-path = "dagster_ray/_version.py"
+path = "src/dagster_ray/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "-vvv --capture=no --log-disable=faker"
@@ -85,7 +105,7 @@ log_level = "INFO"
 target-version = "py39"
 line-length = 120
 src = [
-    "dagster_ray",
+    "src",
     "tests"
 ]
 exclude = [
@@ -111,8 +131,13 @@ exclude = [
 ]
 [tool.ruff.lint]
 extend-select = ["I", "TID252", "TID253", "UP", "FA100", "FA102", "PYI044", "F404"]
+ignore = [
+    "FA100",  # from __future__ import annotations breaks pydantic
+    "FA102" # from __future__ import annotations breaks pydantic
+]
+
 [tool.ruff.lint.isort]
-known-first-party = ["dagster_ray", "tests"]
+known-first-party = ["dagster_ray", "tests", "mkdocs_dagster_ray"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Disallow all relative imports.
@@ -145,7 +170,7 @@ reportOverlappingOverload = true
 # reportPrivateUsage = "warning"
 
 include = [
-    "dagster_ray",
+    "src",
     "tests"
 ]
 exclude = [
@@ -169,3 +194,6 @@ exclude = [
     "node_modules",
     "venv",
 ]
+
+[tool.pytest_env]
+RAY_ENABLE_UV_RUN_RUNTIME_ENV = "0"

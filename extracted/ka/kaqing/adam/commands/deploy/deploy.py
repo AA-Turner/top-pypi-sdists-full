@@ -1,6 +1,7 @@
 import click
 
 from adam.commands.command import Command
+from adam.commands.deploy.deploy_pg_agent import DeployPgAgent
 from adam.commands.deploy.deploy_pod import DeployPod
 from .deploy_frontend import DeployFrontend
 from adam.repl_state import ReplState
@@ -40,7 +41,7 @@ class Deploy(Command):
                 Command.display_help()
 
     def cmd_list():
-        return [DeployFrontend(), DeployPod()]
+        return [DeployFrontend(), DeployPod(), DeployPgAgent()]
 
     def completion(self, state: ReplState):
         if state.sts:

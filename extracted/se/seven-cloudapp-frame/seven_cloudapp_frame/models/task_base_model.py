@@ -3785,7 +3785,7 @@ class TaskBaseModel(FrameBaseModel):
                                     remark["goods_id_list"].extend(appoint_goods_id_list)
                                     task_count.remark = SevenHelper.json_dumps(remark)
                                     TaoPayOrderModel(context=self.context).add_list(tao_pay_order_list)
-                                    task_count_model.add_update_entity(task_count,"complete_count=%s,modify_date=%s,modify_day=%s,remark=%s",params=[task_count.complete_count,task_count.modify_date,now_day,task_count.remark])
+                                    task_count_model.add_update_entity(task_count,"complete_count=%s,now_count=%s,modify_date=%s,modify_day=%s,remark=%s",params=[task_count.complete_count,task_count.now_count,task_count.modify_date,now_day,task_count.remark])
                                     for item in tao_pay_order_list:
                                         redis_init.lpush(pay_order_cache_key,item.sub_pay_order_no)
                                         redis_init.expire(pay_order_cache_key, 30 * 24 * 3600)

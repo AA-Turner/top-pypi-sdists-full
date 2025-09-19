@@ -9,13 +9,12 @@ from orionis.foundation.contracts.application import IApplication
 
 class ScheduleListCommand(BaseCommand):
     """
-    Command class to display a list of scheduled tasks defined in the Orionis application.
+    Displays a list of all scheduled jobs registered in the Orionis application.
 
-    Methods
-    -------
-    handle(app: IApplication, console: Console) -> bool
-        Lists all scheduled jobs configured in the application by retrieving them from the
-        ISchedule service and displaying them in a formatted table using the rich library.
+    This command retrieves scheduled tasks from the ISchedule service and presents them
+    in a formatted table using the rich library. It provides details such as signature,
+    arguments, purpose, random delay, start and end dates, and additional details for
+    each scheduled job.
 
     Attributes
     ----------
@@ -25,7 +24,6 @@ class ScheduleListCommand(BaseCommand):
         Command signature for invocation.
     description : str
         Description of the command.
-
     """
 
     # Indicates whether timestamps will be shown in the command output

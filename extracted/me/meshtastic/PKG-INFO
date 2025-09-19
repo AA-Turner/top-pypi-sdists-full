@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: meshtastic
-Version: 2.7.2
+Version: 2.7.3
 Summary: Python API & client shell for talking to Meshtastic devices
 License: GPL-3.0-only
+License-File: LICENSE.md
 Author: Meshtastic Developers
 Author-email: contact@meshtastic.org
 Requires-Python: >=3.9,<3.14

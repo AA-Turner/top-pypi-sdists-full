@@ -1,7 +1,7 @@
 r'''
 # `aws_dms_endpoint`
 
-Refer to the Terraform Registry for docs: [`aws_dms_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint).
+Refer to the Terraform Registry for docs: [`aws_dms_endpoint`](https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DmsEndpoint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dmsEndpoint.DmsEndpoint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint aws_dms_endpoint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint aws_dms_endpoint}.'''
 
     def __init__(
         self,
@@ -88,39 +88,39 @@ class DmsEndpoint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint aws_dms_endpoint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint aws_dms_endpoint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.
-        :param engine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.
-        :param elasticsearch_settings: elasticsearch_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
-        :param extra_connection_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#id DmsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kafka_settings: kafka_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
-        :param kinesis_settings: kinesis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.
-        :param mongodb_settings: mongodb_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
-        :param oracle_settings: oracle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.
-        :param pause_replication_tasks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
-        :param postgres_settings: postgres_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
-        :param redis_settings: redis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
-        :param redshift_settings: redshift_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
-        :param secrets_manager_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.
-        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
-        :param service_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.
-        :param ssl_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.
+        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.
+        :param engine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.
+        :param elasticsearch_settings: elasticsearch_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
+        :param extra_connection_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#id DmsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kafka_settings: kafka_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
+        :param kinesis_settings: kinesis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.
+        :param mongodb_settings: mongodb_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
+        :param oracle_settings: oracle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.
+        :param pause_replication_tasks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
+        :param postgres_settings: postgres_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
+        :param redis_settings: redis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
+        :param redshift_settings: redshift_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
+        :param secrets_manager_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.
+        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
+        :param service_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.
+        :param ssl_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -187,7 +187,7 @@ class DmsEndpoint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DmsEndpoint to import.
-        :param import_from_id: The id of the existing DmsEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DmsEndpoint that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DmsEndpoint to import is found.
         '''
         if __debug__:
@@ -209,11 +209,11 @@ class DmsEndpoint(
         use_new_mapping_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param error_retry_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.
-        :param full_load_error_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.
-        :param use_new_mapping_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.
+        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param error_retry_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.
+        :param full_load_error_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.
+        :param use_new_mapping_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.
         '''
         value = DmsEndpointElasticsearchSettings(
             endpoint_uri=endpoint_uri,
@@ -250,25 +250,25 @@ class DmsEndpoint(
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.
-        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
-        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
-        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
-        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
-        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
-        :param message_max_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.
-        :param no_hex_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.
-        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
-        :param sasl_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.
-        :param sasl_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.
-        :param sasl_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.
-        :param security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.
-        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
-        :param ssl_client_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.
-        :param ssl_client_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.
-        :param ssl_client_key_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.
+        :param broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.
+        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
+        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
+        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
+        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
+        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
+        :param message_max_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.
+        :param no_hex_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.
+        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
+        :param sasl_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.
+        :param sasl_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.
+        :param sasl_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.
+        :param security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.
+        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
+        :param ssl_client_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.
+        :param ssl_client_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.
+        :param ssl_client_key_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.
         '''
         value = DmsEndpointKafkaSettings(
             broker=broker,
@@ -310,16 +310,16 @@ class DmsEndpoint(
         use_large_integer_value: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
-        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
-        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
-        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
-        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
-        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.
-        :param use_large_integer_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.
+        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
+        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
+        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
+        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
+        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
+        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.
+        :param use_large_integer_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.
         '''
         value = DmsEndpointKinesisSettings(
             include_control_details=include_control_details,
@@ -348,12 +348,12 @@ class DmsEndpoint(
         nesting_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.
-        :param auth_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
-        :param docs_to_investigate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.
-        :param extract_doc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.
-        :param nesting_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.
+        :param auth_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.
+        :param auth_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
+        :param docs_to_investigate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.
+        :param extract_doc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.
+        :param nesting_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.
         '''
         value = DmsEndpointMongodbSettings(
             auth_mechanism=auth_mechanism,
@@ -373,7 +373,7 @@ class DmsEndpoint(
         authentication_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
+        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
         '''
         value = DmsEndpointOracleSettings(authentication_method=authentication_method)
 
@@ -403,24 +403,24 @@ class DmsEndpoint(
         slot_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param after_connect_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.
-        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
-        :param babelfish_database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.
-        :param capture_ddls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.
-        :param database_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.
-        :param ddl_artifacts_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.
-        :param execute_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.
-        :param fail_tasks_on_lob_truncation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.
-        :param heartbeat_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.
-        :param heartbeat_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.
-        :param heartbeat_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.
-        :param map_boolean_as_boolean: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.
-        :param map_jsonb_as_clob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.
-        :param map_long_varchar_as: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.
-        :param max_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.
-        :param plugin_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.
+        :param after_connect_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.
+        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
+        :param babelfish_database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.
+        :param capture_ddls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.
+        :param database_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.
+        :param ddl_artifacts_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.
+        :param execute_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.
+        :param fail_tasks_on_lob_truncation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.
+        :param heartbeat_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.
+        :param heartbeat_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.
+        :param heartbeat_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.
+        :param map_boolean_as_boolean: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.
+        :param map_jsonb_as_clob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.
+        :param map_long_varchar_as: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.
+        :param max_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.
+        :param plugin_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.
         '''
         value = DmsEndpointPostgresSettings(
             after_connect_script=after_connect_script,
@@ -458,13 +458,13 @@ class DmsEndpoint(
         ssl_security_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
-        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
-        :param auth_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.
-        :param auth_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.
-        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
-        :param ssl_security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
+        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
+        :param auth_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.
+        :param auth_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.
+        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
+        :param ssl_security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.
         '''
         value = DmsEndpointRedisSettings(
             auth_type=auth_type,
@@ -489,11 +489,11 @@ class DmsEndpoint(
         service_access_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.
-        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.
-        :param server_side_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param bucket_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.
+        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.
+        :param server_side_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
         '''
         value = DmsEndpointRedshiftSettings(
             bucket_folder=bucket_folder,
@@ -513,8 +513,8 @@ class DmsEndpoint(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.
         '''
         value = DmsEndpointTimeouts(create=create, delete=delete)
 
@@ -1179,35 +1179,35 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.
-        :param engine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.
-        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.
-        :param elasticsearch_settings: elasticsearch_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
-        :param extra_connection_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#id DmsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kafka_settings: kafka_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
-        :param kinesis_settings: kinesis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.
-        :param mongodb_settings: mongodb_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
-        :param oracle_settings: oracle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.
-        :param pause_replication_tasks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
-        :param postgres_settings: postgres_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
-        :param redis_settings: redis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
-        :param redshift_settings: redshift_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
-        :param secrets_manager_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.
-        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.
-        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
-        :param service_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.
-        :param ssl_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.
+        :param endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.
+        :param engine_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.
+        :param certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.
+        :param elasticsearch_settings: elasticsearch_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
+        :param extra_connection_attributes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#id DmsEndpoint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kafka_settings: kafka_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
+        :param kinesis_settings: kinesis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.
+        :param mongodb_settings: mongodb_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
+        :param oracle_settings: oracle_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.
+        :param pause_replication_tasks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
+        :param postgres_settings: postgres_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
+        :param redis_settings: redis_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
+        :param redshift_settings: redshift_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
+        :param secrets_manager_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.
+        :param secrets_manager_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.
+        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
+        :param service_access_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.
+        :param ssl_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1405,34 +1405,34 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def endpoint_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_id DmsEndpoint#endpoint_id}.'''
         result = self._values.get("endpoint_id")
         assert result is not None, "Required property 'endpoint_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def endpoint_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_type DmsEndpoint#endpoint_type}.'''
         result = self._values.get("endpoint_type")
         assert result is not None, "Required property 'endpoint_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def engine_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#engine_name DmsEndpoint#engine_name}.'''
         result = self._values.get("engine_name")
         assert result is not None, "Required property 'engine_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#certificate_arn DmsEndpoint#certificate_arn}.'''
         result = self._values.get("certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_name DmsEndpoint#database_name}.'''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1442,20 +1442,20 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DmsEndpointElasticsearchSettings"]:
         '''elasticsearch_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#elasticsearch_settings DmsEndpoint#elasticsearch_settings}
         '''
         result = self._values.get("elasticsearch_settings")
         return typing.cast(typing.Optional["DmsEndpointElasticsearchSettings"], result)
 
     @builtins.property
     def extra_connection_attributes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extra_connection_attributes DmsEndpoint#extra_connection_attributes}.'''
         result = self._values.get("extra_connection_attributes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#id DmsEndpoint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#id DmsEndpoint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1467,7 +1467,7 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kafka_settings(self) -> typing.Optional["DmsEndpointKafkaSettings"]:
         '''kafka_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kafka_settings DmsEndpoint#kafka_settings}
         '''
         result = self._values.get("kafka_settings")
         return typing.cast(typing.Optional["DmsEndpointKafkaSettings"], result)
@@ -1476,14 +1476,14 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kinesis_settings(self) -> typing.Optional["DmsEndpointKinesisSettings"]:
         '''kinesis_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kinesis_settings DmsEndpoint#kinesis_settings}
         '''
         result = self._values.get("kinesis_settings")
         return typing.cast(typing.Optional["DmsEndpointKinesisSettings"], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#kms_key_arn DmsEndpoint#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1491,7 +1491,7 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mongodb_settings(self) -> typing.Optional["DmsEndpointMongodbSettings"]:
         '''mongodb_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#mongodb_settings DmsEndpoint#mongodb_settings}
         '''
         result = self._values.get("mongodb_settings")
         return typing.cast(typing.Optional["DmsEndpointMongodbSettings"], result)
@@ -1500,14 +1500,14 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def oracle_settings(self) -> typing.Optional["DmsEndpointOracleSettings"]:
         '''oracle_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#oracle_settings DmsEndpoint#oracle_settings}
         '''
         result = self._values.get("oracle_settings")
         return typing.cast(typing.Optional["DmsEndpointOracleSettings"], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#password DmsEndpoint#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1515,13 +1515,13 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pause_replication_tasks(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#pause_replication_tasks DmsEndpoint#pause_replication_tasks}.'''
         result = self._values.get("pause_replication_tasks")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1529,7 +1529,7 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def postgres_settings(self) -> typing.Optional["DmsEndpointPostgresSettings"]:
         '''postgres_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#postgres_settings DmsEndpoint#postgres_settings}
         '''
         result = self._values.get("postgres_settings")
         return typing.cast(typing.Optional["DmsEndpointPostgresSettings"], result)
@@ -1538,7 +1538,7 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redis_settings(self) -> typing.Optional["DmsEndpointRedisSettings"]:
         '''redis_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redis_settings DmsEndpoint#redis_settings}
         '''
         result = self._values.get("redis_settings")
         return typing.cast(typing.Optional["DmsEndpointRedisSettings"], result)
@@ -1547,7 +1547,7 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redshift_settings(self) -> typing.Optional["DmsEndpointRedshiftSettings"]:
         '''redshift_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#redshift_settings DmsEndpoint#redshift_settings}
         '''
         result = self._values.get("redshift_settings")
         return typing.cast(typing.Optional["DmsEndpointRedshiftSettings"], result)
@@ -1556,50 +1556,50 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#region DmsEndpoint#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secrets_manager_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_access_role_arn DmsEndpoint#secrets_manager_access_role_arn}.'''
         result = self._values.get("secrets_manager_access_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secrets_manager_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#secrets_manager_arn DmsEndpoint#secrets_manager_arn}.'''
         result = self._values.get("secrets_manager_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def server_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.'''
         result = self._values.get("server_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_access_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role DmsEndpoint#service_access_role}.'''
         result = self._values.get("service_access_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_mode DmsEndpoint#ssl_mode}.'''
         result = self._values.get("ssl_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags DmsEndpoint#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#tags_all DmsEndpoint#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1607,14 +1607,14 @@ class DmsEndpointConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DmsEndpointTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#timeouts DmsEndpoint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DmsEndpointTimeouts"], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#username DmsEndpoint#username}.'''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1652,11 +1652,11 @@ class DmsEndpointElasticsearchSettings:
         use_new_mapping_type: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param error_retry_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.
-        :param full_load_error_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.
-        :param use_new_mapping_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.
+        :param endpoint_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param error_retry_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.
+        :param full_load_error_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.
+        :param use_new_mapping_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80b20329fa59319406e971f29756c823d39d08290b3116d710cb84d35635086f)
@@ -1678,27 +1678,27 @@ class DmsEndpointElasticsearchSettings:
 
     @builtins.property
     def endpoint_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#endpoint_uri DmsEndpoint#endpoint_uri}.'''
         result = self._values.get("endpoint_uri")
         assert result is not None, "Required property 'endpoint_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_access_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
         result = self._values.get("service_access_role_arn")
         assert result is not None, "Required property 'service_access_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def error_retry_duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#error_retry_duration DmsEndpoint#error_retry_duration}.'''
         result = self._values.get("error_retry_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def full_load_error_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#full_load_error_percentage DmsEndpoint#full_load_error_percentage}.'''
         result = self._values.get("full_load_error_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1706,7 +1706,7 @@ class DmsEndpointElasticsearchSettings:
     def use_new_mapping_type(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_new_mapping_type DmsEndpoint#use_new_mapping_type}.'''
         result = self._values.get("use_new_mapping_type")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1912,25 +1912,25 @@ class DmsEndpointKafkaSettings:
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.
-        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
-        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
-        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
-        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
-        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
-        :param message_max_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.
-        :param no_hex_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.
-        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
-        :param sasl_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.
-        :param sasl_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.
-        :param sasl_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.
-        :param security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.
-        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
-        :param ssl_client_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.
-        :param ssl_client_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.
-        :param ssl_client_key_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.
+        :param broker: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.
+        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
+        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
+        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
+        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
+        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
+        :param message_max_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.
+        :param no_hex_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.
+        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
+        :param sasl_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.
+        :param sasl_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.
+        :param sasl_username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.
+        :param security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.
+        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
+        :param ssl_client_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.
+        :param ssl_client_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.
+        :param ssl_client_key_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fa6da922b4d6ea7ecf9ba280c680fdedb96557ef753a2eef2dd4f1bc20674ad)
@@ -1995,7 +1995,7 @@ class DmsEndpointKafkaSettings:
 
     @builtins.property
     def broker(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#broker DmsEndpoint#broker}.'''
         result = self._values.get("broker")
         assert result is not None, "Required property 'broker' is missing"
         return typing.cast(builtins.str, result)
@@ -2004,7 +2004,7 @@ class DmsEndpointKafkaSettings:
     def include_control_details(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.'''
         result = self._values.get("include_control_details")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2012,7 +2012,7 @@ class DmsEndpointKafkaSettings:
     def include_null_and_empty(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.'''
         result = self._values.get("include_null_and_empty")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2020,7 +2020,7 @@ class DmsEndpointKafkaSettings:
     def include_partition_value(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.'''
         result = self._values.get("include_partition_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2028,7 +2028,7 @@ class DmsEndpointKafkaSettings:
     def include_table_alter_operations(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.'''
         result = self._values.get("include_table_alter_operations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2036,19 +2036,19 @@ class DmsEndpointKafkaSettings:
     def include_transaction_details(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.'''
         result = self._values.get("include_transaction_details")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def message_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.'''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_max_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_max_bytes DmsEndpoint#message_max_bytes}.'''
         result = self._values.get("message_max_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2056,7 +2056,7 @@ class DmsEndpointKafkaSettings:
     def no_hex_prefix(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#no_hex_prefix DmsEndpoint#no_hex_prefix}.'''
         result = self._values.get("no_hex_prefix")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2064,61 +2064,61 @@ class DmsEndpointKafkaSettings:
     def partition_include_schema_table(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.'''
         result = self._values.get("partition_include_schema_table")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def sasl_mechanism(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_mechanism DmsEndpoint#sasl_mechanism}.'''
         result = self._values.get("sasl_mechanism")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sasl_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_password DmsEndpoint#sasl_password}.'''
         result = self._values.get("sasl_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sasl_username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#sasl_username DmsEndpoint#sasl_username}.'''
         result = self._values.get("sasl_username")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#security_protocol DmsEndpoint#security_protocol}.'''
         result = self._values.get("security_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_ca_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.'''
         result = self._values.get("ssl_ca_certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_client_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_certificate_arn DmsEndpoint#ssl_client_certificate_arn}.'''
         result = self._values.get("ssl_client_certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_client_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_arn DmsEndpoint#ssl_client_key_arn}.'''
         result = self._values.get("ssl_client_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_client_key_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_client_key_password DmsEndpoint#ssl_client_key_password}.'''
         result = self._values.get("ssl_client_key_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def topic(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#topic DmsEndpoint#topic}.'''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2641,16 +2641,16 @@ class DmsEndpointKinesisSettings:
         use_large_integer_value: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
-        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
-        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
-        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
-        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
-        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
-        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.
-        :param use_large_integer_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.
+        :param include_control_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.
+        :param include_null_and_empty: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.
+        :param include_partition_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.
+        :param include_table_alter_operations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.
+        :param include_transaction_details: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.
+        :param message_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.
+        :param partition_include_schema_table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param stream_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.
+        :param use_large_integer_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5209fde3820cb3449e83764c30d7adae484726d247a77a22d7a99732e2adf563)
@@ -2690,7 +2690,7 @@ class DmsEndpointKinesisSettings:
     def include_control_details(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_control_details DmsEndpoint#include_control_details}.'''
         result = self._values.get("include_control_details")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2698,7 +2698,7 @@ class DmsEndpointKinesisSettings:
     def include_null_and_empty(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_null_and_empty DmsEndpoint#include_null_and_empty}.'''
         result = self._values.get("include_null_and_empty")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2706,7 +2706,7 @@ class DmsEndpointKinesisSettings:
     def include_partition_value(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_partition_value DmsEndpoint#include_partition_value}.'''
         result = self._values.get("include_partition_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2714,7 +2714,7 @@ class DmsEndpointKinesisSettings:
     def include_table_alter_operations(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_table_alter_operations DmsEndpoint#include_table_alter_operations}.'''
         result = self._values.get("include_table_alter_operations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2722,13 +2722,13 @@ class DmsEndpointKinesisSettings:
     def include_transaction_details(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#include_transaction_details DmsEndpoint#include_transaction_details}.'''
         result = self._values.get("include_transaction_details")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def message_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#message_format DmsEndpoint#message_format}.'''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2736,19 +2736,19 @@ class DmsEndpointKinesisSettings:
     def partition_include_schema_table(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#partition_include_schema_table DmsEndpoint#partition_include_schema_table}.'''
         result = self._values.get("partition_include_schema_table")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def service_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
         result = self._values.get("service_access_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def stream_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#stream_arn DmsEndpoint#stream_arn}.'''
         result = self._values.get("stream_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2756,7 +2756,7 @@ class DmsEndpointKinesisSettings:
     def use_large_integer_value(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#use_large_integer_value DmsEndpoint#use_large_integer_value}.'''
         result = self._values.get("use_large_integer_value")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3091,12 +3091,12 @@ class DmsEndpointMongodbSettings:
         nesting_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.
-        :param auth_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
-        :param docs_to_investigate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.
-        :param extract_doc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.
-        :param nesting_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.
+        :param auth_mechanism: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.
+        :param auth_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
+        :param docs_to_investigate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.
+        :param extract_doc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.
+        :param nesting_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76da229b66ed9b2812c7f54f35b55c5a1777457b05b2a3a5d4c841ef1d42dea4)
@@ -3122,37 +3122,37 @@ class DmsEndpointMongodbSettings:
 
     @builtins.property
     def auth_mechanism(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_mechanism DmsEndpoint#auth_mechanism}.'''
         result = self._values.get("auth_mechanism")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auth_source(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_source DmsEndpoint#auth_source}.'''
         result = self._values.get("auth_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auth_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.'''
         result = self._values.get("auth_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def docs_to_investigate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#docs_to_investigate DmsEndpoint#docs_to_investigate}.'''
         result = self._values.get("docs_to_investigate")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def extract_doc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#extract_doc_id DmsEndpoint#extract_doc_id}.'''
         result = self._values.get("extract_doc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def nesting_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#nesting_level DmsEndpoint#nesting_level}.'''
         result = self._values.get("nesting_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3342,7 +3342,7 @@ class DmsEndpointOracleSettings:
         authentication_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
+        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a085d1847dbe0dc6ee415ee7e17345a4073d1655863c96df864f0669ccf47c16)
@@ -3353,7 +3353,7 @@ class DmsEndpointOracleSettings:
 
     @builtins.property
     def authentication_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.'''
         result = self._values.get("authentication_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3471,24 +3471,24 @@ class DmsEndpointPostgresSettings:
         slot_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param after_connect_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.
-        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
-        :param babelfish_database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.
-        :param capture_ddls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.
-        :param database_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.
-        :param ddl_artifacts_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.
-        :param execute_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.
-        :param fail_tasks_on_lob_truncation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.
-        :param heartbeat_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.
-        :param heartbeat_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.
-        :param heartbeat_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.
-        :param map_boolean_as_boolean: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.
-        :param map_jsonb_as_clob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.
-        :param map_long_varchar_as: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.
-        :param max_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.
-        :param plugin_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
-        :param slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.
+        :param after_connect_script: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.
+        :param authentication_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.
+        :param babelfish_database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.
+        :param capture_ddls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.
+        :param database_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.
+        :param ddl_artifacts_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.
+        :param execute_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.
+        :param fail_tasks_on_lob_truncation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.
+        :param heartbeat_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.
+        :param heartbeat_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.
+        :param heartbeat_schema: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.
+        :param map_boolean_as_boolean: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.
+        :param map_jsonb_as_clob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.
+        :param map_long_varchar_as: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.
+        :param max_file_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.
+        :param plugin_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3857b2a7fe58b2662dbcf81b7d56645e33919fbf19652130f7fb94e86d3a8232)
@@ -3550,19 +3550,19 @@ class DmsEndpointPostgresSettings:
 
     @builtins.property
     def after_connect_script(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#after_connect_script DmsEndpoint#after_connect_script}.'''
         result = self._values.get("after_connect_script")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def authentication_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#authentication_method DmsEndpoint#authentication_method}.'''
         result = self._values.get("authentication_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def babelfish_database_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#babelfish_database_name DmsEndpoint#babelfish_database_name}.'''
         result = self._values.get("babelfish_database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3570,25 +3570,25 @@ class DmsEndpointPostgresSettings:
     def capture_ddls(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#capture_ddls DmsEndpoint#capture_ddls}.'''
         result = self._values.get("capture_ddls")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def database_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#database_mode DmsEndpoint#database_mode}.'''
         result = self._values.get("database_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ddl_artifacts_schema(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ddl_artifacts_schema DmsEndpoint#ddl_artifacts_schema}.'''
         result = self._values.get("ddl_artifacts_schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def execute_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#execute_timeout DmsEndpoint#execute_timeout}.'''
         result = self._values.get("execute_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3596,7 +3596,7 @@ class DmsEndpointPostgresSettings:
     def fail_tasks_on_lob_truncation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#fail_tasks_on_lob_truncation DmsEndpoint#fail_tasks_on_lob_truncation}.'''
         result = self._values.get("fail_tasks_on_lob_truncation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3604,19 +3604,19 @@ class DmsEndpointPostgresSettings:
     def heartbeat_enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_enable DmsEndpoint#heartbeat_enable}.'''
         result = self._values.get("heartbeat_enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def heartbeat_frequency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_frequency DmsEndpoint#heartbeat_frequency}.'''
         result = self._values.get("heartbeat_frequency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def heartbeat_schema(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#heartbeat_schema DmsEndpoint#heartbeat_schema}.'''
         result = self._values.get("heartbeat_schema")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3624,7 +3624,7 @@ class DmsEndpointPostgresSettings:
     def map_boolean_as_boolean(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_boolean_as_boolean DmsEndpoint#map_boolean_as_boolean}.'''
         result = self._values.get("map_boolean_as_boolean")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3632,37 +3632,37 @@ class DmsEndpointPostgresSettings:
     def map_jsonb_as_clob(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_jsonb_as_clob DmsEndpoint#map_jsonb_as_clob}.'''
         result = self._values.get("map_jsonb_as_clob")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def map_long_varchar_as(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#map_long_varchar_as DmsEndpoint#map_long_varchar_as}.'''
         result = self._values.get("map_long_varchar_as")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_file_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#max_file_size DmsEndpoint#max_file_size}.'''
         result = self._values.get("max_file_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def plugin_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#plugin_name DmsEndpoint#plugin_name}.'''
         result = self._values.get("plugin_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
         result = self._values.get("service_access_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def slot_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#slot_name DmsEndpoint#slot_name}.'''
         result = self._values.get("slot_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4151,13 +4151,13 @@ class DmsEndpointRedisSettings:
         ssl_security_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
-        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
-        :param auth_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.
-        :param auth_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.
-        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
-        :param ssl_security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.
+        :param auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.
+        :param server_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.
+        :param auth_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.
+        :param auth_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.
+        :param ssl_ca_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.
+        :param ssl_security_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26d887d8a5295deeeedcb256db19314a5184ca19a7001634e8a83b67f33a33cc)
@@ -4184,46 +4184,46 @@ class DmsEndpointRedisSettings:
 
     @builtins.property
     def auth_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_type DmsEndpoint#auth_type}.'''
         result = self._values.get("auth_type")
         assert result is not None, "Required property 'auth_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#port DmsEndpoint#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def server_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_name DmsEndpoint#server_name}.'''
         result = self._values.get("server_name")
         assert result is not None, "Required property 'server_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def auth_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_password DmsEndpoint#auth_password}.'''
         result = self._values.get("auth_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auth_user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#auth_user_name DmsEndpoint#auth_user_name}.'''
         result = self._values.get("auth_user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_ca_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_ca_certificate_arn DmsEndpoint#ssl_ca_certificate_arn}.'''
         result = self._values.get("ssl_ca_certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_security_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#ssl_security_protocol DmsEndpoint#ssl_security_protocol}.'''
         result = self._values.get("ssl_security_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4429,11 +4429,11 @@ class DmsEndpointRedshiftSettings:
         service_access_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.
-        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.
-        :param server_side_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.
-        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
+        :param bucket_folder: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.
+        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.
+        :param server_side_encryption_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.
+        :param service_access_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0da139105dead4f8773f3206d271e1e0fd0188c4f5642a1d59017ad2b7706a5)
@@ -4456,31 +4456,31 @@ class DmsEndpointRedshiftSettings:
 
     @builtins.property
     def bucket_folder(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_folder DmsEndpoint#bucket_folder}.'''
         result = self._values.get("bucket_folder")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#bucket_name DmsEndpoint#bucket_name}.'''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def encryption_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#encryption_mode DmsEndpoint#encryption_mode}.'''
         result = self._values.get("encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def server_side_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#server_side_encryption_kms_key_id DmsEndpoint#server_side_encryption_kms_key_id}.'''
         result = self._values.get("server_side_encryption_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_access_role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#service_access_role_arn DmsEndpoint#service_access_role_arn}.'''
         result = self._values.get("service_access_role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4650,8 +4650,8 @@ class DmsEndpointTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d87d763f58942e82905ab9060088dddf2c15d5f47a141795eda8fe0fb38d376)
@@ -4665,13 +4665,13 @@ class DmsEndpointTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#create DmsEndpoint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.13.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/dms_endpoint#delete DmsEndpoint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

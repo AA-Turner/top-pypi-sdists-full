@@ -68,7 +68,7 @@ if sys.argv[-1] == "publish":
 
 setup(
     name='pytest-seleniumbase',
-    version='4.41.6',
+    version='4.41.7',
     description='A complete web automation framework for end-to-end testing.',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -123,7 +123,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        'seleniumbase>=4.41.6',
+        'seleniumbase>=4.41.7',
         ],
     packages=[
         ],

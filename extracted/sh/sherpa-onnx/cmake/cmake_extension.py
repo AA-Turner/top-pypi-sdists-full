@@ -9,6 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 
+import glob
 import setuptools
 from setuptools.command.build_ext import build_ext
 
@@ -72,9 +73,11 @@ def get_binaries():
         "sherpa-onnx-vad",
         "sherpa-onnx-vad-microphone",
         "sherpa-onnx-vad-microphone-offline-asr",
+        "sherpa-onnx-vad-microphone-simulated-streaming-asr",
         "sherpa-onnx-vad-with-offline-asr",
         "sherpa-onnx-vad-with-online-asr",
         "sherpa-onnx-version",
+        "sherpa-onnx-pa-devs",
     ]
 
     if enable_alsa():
@@ -250,8 +253,6 @@ class BuildExtension(build_ext):
             dst = os.path.join(f"{self.build_lib}", "sherpa_onnx", "lib")
             os.system(f"mkdir {dst}")
             os.system(f"dir {dst}")
-
-            import glob
 
             ext = "pyd" if sys.platform.startswith("win") else "so"
             pattern = os.path.join(self.build_temp, "**", f"_sherpa_onnx.*.{ext}")

@@ -1,13 +1,11 @@
 from adam.commands.command import Command
-from adam.commands.deploy.deploy_utils import undeploy_frontend
+from adam.commands.deploy.deploy_utils import undeploy_frontend, deleting
 from adam.config import Config
 from adam.k8s_utils.config_maps import ConfigMaps
 from adam.k8s_utils.deployment import Deployments
-from adam.k8s_utils.kube_context import KubeContext
 from adam.k8s_utils.pods import Pods
 from adam.k8s_utils.service_accounts import ServiceAccounts
 from adam.repl_state import ReplState, RequiredState
-from adam.utils import log2
 
 class UndeployPod(Command):
     COMMAND = 'undeploy pod'
@@ -36,23 +34,10 @@ class UndeployPod(Command):
             return state
 
         label_selector = Config().get('pod.label-selector', 'run=ops')
-        try:
-            ServiceAccounts.delete(state.namespace, label_selector=label_selector)
-        except Exception as e:
-            log2(e)
-        try:
-            ConfigMaps.delete_with_selector(state.namespace, label_selector)
-        except Exception as e:
-            log2(e)
-        try:
-            Deployments.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
-        except Exception as e:
-            log2(e)
-        # instantly destroy the pod
-        try:
-            Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
-        except Exception as e:
-            log2(e)
+        deleting('service account', lambda: ServiceAccounts.delete(state.namespace, label_selector=label_selector))
+        deleting('config map', lambda: ConfigMaps.delete_with_selector(state.namespace, label_selector))
+        deleting('deployment', lambda: Deployments.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0))
+        deleting('pod', lambda: Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0))
         undeploy_frontend(state.namespace, label_selector)
 
         return state

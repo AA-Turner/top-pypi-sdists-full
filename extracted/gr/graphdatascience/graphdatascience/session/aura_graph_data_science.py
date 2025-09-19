@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional, Union
 from pandas import DataFrame
 
 from graphdatascience import QueryRunner, ServerVersion
+from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.call_builder import IndirectCallBuilder
 from graphdatascience.endpoints import (
     AlphaRemoteEndpoints,
@@ -18,9 +19,11 @@ from graphdatascience.query_runner.arrow_info import ArrowInfo
 from graphdatascience.query_runner.arrow_query_runner import ArrowQueryRunner
 from graphdatascience.query_runner.gds_arrow_client import GdsArrowClient
 from graphdatascience.query_runner.neo4j_query_runner import Neo4jQueryRunner
+from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.session_query_runner import SessionQueryRunner
 from graphdatascience.query_runner.standalone_session_query_runner import StandaloneSessionQueryRunner
 from graphdatascience.session.dbms_connection_info import DbmsConnectionInfo
+from graphdatascience.session.session_v2_endpoints import SessionV2Endpoints
 from graphdatascience.utils.util_remote_proc_runner import UtilRemoteProcRunner
 
 
@@ -37,8 +40,7 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
         arrow_authentication: Optional[ArrowAuthentication],
         db_endpoint: Optional[Union[Neo4jQueryRunner, DbmsConnectionInfo]],
         delete_fn: Callable[[], bool],
-        arrow_disable_server_verification: bool = False,
-        arrow_tls_root_certs: Optional[bytes] = None,
+        arrow_client_options: Optional[dict[str, Any]] = None,
         bookmarks: Optional[Any] = None,
         show_progress: bool = True,
     ) -> AuraGraphDataScience:
@@ -54,8 +56,7 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
             arrow_info=arrow_info,
             arrow_authentication=arrow_authentication,
             encrypted=session_bolt_query_runner.encrypted(),
-            disable_server_verification=arrow_disable_server_verification,
-            tls_root_certs=arrow_tls_root_certs,
+            arrow_client_options=arrow_client_options,
         )
 
         # TODO: merge with the gds_arrow_client created inside ArrowQueryRunner
@@ -63,11 +64,17 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
             arrow_info,
             arrow_authentication,
             session_bolt_query_runner.encrypted(),
-            arrow_disable_server_verification,
-            arrow_tls_root_certs,
+            arrow_client_options=arrow_client_options,
         )
 
         gds_version = session_bolt_query_runner.server_version()
+
+        session_auth_arrow_client = AuthenticatedArrowClient.create(
+            arrow_info=arrow_info,
+            auth=arrow_authentication,
+            encrypted=session_bolt_query_runner.encrypted(),
+            arrow_client_options=arrow_client_options,
+        )
 
         if db_endpoint is not None:
             if isinstance(db_endpoint, Neo4jQueryRunner):
@@ -89,6 +96,7 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
                 query_runner=session_query_runner,
                 delete_fn=delete_fn,
                 gds_version=gds_version,
+                v2_endpoints=SessionV2Endpoints(session_auth_arrow_client, db_bolt_query_runner),
             )
         else:
             standalone_query_runner = StandaloneSessionQueryRunner(session_arrow_query_runner)
@@ -96,6 +104,7 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
                 query_runner=standalone_query_runner,
                 delete_fn=delete_fn,
                 gds_version=gds_version,
+                v2_endpoints=SessionV2Endpoints(session_auth_arrow_client, None),
             )
 
     def __init__(
@@ -103,10 +112,12 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
         query_runner: QueryRunner,
         delete_fn: Callable[[], bool],
         gds_version: ServerVersion,
+        v2_endpoints: SessionV2Endpoints,
     ):
         self._query_runner = query_runner
         self._delete_fn = delete_fn
         self._server_version = gds_version
+        self._v2_endpoints = v2_endpoints
 
         super().__init__(self._query_runner, namespace="gds", server_version=self._server_version)
 
@@ -115,6 +126,8 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
         query: str,
         params: Optional[dict[str, Any]] = None,
         database: Optional[str] = None,
+        retryable: bool = False,
+        mode: QueryMode = QueryMode.WRITE,
     ) -> DataFrame:
         """
         Run a Cypher query against the Neo4j database.
@@ -127,11 +140,18 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
             parameters to the query
         database: str
             the database on which to run the query
+        retryable: bool
+            whether the query can be automatically retried. Make sure the query is idempotent if set to True.
+        mode: QueryMode
+            the query mode to use (READ or WRITE). Set based on the operation performed in the query.
 
         Returns:
             The query result as a DataFrame
         """
-        return self._query_runner.run_cypher(query, params, database, False)
+        if retryable:
+            return self._query_runner.run_retryable_cypher(query, params, database, custom_error=False, mode=mode)
+        else:
+            return self._query_runner.run_cypher(query, params, database, custom_error=False, mode=mode)
 
     @property
     def graph(self) -> GraphRemoteProcRunner:
@@ -148,6 +168,10 @@ class AuraGraphDataScience(DirectEndpoints, UncallableNamespace):
     @property
     def beta(self) -> BetaEndpoints:
         return BetaEndpoints(self._query_runner, "gds.beta", self._server_version)
+
+    @property
+    def v2(self) -> SessionV2Endpoints:
+        return self._v2_endpoints
 
     def __getattr__(self, attr: str) -> IndirectCallBuilder:
         return IndirectCallBuilder(self._query_runner, f"gds.{attr}", self._server_version)

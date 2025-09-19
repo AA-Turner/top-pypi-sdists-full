@@ -1,6 +1,7 @@
 from nhc.const import DEFAULT_PORT
 from .errors import UnknownError, ToManyRequestsOrSyntaxError
 from .connection import NHCConnection
+from .scene import NHCScene
 from .light import NHCLight
 from .cover import NHCCover
 from .fan import NHCFan
@@ -46,6 +47,13 @@ class NHCController:
     @property
     def actions(self) -> list[NHCLight | NHCCover | NHCFan]:
         return self._actions
+
+    def scenes(self) -> list[NHCScene]:
+        scenes: list[NHCScene] = []
+        for action in self._actions:
+            if action.is_scene is True:
+                scenes.append(action)
+        return scenes
     
     @property
     def lights(self) -> list[NHCLight]:

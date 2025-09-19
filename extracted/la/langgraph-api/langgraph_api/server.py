@@ -53,11 +53,13 @@ middleware = []
 if config.ALLOW_PRIVATE_NETWORK:
     middleware.append(Middleware(PrivateNetworkMiddleware))
 
-if (
+JS_PROXY_MIDDLEWARE_ENABLED = (
     config.HTTP_CONFIG
     and (app := config.HTTP_CONFIG.get("app"))
     and is_js_path(app.split(":")[0])
-):
+)
+
+if JS_PROXY_MIDDLEWARE_ENABLED:
     from langgraph_api.js.remote import JSCustomHTTPProxyMiddleware
 
     middleware.append(Middleware(JSCustomHTTPProxyMiddleware))

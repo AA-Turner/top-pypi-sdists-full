@@ -34,6 +34,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -50,6 +51,8 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
+use crate::binding::bindings::LookupError;
+use crate::binding::bindings::LookupKind;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
@@ -59,6 +62,53 @@ use crate::graph::index::Idx;
 use crate::module::module_info::ModuleInfo;
 use crate::types::class::ClassDefIndex;
 
+/// The result of looking up a name in the current scope stack for a read
+/// operation.
+#[derive(Debug)]
+pub enum NameReadInfo {
+    /// A normal key bound in the current flow. The key is always already in the bindings table.
+    Flow(Idx<Key>),
+    /// A lookup that fell back to an anywhere-style forward-ref lookup using
+    /// only static scope information (note that this isn't always a
+    /// `Key::Anywhere` - when the definition count is one it will use the
+    /// definition directly). This key may or may not already be in the bindings
+    /// table, callers must handle that possibility.
+    Anywhere(Key),
+    /// The lookup failed for some reason.
+    Error(LookupError),
+}
+
+/// The result of a successful lookup of a name for a write operation.
+#[derive(Debug)]
+pub struct NameWriteInfo {
+    /// The annotation associated with this name in the current scope stack, if
+    /// any. Used both for contextual typing and because write operations must
+    /// have values assignable to the annotated type.
+    pub annotation: Option<Idx<KeyAnnotation>>,
+    /// If this name has multiple assignments - in which case we need to create an
+    /// `Anywhere` binding and record each assignment in it's Phi binding - this is
+    /// the text range used for the `Anywhere`.
+    ///
+    /// If this name only has one assignment, we will skip the `Anywhere` as
+    /// an optimization, and this field will be `None`.
+    pub anywhere_range: Option<TextRange>,
+}
+
+/// A name defined in a module, which needs to be convertable to an export.
+#[derive(Debug)]
+pub enum Exportable {
+    /// The typical case: this name has key `Key` in the flow at the end of
+    /// the module, and may or may not be annotated.
+    Initialized(Idx<Key>, Option<Idx<KeyAnnotation>>),
+    /// This case occurs if a name is missing from the flow at the end of the
+    /// module - for example it might be a name defined only in a branch that
+    /// raises.
+    ///
+    /// We still need export behavior to be well-defined so we use an
+    /// anywhere-style lookup for this case.
+    Uninitialized(Key),
+}
+
 /// Many names may map to the same TextRange (e.g. from foo import *).
 /// But no other static will point at the same TextRange.
 #[derive(Default, Clone, Debug)]
@@ -66,40 +116,41 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 
 #[derive(Clone, Debug)]
 pub struct StaticInfo {
-    pub loc: TextRange,
+    pub range: TextRange,
     /// The location of the first annotated name for this binding, if any.
     pub annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
     pub count: usize,
     /// How was this defined? Needed to determine the key for forward lookups.
     style: DefinitionStyle,
-    /// Is this a mutable catpure of a definition in an outer scope (i.e. a global or a nonlocal)?
-    is_mutable_capture: bool,
 }
 
 impl StaticInfo {
     pub fn as_key(&self, name: &Name) -> Key {
-        if self.count == 1 {
+        if matches!(self.style, DefinitionStyle::Delete) {
+            Key::Delete(self.range)
+        } else if self.count == 1 {
             match self.style {
-                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.loc),
+                DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.range),
                 DefinitionStyle::Global => Key::Global(name.clone()),
                 _ => {
                     // We are constructing an identifier, but it must have been one that we saw earlier
-                    assert_ne!(self.loc, TextRange::default());
+                    assert_ne!(self.range, TextRange::default());
                     let short_identifier = ShortIdentifier::new(&Identifier {
                         node_index: AtomicNodeIndex::dummy(),
                         id: name.clone(),
-                        range: self.loc,
+                        range: self.range,
                     });
-                    if self.is_mutable_capture {
-                        Key::MutableCapture(short_identifier)
-                    } else {
-                        Key::Definition(short_identifier)
+                    match self.style {
+                        DefinitionStyle::MutableCapture(..) => {
+                            Key::MutableCapture(short_identifier)
+                        }
+                        _ => Key::Definition(short_identifier),
                     }
                 }
             }
         } else {
-            Key::Anywhere(name.clone(), self.loc)
+            Key::Anywhere(name.clone(), self.range)
         }
     }
 }
@@ -108,19 +159,17 @@ impl Static {
     fn add_with_count(
         &mut self,
         name: Hashed<Name>,
-        loc: TextRange,
+        range: TextRange,
         style: DefinitionStyle,
         annot: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
         count: usize,
     ) {
         // Use whichever one we see first
         let res = self.0.entry_hashed(name).or_insert(StaticInfo {
-            loc,
+            range,
             annot,
             count: 0,
             style,
-            is_mutable_capture,
         });
         res.count += count;
     }
@@ -131,14 +180,12 @@ impl Static {
         range: TextRange,
         symbol_kind: SymbolKind,
         annot: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
     ) {
         self.add_with_count(
             Hashed::new(name),
             range,
             DefinitionStyle::Local(symbol_kind),
             annot,
-            is_mutable_capture,
             1,
         );
     }
@@ -179,7 +226,7 @@ impl Static {
 
         for (name, def) in d.definitions.into_iter_hashed() {
             let annot = def.annot.map(&mut get_annotation_idx);
-            self.add_with_count(name, def.range, def.style, annot, false, def.count);
+            self.add_with_count(name, def.range, def.style, annot, def.count);
         }
         for (range, wildcard) in wildcards {
             for name in wildcard.iter_hashed() {
@@ -189,7 +236,6 @@ impl Static {
                     range,
                     DefinitionStyle::ImportModule(module_info.name()),
                     None,
-                    false,
                     1,
                 )
             }
@@ -197,15 +243,8 @@ impl Static {
     }
 
     fn expr_lvalue(&mut self, x: &Expr) {
-        let mut add = |name: &ExprName| {
-            self.add(
-                name.id.clone(),
-                name.range,
-                SymbolKind::Variable,
-                None,
-                false,
-            )
-        };
+        let mut add =
+            |name: &ExprName| self.add(name.id.clone(), name.range, SymbolKind::Variable, None);
         Ast::expr_lvalue(x, &mut add);
     }
 }
@@ -253,15 +292,6 @@ pub enum FlowStyle {
 }
 
 impl FlowStyle {
-    /// Produce an error message for an uninitialized or unbound variable.
-    pub fn uninitialized_error_message(&self, name: &Identifier) -> Option<String> {
-        match self {
-            Self::Uninitialized => Some(format!("`{name}` is uninitialized")),
-            Self::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
-            _ => None,
-        }
-    }
-
     pub fn merged(styles: Vec<FlowStyle>) -> FlowStyle {
         let mut it = styles.into_iter();
         let mut merged = it.next().unwrap_or(FlowStyle::Other);
@@ -316,24 +346,13 @@ impl FlowInfo {
     }
 
     /// Create a new FlowInfo after an update.
-    ///
-    /// Also return the `Idx<Key>` of the default binding, if we are updating inside a loop
-    /// (and `None` if we are not in a loop).
-    fn updated(
-        &self,
-        key: Idx<Key>,
-        style: Option<FlowStyle>,
-        in_loop: bool,
-    ) -> (Self, Option<Idx<Key>>) {
+    fn updated(&self, key: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
         let default = if in_loop { Some(self.default) } else { None };
-        (
-            Self {
-                key,
-                default: default.unwrap_or(key),
-                style: style.unwrap_or_else(|| self.style.clone()),
-            },
-            default,
-        )
+        Self {
+            key,
+            default: default.unwrap_or(key),
+            style: style.unwrap_or_else(|| self.style.clone()),
+        }
     }
 
     pub fn as_initial_value(&self) -> ClassFieldInBody {
@@ -862,9 +881,6 @@ impl Scopes {
     /// - If `style` is `None`, then:
     ///   - Preserve the existing style, when updating an existing name.
     ///   - Use `FlowStyle::Other`, when inserting a new name.
-    /// - Maybe return the `Idx<Key>` of the default binding:
-    ///   - Return it if this is an update of an existing name, inside a loop.
-    ///   - For insert of a new name or if we are not in a loop, return `None`.
     ///
     /// A caller of this function promises to create a binding for `key`; the
     /// binding may not exist yet (it might depend on the returned default).
@@ -875,18 +891,25 @@ impl Scopes {
         name: Hashed<&Name>,
         key: Idx<Key>,
         style: Option<FlowStyle>,
-    ) -> Option<Idx<Key>> {
+    ) {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
                 e.insert(FlowInfo::new(key, style));
-                None
             }
             Entry::Occupied(mut e) => {
-                let (updated, default) = e.get().updated(key, style, in_loop);
-                *e.get_mut() = updated;
-                default
+                *e.get_mut() = e.get().updated(key, style, in_loop);
             }
+        }
+    }
+
+    /// Handle a delete operation by marking a name as uninitialized in this flow.
+    ///
+    /// Don't change the type if one is present - downstream we'll emit
+    /// uninitialized local errors but keep using our best guess for the type.
+    pub fn mark_as_deleted(&mut self, name: &Name) {
+        if let Some(info) = self.current_mut().flow.info.get_mut(name) {
+            info.style = FlowStyle::Uninitialized;
         }
     }
 
@@ -900,12 +923,10 @@ impl Scopes {
         None
     }
 
-    fn get_static_info(&self, name: &Name, should_skip_current_scope: bool) -> Option<&StaticInfo> {
+    fn static_info_from_any_enclosing(&self, name: &Name) -> Option<&StaticInfo> {
         let name = Hashed::new(name);
         let mut iter = self.iter_rev();
-        if should_skip_current_scope {
-            iter.next();
-        }
+        iter.next();
         for scope in iter {
             if let Some(info) = scope.stat.0.get_hashed(name) {
                 return Some(info);
@@ -922,25 +943,26 @@ impl Scopes {
     /// binding, in which case, `FlowStyle::Uninitialized` is returned.
     /// Otherwise we return `FlowStyle::Other` to indicate no information
     /// available.
-    pub fn get_flow_style(&self, name: &Name, used_in_static_type: bool) -> &FlowStyle {
+    pub fn get_flow_style(&self, name: &Name) -> &FlowStyle {
         match self.get_flow_info(name) {
             Some(flow) => &flow.style,
             None => {
-                // If the name is used for static type information, we can look
-                // at the current scope.
-                // Otherwise, we should skip the current scope, because it may
-                // permit a name to be used before it is defined.
-                if self.get_static_info(name, !used_in_static_type).is_some() {
-                    // If we have a static binding, then we are in a scope where
-                    // the name is defined, so we can return Other.
+                if self.static_info_from_any_enclosing(name).is_some() {
                     &FlowStyle::Other
                 } else {
-                    // If we don't have a static binding, then we are in a scope
-                    // where the name is not defined, so we return
-                    // Uninitialized.
                     &FlowStyle::Uninitialized
                 }
             }
+        }
+    }
+
+    /// If we can tell a variable might not be initialized in the current flow,
+    /// return an error message. Otherwise, return None.
+    pub fn uninitialized_error_message(&self, name: &Name) -> Option<String> {
+        match self.get_flow_style(name) {
+            FlowStyle::Uninitialized => Some(format!("`{name}` is uninitialized")),
+            FlowStyle::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
+            _ => None,
         }
     }
 
@@ -998,11 +1020,8 @@ impl Scopes {
         range: TextRange,
         symbol_kind: SymbolKind,
         ann: Option<Idx<KeyAnnotation>>,
-        is_mutable_capture: bool,
     ) {
-        self.current_mut()
-            .stat
-            .add(name, range, symbol_kind, ann, is_mutable_capture);
+        self.current_mut().stat.add(name, range, symbol_kind, ann);
     }
 
     pub fn add_lvalue_to_current_static(&mut self, x: &Expr) {
@@ -1147,6 +1166,162 @@ impl Scopes {
             current_scope_info.annot = ann;
         }
     }
+
+    /// Finish traversing a class body: pop both the class body scope and the annotation scope
+    /// that wraps it, and extract the class field definitions.
+    ///
+    /// The resulting map of field definitions:
+    /// - Includes both fields defined in the class body and implicit definitions
+    ///   coming from self-assignment in methods. If both occur, only the class body
+    ///   definition is tracked.
+    /// - Panics if the current scope is not a class body.
+    pub fn finish_class_and_get_field_definitions(
+        &mut self,
+    ) -> SmallMap<Name, (ClassFieldDefinition, TextRange)> {
+        let mut field_definitions = SmallMap::new();
+        let class_body = self.pop();
+        let class_scope = {
+            if let ScopeKind::Class(class_scope) = class_body.kind {
+                class_scope
+            } else {
+                unreachable!("Expected class body scope, got {:?}", class_body.kind)
+            }
+        };
+        self.pop(); // Also pop the annotation scope that wrapped the class body.
+        class_body.flow.info.iter_hashed().for_each(
+            |(name, flow_info)| {
+            if let Some(static_info) = class_body.stat.0.get_hashed(name) {
+                let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
+                    ClassFieldDefinition::MethodLike {
+                        definition: flow_info.key,
+                        has_return_annotation,
+                    }
+                } else {
+                    match flow_info.as_initial_value() {
+                        ClassFieldInBody::InitializedByAssign(e) =>
+                            ClassFieldDefinition::AssignedInBody {
+                                value: ExprOrBinding::Expr(e.clone()),
+                                annotation: static_info.annot,
+                            },
+                        ClassFieldInBody::InitializedWithoutAssign =>
+                            ClassFieldDefinition::DefinedWithoutAssign {
+                                definition: flow_info.key,
+                            },
+                        ClassFieldInBody::Uninitialized => {
+                            let annotation = static_info.annot.unwrap_or_else(
+                                || panic!("A class field known in the body but uninitialized always has an annotation.")
+                            );
+                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
+                        }
+                    }
+                };
+                field_definitions.insert_hashed(name.owned(), (definition, static_info.range));
+            }
+        });
+        class_scope.method_defined_attributes().for_each(
+            |(name, method, InstanceAttribute(value, annotation, range))| {
+                if !field_definitions.contains_key_hashed(name.as_ref()) {
+                    field_definitions.insert_hashed(
+                        name,
+                        (
+                            ClassFieldDefinition::DefinedInMethod {
+                                value,
+                                annotation,
+                                method,
+                            },
+                            range,
+                        ),
+                    );
+                }
+            },
+        );
+        field_definitions
+    }
+
+    /// Check whether the current flow has a module import at a given name.
+    ///
+    /// Used when binding imports, because the semantics of multiple imports from
+    /// the same root (like `import foo.bar; import foo.baz`) are that the sub-modules
+    /// will be added as attributes of `foo`.
+    pub fn existing_module_import_at(&self, module_name: &Name) -> Option<Idx<Key>> {
+        match self.current().flow.info.get(module_name) {
+            Some(flow_info) if matches!(flow_info.style, FlowStyle::MergeableImport(..)) => {
+                Some(flow_info.key)
+            }
+            _ => None,
+        }
+    }
+
+    /// Look up the information needed to create a `Usage` binding for a read of a name
+    /// in the current scope stack.
+    pub fn look_up_name_for_read(&self, name: Hashed<&Name>, kind: LookupKind) -> NameReadInfo {
+        let mut barrier = false;
+        let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
+        for (lookup_depth, scope) in self.iter_rev().enumerate() {
+            let is_class = matches!(scope.kind, ScopeKind::Class(_));
+            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
+            //   The scope of names defined in a class block is limited to the
+            //   class block; it does not extend to the code blocks of
+            //   methods. This includes comprehensions and generator
+            //   expressions, but it does not include annotation scopes, which
+            //   have access to their enclosing class scopes."""
+            if is_class
+                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
+            {
+                // Note: class body scopes have `barrier = false`, so skipping the barrier update is okay.
+                continue;
+            }
+
+            if let Some(flow_info) = scope.flow.info.get_hashed(name)
+                && !barrier
+            {
+                return NameReadInfo::Flow(flow_info.key);
+            }
+            // Class body scopes are dynamic, not static, so if we don't find a name in the
+            // current flow we keep looking. In every other kind of scope, anything the Python
+            // compiler has identified as local shadows enclosing scopes, so we should prefer
+            // inner static lookups to outer flow lookups.
+            if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
+                match kind {
+                    LookupKind::Regular => {
+                        return NameReadInfo::Anywhere(static_info.as_key(name.into_key()));
+                    }
+                    LookupKind::Mutable => {
+                        if barrier {
+                            return NameReadInfo::Error(LookupError::NotMutable);
+                        }
+                    }
+                }
+            }
+            barrier = barrier || scope.barrier;
+        }
+        NameReadInfo::Error(LookupError::NotFound)
+    }
+
+    /// Look up a name for a write operation.
+    ///
+    /// Panics if the name is not found in static scopes - we rely on this panic to
+    /// ensure that the scope construction powered by Definitions always includes
+    /// names that the bindings stage believes are defined. If you encounter a panic
+    /// here, most likely the two have diverged.
+    pub fn look_up_name_for_write(
+        &self,
+        name: Hashed<&Name>,
+        module_info: &ModuleInfo,
+    ) -> NameWriteInfo {
+        let static_info = self.current().stat.0.get_hashed(name).unwrap_or_else(|| {
+            let module = module_info.name();
+            panic!("Name `{name}` not found in static scope of module `{module}`")
+        });
+        NameWriteInfo {
+            annotation: static_info.annot,
+            anywhere_range: if static_info.count > 1 {
+                Some(static_info.range)
+            } else {
+                None
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1155,6 +1330,25 @@ pub struct ScopeTrace(ScopeTreeNode);
 impl ScopeTrace {
     pub fn toplevel_scope(&self) -> &Scope {
         &self.0.scope
+    }
+
+    pub fn exportables(&self) -> SmallMap<Name, Exportable> {
+        let mut exportables = SmallMap::new();
+        let scope = self.toplevel_scope();
+        for (name, static_info) in scope.stat.0.iter_hashed() {
+            let exportable = match scope.flow.info.get_hashed(name) {
+                Some(FlowInfo { key, .. }) => {
+                    if let Some(ann) = static_info.annot {
+                        Exportable::Initialized(*key, Some(ann))
+                    } else {
+                        Exportable::Initialized(*key, None)
+                    }
+                }
+                None => Exportable::Uninitialized(static_info.as_key(name.into_key())),
+            };
+            exportables.insert_hashed(name.owned(), exportable);
+        }
+        exportables
     }
 
     pub fn available_definitions(

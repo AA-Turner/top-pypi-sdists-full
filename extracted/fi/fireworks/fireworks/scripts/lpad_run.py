@@ -33,6 +33,7 @@ from fireworks.fw_config import (
     RUN_EXPIRATION_SECS,
     WEBSERVER_HOST,
     WEBSERVER_PORT,
+    STREAM_LOGLEVEL
 )
 from fireworks.user_objects.firetasks.script_task import ScriptTask
 from fireworks.utilities.fw_serializers import DATETIME_HANDLER, recursive_dict
@@ -752,7 +753,7 @@ def recover_offline(args: Namespace) -> None:
     recovered_fws = []
 
     for launch in lp.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1, "fw_id": 1}):
-        if fworker_name and lp.launches.count({"launch_id": launch["launch_id"], "fworker.name": fworker_name}) == 0:
+        if fworker_name and lp.launches.count_documents({"launch_id": launch["launch_id"], "fworker.name": fworker_name}) == 0:
             continue
         fw = lp.recover_offline(launch["launch_id"], args.ignore_errors, args.print_errors)
         if fw:
@@ -1368,7 +1369,7 @@ def lpad(argv: Sequence[str] | None = None) -> int:
         default=CONFIG_FILE_DIR,
     )
     parser.add_argument("--logdir", help="path to a directory for logging")
-    parser.add_argument("--loglvl", help="level to print log messages", default="INFO")
+    parser.add_argument("--loglvl", help="level to print log messages", default=STREAM_LOGLEVEL)
     parser.add_argument("-s", "--silencer", help="shortcut to mute log messages", action="store_true")
 
     webgui_parser = subparsers.add_parser("webgui", help="launch the web GUI")
@@ -1415,9 +1416,16 @@ def lpad(argv: Sequence[str] | None = None) -> int:
     recover_parser.set_defaults(func=recover_offline)
 
     forget_parser = subparsers.add_parser("forget_offline", help="forget offline workflows")
+    forget_parser.add_argument(*fw_id_args, **fw_id_kwargs)
     forget_parser.add_argument("-n", "--name", help="name")
     forget_parser.add_argument(*state_args, **state_kwargs)
     forget_parser.add_argument(*query_args, **query_kwargs)
+    forget_parser.add_argument(*launches_mode_args, **launches_mode_kwargs)    
+    forget_parser.add_argument(
+        "--password",
+        help="Today's date, e.g. 2012-02-25. Password or positive response to "
+        f"input prompt required when modifying more than {PW_CHECK_NUM} entries.",
+    )    
     forget_parser.set_defaults(func=forget_offline)
 
     # admin commands

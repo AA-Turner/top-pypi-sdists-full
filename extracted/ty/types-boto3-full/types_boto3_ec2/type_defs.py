@@ -880,6 +880,8 @@ __all__ = (
     "CreateVpnConnectionRouteRequestTypeDef",
     "CreateVpnGatewayRequestTypeDef",
     "CreateVpnGatewayResultTypeDef",
+    "CreationDateConditionRequestTypeDef",
+    "CreationDateConditionTypeDef",
     "CreditSpecificationRequestTypeDef",
     "CreditSpecificationTypeDef",
     "CustomerGatewayTypeDef",
@@ -1055,6 +1057,8 @@ __all__ = (
     "DeleteVpnConnectionRequestTypeDef",
     "DeleteVpnConnectionRouteRequestTypeDef",
     "DeleteVpnGatewayRequestTypeDef",
+    "DeprecationTimeConditionRequestTypeDef",
+    "DeprecationTimeConditionTypeDef",
     "DeprovisionByoipCidrRequestTypeDef",
     "DeprovisionByoipCidrResultTypeDef",
     "DeprovisionIpamByoasnRequestTypeDef",
@@ -4356,6 +4360,14 @@ class CreateVpnConnectionRouteRequestTypeDef(TypedDict):
     VpnConnectionId: str
 
 
+class CreationDateConditionRequestTypeDef(TypedDict):
+    MaximumDaysSinceCreated: NotRequired[int]
+
+
+class CreationDateConditionTypeDef(TypedDict):
+    MaximumDaysSinceCreated: NotRequired[int]
+
+
 class CreditSpecificationRequestTypeDef(TypedDict):
     CpuCredits: str
 
@@ -4925,6 +4937,14 @@ class DeleteVpnConnectionRouteRequestTypeDef(TypedDict):
 class DeleteVpnGatewayRequestTypeDef(TypedDict):
     VpnGatewayId: str
     DryRun: NotRequired[bool]
+
+
+class DeprecationTimeConditionRequestTypeDef(TypedDict):
+    MaximumDaysSinceDeprecated: NotRequired[int]
+
+
+class DeprecationTimeConditionTypeDef(TypedDict):
+    MaximumDaysSinceDeprecated: NotRequired[int]
 
 
 class DeprovisionByoipCidrRequestTypeDef(TypedDict):
@@ -6180,10 +6200,6 @@ class GetAllowedImagesSettingsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
-class ImageCriterionTypeDef(TypedDict):
-    ImageProviders: NotRequired[List[str]]
-
-
 class GetAssociatedEnclaveCertificateIamRolesRequestTypeDef(TypedDict):
     CertificateArn: str
     DryRun: NotRequired[bool]
@@ -6525,10 +6541,6 @@ class LaunchPermissionTypeDef(TypedDict):
     OrganizationalUnitArn: NotRequired[str]
     UserId: NotRequired[str]
     Group: NotRequired[Literal["all"]]
-
-
-class ImageCriterionRequestTypeDef(TypedDict):
-    ImageProviders: NotRequired[Sequence[str]]
 
 
 class UserBucketTypeDef(TypedDict):
@@ -11308,6 +11320,22 @@ class DeregisterImageResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ImageCriterionRequestTypeDef(TypedDict):
+    ImageProviders: NotRequired[Sequence[str]]
+    MarketplaceProductCodes: NotRequired[Sequence[str]]
+    ImageNames: NotRequired[Sequence[str]]
+    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionRequestTypeDef]
+    CreationDateCondition: NotRequired[CreationDateConditionRequestTypeDef]
+
+
+class ImageCriterionTypeDef(TypedDict):
+    ImageProviders: NotRequired[List[str]]
+    MarketplaceProductCodes: NotRequired[List[str]]
+    ImageNames: NotRequired[List[str]]
+    DeprecationTimeCondition: NotRequired[DeprecationTimeConditionTypeDef]
+    CreationDateCondition: NotRequired[CreationDateConditionTypeDef]
+
+
 class DeregisterInstanceEventNotificationAttributesRequestTypeDef(TypedDict):
     InstanceTagAttribute: DeregisterInstanceTagAttributeRequestTypeDef
     DryRun: NotRequired[bool]
@@ -14610,13 +14638,6 @@ class FpgaImageTypeDef(TypedDict):
     InstanceTypes: NotRequired[List[str]]
 
 
-class GetAllowedImagesSettingsResultTypeDef(TypedDict):
-    State: str
-    ImageCriteria: List[ImageCriterionTypeDef]
-    ManagedBy: ManagedByType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetAssociatedIpv6PoolCidrsResultTypeDef(TypedDict):
     Ipv6CidrAssociations: List[Ipv6CidrAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14759,11 +14780,6 @@ class IamInstanceProfileAssociationTypeDef(TypedDict):
 class LaunchPermissionModificationsTypeDef(TypedDict):
     Add: NotRequired[Sequence[LaunchPermissionTypeDef]]
     Remove: NotRequired[Sequence[LaunchPermissionTypeDef]]
-
-
-class ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef(TypedDict):
-    ImageCriteria: NotRequired[Sequence[ImageCriterionRequestTypeDef]]
-    DryRun: NotRequired[bool]
 
 
 class ImageDiskContainerTypeDef(TypedDict):
@@ -17136,6 +17152,18 @@ class DeleteLaunchTemplateVersionsResultTypeDef(TypedDict):
 class DeleteQueuedReservedInstancesResultTypeDef(TypedDict):
     SuccessfulQueuedPurchaseDeletions: List[SuccessfulQueuedPurchaseDeletionTypeDef]
     FailedQueuedPurchaseDeletions: List[FailedQueuedPurchaseDeletionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef(TypedDict):
+    ImageCriteria: NotRequired[Sequence[ImageCriterionRequestTypeDef]]
+    DryRun: NotRequired[bool]
+
+
+class GetAllowedImagesSettingsResultTypeDef(TypedDict):
+    State: str
+    ImageCriteria: List[ImageCriterionTypeDef]
+    ManagedBy: ManagedByType
     ResponseMetadata: ResponseMetadataTypeDef
 
 

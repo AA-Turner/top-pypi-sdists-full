@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: choreographer
-Version: 1.1.0
+Version: 1.1.1
 Summary: Devtools Protocol implementation for chrome.
 Author-email: Andrew Pikul <ajpikul@gmail.com>, Neyberson Atencio <neyberatencio@gmail.com>
 Maintainer-email: Andrew Pikul <ajpikul@gmail.com>

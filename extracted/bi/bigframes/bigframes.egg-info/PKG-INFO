@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.20.0
+Version: 2.21.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://github.com/googleapis/python-bigquery-dataframes
 Author: Google LLC

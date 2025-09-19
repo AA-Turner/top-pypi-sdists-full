@@ -11,7 +11,6 @@ import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
@@ -230,7 +229,7 @@ class Assistants(Authenticated):
                 if assistant["assistant_id"] == assistant_id and (
                     not filters or _check_filter_match(assistant["metadata"], filters)
                 ):
-                    yield assistant
+                    yield copy.deepcopy(assistant)
 
         return _yield_result()
 
@@ -1256,7 +1255,7 @@ class Threads(Authenticated):
                 "thread_id": new_thread_id,
                 "created_at": datetime.now(tz=UTC),
                 "updated_at": datetime.now(tz=UTC),
-                "metadata": deepcopy(original_thread["metadata"]),
+                "metadata": copy.deepcopy(original_thread["metadata"]),
                 "status": "idle",
                 "config": {},
             }
@@ -2422,19 +2421,21 @@ class Runs(Authenticated):
         last_chunk: bytes | None = None
         # wait for the run to complete
         # Rely on this join's auth
-        async for mode, chunk, _ in Runs.Stream.join(
-            run_id,
-            thread_id=thread_id,
-            ctx=ctx,
-            ignore_404=True,
-            stream_mode=["values", "updates", "error"],
-        ):
-            if mode == b"values":
-                last_chunk = chunk
-            elif mode == b"updates" and b"__interrupt__" in chunk:
-                last_chunk = chunk
-            elif mode == b"error":
-                last_chunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+        async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
+            async for mode, chunk, _ in Runs.Stream.join(
+                run_id,
+                thread_id=thread_id,
+                ctx=ctx,
+                ignore_404=True,
+                stream_channel=sub,
+                stream_mode=["values", "updates", "error"],
+            ):
+                if mode == b"values":
+                    last_chunk = chunk
+                elif mode == b"updates" and b"__interrupt__" in chunk:
+                    last_chunk = chunk
+                elif mode == b"error":
+                    last_chunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
         # if we received a final chunk, return it
         if last_chunk is not None:
             # ie. if the run completed while we were waiting for it
@@ -2709,10 +2710,10 @@ class Runs(Authenticated):
         async def join(
             run_id: UUID,
             *,
+            stream_channel: asyncio.Queue,
             thread_id: UUID,
             ignore_404: bool = False,
             cancel_on_disconnect: bool = False,
-            stream_channel: asyncio.Queue | None = None,
             stream_mode: list[StreamMode] | StreamMode | None = None,
             last_event_id: str | None = None,
             ctx: Auth.types.BaseAuthContext | None = None,
@@ -2721,12 +2722,7 @@ class Runs(Authenticated):
             from langgraph_api.asyncio import create_task
             from langgraph_api.serde import json_loads
 
-            queue = (
-                stream_channel
-                if stream_channel
-                else await Runs.Stream.subscribe(run_id, thread_id)
-            )
-
+            queue = stream_channel
             try:
                 async with connect() as conn:
                     filters = await Runs.handle_event(

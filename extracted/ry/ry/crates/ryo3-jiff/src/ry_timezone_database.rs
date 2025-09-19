@@ -2,7 +2,8 @@
 use crate::{RyTimeZone, errors::map_py_value_err};
 use jiff::tz::TimeZoneDatabase;
 use pyo3::prelude::*;
-#[pyclass(name = "TimeZoneDatabase", module = "ry.ryo3", frozen)]
+#[pyclass(name = "TimeZoneDatabase", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug, Clone)]
 pub struct RyTimeZoneDatabase {
     inner: Option<TimeZoneDatabase>,
@@ -34,7 +35,7 @@ impl RyTimeZoneDatabase {
     }
 
     #[pyo3(signature = (name, err = false))]
-    pub fn get(&self, name: &str, err: bool) -> PyResult<Option<RyTimeZone>> {
+    fn get(&self, name: &str, err: bool) -> PyResult<Option<RyTimeZone>> {
         let tz_res = self.db().get(name).map(RyTimeZone::from);
         match tz_res {
             Ok(tz) => Ok(Some(tz)),
@@ -50,7 +51,7 @@ impl RyTimeZoneDatabase {
         }
     }
 
-    pub fn available(&self) -> Vec<String> {
+    fn available(&self) -> Vec<String> {
         self.db()
             .available()
             .map(|tz_name| tz_name.to_string())

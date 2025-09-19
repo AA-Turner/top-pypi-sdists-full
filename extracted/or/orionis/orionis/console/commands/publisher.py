@@ -15,11 +15,11 @@ from orionis.metadata.framework import VERSION
 
 class PublisherCommand(BaseCommand):
     """
-    PublisherCommand is a console command for automating the process of publishing a Python package to the Orionis repository (PyPI).
+    Automates the process of testing, versioning, building, and publishing a Python package to the Orionis (PyPI) repository.
 
-    This command performs the following steps:
-        1. Runs the project's test suite and aborts if there are any test failures or errors.
-        2. Bumps the minor version number in the file where the VERSION constant is defined.
+    This command performs the following workflow:
+        1. Executes the project's test suite and aborts if any tests fail or error.
+        2. Increments the minor version number in the file where the VERSION constant is defined.
         3. Commits and pushes changes to the Git repository if there are modifications.
         4. Builds the package distributions (source and wheel) using `setup.py`.
         5. Publishes the built distributions to PyPI using Twine and a token from environment variables.
@@ -30,7 +30,7 @@ class PublisherCommand(BaseCommand):
     timestamps : bool
         Indicates whether timestamps will be shown in the command output.
     signature : str
-        Command signature ("publisher").
+        Command signature for invocation.
     description : str
         Command description.
 

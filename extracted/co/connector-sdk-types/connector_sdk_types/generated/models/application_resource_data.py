@@ -24,7 +24,7 @@ class ApplicationResourceData(BaseModel):
     Resource data describing a resource within the connector.
     """
 
-    application_id: StrictStr
+    application_instance_id: StrictStr
     integration_specific_id: StrictStr = Field(
         description='The unique ID within this application of a resource.  May only be unique within the tenant and the resource type.  There will always be a global "account" (i.e. tenant) resource for things like tenant-wide roles.'
     )
@@ -50,7 +50,7 @@ class ApplicationResourceData(BaseModel):
         populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
-        json_schema_extra={"x-unique-hash": ["integration_specific_id", "application_id"]},
+        json_schema_extra={"x-unique-hash": ["integration_specific_id", "application_instance_id"]},
     )
 
     def to_str(self) -> str:
@@ -99,12 +99,12 @@ class ApplicationResourceData(BaseModel):
         return _obj
 
     def __hash__(self):
-        return hash((self.integration_specific_id, self.application_id))
+        return hash((self.integration_specific_id, self.application_instance_id))
 
     def __eq__(self, other):
         if not isinstance(other, ApplicationResourceData):
             return False
-        return (self.integration_specific_id, self.application_id) == (
+        return (self.integration_specific_id, self.application_instance_id) == (
             other.integration_specific_id,
-            other.application_id,
+            other.application_instance_id,
         )

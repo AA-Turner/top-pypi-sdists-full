@@ -17,7 +17,7 @@ from langgraph_api.graph import get_assistant_id, get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import ASSISTANT_FIELDS
-from langgraph_api.serde import ajson_loads
+from langgraph_api.serde import json_loads
 from langgraph_api.utils import (
     fetchone,
     get_pagination_headers,
@@ -240,7 +240,7 @@ async def get_assistant_graph(
     async with connect() as conn:
         assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
-    config = await ajson_loads(assistant["config"])
+    config = json_loads(assistant["config"])
     configurable = config.setdefault("configurable", {})
     configurable.update(get_configurable_headers(request.headers))
 
@@ -297,7 +297,7 @@ async def get_assistant_subgraphs(
     async with connect() as conn:
         assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
-        config = await ajson_loads(assistant["config"])
+        config = json_loads(assistant["config"])
         configurable = config.setdefault("configurable", {})
         configurable.update(get_configurable_headers(request.headers))
         async with get_graph(
@@ -345,7 +345,7 @@ async def get_assistant_schemas(
         assistant_ = await Assistants.get(conn, assistant_id)
         # TODO Implementa  cache so we can de-dent and release this connection.
         assistant = await fetchone(assistant_)
-        config = await ajson_loads(assistant["config"])
+        config = json_loads(assistant["config"])
         configurable = config.setdefault("configurable", {})
         configurable.update(get_configurable_headers(request.headers))
         async with get_graph(

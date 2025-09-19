@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json_repair
-Version: 0.50.1
+Version: 0.51.0
 Summary: A package to repair broken json strings
 Author-email: Stefano Baccianella <4247706+mangiucugna@users.noreply.github.com>
 License-Expression: MIT
@@ -269,6 +269,7 @@ You will need owner access to this repository
 - Ruby: https://github.com/sashazykov/json-repair-rb
 - Rust: https://github.com/oramasearch/llm_json
 - R: https://github.com/cgxjdzz/jsonRepair
+- Java: https://github.com/du00cs/json-repairj
 ---
 ## Star History
 

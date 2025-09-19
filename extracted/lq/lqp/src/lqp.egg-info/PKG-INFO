@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lqp
-Version: 0.1.14
+Version: 0.1.15
 Summary: A parser for Logical Query Protocol (LQP) S-expressions into Protobuf
 Author-email: Niko Göbel <nikolas.goebel@relational.ai>, David Zhao <david.zhao@relational.ai>, Minsung Cho <minsung.cho@relational.ai>, Martin McGrane <martin.mcgrane@relational.ai>, Abdul Zreika <abdul.zreika@relational.ai>
 Description-Content-Type: text/markdown
@@ -20,33 +20,89 @@ and JSON formats.
 ## Usage
 
 ```
-usage: lqp [-h] [--bin BIN] [--json JSON] input_directory
+usage: lqp [-h] [--no-validation] [--bin] [--json] [--out] input
 
 Parse LQP S-expression into Protobuf binary and JSON files.
 
 positional arguments:
-  input_directory  path to the input LQP S-expression files
+  input            directory holding .lqp files, or a single .lqp file
 
 options:
   -h, --help       show this help message and exit
-  --bin BIN        output directory for the binary encoded protobuf
-  --json JSON      output directory for the JSON encoded protobuf
+  --no-validation  don't validate parsed LQP
+  --bin            encode emitted ProtoBuf into binary
+  --json           encode emitted ProtoBuf into JSON
+  --out            write emitted binary or JSON to stdout
+```
+
+## Examples
+
+```bash
+lqp --no-validation --bin --json foo/bar.lqp
+```
+Will create two files in `foo/` named `bar.bin` and `bar.json` containing the binary and JSON encodings of the parsed ProtoBuf.
+In this case, the parser will not go through the client-side validations we do to check for well-formed LQP.
+
+```bash
+lqp --bin --json foo
+```
+This will look for `.lqp` files both at the top-level and inside an `lqp` subdirectory.
+Then it will organize the generated binary and JSON into folders, as well as the original found files. So, for example, if `foo` has this structure:
+
+```
+foo/
+| bar.lqp
+| lqp/
+| | baz.lqp
+```
+Then after executing the above command, it should have this structure:
+
+```
+foo/
+| bin/
+| | bar.bin
+| | baz.bin
+| json/
+| | bar.json
+| | baz.json
+| lqp/
+| | bar.lqp
+| | baz.lqp
+```
+
+```bash
+lqp --bin --out foo.lqp
+```
+Will write the ProtoBuf binary parsed from the `foo.lqp` to stdout. The result can be piped
+into the desired output file, e.g., `lqp --bin --out foo.lqp > foo.bin`.
+
+## Setup
+It is recommended to use a Python `virtualenv`. Set one up in the `python-tools` directory
+by:
+```bash
+cd python-tools
+python -m venv .venv
+```
+
+Then activate the virtual environment:
+```bash
+source .venv/bin/activate
 ```
 
 ## Build
 
 Install preprequisites:
-```
+```bash
 pip install pip build setuptools wheel
 ```
 
 Then build the module itself:
-```
+```bash
 python -m build
 ```
 
 Install locally:
-```
+```bash
 pip install [--user] [--force-reinstall] dist/lqp-0.1.0-py3-none-any.whl
 ```
 
@@ -55,13 +111,13 @@ pip install [--user] [--force-reinstall] dist/lqp-0.1.0-py3-none-any.whl
 Within `python-tools`,
 
 Setup:
-```
+```bash
 python -m pip install -e ".[test]"
 python -m pip install pyrefly
 ```
 
 Running tests:
-```
+```bash
 python -m pytest
 ```
 
@@ -71,7 +127,7 @@ files get picked up automatically. To generate or update the corresponding outpu
 `--snapshot-update` flag.
 
 Type checking:
-```
+```bash
 pyrefly check
 ```
 

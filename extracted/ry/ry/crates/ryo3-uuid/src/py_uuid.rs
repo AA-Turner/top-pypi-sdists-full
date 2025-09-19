@@ -13,7 +13,9 @@ pub(crate) const RFC_4122: &str = "specified in RFC 4122";
 pub(crate) const RESERVED_MICROSOFT: &str = "reserved for Microsoft compatibility";
 pub(crate) const RESERVED_FUTURE: &str = "reserved for future definition";
 
-#[pyclass(name = "UUID", module = "ry.uuid", frozen, weakref)]
+// TODO: module name fix must be `ry.uuid` fix submodule name
+#[pyclass(name = "UUID", frozen, weakref)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.uuid"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 pub struct PyUuid(uuid::Uuid);
@@ -162,7 +164,7 @@ impl PyUuid {
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<bool> {
-        if let Ok(rs_uuid) = other.downcast::<Self>() {
+        if let Ok(rs_uuid) = other.cast::<Self>() {
             let other = rs_uuid.get();
 
             match op {

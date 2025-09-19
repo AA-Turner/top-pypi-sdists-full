@@ -3,7 +3,8 @@ use pyo3::prelude::*;
 use pyo3::types::PyString;
 use std::path::PathBuf;
 
-#[pyclass(name = "Pattern", module = "ry.ryo3", frozen)]
+#[pyclass(name = "Pattern", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug, Clone)]
 pub struct PyPattern(pub(crate) glob::Pattern);
 
@@ -36,7 +37,7 @@ impl PyPattern {
             !case_sensitive || require_literal_separator || require_literal_leading_dot;
 
         // if string...
-        if let Ok(s) = ob.downcast::<PyString>()?.to_str() {
+        if let Ok(s) = ob.cast::<PyString>()?.to_str() {
             if use_match_with {
                 Ok(self.0.matches_with(
                     s,

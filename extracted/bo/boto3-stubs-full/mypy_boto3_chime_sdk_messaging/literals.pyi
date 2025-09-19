@@ -35,6 +35,7 @@ __all__ = (
     "FallbackActionType",
     "InvocationTypeType",
     "MessagingDataTypeType",
+    "NetworkTypeType",
     "PushNotificationTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -72,6 +73,7 @@ ExpirationCriterionType = Literal["CREATED_TIMESTAMP", "LAST_MESSAGE_TIMESTAMP"]
 FallbackActionType = Literal["ABORT", "CONTINUE"]
 InvocationTypeType = Literal["ASYNC"]
 MessagingDataTypeType = Literal["Channel", "ChannelMessage"]
+NetworkTypeType = Literal["DUAL_STACK", "IPV4_ONLY"]
 PushNotificationTypeType = Literal["DEFAULT", "VOIP"]
 SearchFieldKeyType = Literal["MEMBERS"]
 SearchFieldOperatorType = Literal["EQUALS", "INCLUDES"]

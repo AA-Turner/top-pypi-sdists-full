@@ -43210,6 +43210,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _numeric: Optional["scout_compute_api_NumericPlot"] = None
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None
+    _single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None
     _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
     _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
     _enum: Optional["scout_compute_api_EnumPlot"] = None
@@ -43239,6 +43240,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericPlot),
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'numeric_point': ConjureFieldDefinition('numericPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint]),
+            'single_point': ConjureFieldDefinition('singlePoint', OptionalTypeWrapper[scout_compute_api_SinglePoint]),
             'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
             'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumPlot),
@@ -43268,6 +43270,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             numeric: Optional["scout_compute_api_NumericPlot"] = None,
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None,
+            single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None,
             arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
             arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
             enum: Optional["scout_compute_api_EnumPlot"] = None,
@@ -43290,7 +43293,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (single_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -43311,6 +43314,9 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if numeric_point is not None:
                 self._numeric_point = numeric_point
                 self._type = 'numericPoint'
+            if single_point is not None:
+                self._single_point = single_point
+                self._type = 'singlePoint'
             if arrow_numeric is not None:
                 self._arrow_numeric = arrow_numeric
                 self._type = 'arrowNumeric'
@@ -43399,6 +43405,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._numeric_point = numeric_point
             self._type = 'numericPoint'
+        elif type_of_union == 'singlePoint':
+            if single_point is None:
+                raise ValueError('a union value must not be None')
+            self._single_point = single_point
+            self._type = 'singlePoint'
         elif type_of_union == 'arrowNumeric':
             if arrow_numeric is None:
                 raise ValueError('a union value must not be None')
@@ -43520,6 +43531,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
         return self._numeric_point
 
     @builtins.property
+    def single_point(self) -> Optional[Optional["scout_compute_api_SinglePoint"]]:
+        return self._single_point
+
+    @builtins.property
     def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
         return self._arrow_numeric
 
@@ -43610,6 +43625,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._bucketed_numeric(self.bucketed_numeric)
         if self._type == 'numericPoint' and self.numeric_point is not None:
             return visitor._numeric_point(self.numeric_point)
+        if self._type == 'singlePoint' and self.single_point is not None:
+            return visitor._single_point(self.single_point)
         if self._type == 'arrowNumeric' and self.arrow_numeric is not None:
             return visitor._arrow_numeric(self.arrow_numeric)
         if self._type == 'arrowBucketedNumeric' and self.arrow_bucketed_numeric is not None:
@@ -43679,6 +43696,10 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _numeric_point(self, numeric_point: Optional["scout_compute_api_NumericPoint"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _single_point(self, single_point: Optional["scout_compute_api_SinglePoint"]) -> Any:
         pass
 
     @abstractmethod
@@ -53207,40 +53228,52 @@ scout_compute_api_SelectNewestPointsSeries.__module__ = "nominal_api.scout_compu
 
 class scout_compute_api_SelectValue(ConjureUnionType):
     _first_point: Optional["scout_compute_api_Series"] = None
+    _first_value_point: Optional["scout_compute_api_Series"] = None
     _first_range: Optional["scout_compute_api_RangeSeries"] = None
     _last_point: Optional["scout_compute_api_Series"] = None
+    _last_value_point: Optional["scout_compute_api_Series"] = None
     _last_range: Optional["scout_compute_api_RangeSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'first_point': ConjureFieldDefinition('firstPoint', scout_compute_api_Series),
+            'first_value_point': ConjureFieldDefinition('firstValuePoint', scout_compute_api_Series),
             'first_range': ConjureFieldDefinition('firstRange', scout_compute_api_RangeSeries),
             'last_point': ConjureFieldDefinition('lastPoint', scout_compute_api_Series),
+            'last_value_point': ConjureFieldDefinition('lastValuePoint', scout_compute_api_Series),
             'last_range': ConjureFieldDefinition('lastRange', scout_compute_api_RangeSeries)
         }
 
     def __init__(
             self,
             first_point: Optional["scout_compute_api_Series"] = None,
+            first_value_point: Optional["scout_compute_api_Series"] = None,
             first_range: Optional["scout_compute_api_RangeSeries"] = None,
             last_point: Optional["scout_compute_api_Series"] = None,
+            last_value_point: Optional["scout_compute_api_Series"] = None,
             last_range: Optional["scout_compute_api_RangeSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (first_point is not None) + (first_range is not None) + (last_point is not None) + (last_range is not None) != 1:
+            if (first_point is not None) + (first_value_point is not None) + (first_range is not None) + (last_point is not None) + (last_value_point is not None) + (last_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if first_point is not None:
                 self._first_point = first_point
                 self._type = 'firstPoint'
+            if first_value_point is not None:
+                self._first_value_point = first_value_point
+                self._type = 'firstValuePoint'
             if first_range is not None:
                 self._first_range = first_range
                 self._type = 'firstRange'
             if last_point is not None:
                 self._last_point = last_point
                 self._type = 'lastPoint'
+            if last_value_point is not None:
+                self._last_value_point = last_value_point
+                self._type = 'lastValuePoint'
             if last_range is not None:
                 self._last_range = last_range
                 self._type = 'lastRange'
@@ -53250,6 +53283,11 @@ class scout_compute_api_SelectValue(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._first_point = first_point
             self._type = 'firstPoint'
+        elif type_of_union == 'firstValuePoint':
+            if first_value_point is None:
+                raise ValueError('a union value must not be None')
+            self._first_value_point = first_value_point
+            self._type = 'firstValuePoint'
         elif type_of_union == 'firstRange':
             if first_range is None:
                 raise ValueError('a union value must not be None')
@@ -53260,6 +53298,11 @@ class scout_compute_api_SelectValue(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._last_point = last_point
             self._type = 'lastPoint'
+        elif type_of_union == 'lastValuePoint':
+            if last_value_point is None:
+                raise ValueError('a union value must not be None')
+            self._last_value_point = last_value_point
+            self._type = 'lastValuePoint'
         elif type_of_union == 'lastRange':
             if last_range is None:
                 raise ValueError('a union value must not be None')
@@ -53271,12 +53314,20 @@ class scout_compute_api_SelectValue(ConjureUnionType):
         return self._first_point
 
     @builtins.property
+    def first_value_point(self) -> Optional["scout_compute_api_Series"]:
+        return self._first_value_point
+
+    @builtins.property
     def first_range(self) -> Optional["scout_compute_api_RangeSeries"]:
         return self._first_range
 
     @builtins.property
     def last_point(self) -> Optional["scout_compute_api_Series"]:
         return self._last_point
+
+    @builtins.property
+    def last_value_point(self) -> Optional["scout_compute_api_Series"]:
+        return self._last_value_point
 
     @builtins.property
     def last_range(self) -> Optional["scout_compute_api_RangeSeries"]:
@@ -53287,10 +53338,14 @@ class scout_compute_api_SelectValue(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_api_SelectValueVisitor'.format(visitor.__class__.__name__))
         if self._type == 'firstPoint' and self.first_point is not None:
             return visitor._first_point(self.first_point)
+        if self._type == 'firstValuePoint' and self.first_value_point is not None:
+            return visitor._first_value_point(self.first_value_point)
         if self._type == 'firstRange' and self.first_range is not None:
             return visitor._first_range(self.first_range)
         if self._type == 'lastPoint' and self.last_point is not None:
             return visitor._last_point(self.last_point)
+        if self._type == 'lastValuePoint' and self.last_value_point is not None:
+            return visitor._last_value_point(self.last_value_point)
         if self._type == 'lastRange' and self.last_range is not None:
             return visitor._last_range(self.last_range)
 
@@ -53307,11 +53362,19 @@ class scout_compute_api_SelectValueVisitor:
         pass
 
     @abstractmethod
+    def _first_value_point(self, first_value_point: "scout_compute_api_Series") -> Any:
+        pass
+
+    @abstractmethod
     def _first_range(self, first_range: "scout_compute_api_RangeSeries") -> Any:
         pass
 
     @abstractmethod
     def _last_point(self, last_point: "scout_compute_api_Series") -> Any:
+        pass
+
+    @abstractmethod
+    def _last_value_point(self, last_value_point: "scout_compute_api_Series") -> Any:
         pass
 
     @abstractmethod
@@ -53767,6 +53830,45 @@ on SciPy output.
 scout_compute_api_SignalFilterSeries.__name__ = "SignalFilterSeries"
 scout_compute_api_SignalFilterSeries.__qualname__ = "SignalFilterSeries"
 scout_compute_api_SignalFilterSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_SinglePoint(ConjureBeanType):
+    """A return type used for sending generic point value returns. Uses strings to pass Int64. 
+Precision loss is a warning that will be true if any of the referenced series are Int series and 
+the result is computed with casting values to doubles due to lack of ability to be done in clickhouse.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'timestamp': ConjureFieldDefinition('timestamp', api_Timestamp),
+            'value': ConjureFieldDefinition('value', scout_compute_api_Value),
+            'precision_loss': ConjureFieldDefinition('precisionLoss', bool)
+        }
+
+    __slots__: List[str] = ['_timestamp', '_value', '_precision_loss']
+
+    def __init__(self, precision_loss: bool, timestamp: "api_Timestamp", value: "scout_compute_api_Value") -> None:
+        self._timestamp = timestamp
+        self._value = value
+        self._precision_loss = precision_loss
+
+    @builtins.property
+    def timestamp(self) -> "api_Timestamp":
+        return self._timestamp
+
+    @builtins.property
+    def value(self) -> "scout_compute_api_Value":
+        return self._value
+
+    @builtins.property
+    def precision_loss(self) -> bool:
+        return self._precision_loss
+
+
+scout_compute_api_SinglePoint.__name__ = "SinglePoint"
+scout_compute_api_SinglePoint.__qualname__ = "SinglePoint"
+scout_compute_api_SinglePoint.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_SpatialDecimateStrategy(ConjureBeanType):
@@ -55368,6 +55470,148 @@ scout_compute_api_UnitsMissing.__qualname__ = "UnitsMissing"
 scout_compute_api_UnitsMissing.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Value(ConjureUnionType):
+    """A way to represent any general return value. Supports numeric, string, array, and struct returns.
+    """
+    _string_value: Optional[str] = None
+    _float64_value: Optional[float] = None
+    _int64_value: Optional[str] = None
+    _array_value: Optional[List[Optional["scout_compute_api_Value"]]] = None
+    _object_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'string_value': ConjureFieldDefinition('stringValue', str),
+            'float64_value': ConjureFieldDefinition('float64Value', float),
+            'int64_value': ConjureFieldDefinition('int64Value', str),
+            'array_value': ConjureFieldDefinition('arrayValue', List[OptionalTypeWrapper[scout_compute_api_Value]]),
+            'object_value': ConjureFieldDefinition('objectValue', Dict[str, OptionalTypeWrapper[scout_compute_api_Value]])
+        }
+
+    def __init__(
+            self,
+            string_value: Optional[str] = None,
+            float64_value: Optional[float] = None,
+            int64_value: Optional[str] = None,
+            array_value: Optional[List[Optional["scout_compute_api_Value"]]] = None,
+            object_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (string_value is not None) + (float64_value is not None) + (int64_value is not None) + (array_value is not None) + (object_value is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if string_value is not None:
+                self._string_value = string_value
+                self._type = 'stringValue'
+            if float64_value is not None:
+                self._float64_value = float64_value
+                self._type = 'float64Value'
+            if int64_value is not None:
+                self._int64_value = int64_value
+                self._type = 'int64Value'
+            if array_value is not None:
+                self._array_value = array_value
+                self._type = 'arrayValue'
+            if object_value is not None:
+                self._object_value = object_value
+                self._type = 'objectValue'
+
+        elif type_of_union == 'stringValue':
+            if string_value is None:
+                raise ValueError('a union value must not be None')
+            self._string_value = string_value
+            self._type = 'stringValue'
+        elif type_of_union == 'float64Value':
+            if float64_value is None:
+                raise ValueError('a union value must not be None')
+            self._float64_value = float64_value
+            self._type = 'float64Value'
+        elif type_of_union == 'int64Value':
+            if int64_value is None:
+                raise ValueError('a union value must not be None')
+            self._int64_value = int64_value
+            self._type = 'int64Value'
+        elif type_of_union == 'arrayValue':
+            if array_value is None:
+                raise ValueError('a union value must not be None')
+            self._array_value = array_value
+            self._type = 'arrayValue'
+        elif type_of_union == 'objectValue':
+            if object_value is None:
+                raise ValueError('a union value must not be None')
+            self._object_value = object_value
+            self._type = 'objectValue'
+
+    @builtins.property
+    def string_value(self) -> Optional[str]:
+        return self._string_value
+
+    @builtins.property
+    def float64_value(self) -> Optional[float]:
+        return self._float64_value
+
+    @builtins.property
+    def int64_value(self) -> Optional[str]:
+        return self._int64_value
+
+    @builtins.property
+    def array_value(self) -> Optional[List[Optional["scout_compute_api_Value"]]]:
+        return self._array_value
+
+    @builtins.property
+    def object_value(self) -> Optional[Dict[str, Optional["scout_compute_api_Value"]]]:
+        return self._object_value
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ValueVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ValueVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'stringValue' and self.string_value is not None:
+            return visitor._string_value(self.string_value)
+        if self._type == 'float64Value' and self.float64_value is not None:
+            return visitor._float64_value(self.float64_value)
+        if self._type == 'int64Value' and self.int64_value is not None:
+            return visitor._int64_value(self.int64_value)
+        if self._type == 'arrayValue' and self.array_value is not None:
+            return visitor._array_value(self.array_value)
+        if self._type == 'objectValue' and self.object_value is not None:
+            return visitor._object_value(self.object_value)
+
+
+scout_compute_api_Value.__name__ = "Value"
+scout_compute_api_Value.__qualname__ = "Value"
+scout_compute_api_Value.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ValueVisitor:
+
+    @abstractmethod
+    def _string_value(self, string_value: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _float64_value(self, float64_value: float) -> Any:
+        pass
+
+    @abstractmethod
+    def _int64_value(self, int64_value: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _array_value(self, array_value: List[Optional["scout_compute_api_Value"]]) -> Any:
+        pass
+
+    @abstractmethod
+    def _object_value(self, object_value: Dict[str, Optional["scout_compute_api_Value"]]) -> Any:
+        pass
+
+
+scout_compute_api_ValueVisitor.__name__ = "ValueVisitor"
+scout_compute_api_ValueVisitor.__qualname__ = "ValueVisitor"
+scout_compute_api_ValueVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ValueDifferenceSeries(ConjureBeanType):
     """Outputs a new series where each value is the difference between the values of the current and previous point.
     """
@@ -55444,6 +55688,24 @@ The first range can be open ended to negative infinity, and the last range can b
 scout_compute_api_ValueMapSeries.__name__ = "ValueMapSeries"
 scout_compute_api_ValueMapSeries.__qualname__ = "ValueMapSeries"
 scout_compute_api_ValueMapSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ValueStrategy(ConjureEnumType):
+
+    FIRST = 'FIRST'
+    '''FIRST'''
+    LAST = 'LAST'
+    '''LAST'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_ValueStrategy.__name__ = "ValueStrategy"
+scout_compute_api_ValueStrategy.__qualname__ = "ValueStrategy"
+scout_compute_api_ValueStrategy.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_VariableValue(ConjureUnionType):
@@ -63151,40 +63413,52 @@ scout_compute_resolved_api_SelectNewestPointsSeriesNode.__module__ = "nominal_ap
 
 class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
     _first_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
+    _first_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
     _first_range: Optional["scout_compute_resolved_api_RangesNode"] = None
     _last_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
+    _last_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
     _last_range: Optional["scout_compute_resolved_api_RangesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'first_point': ConjureFieldDefinition('firstPoint', scout_compute_resolved_api_SeriesNode),
+            'first_value_point': ConjureFieldDefinition('firstValuePoint', scout_compute_resolved_api_SeriesNode),
             'first_range': ConjureFieldDefinition('firstRange', scout_compute_resolved_api_RangesNode),
             'last_point': ConjureFieldDefinition('lastPoint', scout_compute_resolved_api_SeriesNode),
+            'last_value_point': ConjureFieldDefinition('lastValuePoint', scout_compute_resolved_api_SeriesNode),
             'last_range': ConjureFieldDefinition('lastRange', scout_compute_resolved_api_RangesNode)
         }
 
     def __init__(
             self,
             first_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
+            first_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
             first_range: Optional["scout_compute_resolved_api_RangesNode"] = None,
             last_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
+            last_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
             last_range: Optional["scout_compute_resolved_api_RangesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (first_point is not None) + (first_range is not None) + (last_point is not None) + (last_range is not None) != 1:
+            if (first_point is not None) + (first_value_point is not None) + (first_range is not None) + (last_point is not None) + (last_value_point is not None) + (last_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if first_point is not None:
                 self._first_point = first_point
                 self._type = 'firstPoint'
+            if first_value_point is not None:
+                self._first_value_point = first_value_point
+                self._type = 'firstValuePoint'
             if first_range is not None:
                 self._first_range = first_range
                 self._type = 'firstRange'
             if last_point is not None:
                 self._last_point = last_point
                 self._type = 'lastPoint'
+            if last_value_point is not None:
+                self._last_value_point = last_value_point
+                self._type = 'lastValuePoint'
             if last_range is not None:
                 self._last_range = last_range
                 self._type = 'lastRange'
@@ -63194,6 +63468,11 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._first_point = first_point
             self._type = 'firstPoint'
+        elif type_of_union == 'firstValuePoint':
+            if first_value_point is None:
+                raise ValueError('a union value must not be None')
+            self._first_value_point = first_value_point
+            self._type = 'firstValuePoint'
         elif type_of_union == 'firstRange':
             if first_range is None:
                 raise ValueError('a union value must not be None')
@@ -63204,6 +63483,11 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._last_point = last_point
             self._type = 'lastPoint'
+        elif type_of_union == 'lastValuePoint':
+            if last_value_point is None:
+                raise ValueError('a union value must not be None')
+            self._last_value_point = last_value_point
+            self._type = 'lastValuePoint'
         elif type_of_union == 'lastRange':
             if last_range is None:
                 raise ValueError('a union value must not be None')
@@ -63215,12 +63499,20 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
         return self._first_point
 
     @builtins.property
+    def first_value_point(self) -> Optional["scout_compute_resolved_api_SeriesNode"]:
+        return self._first_value_point
+
+    @builtins.property
     def first_range(self) -> Optional["scout_compute_resolved_api_RangesNode"]:
         return self._first_range
 
     @builtins.property
     def last_point(self) -> Optional["scout_compute_resolved_api_SeriesNode"]:
         return self._last_point
+
+    @builtins.property
+    def last_value_point(self) -> Optional["scout_compute_resolved_api_SeriesNode"]:
+        return self._last_value_point
 
     @builtins.property
     def last_range(self) -> Optional["scout_compute_resolved_api_RangesNode"]:
@@ -63231,10 +63523,14 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_SelectValueNodeVisitor'.format(visitor.__class__.__name__))
         if self._type == 'firstPoint' and self.first_point is not None:
             return visitor._first_point(self.first_point)
+        if self._type == 'firstValuePoint' and self.first_value_point is not None:
+            return visitor._first_value_point(self.first_value_point)
         if self._type == 'firstRange' and self.first_range is not None:
             return visitor._first_range(self.first_range)
         if self._type == 'lastPoint' and self.last_point is not None:
             return visitor._last_point(self.last_point)
+        if self._type == 'lastValuePoint' and self.last_value_point is not None:
+            return visitor._last_value_point(self.last_value_point)
         if self._type == 'lastRange' and self.last_range is not None:
             return visitor._last_range(self.last_range)
 
@@ -63251,11 +63547,19 @@ class scout_compute_resolved_api_SelectValueNodeVisitor:
         pass
 
     @abstractmethod
+    def _first_value_point(self, first_value_point: "scout_compute_resolved_api_SeriesNode") -> Any:
+        pass
+
+    @abstractmethod
     def _first_range(self, first_range: "scout_compute_resolved_api_RangesNode") -> Any:
         pass
 
     @abstractmethod
     def _last_point(self, last_point: "scout_compute_resolved_api_SeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _last_value_point(self, last_value_point: "scout_compute_resolved_api_SeriesNode") -> Any:
         pass
 
     @abstractmethod

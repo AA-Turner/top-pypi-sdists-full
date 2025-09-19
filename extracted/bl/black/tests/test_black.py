@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import io
+import itertools
 import logging
 import multiprocessing
 import os
@@ -14,6 +15,7 @@ from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, redirect_stderr
 from dataclasses import fields, replace
+from importlib.metadata import version as imp_version
 from io import BytesIO
 from pathlib import Path, WindowsPath
 from platform import system
@@ -25,6 +27,7 @@ import click
 import pytest
 from click import unstyle
 from click.testing import CliRunner
+from packaging.version import Version
 from pathspec import PathSpec
 
 import black
@@ -82,8 +85,7 @@ def cache_dir(exists: bool = True) -> Iterator[Path]:
 
 @contextmanager
 def event_loop() -> Iterator[None]:
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
+    loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         yield
@@ -114,7 +116,10 @@ class BlackRunner(CliRunner):
     """Make sure STDOUT and STDERR are kept separate when testing Black via its CLI."""
 
     def __init__(self) -> None:
-        super().__init__(mix_stderr=False)
+        if Version(imp_version("click")) >= Version("8.2.0"):
+            super().__init__()
+        else:
+            super().__init__(mix_stderr=False)  # type: ignore
 
 
 def invokeBlack(
@@ -187,10 +192,10 @@ class BlackTestCase(BlackBaseTestCase):
             input=BytesIO(source.encode("utf-8")),
         )
         self.assertEqual(result.exit_code, 0)
-        self.assertFormatEqual(expected, result.output)
-        if source != result.output:
-            black.assert_equivalent(source, result.output)
-            black.assert_stable(source, result.output, DEFAULT_MODE)
+        self.assertFormatEqual(expected, result.stdout)
+        if source != result.stdout:
+            black.assert_equivalent(source, result.stdout)
+            black.assert_stable(source, result.stdout, DEFAULT_MODE)
 
     def test_piping_diff(self) -> None:
         diff_header = re.compile(
@@ -210,7 +215,7 @@ class BlackTestCase(BlackBaseTestCase):
             black.main, args, input=BytesIO(source.encode("utf-8"))
         )
         self.assertEqual(result.exit_code, 0)
-        actual = diff_header.sub(DETERMINISTIC_HEADER, result.output)
+        actual = diff_header.sub(DETERMINISTIC_HEADER, result.stdout)
         actual = actual.rstrip() + "\n"  # the diff output has a trailing space
         self.assertEqual(expected, actual)
 
@@ -295,7 +300,7 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertEqual(result.exit_code, 0)
         finally:
             os.unlink(tmp_file)
-        actual = result.output
+        actual = result.stdout
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         if expected != actual:
             dump = black.dump_to_file(actual)
@@ -404,7 +409,7 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertEqual(result.exit_code, 0)
         finally:
             os.unlink(tmp_file)
-        actual = result.output
+        actual = result.stdout
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         actual = actual.rstrip() + "\n"  # the diff output has a trailing space
         if expected != actual:
@@ -418,21 +423,6 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertEqual(expected, actual, msg)
 
     @patch("black.dump_to_file", dump_to_stderr)
-    def test_async_as_identifier(self) -> None:
-        source_path = get_case_path("miscellaneous", "async_as_identifier")
-        _, source, expected = read_data_from_file(source_path)
-        actual = fs(source)
-        self.assertFormatEqual(expected, actual)
-        major, minor = sys.version_info[:2]
-        if major < 3 or (major <= 3 and minor < 7):
-            black.assert_equivalent(source, actual)
-        black.assert_stable(source, actual, DEFAULT_MODE)
-        # ensure black can parse this when the target is 3.6
-        self.invokeBlack([str(source_path), "--target-version", "py36"])
-        # but not on 3.7, because async/await is no longer an identifier
-        self.invokeBlack([str(source_path), "--target-version", "py37"], exit_code=123)
-
-    @patch("black.dump_to_file", dump_to_stderr)
     def test_python37(self) -> None:
         source_path = get_case_path("cases", "python37")
         _, source, expected = read_data_from_file(source_path)
@@ -444,8 +434,6 @@ class BlackTestCase(BlackBaseTestCase):
         black.assert_stable(source, actual, DEFAULT_MODE)
         # ensure black can parse this when the target is 3.7
         self.invokeBlack([str(source_path), "--target-version", "py37"])
-        # but not on 3.6, because we use async as a reserved keyword
-        self.invokeBlack([str(source_path), "--target-version", "py36"], exit_code=123)
 
     def test_tab_comment_indentation(self) -> None:
         contents_tab = "if 1:\n\tif 2:\n\t\tpass\n\t# comment\n\tpass\n"
@@ -454,17 +442,6 @@ class BlackTestCase(BlackBaseTestCase):
         self.assertFormatEqual(contents_spc, fs(contents_tab))
 
         contents_tab = "if 1:\n\tif 2:\n\t\tpass\n\t\t# comment\n\tpass\n"
-        contents_spc = "if 1:\n    if 2:\n        pass\n        # comment\n    pass\n"
-        self.assertFormatEqual(contents_spc, fs(contents_spc))
-        self.assertFormatEqual(contents_spc, fs(contents_tab))
-
-        # mixed tabs and spaces (valid Python 2 code)
-        contents_tab = "if 1:\n        if 2:\n\t\tpass\n\t# comment\n        pass\n"
-        contents_spc = "if 1:\n    if 2:\n        pass\n    # comment\n    pass\n"
-        self.assertFormatEqual(contents_spc, fs(contents_spc))
-        self.assertFormatEqual(contents_spc, fs(contents_tab))
-
-        contents_tab = "if 1:\n        if 2:\n\t\tpass\n\t\t# comment\n        pass\n"
         contents_spc = "if 1:\n    if 2:\n        pass\n        # comment\n    pass\n"
         self.assertFormatEqual(contents_spc, fs(contents_spc))
         self.assertFormatEqual(contents_spc, fs(contents_tab))
@@ -1547,6 +1524,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             (
@@ -1556,6 +1534,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             ("<3.6", [TargetVersion.PY33, TargetVersion.PY34, TargetVersion.PY35]),
@@ -1567,6 +1546,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             (
@@ -1577,6 +1557,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             (
@@ -1591,6 +1572,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             (
@@ -1607,6 +1589,7 @@ class BlackTestCase(BlackBaseTestCase):
                     TargetVersion.PY311,
                     TargetVersion.PY312,
                     TargetVersion.PY313,
+                    TargetVersion.PY314,
                 ],
             ),
             ("==3.8.*", [TargetVersion.PY38]),
@@ -1826,7 +1809,7 @@ class BlackTestCase(BlackBaseTestCase):
             self.assertEqual(result.exit_code, 0)
         finally:
             os.unlink(tmp_file)
-        actual = result.output
+        actual = result.stdout
         actual = diff_header.sub(DETERMINISTIC_HEADER, actual)
         self.assertEqual(actual, expected)
 
@@ -1836,7 +1819,7 @@ class BlackTestCase(BlackBaseTestCase):
     ) -> None:
         """Helper method to test the value and exit code of a click Result."""
         assert (
-            result.output == expected_value
+            result.stdout == expected_value
         ), "The output did not match the expected value."
         assert result.exit_code == expected_exit_code, "The exit code is incorrect."
 
@@ -1913,7 +1896,8 @@ class BlackTestCase(BlackBaseTestCase):
             args = ["--safe", "--code", code]
             result = CliRunner().invoke(black.main, args)
 
-            self.compare_results(result, error_msg, 123)
+            assert error_msg == result.output
+            assert result.exit_code == 123
 
     def test_code_option_fast(self) -> None:
         """Test that the code option ignores errors when the sanity checks fail."""
@@ -1975,7 +1959,7 @@ class BlackTestCase(BlackBaseTestCase):
         with pytest.raises(black.parsing.InvalidInput) as exc_info:
             black.lib2to3_parse("print(", {})
 
-        exc_info.match("Cannot parse: 2:0: EOF in multi-line statement")
+        exc_info.match("Cannot parse: 1:6: Unexpected EOF in multi-line statement")
 
     def test_line_ranges_with_code_option(self) -> None:
         code = textwrap.dedent("""\
@@ -2069,6 +2053,42 @@ class BlackTestCase(BlackBaseTestCase):
         assert lines_with_leading_tabs_expanded("\tx") == [f"{tab}x"]
         assert lines_with_leading_tabs_expanded("\t\tx") == [f"{tab}{tab}x"]
         assert lines_with_leading_tabs_expanded("\tx\n  y") == [f"{tab}x", "  y"]
+
+    def test_carriage_return_edge_cases(self) -> None:
+        # These tests are here instead of in the normal cases because
+        # of git's newline normalization and because it's hard to
+        # get `\r` vs `\r\n` vs `\n` to display properly
+        assert (
+            black.format_str(
+                "try:\\\r# type: ignore\n pass\nfinally:\n pass\n",
+                mode=black.FileMode(),
+            )
+            == "try:  # type: ignore\n    pass\nfinally:\n    pass\n"
+        )
+        assert black.format_str("{\r}", mode=black.FileMode()) == "{}\n"
+        assert black.format_str("pass #\r#\n", mode=black.FileMode()) == "pass  #\n#\n"
+
+        assert black.format_str("x=\\\r\n1", mode=black.FileMode()) == "x = 1\n"
+        assert black.format_str("x=\\\n1", mode=black.FileMode()) == "x = 1\n"
+        assert black.format_str("x=\\\r1", mode=black.FileMode()) == "x = 1\n"
+        assert (
+            black.format_str("class A\\\r\n:...", mode=black.FileMode())
+            == "class A: ...\n"
+        )
+        assert (
+            black.format_str("class A\\\n:...", mode=black.FileMode())
+            == "class A: ...\n"
+        )
+        assert (
+            black.format_str("class A\\\r:...", mode=black.FileMode())
+            == "class A: ...\n"
+        )
+
+    def test_preview_newline_type_detection(self) -> None:
+        mode = Mode(enabled_features={Preview.normalize_cr_newlines})
+        newline_types = ["A\n", "A\r\n", "A\r"]
+        for test_case in itertools.permutations(newline_types):
+            assert black.format_str("".join(test_case), mode=mode) == test_case[0] * 3
 
 
 class TestCaching:

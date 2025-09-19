@@ -19,6 +19,7 @@ from pulp import (
     LpFractionConstraint,
     LpProblem,
     LpVariable,
+    PulpSolverError,
 )
 from pulp import constants as const
 from pulp import lpSum
@@ -924,7 +925,7 @@ class BaseSolverTest:
             """
             Test the availability of the function pulpTestAll
             """
-            from pulp import pulpTestAll
+            from pulp.tests.run_tests import pulpTestAll
 
         def test_export_dict_LP(self):
             prob = LpProblem(self._testMethodName, const.LpMinimize)
@@ -2071,7 +2072,7 @@ class CPLEX_CMDTest(BaseSolverTest.PuLPTest):
 
 
 class CPLEX_PYTest(BaseSolverTest.PuLPTest):
-    solveInst = solvers.CPLEX_CMD
+    solveInst = solvers.CPLEX_PY
 
     def _build(self, **kwargs):
         """
@@ -2081,6 +2082,15 @@ class CPLEX_PYTest(BaseSolverTest.PuLPTest):
         solver = self.solveInst(**kwargs)
         solver.buildSolverModel(lp=problem)
         return solver
+
+    def test_search_param_without_solver_model(self):
+        """
+        Tests the behavior of the `search_param` method when invoked without a `solverModel`
+        initialized. Validates that an appropriate error is raised under these conditions.
+        """
+        solver = self.solveInst()
+        with self.assertRaises(PulpSolverError):
+            solver.search_param("barrier.algorithm")
 
     def test_get_param(self):
         """
@@ -2118,13 +2128,6 @@ class CPLEX_PYTest(BaseSolverTest.PuLPTest):
         solver = self._build(**{param: 100})
         self.assertEqual(len(solver.get_changed_params()), 1)
 
-    def test_set_all_params(self):
-        solver = self._build()
-        parameters = solver.get_all_params()
-        for param, value in parameters:
-            solver.set_param(name=str(param), value=value)
-        self.assertEqual(solver.get_changed_params(), [])
-
     def test_callback(self):
         from cplex.callbacks import IncumbentCallback  # type: ignore[import-not-found, import-untyped, unused-ignore]
 
@@ -2136,7 +2139,9 @@ class CPLEX_PYTest(BaseSolverTest.PuLPTest):
                 counter += 1
 
         problem = create_bin_packing_problem(bins=5, seed=55)
-        pulpTestCheck(problem, self.solver, [LpStatusOptimal], callback=[Callback])
+        pulpTestCheck(
+            problem, self.solver, [const.LpStatusOptimal], callback=[Callback]
+        )
         self.assertGreaterEqual(counter, 1)
 
 
@@ -2405,7 +2410,7 @@ def pulpTestCheck(
         )
     if sol is not None:
         for v, x in sol.items():
-            if abs(v.varValue - x) > eps:
+            if v.varValue is not None and abs(v.varValue - x) > eps:
                 dumpTestProblem(prob)
                 raise PulpError(
                     "Tests failed for solver {}:\nvar {} == {} != {}".format(

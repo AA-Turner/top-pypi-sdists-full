@@ -1,17 +1,19 @@
 """SSSOM parsers."""
 
+from __future__ import annotations
+
 import gzip
 import io
 import itertools as itt
 import json
 import logging as _logging
-import re
+import os.path
 import typing
 from collections import ChainMap, Counter
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, TextIO, Tuple, Union, cast
 from xml.dom import Node, minidom
-from xml.dom.minidom import Document
+from xml.dom.minidom import Document, Element
 
 import curies
 import numpy as np
@@ -54,6 +56,7 @@ from sssom.constants import (
     SUBJECT_SOURCE,
     SUBJECT_SOURCE_ID,
     MetadataType,
+    PathOrIO,
     _get_sssom_schema_object,
     get_default_metadata,
 )
@@ -62,6 +65,7 @@ from .context import ConverterHint, _get_built_in_prefix_map, ensure_converter
 from .sssom_document import MappingSetDocument
 from .util import (
     SSSOM_DEFAULT_RDF_SERIALISATION,
+    ExtensionLiteral,
     MappingSetDataFrame,
     get_file_extension,
     is_multivalued_slot,
@@ -72,89 +76,84 @@ from .util import (
 
 logging = _logging.getLogger(__name__)
 
+
 # * *******************************************************
 # Parsers (from file)
 
 
-def _open_input(input: Union[str, Path, TextIO]) -> io.StringIO:
+def _open_input(p: PathOrIO) -> TextIO:
     """Transform a URL, a filepath (from pathlib), or a string (with file contents) to a StringIO object.
 
-    :param input: A string representing a URL, a filepath, or file contents,
-                              or a Path object representing a filepath.
+    :param p:
+        A string representing a URL, a filepath, or file contents, or a Path object representing a filepath.
     :return: A StringIO object containing the input data.
     """
-    # If the import already is a StrinIO, return it
-    if isinstance(input, io.StringIO):
-        return input
-    elif isinstance(input, Path):
-        input = str(input)
+    # if we passed an IO object, return it back directly
+    if not isinstance(p, (str, Path)):
+        return p
 
-    if isinstance(input, str):
-        if input.startswith("http://") or input.startswith("https://"):
-            # It's a URL
-            data = requests.get(input, timeout=30).content
-            return io.StringIO(data.decode("utf-8"))
-        elif "\n" in input or "\r" in input:
-            # It's string data
-            return io.StringIO(input)
-        elif input.endswith(".gz"):
-            with gzip.open(input, "rt") as file:
-                file_content = file.read()
-            return io.StringIO(file_content)
-        else:
-            # It's a local file path
-            with open(input, "r") as file:
-                file_content = file.read()
-            return io.StringIO(file_content)
+    if isinstance(p, str) and (p.startswith("http://") or p.startswith("https://")):
+        # It's a URL
+        data = requests.get(p, timeout=30).content
+        # TODO handle gzipped remote content
+        return io.StringIO(data.decode("utf-8"))
 
-    raise IOError(f"Could not determine the type of input {input}")
+    # squash a path to a string so we don't have to duplicate logic below
+    if isinstance(p, Path):
+        p = p.as_posix()
 
+    if "\n" in p or "\r" in p:
+        # It's string data
+        return io.StringIO(p)
 
-def _separate_metadata_and_table_from_stream(s: io.StringIO):
-    s.seek(0)
+    if not os.path.exists(p):
+        raise FileNotFoundError(f"file does not exist: {p}")
 
-    # Create a new StringIO object for filtered data
-    table_component = io.StringIO()
-    metadata_component = io.StringIO()
-
-    header_section = True
-
-    # Filter out lines starting with '#'
-    for line in s:
-        if not line.startswith("#"):
-            table_component.write(line)
-            if header_section:
-                header_section = False
-        elif header_section:
-            # We strip any trailing tabs. Such tabs may have been left
-            # by a spreadsheet editor who treated the header lines as
-            # if they were normal data lines; they would prevent the
-            # YAML parser from correctly parsing the metadata block.
-            metadata_component.write(line.rstrip("\t\n") + "\n")
-        else:
-            logging.info(
-                f"Line {line} is starting with hash symbol, but header section is already passed. "
-                f"This line is skipped"
-            )
-
-    # Reset the cursor to the start of the new StringIO object
-    table_component.seek(0)
-    metadata_component.seek(0)
-    return table_component, metadata_component
+    if p.endswith(".gz"):
+        with gzip.open(p, "rt") as file:
+            file_content = file.read()
+        return io.StringIO(file_content)
+    else:
+        # It's a local file path
+        with open(p, "r") as file:
+            file_content = file.read()
+        return io.StringIO(file_content)
 
 
-def _read_pandas_and_metadata(input: io.StringIO, sep: str = None):
+def _read_pandas_and_metadata(
+    file_path: Union[str, Path, TextIO], sep: Optional[str] = None
+) -> tuple[pd.DataFrame, MetadataType]:
     """Read a tabular data file by wrapping func:`pd.read_csv` to handles comment lines correctly.
 
-    :param input: The file to read. If no separator is given, this file should be named.
+    :param file_path: The file path or stream to read
     :param sep: File separator for pandas
-    :return: A pandas dataframe
+    :return: A pair of a dataframe and metadata dictionary
     """
-    table_stream, metadata_stream = _separate_metadata_and_table_from_stream(input)
+    if sep is None:
+        sep = _infer_separator(file_path) or "\t"
+
+    if isinstance(file_path, (str, Path)):
+        raise_for_bad_path(file_path)
+
+    stream = _open_input(file_path)
+
+    # consume from the top of the stream until there's no more preceding #
+    header_yaml = ""
+    while (line := stream.readline()).startswith("#"):
+        line = line.lstrip("#").rstrip()
+        if not line:
+            continue
+        header_yaml += line + "\n"
+
+    sssom_metadata = yaml.safe_load(header_yaml) if header_yaml else {}
+
+    # The first line that doesn't start with a # is assumed
+    # to be the header, so we split it with the inferred separator
+    names = line.strip().split(sep)
 
     try:
-        df = pd.read_csv(table_stream, sep=sep, dtype=str, engine="python")
-        df.fillna("", inplace=True)
+        # pandas can keep going and read from the same stream that we already have
+        df = pd.read_csv(stream, sep=sep, dtype=str, engine="python", header=None, names=names)
     except EmptyDataError as e:
         logging.warning(f"Seems like the dataframe is empty: {e}")
         df = pd.DataFrame(
@@ -166,32 +165,28 @@ def _read_pandas_and_metadata(input: io.StringIO, sep: str = None):
                 MAPPING_JUSTIFICATION,
             ]
         )
+    else:
+        df.fillna("", inplace=True)
 
-    if isinstance(df, pd.DataFrame):
-        sssom_metadata = _read_metadata_from_table(metadata_stream)
-        return df, sssom_metadata
-
-    return None, None
+    return df, sssom_metadata
 
 
-def _get_seperator_symbol_from_file_path(file):
-    r"""
-    Take as an input a filepath and return the seperate symbol used, for example, by pandas.
+EXTENSION_TO_SEP: dict[ExtensionLiteral, str] = {"tsv": "\t", "csv": ","}
+
+
+def _infer_separator(file: PathOrIO) -> Optional[str]:
+    r"""Infer the CSV separator from a file path or IO object.
 
     :param file: the file path
-    :return: the seperator symbols as a string, e.g. '\t'
+    :return: the separator symbols as a string, e.g. '\t'
     """
-    if isinstance(file, Path) or isinstance(file, str):
-        extension = get_file_extension(file)
-        if extension == "tsv":
-            return "\t"
-        elif extension == "csv":
-            return ","
-        logging.warning(f"Could not guess file extension for {file}")
-    return None
+    extension = get_file_extension(file)
+    if extension is None:
+        return None
+    return EXTENSION_TO_SEP[extension]
 
 
-def _is_check_valid_extension_slot(slot_name, meta):
+def _is_check_valid_extension_slot(slot_name: str, meta: MetadataType) -> bool:
     extension_definitions = meta.get("extension_definitions", [])
     return any(
         "property" in entry and entry.get("slot_name") == slot_name
@@ -199,7 +194,7 @@ def _is_check_valid_extension_slot(slot_name, meta):
     )
 
 
-def _is_irregular_metadata(metadata_list: List[Dict]):
+def _is_irregular_metadata(metadata_list: List[Dict[str, Any]]) -> bool:
     fail_metadata = False
     for m in metadata_list:
         for key in m:
@@ -214,8 +209,9 @@ def _is_irregular_metadata(metadata_list: List[Dict]):
     return fail_metadata
 
 
-def _check_redefined_builtin_prefixes(sssom_metadata, meta, prefix_map):
-
+def _check_redefined_builtin_prefixes(
+    sssom_metadata: MetadataType, meta: MetadataType, prefix_map: ConverterHint | None = None
+) -> bool:
     # There are three ways in which prefixes can be communicated, so we will check all of them
     # This is a bit overly draconian, as in the end, only the highest priority one gets picked
     # But since this only constitues a (logging) warning, I think its worth reporting
@@ -248,7 +244,7 @@ def _check_redefined_builtin_prefixes(sssom_metadata, meta, prefix_map):
     return is_valid_prefixes
 
 
-def _fail_in_strict_parsing_mode(is_valid_built_in_prefixes, is_valid_metadata):
+def _fail_in_strict_parsing_mode(is_valid_built_in_prefixes: bool, is_valid_metadata: bool) -> None:
     report = ""
     if not is_valid_built_in_prefixes:
         report += "STRONG WARNING: The prefix map provided contains built-in prefixes that were redefined.+\n"
@@ -261,12 +257,12 @@ def _fail_in_strict_parsing_mode(is_valid_built_in_prefixes, is_valid_metadata):
         raise ValueError(report)
 
 
-def _get_converter_pop_replace_curie_map(sssom_metadata):
+def _get_converter_pop_replace_curie_map(sssom_metadata: MetadataType) -> curies.Converter:
     """
     Pop CURIE_MAP from sssom_metadata, process it, and restore it if it existed.
 
     Args:
-        sssom_metadata (dict): The metadata dictionary.
+        sssom_metadata: The metadata dictionary.
 
     Returns:
         Converter: A Converter object created from the CURIE_MAP.
@@ -284,24 +280,45 @@ def _get_converter_pop_replace_curie_map(sssom_metadata):
 
 
 def parse_sssom_table(
-    file_path: Union[str, Path, TextIO],
-    prefix_map: ConverterHint = None,
+    file_path: PathOrIO,
+    prefix_map: ConverterHint | None = None,
     meta: Optional[MetadataType] = None,
-    **kwargs,
+    *,
+    strict: bool = False,
+    sep: Optional[str] = None,
+    **kwargs: Any,
 ) -> MappingSetDataFrame:
-    """Parse a TSV to a :class:`MappingSetDocument` to a :class:`MappingSetDataFrame`."""
-    if isinstance(file_path, Path) or isinstance(file_path, str):
-        raise_for_bad_path(file_path)
-    stream: io.StringIO = _open_input(file_path)
-    sep_new = _get_seperator_symbol_from_file_path(file_path)
-    df, sssom_metadata = _read_pandas_and_metadata(stream, sep_new)
+    """Parse a SSSOM CSV or TSV file.
+
+    :param file_path:
+        A file path, URL, or I/O object that contains SSSOM encoded in TSV
+    :param prefix_map:
+        A prefix map or :class:`curies.Converter` used to validate prefixes,
+        CURIEs, and IRIs appearing in the SSSOM TSV
+    :param meta:
+        Additional document-level metadata for the SSSOM TSV document that is not
+        contained within the document itself. For example, this may come from a
+        companion SSSOM YAML file.
+    :param strict:
+        If true, will fail parsing for undefined prefixes, CURIEs, or IRIs
+    :param sep:
+        The seperator. If not given, inferred from file name
+    :param kwargs:
+        Additional keyword arguments (unhandled)
+    :returns:
+        A parsed dataframe wrapper object
+    """
+    if kwargs:
+        logging.warning("unhandled keyword arguments passed: %s", kwargs)
+
+    df, sssom_metadata = _read_pandas_and_metadata(file_path, sep)
     if meta is None:
         meta = {}
 
     is_valid_built_in_prefixes = _check_redefined_builtin_prefixes(sssom_metadata, meta, prefix_map)
     is_valid_metadata = _is_irregular_metadata([sssom_metadata, meta])
 
-    if kwargs.get("strict"):
+    if strict:
         _fail_in_strict_parsing_mode(is_valid_built_in_prefixes, is_valid_metadata)
 
     # The priority order for combining prefix maps are:
@@ -334,12 +351,24 @@ def parse_sssom_table(
     return msdf
 
 
+def parse_csv(*args: Any, **kwargs: Any) -> MappingSetDataFrame:
+    """Parse a SSSOM CSV file, forwarding arguments to :func:`parse_sssom_table`."""
+    kwargs["sep"] = ","
+    return parse_sssom_table(*args, **kwargs)
+
+
+def parse_tsv(*args: Any, **kwargs: Any) -> MappingSetDataFrame:
+    """Parse a SSSOM TSV file, forwarding arguments to :func:`parse_sssom_table`."""
+    kwargs["sep"] = "\t"
+    return parse_sssom_table(*args, **kwargs)
+
+
 def parse_sssom_rdf(
-    file_path: str,
+    file_path: Union[str, Path],
     prefix_map: ConverterHint = None,
     meta: Optional[MetadataType] = None,
-    serialisation=SSSOM_DEFAULT_RDF_SERIALISATION,
-    **kwargs,
+    serialisation: str = SSSOM_DEFAULT_RDF_SERIALISATION,
+    **kwargs: Any,
     # mapping_predicates: Optional[List[str]] = None,
 ) -> MappingSetDataFrame:
     """Parse a TSV to a :class:`MappingSetDocument` to a :class:`MappingSetDataFrame`."""
@@ -373,7 +402,10 @@ def parse_sssom_rdf(
 
 
 def parse_sssom_json(
-    file_path: str, prefix_map: ConverterHint = None, meta: Optional[MetadataType] = None, **kwargs
+    file_path: Union[str, Path],
+    prefix_map: ConverterHint = None,
+    meta: Optional[MetadataType] = None,
+    **kwargs: Any,
 ) -> MappingSetDataFrame:
     """Parse a TSV to a :class:`MappingSetDocument` to a :class:`MappingSetDataFrame`."""
     raise_for_bad_path(file_path)
@@ -407,7 +439,7 @@ def parse_sssom_json(
 
 
 def parse_obographs_json(
-    file_path: str,
+    file_path: Union[str, Path],
     prefix_map: ConverterHint = None,
     meta: Optional[MetadataType] = None,
     mapping_predicates: Optional[List[str]] = None,
@@ -450,7 +482,7 @@ def _get_prefix_map_and_metadata(
     return converter, meta
 
 
-def _address_multivalued_slot(k: str, v: Any) -> Union[str, List[str]]:
+def _address_multivalued_slot(k: str, v: str) -> Union[str, List[str]]:
     if isinstance(v, str) and is_multivalued_slot(k):
         # IF k is multivalued, then v = List[values]
         return [s.strip() for s in v.split("|")]
@@ -466,7 +498,7 @@ def _init_mapping_set(meta: Optional[MetadataType]) -> MappingSet:
 
 
 def _get_mapping_dict(
-    row: pd.Series, bad_attrs: Counter, mapping_slots: typing.Set[str]
+    row: pd.Series, bad_attrs: Counter[str], mapping_slots: typing.Set[str]
 ) -> Dict[str, Any]:
     """Generate a mapping dictionary from a given row of data.
 
@@ -491,7 +523,7 @@ def _get_mapping_dict(
 
 
 def parse_alignment_xml(
-    file_path: str,
+    file_path: Union[str, Path],
     prefix_map: ConverterHint = None,
     meta: Optional[MetadataType] = None,
     mapping_predicates: Optional[List[str]] = None,
@@ -501,7 +533,7 @@ def parse_alignment_xml(
 
     converter, meta = _get_prefix_map_and_metadata(prefix_map=prefix_map, meta=meta)
     logging.info("Loading from alignment API")
-    xmldoc = minidom.parse(file_path)
+    xmldoc = minidom.parse(Path(file_path).resolve().as_posix())
     msdf = from_alignment_minidom(
         xmldoc,
         prefix_map=converter,
@@ -582,7 +614,7 @@ def from_sssom_rdf(
 
 
 def from_sssom_json(
-    jsondoc: Union[str, dict, TextIO],
+    jsondoc: Union[str, dict[str, Any], TextIO],
     prefix_map: ConverterHint = None,
     meta: Optional[MetadataType] = None,
 ) -> MappingSetDataFrame:
@@ -653,32 +685,32 @@ def from_alignment_minidom(
                         _add_valid_mapping_to_list(mdict, mlist, flip_superclass_assertions=True)
 
                 elif node_name == "xml":
-                    if e.firstChild.nodeValue != "yes":
+                    if e.firstChild.nodeValue != "yes":  # type:ignore[union-attr]
                         raise ValueError(
                             "Alignment format: xml element said, but not set to yes. Only XML is supported!"
                         )
                 elif node_name == "onto1":
-                    ms[SUBJECT_SOURCE_ID] = e.firstChild.nodeValue
+                    ms[SUBJECT_SOURCE_ID] = e.firstChild.nodeValue  # type:ignore[union-attr]
                 elif node_name == "onto2":
-                    ms[OBJECT_SOURCE_ID] = e.firstChild.nodeValue
+                    ms[OBJECT_SOURCE_ID] = e.firstChild.nodeValue  # type:ignore[union-attr]
                 elif node_name == "uri1":
-                    ms[SUBJECT_SOURCE] = e.firstChild.nodeValue
+                    ms[SUBJECT_SOURCE] = e.firstChild.nodeValue  # type:ignore[union-attr]
                 elif node_name == "uri2":
-                    ms[OBJECT_SOURCE] = e.firstChild.nodeValue
+                    ms[OBJECT_SOURCE] = e.firstChild.nodeValue  # type:ignore[union-attr]
 
-    ms.mappings = mlist  # type: ignore
+    ms.mappings = mlist
     mapping_set_document = MappingSetDocument(mapping_set=ms, converter=converter)
     return to_mapping_set_dataframe(mapping_set_document)
 
 
-def _get_obographs_predicate_id(obographs_predicate: str):
+def _get_obographs_predicate_id(obographs_predicate: str) -> str:
     if obographs_predicate == "is_a":
         return RDFS_SUBCLASS_OF
     return obographs_predicate
 
 
 def from_obographs(
-    jsondoc: Dict,
+    jsondoc: Dict[str, Any],
     prefix_map: ConverterHint = None,
     meta: Optional[MetadataType] = None,
     mapping_predicates: Optional[List[str]] = None,
@@ -752,7 +784,7 @@ def from_obographs(
                     )
                     _add_valid_mapping_to_list(mdict, mlist)
 
-    ms.mappings = mlist  # type: ignore
+    ms.mappings = mlist
     mdoc = MappingSetDocument(mapping_set=ms, converter=converter)
     return to_mapping_set_dataframe(mdoc)
 
@@ -763,7 +795,7 @@ def _make_mdict(
     object_id: str,
     converter: Converter,
     labels: typing.Mapping[str, str],
-):
+) -> dict[str, Any]:
     mdict = {
         MAPPING_JUSTIFICATION: MAPPING_JUSTIFICATION_UNSPECIFIED,
     }
@@ -799,7 +831,8 @@ def _make_mdict(
 # All read_* take as an input a file handle and return a MappingSetDataFrame (usually wrapping a from_* method)
 
 
-PARSING_FUNCTIONS: typing.Mapping[str, Callable] = {
+PARSING_FUNCTIONS: typing.Mapping[str, Callable[..., MappingSetDataFrame]] = {
+    "csv": parse_sssom_table,
     "tsv": parse_sssom_table,
     "obographs-json": parse_obographs_json,
     "alignment-api-xml": parse_alignment_xml,
@@ -808,19 +841,21 @@ PARSING_FUNCTIONS: typing.Mapping[str, Callable] = {
 }
 
 
-def get_parsing_function(input_format: Optional[str], filename: str) -> Callable:
+def get_parsing_function(
+    input_format: Optional[str], filename: str
+) -> Callable[..., MappingSetDataFrame]:
     """Return appropriate parser function based on input format of file.
 
     :param input_format: File format
     :param filename: Filename
-    :raises Exception: Unknown file format
+    :raises ValueError: Unknown file format
     :return: Appropriate 'read' function
     """
     if input_format is None:
-        input_format = get_file_extension(filename)
+        input_format = get_file_extension(filename) or "tsv"
     func = PARSING_FUNCTIONS.get(input_format)
     if func is None:
-        raise Exception(f"Unknown input format: {input_format}")
+        raise ValueError(f"Unknown input format: {input_format}")
     return func
 
 
@@ -847,21 +882,6 @@ def _swap_object_subject(mapping: Mapping) -> Mapping:
     return mapping
 
 
-def _read_metadata_from_table(stream: io.StringIO) -> Dict[str, Any]:
-    yamlstr = ""
-    for line in stream:
-        if line.startswith("#"):
-            yamlstr += re.sub("^#", "", line)
-        else:
-            break
-
-    if yamlstr:
-        meta = yaml.safe_load(yamlstr)
-        logging.info(f"Meta={meta}")
-        return meta
-    return {}
-
-
 def _set_metadata_in_mapping_set(
     mapping_set: MappingSet, metadata: Optional[MetadataType] = None, overwrite: bool = True
 ) -> None:
@@ -879,7 +899,9 @@ def _set_metadata_in_mapping_set(
                 mapping_set[k] = _address_multivalued_slot(k, v)
 
 
-def _cell_element_values(cell_node, converter: Converter, mapping_predicates) -> Dict[str, Any]:
+def _cell_element_values(
+    cell_node: Element, converter: Converter, mapping_predicates: typing.Collection[str]
+) -> Dict[str, Any]:
     mdict: Dict[str, Any] = {}
     for child in cell_node.childNodes:
         if child.nodeType == Node.ELEMENT_NODE:
@@ -889,24 +911,30 @@ def _cell_element_values(cell_node, converter: Converter, mapping_predicates) ->
                 elif child.nodeName == "entity2":
                     mdict[OBJECT_ID] = safe_compress(child.getAttribute("rdf:resource"), converter)
                 elif child.nodeName == "measure":
-                    mdict[CONFIDENCE] = child.firstChild.nodeValue
-                elif child.nodeName == "relation":
-                    relation = child.firstChild.nodeValue
-                    if (relation == "=") and (SKOS_EXACT_MATCH_URI in mapping_predicates):
-                        mdict[PREDICATE_ID] = SKOS_EXACT_MATCH
-                    elif (relation == "<") and (SKOS_BROAD_MATCH_URI in mapping_predicates):
-                        mdict[PREDICATE_ID] = SKOS_BROAD_MATCH
-                    elif (relation == ">") and (SKOS_NARROW_MATCH_URI in mapping_predicates):
-                        mdict[PREDICATE_ID] = SKOS_NARROW_MATCH
-                    # elif (relation == "%") and (SOMETHING in mapping_predicates)
-                    #     # Incompatible.
-                    #     pass
-                    # elif (relation == "HasInstance") and (SOMETHING in mapping_predicates):
-                    #     pass
-                    elif (relation == "InstanceOf") and (RDF_TYPE_URI in mapping_predicates):
-                        mdict[PREDICATE_ID] = RDF_TYPE
+                    if child.firstChild is None:
+                        logging.warning("child has no grandchild")
                     else:
-                        logging.warning(f"{relation} not a recognised relation type.")
+                        mdict[CONFIDENCE] = child.firstChild.nodeValue
+                elif child.nodeName == "relation":
+                    if child.firstChild is None:
+                        logging.warning("child has no grandchild")
+                    else:
+                        relation = child.firstChild.nodeValue
+                        if (relation == "=") and (SKOS_EXACT_MATCH_URI in mapping_predicates):
+                            mdict[PREDICATE_ID] = SKOS_EXACT_MATCH
+                        elif (relation == "<") and (SKOS_BROAD_MATCH_URI in mapping_predicates):
+                            mdict[PREDICATE_ID] = SKOS_BROAD_MATCH
+                        elif (relation == ">") and (SKOS_NARROW_MATCH_URI in mapping_predicates):
+                            mdict[PREDICATE_ID] = SKOS_NARROW_MATCH
+                        # elif (relation == "%") and (SOMETHING in mapping_predicates)
+                        #     # Incompatible.
+                        #     pass
+                        # elif (relation == "HasInstance") and (SOMETHING in mapping_predicates):
+                        #     pass
+                        elif (relation == "InstanceOf") and (RDF_TYPE_URI in mapping_predicates):
+                            mdict[PREDICATE_ID] = RDF_TYPE
+                        else:
+                            logging.warning(f"{relation} not a recognised relation type.")
                 else:
                     logging.warning(f"Unsupported alignment api element: {child.nodeName}")
             except ValueError as e:
@@ -927,7 +955,7 @@ def to_mapping_set_document(msdf: MappingSetDataFrame) -> MappingSetDocument:
 
 def _get_mapping_set_from_df(df: pd.DataFrame, meta: Optional[MetadataType] = None) -> MappingSet:
     mapping_set = _init_mapping_set(meta)
-    bad_attrs: Counter = Counter()
+    bad_attrs: Counter[str] = Counter()
 
     mapping_slots = set(_get_sssom_schema_object().mapping_slots)
 
@@ -963,6 +991,11 @@ def split_dataframe(
     )
 
 
+def _get_split_key(subject_prefix: str, relation_luid: str, object_prefix: str) -> str:
+    split = f"{subject_prefix.lower()}_{relation_luid.lower()}_{object_prefix.lower()}"
+    return split
+
+
 def split_dataframe_by_prefix(
     msdf: MappingSetDataFrame,
     subject_prefixes: Iterable[str],
@@ -984,7 +1017,7 @@ def split_dataframe_by_prefix(
         subject_prefixes, object_prefixes, relations
     ):
         relation_prefix, relation_id = relation.split(":")
-        split = f"{subject_prefix.lower()}_{relation_id.lower()}_{object_prefix.lower()}"
+        split = _get_split_key(subject_prefix, relation_id, object_prefix)
         if subject_prefix not in msdf.converter.bimap:
             logging.warning(f"{split} - missing subject prefix - {subject_prefix}")
             continue
@@ -1008,7 +1041,7 @@ def split_dataframe_by_prefix(
     return split_to_msdf
 
 
-def _ensure_valid_mapping_from_dict(mdict: Dict[str, Any]):
+def _ensure_valid_mapping_from_dict(mdict: Dict[str, Any]) -> Optional[Mapping]:
     """
     Return a valid mapping object if it can be constructed, else None.
 
@@ -1040,8 +1073,8 @@ def _ensure_valid_mapping_from_dict(mdict: Dict[str, Any]):
 
 
 def _add_valid_mapping_to_list(
-    mdict: Dict[str, Any], mlist: List[Mapping], *, flip_superclass_assertions=False
-):
+    mdict: Dict[str, Any], mlist: List[Mapping], *, flip_superclass_assertions: bool = False
+) -> None:
     """
     Validate the mapping and append to the list if valid.
 

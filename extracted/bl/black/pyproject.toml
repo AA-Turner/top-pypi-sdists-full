@@ -69,6 +69,7 @@ dependencies = [
   "packaging>=22.0",
   "pathspec>=0.9.0",
   "platformdirs>=2",
+  "pytokens>=0.1.10",
   "tomli>=1.1.0; python_version < '3.11'",
   "typing_extensions>=4.0.1; python_version < '3.11'",
 ]
@@ -125,7 +126,7 @@ macos-max-compat = true
 enable-by-default = false
 dependencies = [
   "hatch-mypyc>=0.16.0",
-  "mypy>=1.12",
+  "mypy==1.17.1",
   "click>=8.1.7",
 ]
 require-runtime-dependencies = true
@@ -186,16 +187,6 @@ MYPYC_DEBUG_LEVEL = "0"
 # Black needs Clang to compile successfully on Linux.
 CC = "clang"
 
-[tool.cibuildwheel.macos]
-build-frontend = { name = "build", args = ["--no-isolation"] }
-# Unfortunately, hatch doesn't respect MACOSX_DEPLOYMENT_TARGET
-# Note we don't have a good test for this sed horror, so if you futz with it
-# make sure to test manually
-before-build = [
-    "python -m pip install 'hatchling==1.20.0' hatch-vcs hatch-fancy-pypi-readme 'hatch-mypyc>=0.16.0' 'mypy>=1.12' 'click>=8.1.7'",
-    """sed -i '' -e "600,700s/'10_16'/os.environ['MACOSX_DEPLOYMENT_TARGET'].replace('.', '_')/" $(python -c 'import hatchling.builders.wheel as h; print(h.__file__)') """,
-]
-
 [tool.isort]
 atomic = true
 profile = "black"
@@ -234,6 +225,8 @@ branch = true
 python_version = "3.9"
 mypy_path = "src"
 strict = true
+strict_bytes = true
+local_partial_types = true
 # Unreachable blocks have been an issue when compiling mypyc, let's try to avoid 'em in the first place.
 warn_unreachable = true
 implicit_reexport = true
@@ -241,7 +234,7 @@ show_error_codes = true
 show_column_numbers = true
 
 [[tool.mypy.overrides]]
-module = ["pathspec.*", "IPython.*", "colorama.*", "tokenize_rt.*", "uvloop.*", "_black_version.*"]
+module = ["pathspec.*", "IPython.*", "colorama.*", "tokenize_rt.*", "uvloop.*"]
 ignore_missing_imports = true
 
 # CI only checks src/, but in case users are running LSP or similar we explicitly ignore

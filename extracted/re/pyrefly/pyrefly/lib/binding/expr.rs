@@ -76,9 +76,6 @@ pub enum Usage {
     /// a cast, etc) where we are dealing with static types. I will not pin
     /// any placeholder types.
     StaticTypeInformation,
-    /// I'm a usage in a mutable lookup (a reassignment or delete). I will not
-    /// pin any placeholder types.
-    MutableLookup,
 }
 
 enum TestAssertion {
@@ -259,19 +256,17 @@ impl<'a> BindingsBuilder<'a> {
         };
         match value {
             Ok(value) => {
-                if !self.module_info.path().is_interface() {
-                    // Don't check flow for global/nonlocal lookups
-                    if let Some(error_message) = self
-                        .scopes
-                        .get_flow_style(&name.id, used_in_static_type)
-                        .uninitialized_error_message(name)
-                    {
-                        self.error(
-                            name.range,
-                            ErrorInfo::Kind(ErrorKind::UnboundName),
-                            error_message,
-                        );
-                    }
+                // Uninitialized local errors are only reported when we are neither in a stub
+                // nor a static type context.
+                if !used_in_static_type
+                    && !self.module_info.path().is_interface()
+                    && let Some(error_message) = self.scopes.uninitialized_error_message(&name.id)
+                {
+                    self.error(
+                        name.range,
+                        ErrorInfo::Kind(ErrorKind::UnboundName),
+                        error_message,
+                    );
                 }
                 self.insert_binding(key, value)
             }

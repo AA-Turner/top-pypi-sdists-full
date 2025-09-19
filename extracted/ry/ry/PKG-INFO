@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: ry
-Version: 0.0.57
+Version: 0.0.58
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,7 +23,7 @@ Home-Page: https://github.com/jessekrubin/ry
 Author-email: jesse rubin <jessekrubin@gmail.com>
 Maintainer-email: jesse rubin <jessekrubin@gmail.com>
 License-Expression: MIT OR Apache-2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/jessekrubin/ry/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://github.com/jessekrubin/ry

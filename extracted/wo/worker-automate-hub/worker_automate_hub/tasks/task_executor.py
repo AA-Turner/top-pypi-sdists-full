@@ -23,6 +23,8 @@ from worker_automate_hub.tasks.task_definitions import task_definitions
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.utils.toast import show_toast
 from worker_automate_hub.utils.util import capture_and_send_screenshot
+import asyncio
+from worker_automate_hub.api.rpa_fila_service import burn_queue
 
 console = Console()
 
@@ -52,6 +54,15 @@ async def perform_task(task: RpaProcessoEntradaDTO):
         historico: RpaHistorico = await create_store_historico(
             task, processo, RpaHistoricoStatusEnum.Processando
         )
+        i = 0
+        while i < 10:
+            try:
+                await burn_queue(task.uuidFila)
+                break
+            except:
+                i += 1
+                await asyncio.sleep(5)
+                pass
     try:
         if task_uuid in task_definitions:
             # Executar a task

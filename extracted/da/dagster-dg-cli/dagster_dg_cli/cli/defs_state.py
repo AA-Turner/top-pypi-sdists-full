@@ -52,17 +52,16 @@ def _get_components_to_refresh(
     from dagster.components.component.state_backed_component import StateBackedComponent
 
     state_backed_components = component_tree.get_all_components(of_type=StateBackedComponent)
-    defs_state_keys = defs_state_keys or {
-        component.get_defs_state_key() for component in state_backed_components
-    }
+    if defs_state_keys is None:
+        return state_backed_components
 
-    components = [
+    selected_components = [
         component
-        for component in component_tree.get_all_components(of_type=StateBackedComponent)
+        for component in state_backed_components
         if component.get_defs_state_key() in defs_state_keys
     ]
     missing_defs_keys = defs_state_keys - {
-        component.get_defs_state_key() for component in components
+        component.get_defs_state_key() for component in selected_components
     }
     if missing_defs_keys:
         click.echo("Error: The following defs state keys were not found:")
@@ -74,8 +73,7 @@ def _get_components_to_refresh(
         ):
             click.echo(f"  {key}")
         exit_with_error("One or more specified defs state keys were not found.")
-
-    return components
+    return selected_components
 
 
 async def _refresh_state_for_component(
@@ -122,9 +120,11 @@ def get_updated_defs_state_info_task_and_statuses(
     (e.g. display progress) while the task is running.
     """
     from dagster.components.core.component_tree import ComponentTree
+    from dagster_shared.utils.warnings import disable_dagster_warnings
 
-    component_tree = ComponentTree.for_project(project_path)
-    components_to_refresh = _get_components_to_refresh(component_tree, defs_state_keys)
+    with disable_dagster_warnings():
+        component_tree = ComponentTree.for_project(project_path)
+        components_to_refresh = _get_components_to_refresh(component_tree, defs_state_keys)
 
     # shared dictionary to be used for all subtasks
     statuses = dict()

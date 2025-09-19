@@ -16,7 +16,8 @@ use pyo3::types::{PyDict, PyTuple};
 use ryo3_macro_rules::py_type_error;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-#[pyclass(name = "Offset", module = "ry.ryo3", frozen)]
+#[pyclass(name = "Offset", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct RyOffset(pub(crate) Offset);
 
@@ -32,7 +33,7 @@ impl RyOffset {
                 .map_err(map_py_value_err),
             (None, Some(s)) => Offset::from_seconds(s)
                 .map(Self::from)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}"))),
+                .map_err(map_py_value_err),
             _ => Err(py_type_error!("Offset() takes either hours or seconds")),
         }
     }
@@ -177,7 +178,7 @@ impl RyOffset {
         self.0
             .to_timestamp(datetime.0)
             .map(RyTimestamp::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[must_use]

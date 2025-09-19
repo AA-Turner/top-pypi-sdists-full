@@ -2,7 +2,7 @@ import gzip
 from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
+from prometheus_client.exposition import CONTENT_TYPE_PLAIN_0_0_4
 
 try:
     # Python >3.5 only
@@ -45,7 +45,7 @@ class ASGITest(TestCase):
 
     def tearDown(self):
         if self.communicator:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.new_event_loop().run_until_complete(
                 self.communicator.wait()
             )
             
@@ -53,7 +53,7 @@ class ASGITest(TestCase):
         self.communicator = ApplicationCommunicator(app, self.scope)
 
     def send_input(self, payload):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             self.communicator.send_input(payload)
         )
 
@@ -61,7 +61,7 @@ class ASGITest(TestCase):
         self.send_input({"type": "http.request", "body": b""})
 
     def get_output(self):
-        output = asyncio.get_event_loop().run_until_complete(
+        output = asyncio.new_event_loop().run_until_complete(
             self.communicator.receive_output(0)
         )
         return output
@@ -93,6 +93,16 @@ class ASGITest(TestCase):
         for _ in range(increments):
             c.inc()
 
+    def assert_metrics(self, output, metric_name, help_text, increments):
+        self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
+        self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
+        self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+    def assert_not_metrics(self, output, metric_name, help_text, increments):
+        self.assertNotIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
+        self.assertNotIn("# TYPE " + metric_name + "_total counter\n", output)
+        self.assertNotIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
     def assert_outputs(self, outputs, metric_name, help_text, increments, compressed):
         self.assertEqual(len(outputs), 2)
         response_start = outputs[0]
@@ -104,7 +114,7 @@ class ASGITest(TestCase):
         # Headers
         num_of_headers = 2 if compressed else 1
         self.assertEqual(len(response_start['headers']), num_of_headers)
-        self.assertIn((b"Content-Type", CONTENT_TYPE_LATEST.encode('utf8')), response_start['headers'])
+        self.assertIn((b"Content-Type", CONTENT_TYPE_PLAIN_0_0_4.encode('utf8')), response_start['headers'])
         if compressed:
             self.assertIn((b"Content-Encoding", b"gzip"), response_start['headers'])
         # Body
@@ -112,9 +122,8 @@ class ASGITest(TestCase):
             output = gzip.decompress(response_body['body']).decode('utf8')
         else:
             output = response_body['body'].decode('utf8')
-        self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
-        self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
-        self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+        self.assert_metrics(output, metric_name, help_text, increments)
 
     def validate_metrics(self, metric_name, help_text, increments):
         """
@@ -176,7 +185,7 @@ class ASGITest(TestCase):
         """Response content type is application/openmetrics-text when appropriate Accept header is in request"""
         app = make_asgi_app(self.registry)
         self.seed_app(app)
-        self.scope["headers"] = [(b"Accept", b"application/openmetrics-text")]
+        self.scope["headers"] = [(b"Accept", b"application/openmetrics-text; version=1.0.0")]
         self.send_input({"type": "http.request", "body": b""})
 
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
@@ -190,3 +199,36 @@ class ASGITest(TestCase):
 
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
         assert content_type == "text/plain"
+
+    def test_qs_parsing(self):
+        """Only metrics that match the 'name[]' query string param appear"""
+
+        app = make_asgi_app(self.registry)
+        metrics = [
+            ("asdf", "first test metric", 1),
+            ("bsdf", "second test metric", 2)
+        ]
+
+        for m in metrics:
+            self.increment_metrics(*m)
+
+        for i_1 in range(len(metrics)):
+            self.seed_app(app)
+            self.scope['query_string'] = f"name[]={metrics[i_1][0]}_total".encode("utf-8")
+            self.send_default_request()
+
+            outputs = self.get_all_output()
+            response_body = outputs[1]
+            output = response_body['body'].decode('utf8')
+
+            self.assert_metrics(output, *metrics[i_1])
+
+            for i_2 in range(len(metrics)):
+                if i_1 == i_2:
+                    continue
+
+                self.assert_not_metrics(output, *metrics[i_2])
+
+            asyncio.new_event_loop().run_until_complete(
+                self.communicator.wait()
+            )

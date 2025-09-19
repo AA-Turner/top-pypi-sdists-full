@@ -245,10 +245,8 @@ keep_full_version = true
 addopts = '-p no:legacypath --strict-config --strict-markers'
 filterwarnings = [
   'error',
-  "ignore:jsonschema.RefResolver is deprecated as of v4.18.0:DeprecationWarning:flask_restx.api",                            # Can’t be fixed, consider migrating to `flask-smorest` to eliminate it. See https://github.com/python-restx/flask-restx/issues/633#issuecomment-2962412240
-  'ignore:tzname PST identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_input_sites.py::TestInputSites::test_apple_trailers_simple  tests/test_input_sites.py::TestInputSites::test_apple_trailers
-  'ignore:tzname EDT identified but not understood.:dateutil.parser._parser.UnknownTimezoneWarning:dateutil.parser._parser', # needs investigation, tests/test_rss.py::TestRssOnline::test_rss_online
-  'ignore:Failed to load HostKeys from:UserWarning:pysftp',                                                                  # Can’t be fixed, https://stackoverflow.com/q/56521549 It's a bug in pysftp 0.2.9, not in 0.2.8
+  "ignore:jsonschema.RefResolver is deprecated as of v4.18.0:DeprecationWarning:flask_restx.api", # Blocked by https://github.com/python-restx/flask-restx/issues/553. Or consider migrating to `flask-smorest`: https://github.com/python-restx/flask-restx/issues/633#issuecomment-2962412240
+  'ignore:Failed to load HostKeys from:UserWarning:pysftp',                                       # It's a bug in pysftp (unmaintained) 0.2.9, not in 0.2.8: https://stackoverflow.com/q/56521549
 ]
 markers = [
   'filecopy(src, dst): mark test to copy a file from `src` to `dst` before running',
@@ -278,6 +276,7 @@ extend-ignore-re = [
   'searchin',
   'SerieS',
   '23BA98',
+  'IST',
 ]
 
 [tool.typos.default.extend-words]

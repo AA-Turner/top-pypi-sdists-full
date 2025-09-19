@@ -10,7 +10,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
-#[pyclass(name = "URL", module = "ry.ryo3", frozen)]
+#[pyclass(name = "URL", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PyUrl(pub(crate) url::Url);
 
 impl PyUrl {
@@ -161,7 +162,7 @@ impl PyUrl {
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
-        if let Ok(other) = other.downcast::<Self>() {
+        if let Ok(other) = other.cast::<Self>() {
             let other = other.borrow();
             match op {
                 CompareOp::Eq => Ok(self.0 == other.0),

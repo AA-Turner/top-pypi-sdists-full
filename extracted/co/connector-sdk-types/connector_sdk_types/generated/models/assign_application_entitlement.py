@@ -24,9 +24,9 @@ class AssignApplicationEntitlement(BaseModel):
     Request payload for assigning an entitlement
     """
 
-    application_id: StrictStr = Field(
+    application_instance_id: StrictStr = Field(
         description="The identifier of the application to unassign the entitlement in",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_integration_specific_id: StrictStr = Field(
         description="The unique identifier for the account in the third-party system"

@@ -7,6 +7,9 @@ from ..models.get_large_file_storage_config_response_200_type import GetLargeFil
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_large_file_storage_config_response_200_advanced_permissions_item import (
+        GetLargeFileStorageConfigResponse200AdvancedPermissionsItem,
+    )
     from ..models.get_large_file_storage_config_response_200_secondary_storage import (
         GetLargeFileStorageConfigResponse200SecondaryStorage,
     )
@@ -24,6 +27,7 @@ class GetLargeFileStorageConfigResponse200:
         azure_blob_resource_path (Union[Unset, str]):
         gcs_resource_path (Union[Unset, str]):
         public_resource (Union[Unset, bool]):
+        advanced_permissions (Union[Unset, List['GetLargeFileStorageConfigResponse200AdvancedPermissionsItem']]):
         secondary_storage (Union[Unset, GetLargeFileStorageConfigResponse200SecondaryStorage]):
     """
 
@@ -32,6 +36,7 @@ class GetLargeFileStorageConfigResponse200:
     azure_blob_resource_path: Union[Unset, str] = UNSET
     gcs_resource_path: Union[Unset, str] = UNSET
     public_resource: Union[Unset, bool] = UNSET
+    advanced_permissions: Union[Unset, List["GetLargeFileStorageConfigResponse200AdvancedPermissionsItem"]] = UNSET
     secondary_storage: Union[Unset, "GetLargeFileStorageConfigResponse200SecondaryStorage"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -44,6 +49,14 @@ class GetLargeFileStorageConfigResponse200:
         azure_blob_resource_path = self.azure_blob_resource_path
         gcs_resource_path = self.gcs_resource_path
         public_resource = self.public_resource
+        advanced_permissions: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.advanced_permissions, Unset):
+            advanced_permissions = []
+            for advanced_permissions_item_data in self.advanced_permissions:
+                advanced_permissions_item = advanced_permissions_item_data.to_dict()
+
+                advanced_permissions.append(advanced_permissions_item)
+
         secondary_storage: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.secondary_storage, Unset):
             secondary_storage = self.secondary_storage.to_dict()
@@ -61,6 +74,8 @@ class GetLargeFileStorageConfigResponse200:
             field_dict["gcs_resource_path"] = gcs_resource_path
         if public_resource is not UNSET:
             field_dict["public_resource"] = public_resource
+        if advanced_permissions is not UNSET:
+            field_dict["advanced_permissions"] = advanced_permissions
         if secondary_storage is not UNSET:
             field_dict["secondary_storage"] = secondary_storage
 
@@ -68,6 +83,9 @@ class GetLargeFileStorageConfigResponse200:
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_large_file_storage_config_response_200_advanced_permissions_item import (
+            GetLargeFileStorageConfigResponse200AdvancedPermissionsItem,
+        )
         from ..models.get_large_file_storage_config_response_200_secondary_storage import (
             GetLargeFileStorageConfigResponse200SecondaryStorage,
         )
@@ -88,6 +106,15 @@ class GetLargeFileStorageConfigResponse200:
 
         public_resource = d.pop("public_resource", UNSET)
 
+        advanced_permissions = []
+        _advanced_permissions = d.pop("advanced_permissions", UNSET)
+        for advanced_permissions_item_data in _advanced_permissions or []:
+            advanced_permissions_item = GetLargeFileStorageConfigResponse200AdvancedPermissionsItem.from_dict(
+                advanced_permissions_item_data
+            )
+
+            advanced_permissions.append(advanced_permissions_item)
+
         _secondary_storage = d.pop("secondary_storage", UNSET)
         secondary_storage: Union[Unset, GetLargeFileStorageConfigResponse200SecondaryStorage]
         if isinstance(_secondary_storage, Unset):
@@ -101,6 +128,7 @@ class GetLargeFileStorageConfigResponse200:
             azure_blob_resource_path=azure_blob_resource_path,
             gcs_resource_path=gcs_resource_path,
             public_resource=public_resource,
+            advanced_permissions=advanced_permissions,
             secondary_storage=secondary_storage,
         )
 

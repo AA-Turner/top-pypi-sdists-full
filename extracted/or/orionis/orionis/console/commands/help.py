@@ -6,7 +6,23 @@ from rich.panel import Panel
 
 class HelpCommand(BaseCommand):
     """
-    Command class to display usage information for the Orionis CLI.
+    Provides usage instructions and lists all available commands for the Orionis CLI.
+
+    This command displays a formatted help message including usage examples, a summary of all registered commands, and their descriptions. It is intended to guide users in understanding the available CLI functionality and command syntax.
+
+    Attributes
+    ----------
+    timestamps : bool
+        Indicates whether timestamps will be shown in the command output.
+    signature : str
+        Command signature.
+    description : str
+        Command description.
+
+    Methods
+    -------
+    handle(reactor, console)
+        Displays usage information and a list of available commands.
     """
 
     # Indicates whether timestamps will be shown in the command output

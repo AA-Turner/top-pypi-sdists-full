@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: neptune-fetcher
-Version: 0.22.0
+Version: 0.23.0
 Summary: Neptune Fetcher (DEPRECATED - use neptune-query instead)
 License: Apache-2.0
+License-File: LICENSE
 Keywords: MLOps,ML Experiment Tracking,ML Model Registry,ML Model Store,ML Metadata Store
 Author: neptune.ai
 Author-email: contact@neptune.ai
@@ -23,11 +24,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: azure-storage-blob (>=12.7.0,<13.0.0)
-Requires-Dist: neptune-api (>=0.17.0,<0.23.0)
+Requires-Dist: neptune-api (>=0.17.0,<0.24.0)
 Requires-Dist: pandas (>=1.4.0) ; python_version >= "3.10"
 Requires-Dist: pandas (>=1.4.0,<2.3.0) ; python_version < "3.10"
 Requires-Dist: tqdm (>=4.66.0)

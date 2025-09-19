@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-dask
-Version: 0.27.10
+Version: 0.27.11
 Summary: Package for using Dask as Dagster's execution engine.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dask
 Author: Dagster Labs
@@ -16,7 +16,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.14
 License-File: LICENSE
 Requires-Dist: bokeh
-Requires-Dist: dagster==1.11.10
+Requires-Dist: dagster==1.11.11
 Requires-Dist: dask[dataframe]>=1.2.2
 Requires-Dist: distributed>=1.28.1
 Provides-Extra: yarn

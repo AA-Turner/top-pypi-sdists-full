@@ -4,9 +4,11 @@ import os
 import posixpath
 import xml.sax
 from urllib.parse import urlparse, urlsplit
+from zoneinfo import ZoneInfo
 
 import feedparser
 import pendulum
+from dateutil import parser
 from loguru import logger
 from requests import RequestException
 
@@ -19,10 +21,44 @@ from flexget.utils.pathscrub import pathscrub
 from flexget.utils.tools import decode_html
 
 logger = logger.bind(name='rss')
+CUSTOM_TZ_INFOS = {
+    # --- North America ---
+    'ADT': ZoneInfo('America/Halifax'),  # Atlantic Daylight Time
+    'AST': ZoneInfo('America/Halifax'),  # Atlantic Standard Time
+    'EDT': ZoneInfo('America/New_York'),  # Eastern Daylight Time
+    'EST': ZoneInfo('America/New_York'),  # Eastern Standard Time
+    'CDT': ZoneInfo('America/Chicago'),  # Central Daylight Time
+    'CST': ZoneInfo('America/Chicago'),  # Central Standard Time (Ambiguous, also China)
+    'MDT': ZoneInfo('America/Denver'),  # Mountain Daylight Time
+    'MST': ZoneInfo('America/Denver'),  # Mountain Standard Time
+    'PDT': ZoneInfo('America/Los_Angeles'),  # Pacific Daylight Time
+    'PST': ZoneInfo('America/Los_Angeles'),  # Pacific Standard Time
+    'AKDT': ZoneInfo('America/Anchorage'),  # Alaska Daylight Time
+    'AKST': ZoneInfo('America/Anchorage'),  # Alaska Standard Time
+    'HST': ZoneInfo('Pacific/Honolulu'),  # Hawaii Standard Time
+    # --- Europe ---
+    'BST': ZoneInfo('Europe/London'),  # British Summer Time
+    'GMT': ZoneInfo('Etc/GMT'),  # Greenwich Mean Time
+    'CET': ZoneInfo('Europe/Berlin'),  # Central European Time
+    'CEST': ZoneInfo('Europe/Berlin'),  # Central European Summer Time
+    'EET': ZoneInfo('Europe/Helsinki'),  # Eastern European Time
+    'EEST': ZoneInfo('Europe/Helsinki'),  # Eastern European Summer Time
+    'MSK': ZoneInfo('Europe/Moscow'),  # Moscow Standard Time
+    'WET': ZoneInfo('Europe/Lisbon'),  # Western European Time
+    'WEST': ZoneInfo('Europe/Lisbon'),  # Western European Summer Time
+    # --- Asia ---
+    'JST': ZoneInfo('Asia/Tokyo'),  # Japan Standard Time
+    'KST': ZoneInfo('Asia/Seoul'),  # Korea Standard Time
+    'IST': ZoneInfo('Asia/Kolkata'),  # India Standard Time
+    # --- Australia ---
+    'AEDT': ZoneInfo('Australia/Sydney'),  # Australian Eastern Daylight Time
+    'AEST': ZoneInfo('Australia/Sydney'),  # Australian Eastern Standard Time
+    'ACDT': ZoneInfo('Australia/Adelaide'),  # Australian Central Daylight Time
+    'ACST': ZoneInfo('Australia/Adelaide'),  # Australian Central Standard Time
+    'AWST': ZoneInfo('Australia/Perth'),  # Australian Western Standard Time
+}
 feedparser.registerDateHandler(
-    lambda date_string: pendulum.parse(date_string, tz='UTC', strict=False)
-    .in_tz('UTC')
-    .timetuple()
+    lambda date_string: parser.parse(date_string, tzinfos=CUSTOM_TZ_INFOS).utctimetuple()
 )
 
 
@@ -485,7 +521,9 @@ class InputRSS:
                             )
                 # Also grab pubdate if available
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                    ea['rss_pubdate'] = pendulum.parse(entry.published, tz='UTC', strict=False)
+                    ea['rss_pubdate'] = pendulum.instance(
+                        parser.parse(entry.published, tzinfos=CUSTOM_TZ_INFOS), tz='UTC'
+                    )
                 # store basic auth info
                 if 'username' in config and 'password' in config:
                     ea['download_auth'] = (config['username'], config['password'])

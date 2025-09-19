@@ -9,30 +9,28 @@ from orionis.services.introspection.instances.reflection import ReflectionInstan
 
 class ScheduleWorkCommand(BaseCommand):
     """
-    Executes the scheduled tasks defined in the application's scheduler.
+    Runs the application's scheduled tasks worker.
 
-    This command dynamically loads the scheduler module specified in the application's configuration,
-    retrieves the `Scheduler` class and its `tasks` method, registers the scheduled tasks with the
-    ISchedule service, and starts the scheduler worker. It provides user feedback via the console and
-    handles errors by raising CLIOrionisRuntimeError exceptions.
+    This command initializes and starts the scheduler worker, which executes all tasks registered in the application's scheduler. It ensures the scheduler is properly configured, registers event listeners if available, and provides feedback to the user via the console. Errors during initialization or execution are reported as CLIOrionisRuntimeError.
 
-    Parameters
+    Attributes
     ----------
-    orionis : IApplication
-        The application instance providing configuration and service resolution.
-    console : Console
-        The Rich console instance used for displaying output to the user.
+    timestamps : bool
+        Indicates whether timestamps will be shown in the command output.
+    signature : str
+        Command signature for invocation.
+    description : str
+        Brief description of the command.
 
     Returns
     -------
     bool
-        Returns True if the scheduler worker starts successfully. If an error occurs during the process,
-        a CLIOrionisRuntimeError is raised.
+        True if the scheduler worker starts successfully.
 
     Raises
     ------
     CLIOrionisRuntimeError
-        If the scheduler module, class, or tasks method cannot be found, or if any unexpected error occurs.
+        If the scheduler is not properly defined or an unexpected error occurs.
     """
 
     # Indicates whether timestamps will be shown in the command output

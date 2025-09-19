@@ -25,18 +25,17 @@ use std::ops::Sub;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-#[pyclass(name = "Date", module = "ry.ryo3", frozen)]
+#[pyclass(name = "Date", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyDate(pub(crate) Date);
 
 #[pymethods]
 impl RyDate {
     #[new]
     pub(crate) fn py_new(year: i16, month: i8, day: i8) -> PyResult<Self> {
-        Date::new(year, month, day).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "{e} (year={year}, month={month}, day={day})",
-            ))
-        })
+        Date::new(year, month, day)
+            .map(Self::from)
+            .map_err(|e| py_value_error!("{e} (year={year}, month={month}, day={day})",))
     }
 
     #[expect(non_snake_case)]
@@ -112,7 +111,7 @@ impl RyDate {
         self.0
             .to_zoned(tz.into())
             .map(RyZoned::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
@@ -158,7 +157,7 @@ impl RyDate {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(ob) = other.downcast::<Self>() {
+        if let Ok(ob) = other.cast::<Self>() {
             let span = self.0.sub(ob.get().0);
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
             Ok(obj)
@@ -265,7 +264,7 @@ impl RyDate {
         self.0
             .in_tz(tz)
             .map(RyZoned::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[pyo3(
@@ -354,6 +353,10 @@ impl RyDate {
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
+    fn __format__(&self, fmt: &str) -> String {
+        self.0.strftime(fmt).to_string()
+    }
+
     fn strftime(&self, fmt: &str) -> String {
         self.0.strftime(fmt).to_string()
     }
@@ -455,15 +458,15 @@ impl RyDate {
     #[staticmethod]
     fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = value.py();
-        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
             Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
             Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
         } else if value.is_exact_instance_of::<Self>() {
             value.into_bound_py_any(py)
-        // } else if let Ok(v) = value.downcast::<PyInt>() {
+        // } else if let Ok(v) = value.cast::<PyInt>() {
         //     let i = v.extract::<i64>()?;
         //     let ts = if (-20_000_000_000..=20_000_000_000).contains(&i) {
         //         jiff::Timestamp::from_second(i)

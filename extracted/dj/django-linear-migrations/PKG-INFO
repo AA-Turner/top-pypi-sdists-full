@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-linear-migrations
-Version: 2.18.0
+Version: 2.19.0
 Summary: Ensure your migrations are linear.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
@@ -66,7 +67,7 @@ Requirements
 
 Python 3.9 to 3.14 supported.
 
-Django 4.2 to 5.2 supported.
+Django 4.2 to 6.0 supported.
 
 Installation
 ============

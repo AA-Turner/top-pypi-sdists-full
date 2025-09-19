@@ -1,6 +1,6 @@
 [project]
 name = "codecov-cli"
-version = "11.2.0"
+version = "11.2.3"
 description = "Codecov Command Line Interface"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -12,7 +12,7 @@ maintainers = [
 ]
 requires-python = ">= 3.9"
 dependencies = [
-    "click==8.*",
+    "click>=8.0.0,<8.3.0",
     "ijson==3.*",
     "PyYAML==6.*",
     "responses==0.21.*",

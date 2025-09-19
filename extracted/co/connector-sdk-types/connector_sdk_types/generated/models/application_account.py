@@ -35,7 +35,7 @@ class ApplicationAccount(BaseModel):
         populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
-        json_schema_extra={"x-unique-hash": ["account_id", "application_id"]},
+        json_schema_extra={"x-unique-hash": ["account_id", "application_instance_id"]},
     )
 
     def to_str(self) -> str:
@@ -82,9 +82,12 @@ class ApplicationAccount(BaseModel):
         return _obj
 
     def __hash__(self):
-        return hash((self.account_id, self.application_id))
+        return hash((self.account_id, self.application_instance_id))
 
     def __eq__(self, other):
         if not isinstance(other, ApplicationAccount):
             return False
-        return (self.account_id, self.application_id) == (other.account_id, other.application_id)
+        return (self.account_id, self.application_instance_id) == (
+            other.account_id,
+            other.application_instance_id,
+        )

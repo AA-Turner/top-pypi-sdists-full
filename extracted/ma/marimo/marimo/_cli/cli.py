@@ -29,6 +29,7 @@ from marimo._cli.run_docker import (
 )
 from marimo._cli.upgrade import check_for_updates, print_latest_version
 from marimo._config.settings import GLOBAL_SETTINGS
+from marimo._lint import run_check
 from marimo._server.file_router import AppFileRouter
 from marimo._server.model import SessionMode
 from marimo._server.start import start
@@ -59,9 +60,11 @@ def helpful_usage_error(self: Any, file: Any = None) -> None:
 
 def check_app_correctness(filename: str, noninteractive: bool = True) -> None:
     try:
-        status = get_notebook_status(filename)
-    except SyntaxError:
-        import traceback
+        status = get_notebook_status(filename).status
+    except (SyntaxError, MarimoFileError):
+        # Exit early if we can
+        if not noninteractive:
+            raise
 
         # This prints a more readable error message, without internal details
         # e.g.
@@ -69,8 +72,10 @@ def check_app_correctness(filename: str, noninteractive: bool = True) -> None:
         #     x.
         #     ^
         # SyntaxError: invalid syntax
-        click.echo(f"Failed to parse notebook: {filename}\n", err=True)
-        raise click.ClickException(traceback.format_exc(limit=0)) from None
+        from marimo._lint import collect_messages
+
+        _, message = collect_messages(filename)
+        raise click.ClickException(message.strip()) from None
 
     if status == "invalid" and filename.endswith(".py"):
         # fail for python scripts, almost certainly do not want to override contents
@@ -223,6 +228,8 @@ sandbox_message = (
     "via PEP 723 inline metadata. If already declared, dependencies will "
     "install automatically. Requires uv."
 )
+
+check_message = "Disable a static check of the notebook before running."
 
 
 @click.group(
@@ -953,6 +960,14 @@ Example:
     help=sandbox_message,
 )
 @click.option(
+    "--check/--no-check",
+    is_flag=True,
+    default=True,
+    show_default=False,
+    type=bool,
+    help=check_message,
+)
+@click.option(
     "--server-startup-command",
     default=None,
     type=str,
@@ -987,6 +1002,7 @@ def run(
     allow_origins: tuple[str, ...],
     redirect_console_to_browser: bool,
     sandbox: Optional[bool],
+    check: bool,
     server_startup_command: Optional[str],
     asset_url: Optional[str],
     name: str,
@@ -1025,9 +1041,20 @@ def run(
 
     # correctness check - don't start the server if we can't import the module
     check_app_correctness(name)
+    file = MarimoPath(name)
+    if check:
+        from marimo._lint import collect_messages
+
+        linter, message = collect_messages(file.absolute_name)
+        if linter.errored:
+            raise click.ClickException(
+                red("Failure")
+                + ": The notebook has errors, fix them before running.\n"
+                + message.strip()
+            )
 
     start(
-        file_router=AppFileRouter.from_filename(MarimoPath(name)),
+        file_router=AppFileRouter.from_filename(file),
         development_mode=GLOBAL_SETTINGS.DEVELOPMENT_MODE,
         quiet=GLOBAL_SETTINGS.QUIET,
         host=host,
@@ -1218,6 +1245,72 @@ def shell_completion() -> None:
         + "' to enable completions",
         fg="green",
     )
+
+
+@main.command(help="""Check and format marimo files.""")
+@click.option(
+    "--fix",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    type=bool,
+    help="Whether to in place update files.",
+)
+@click.option(
+    "--strict",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    type=bool,
+    help="Whether warnings return a non-zero exit code.",
+)
+@click.option(
+    "-v/-q",
+    "--verbose/--quiet",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    type=bool,
+    help="Whether to print detailed messages.",
+)
+@click.option(
+    "--unsafe-fixes",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    type=bool,
+    help="Enable fixes that may change code behavior (e.g., removing empty cells).",
+)
+@click.argument("files", nargs=-1, type=click.UNPROCESSED)
+def check(
+    fix: bool,
+    strict: bool,
+    verbose: bool,
+    unsafe_fixes: bool,
+    files: tuple[str, ...],
+) -> None:
+    if not files:
+        # If no files are provided, we lint the current directory
+        files = ("**/*.py", "**/*.md", "**/*.qmd")
+
+    # Pass click.echo directly as pipe for streaming output, or None
+    pipe = click.echo if verbose else None
+    linter = run_check(files, pipe=pipe, fix=fix, unsafe_fixes=unsafe_fixes)
+
+    # Get counts from linter (fix happens automatically during streaming)
+    fixed = linter.fixed_count
+    total_issues = linter.issues_count
+
+    # Final summary
+    if fixed > 0:
+        click.echo(f"Updated {fixed} file{'s' if fixed > 1 else ''}.")
+    if total_issues > 0:
+        click.echo(
+            f"Found {total_issues} issue{'s' if total_issues > 1 else ''}."
+        )
+
+    if linter.errored or (strict and (fixed > 0 or total_issues > 0)):
+        sys.exit(1)
 
 
 main.command()(convert)

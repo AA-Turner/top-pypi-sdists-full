@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "json_repair"
-version = "0.50.1"
+version = "0.51.0"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -26,12 +26,17 @@ pythonpath = [
   "."
 ]
 [tool.coverage.run]
+source = ["src"]
 omit = [
     "*/.cursor/extensions/*",
     "*/pythonFiles/lib/python/*",
     "*/site-packages/*",
+    "src/json_repair/__main__.py",
 ]
 [tool.coverage.report]
+include = [
+    "src/json_repair/*",
+]
 exclude_also = [
     'def __repr__',
     'if self.debug:',

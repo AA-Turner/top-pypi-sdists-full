@@ -4,9 +4,11 @@ from adam.commands.deploy.code_start import CodeStart
 from adam.commands.deploy.code_stop import CodeStop
 from adam.commands.deploy.deploy import Deploy
 from adam.commands.deploy.deploy_frontend import DeployFrontend
+from adam.commands.deploy.deploy_pg_agent import DeployPgAgent
 from adam.commands.deploy.deploy_pod import DeployPod
 from adam.commands.deploy.undeploy import Undeploy
 from adam.commands.deploy.undeploy_frontend import UndeployFrontend
+from adam.commands.deploy.undeploy_pg_agent import UndeployPgAgent
 from adam.commands.deploy.undeploy_pod import UndeployPod
 from adam.commands.shell import Shell
 from adam.commands.show.show_app_queues import ShowAppQueues
@@ -78,7 +80,7 @@ class ReplCommands:
         return Medusa.cmd_list() + [Restart(), RollOut(), Watch()] + Reaper.cmd_list() + Repair.cmd_list()
 
     def tools() -> list[Command]:
-        return [Cqlsh(), Postgres(), Bash(), Shell(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod()]
+        return [Cqlsh(), Postgres(), Bash(), Shell(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod(), DeployPgAgent(), UndeployPgAgent()]
 
     def app() -> list[Command]:
         return [ShowAppActions(), ShowAppId(), ShowAppQueues(), AppPing(), App()]

@@ -100,6 +100,7 @@ if(ARCH STREQUAL "aarch64")
     md5-armv8.${ASM_EXT}
     p256-armv8-asm.${ASM_EXT}
     p256_beeu-armv8-asm.${ASM_EXT}
+    rndr-armv8.${ASM_EXT}
     sha1-armv8.${ASM_EXT}
     sha256-armv8.${ASM_EXT}
     sha512-armv8.${ASM_EXT}
@@ -149,6 +150,7 @@ if(PERL_EXECUTABLE)
   perlasm(p256-armv8-asm.${ASM_EXT} ec/asm/p256-armv8-asm.pl)
   perlasm(p256_beeu-armv8-asm.${ASM_EXT} ec/asm/p256_beeu-armv8-asm.pl)
   perlasm(rdrand-x86_64.${ASM_EXT} rand/asm/rdrand-x86_64.pl)
+  perlasm(rndr-armv8.${ASM_EXT} rand/asm/rndr-armv8.pl)
   perlasm(rsaz-avx2.${ASM_EXT} bn/asm/rsaz-avx2.pl)
   perlasm(rsaz-2k-avx512.${ASM_EXT} bn/asm/rsaz-2k-avx512.pl)
   perlasm(rsaz-3k-avx512.${ASM_EXT} bn/asm/rsaz-3k-avx512.pl)
@@ -262,6 +264,7 @@ if((((ARCH STREQUAL "x86_64") AND NOT MY_ASSEMBLER_IS_TOO_OLD_FOR_512AVX) OR
                 ${S2N_BIGNUM_DIR}/curve25519/curve25519_x25519_alt.S
                 ${S2N_BIGNUM_DIR}/curve25519/curve25519_x25519base.S
                 ${S2N_BIGNUM_DIR}/curve25519/curve25519_x25519base_alt.S
+                ${S2N_BIGNUM_DIR}/sha3/sha3_keccak_f1600.S
     )
   elseif(ARCH STREQUAL "aarch64")
     # byte-level interface for aarch64 s2n-bignum x25519 are in
@@ -291,9 +294,105 @@ if((((ARCH STREQUAL "x86_64") AND NOT MY_ASSEMBLER_IS_TOO_OLD_FOR_512AVX) OR
                 ${S2N_BIGNUM_DIR}/generic/bignum_copy_row_from_table_16.S
                 ${S2N_BIGNUM_DIR}/generic/bignum_copy_row_from_table_32.S
     )
+
+    #
+    # Keccak assembly from s2n-bignum/mlkem-native
+    #
+
+    # Check if assembler supports SHA3 extension
+    # (gcc supports it since gcc8, clang supports it since clang7)
+    check_compiler("neon_sha3_check.c" MY_ASSEMBLER_SUPPORTS_NEON_SHA3_EXTENSION "-march=armv8.4-a+sha3")
+
+    list(APPEND BCM_ASM_SOURCES
+                # Scalar Keccak-x1 assembly from s2n-bignum/mlkem-native
+                ${S2N_BIGNUM_DIR}/sha3/sha3_keccak_f1600.S
+
+                # Batched Keccak-x4 assembly from s2n-bignum
+                # Scalar version for Neoverse N1
+                ${S2N_BIGNUM_DIR}/sha3/sha3_keccak4_f1600_alt.S
+    )
+
+    if(MY_ASSEMBLER_SUPPORTS_NEON_SHA3_EXTENSION)
+        list(APPEND BCM_ASM_SOURCES
+           # Scalar Keccak-x1 assembly from s2n-bignum/mlkem-native, using SHA3 extension
+           ${S2N_BIGNUM_DIR}/sha3/sha3_keccak_f1600_alt.S
+
+           # SIMD versions using SHA3 extension
+           ${S2N_BIGNUM_DIR}/sha3/sha3_keccak2_f1600.S
+           ${S2N_BIGNUM_DIR}/sha3/sha3_keccak4_f1600_alt2.S)
+
+        set_source_files_properties(${S2N_BIGNUM_DIR}/sha3/sha3_keccak_f1600_alt.S
+                                    PROPERTIES COMPILE_FLAGS "-march=armv8.4-a+sha3")
+        set_source_files_properties(${S2N_BIGNUM_DIR}/sha3/sha3_keccak2_f1600.S
+                                    PROPERTIES COMPILE_FLAGS "-march=armv8.4-a+sha3")
+        set_source_files_properties(${S2N_BIGNUM_DIR}/sha3/sha3_keccak4_f1600_alt2.S
+                                    PROPERTIES COMPILE_FLAGS "-march=armv8.4-a+sha3")
+    endif()
   endif()
 
 endif()
+
+# Include s2n-bignum files in Windows AArch64 which replace similar implementation that was available on Windows
+# TODO: Attempt more AArch64 s2n-bignum files in Windows build
+if(ARCH STREQUAL "aarch64")
+  set(S2N_BIGNUM_INCLUDE_DIR "${AWSLC_SOURCE_DIR}/third_party/s2n-bignum/s2n-bignum-imported/include")
+  list(APPEND BCM_ASM_SOURCES
+          ${AWSLC_SOURCE_DIR}/third_party/s2n-bignum/s2n-bignum-to-be-imported/arm/aes/aes-xts-enc.S
+          ${AWSLC_SOURCE_DIR}/third_party/s2n-bignum/s2n-bignum-to-be-imported/arm/aes/aes-xts-dec.S
+  )
+endif()
+
+# mlkem-native assembly files can be compiled on Unix platforms for x86_64 and arm64 only.
+if((ARCH STREQUAL "aarch64") AND UNIX)
+
+  # Set the source directory for s2n-bignum assembly files
+  set(MLKEM_NATIVE_DIR "${AWSLC_SOURCE_DIR}/crypto/fipsmodule/ml_kem")
+
+  set(MLKEM_NATIVE_AARCH64_ASM_SOURCES
+
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/intt.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/ntt.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/poly_mulcache_compute_asm.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/poly_reduce_asm.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/poly_tobytes_asm.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/poly_tomont_asm.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/polyvec_basemul_acc_montgomery_cached_asm_k2.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/polyvec_basemul_acc_montgomery_cached_asm_k3.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/polyvec_basemul_acc_montgomery_cached_asm_k4.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/aarch64/src/rej_uniform_asm.S
+  )
+
+  list(APPEND BCM_ASM_SOURCES ${MLKEM_NATIVE_AARCH64_ASM_SOURCES})
+
+endif()
+
+if((ARCH STREQUAL "x86_64") AND UNIX AND NOT MY_ASSEMBLER_IS_TOO_OLD_FOR_AVX)
+
+  # Set the source directory for s2n-bignum assembly files
+  set(MLKEM_NATIVE_DIR "${AWSLC_SOURCE_DIR}/crypto/fipsmodule/ml_kem")
+
+  set(MLKEM_NATIVE_X86_64_ASM_SOURCES
+
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/intt.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/ntt.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/mulcache_compute.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/nttfrombytes.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/ntttobytes.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/nttunpack.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/reduce.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/tomont.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/polyvec_basemul_acc_montgomery_cached_asm_k2.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/polyvec_basemul_acc_montgomery_cached_asm_k3.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/polyvec_basemul_acc_montgomery_cached_asm_k4.S
+    ${MLKEM_NATIVE_DIR}/mlkem/native/x86_64/src/rej_uniform_asm.S
+  )
+
+  list(APPEND BCM_ASM_SOURCES ${MLKEM_NATIVE_X86_64_ASM_SOURCES})
+
+  set(S2N_BIGNUM_INCLUDE_DIR "${AWSLC_SOURCE_DIR}/third_party/s2n-bignum/s2n-bignum-imported/include")
+
+endif()
+
 
 if(FIPS_DELOCATE)
   if(FIPS_SHARED)
@@ -316,16 +415,18 @@ if(FIPS_DELOCATE)
   )
   target_compile_definitions(bcm_c_generated_asm PRIVATE BORINGSSL_IMPLEMENTATION S2N_BN_HIDE_SYMBOLS)
 
-  add_dependencies(bcm_c_generated_asm boringssl_prefix_symbols)
   # Important: We do not want to add the generated prefix symbols to the include path here!
   # Delocator expects symbols to not be prefixed.
-  target_include_directories(bcm_c_generated_asm PRIVATE ${AWSLC_SOURCE_DIR}/include "${S2N_BIGNUM_INCLUDE_DIR}")
+  target_add_awslc_include_paths(TARGET bcm_c_generated_asm SCOPE PRIVATE EXCLUDE_PREFIX_HEADERS)
+  target_include_directories(bcm_c_generated_asm PRIVATE "${S2N_BIGNUM_INCLUDE_DIR}")
   set_target_properties(bcm_c_generated_asm PROPERTIES COMPILE_OPTIONS "-S")
   set_target_properties(bcm_c_generated_asm PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-  # Clang 20+ warns when both "-S" and "-c" are used as options to the compiler.
-  if (CLANG AND (CMAKE_ASM_COMPILER_ID MATCHES "Clang" OR CMAKE_ASM_COMPILER MATCHES "clang") AND (CMAKE_C_COMPILER_VERSION VERSION_GREATER "19.99.99"))
-    set_target_properties(bcm_c_generated_asm PROPERTIES COMPILE_OPTIONS "-Wno-unused-command-line-argument")
+  get_filename_component(COMPILER_WRAPPER_PATH ${AWSLC_SOURCE_DIR}/util/compiler_wrapper/CompilerWrapper.cmake REALPATH)
+  include(${COMPILER_WRAPPER_PATH})
+  setup_compiler_wrapper()
+  if(COMPILER_WRAPPER_AVAILABLE)
+    use_compiler_wrapper_for_target(bcm_c_generated_asm)
   endif()
 
   set(TARGET "")
@@ -383,9 +484,8 @@ if(FIPS_DELOCATE)
   )
   target_compile_definitions(bcm_hashunset PRIVATE BORINGSSL_IMPLEMENTATION S2N_BN_HIDE_SYMBOLS)
 
-  add_dependencies(bcm_hashunset boringssl_prefix_symbols)
-  target_include_directories(bcm_hashunset BEFORE PRIVATE ${AWSLC_BINARY_DIR}/symbol_prefix_include)
-  target_include_directories(bcm_hashunset PRIVATE ${AWSLC_SOURCE_DIR}/include "${S2N_BIGNUM_INCLUDE_DIR}")
+  target_add_awslc_include_paths(TARGET bcm_hashunset SCOPE PRIVATE)
+  target_include_directories(bcm_hashunset PRIVATE "${S2N_BIGNUM_INCLUDE_DIR}")
 
   set_target_properties(bcm_hashunset PROPERTIES POSITION_INDEPENDENT_CODE ON)
   set_target_properties(bcm_hashunset PROPERTIES LINKER_LANGUAGE C)
@@ -415,14 +515,16 @@ if(FIPS_DELOCATE)
   )
   target_compile_definitions(fipsmodule PRIVATE BORINGSSL_IMPLEMENTATION)
 
-  add_dependencies(fipsmodule boringssl_prefix_symbols)
-  target_include_directories(fipsmodule BEFORE PRIVATE ${AWSLC_BINARY_DIR}/symbol_prefix_include)
-  target_include_directories(fipsmodule PRIVATE ${AWSLC_SOURCE_DIR}/include)
+  target_add_awslc_include_paths(TARGET fipsmodule SCOPE PRIVATE)
 
   set_target_properties(fipsmodule PROPERTIES LINKER_LANGUAGE C)
 elseif(FIPS_SHARED)
   if(NOT BUILD_SHARED_LIBS)
     message(FATAL_ERROR "FIPS_SHARED set but not BUILD_SHARED_LIBS")
+  endif()
+
+  if (ARCH STREQUAL "aarch64" AND CMAKE_GENERATOR MATCHES "Visual Studio")
+    msbuild_aarch64_asm(TARGET fipsmodule ASM_FILES ${BCM_ASM_SOURCES} OUTPUT_OBJECTS BCM_ASM_OBJECTS)
   endif()
 
   add_library(
@@ -434,10 +536,8 @@ elseif(FIPS_SHARED)
     cpucap/cpucap.c
   )
   target_compile_definitions(fipsmodule PRIVATE BORINGSSL_IMPLEMENTATION S2N_BN_HIDE_SYMBOLS)
-
-  add_dependencies(fipsmodule boringssl_prefix_symbols)
-  target_include_directories(fipsmodule BEFORE PRIVATE ${AWSLC_BINARY_DIR}/symbol_prefix_include)
-  target_include_directories(fipsmodule PRIVATE ${AWSLC_SOURCE_DIR}/include "${S2N_BIGNUM_INCLUDE_DIR}")
+  target_add_awslc_include_paths(TARGET fipsmodule SCOPE PRIVATE)
+  target_include_directories(fipsmodule PRIVATE "${S2N_BIGNUM_INCLUDE_DIR}")
 
   add_library(
     bcm_library
@@ -449,11 +549,8 @@ elseif(FIPS_SHARED)
     ${BCM_ASM_SOURCES}
   )
   target_compile_definitions(bcm_library PRIVATE BORINGSSL_IMPLEMENTATION S2N_BN_HIDE_SYMBOLS )
-  target_include_directories(bcm_library PRIVATE ${AWSLC_SOURCE_DIR}/include "${S2N_BIGNUM_INCLUDE_DIR}")
-
-  add_dependencies(bcm_library boringssl_prefix_symbols)
-  target_include_directories(bcm_library BEFORE PRIVATE ${AWSLC_BINARY_DIR}/symbol_prefix_include)
-  target_include_directories(bcm_library PRIVATE ${AWSLC_SOURCE_DIR}/include)
+  target_add_awslc_include_paths(TARGET bcm_library SCOPE PRIVATE)
+  target_include_directories(bcm_library PRIVATE "${S2N_BIGNUM_INCLUDE_DIR}")
   if (APPLE)
     set(BCM_NAME bcm.o)
     # The linker on macOS doesn't have the ability to process linker scripts,
@@ -472,14 +569,17 @@ elseif(FIPS_SHARED)
         set(OSX_VERSION_MIN_FLAG "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
       endif()
     endif()
+    if(CMAKE_OSX_SYSROOT)
+      set(FIPS_EXTRA_FLAGS -isysroot \"${CMAKE_OSX_SYSROOT}\")
+    endif()
     add_custom_command(
       OUTPUT fips_apple_start.o
-      COMMAND ${CMAKE_C_COMPILER} -arch ${CMAKE_SYSTEM_PROCESSOR} -isysroot ${CMAKE_OSX_SYSROOT} ${OSX_VERSION_MIN_FLAG} -c ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c -DAWSLC_FIPS_SHARED_START -o fips_apple_start.o
+      COMMAND ${CMAKE_C_COMPILER} -arch ${CMAKE_SYSTEM_PROCESSOR} ${FIPS_EXTRA_FLAGS} ${OSX_VERSION_MIN_FLAG} -c ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c -DAWSLC_FIPS_SHARED_START -o fips_apple_start.o
       DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c
     )
     add_custom_command(
       OUTPUT fips_apple_end.o
-      COMMAND ${CMAKE_C_COMPILER} -arch ${CMAKE_SYSTEM_PROCESSOR} -isysroot ${CMAKE_OSX_SYSROOT} ${OSX_VERSION_MIN_FLAG} -c ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c -DAWSLC_FIPS_SHARED_END -o fips_apple_end.o
+      COMMAND ${CMAKE_C_COMPILER} -arch ${CMAKE_SYSTEM_PROCESSOR} ${FIPS_EXTRA_FLAGS} ${OSX_VERSION_MIN_FLAG} -c ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c -DAWSLC_FIPS_SHARED_END -o fips_apple_end.o
       DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c
     )
     add_custom_command(
@@ -506,14 +606,18 @@ elseif(FIPS_SHARED)
       DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/fips_shared_library_marker.c
     )
 
-    get_filename_component(MSVC_BIN ${CMAKE_LINKER} DIRECTORY)
-    set(MSVC_LIB "${MSVC_BIN}/lib.exe")
+    if(CMAKE_AR)
+      set(MSVC_LIB "${CMAKE_AR}")
+    else()
+      get_filename_component(MSVC_BIN ${CMAKE_LINKER} DIRECTORY)
+      set(MSVC_LIB "${MSVC_BIN}/lib.exe")
+    endif()
 
     add_custom_command(
       OUTPUT ${BCM_NAME}
       # This takes bcm_library which is static library and possibly a collection of assembly files in a CMake list.
-      # lib.exe does not handle the CMake list which uses semicolons between items, this generator expression converts
-      # it to a list of quoted strings, it also needs to be itself string escaped
+      # The archiver does not handle the CMake list which uses semicolons between items, this generator expression
+      # converts it to a list of quoted strings, it also needs to be itself string escaped
       COMMAND ${MSVC_LIB} /nologo fips_msvc_start.obj "\"$<JOIN:$<TARGET_OBJECTS:bcm_library>,\" \">\"" fips_msvc_end.obj /OUT:${BCM_NAME}
       DEPENDS  fips_msvc_start.obj fips_msvc_end.obj bcm_library
       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -558,9 +662,6 @@ else()
     ${BCM_ASM_OBJECTS}
   )
   target_compile_definitions(fipsmodule PRIVATE BORINGSSL_IMPLEMENTATION S2N_BN_HIDE_SYMBOLS)
-
-  add_dependencies(fipsmodule boringssl_prefix_symbols)
-  target_include_directories(fipsmodule BEFORE PRIVATE ${AWSLC_BINARY_DIR}/symbol_prefix_include)
-  target_include_directories(fipsmodule PRIVATE ${AWSLC_SOURCE_DIR}/include "${S2N_BIGNUM_INCLUDE_DIR}")
-
+  target_add_awslc_include_paths(TARGET fipsmodule SCOPE PRIVATE)
+  target_include_directories(fipsmodule PRIVATE "${S2N_BIGNUM_INCLUDE_DIR}")
 endif()

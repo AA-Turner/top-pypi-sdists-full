@@ -18,5 +18,9 @@ parking_lot.workspace = true
 pyo3.workspace = true
 ryo3-fspath.workspace = true
 
+[features]
+ry = []
+
 [lints]
 workspace = true
+

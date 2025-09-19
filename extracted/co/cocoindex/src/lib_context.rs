@@ -5,6 +5,7 @@ use crate::prelude::*;
 use crate::builder::AnalyzedFlow;
 use crate::execution::source_indexer::SourceIndexingContext;
 use crate::service::error::ApiError;
+use crate::service::query_handler::{QueryHandler, QueryHandlerSpec};
 use crate::settings;
 use crate::setup::ObjectSetupChange;
 use axum::http::StatusCode;
@@ -97,9 +98,15 @@ impl FlowExecutionContext {
     }
 }
 
+pub struct QueryHandlerContext {
+    pub info: Arc<QueryHandlerSpec>,
+    pub handler: Arc<dyn QueryHandler>,
+}
+
 pub struct FlowContext {
     pub flow: Arc<AnalyzedFlow>,
     execution_ctx: Arc<tokio::sync::RwLock<FlowExecutionContext>>,
+    pub query_handlers: RwLock<HashMap<String, QueryHandlerContext>>,
 }
 
 impl FlowContext {
@@ -117,6 +124,7 @@ impl FlowContext {
         Ok(Self {
             flow,
             execution_ctx,
+            query_handlers: RwLock::new(HashMap::new()),
         })
     }
 
@@ -346,12 +354,10 @@ pub(crate) async fn init_lib_context(settings: Option<settings::Settings>) -> Re
 }
 
 pub(crate) async fn get_lib_context() -> Result<Arc<LibContext>> {
-    debug!("Get lib context");
     let mut lib_context_locked = LIB_CONTEXT.lock().await;
     let lib_context = if let Some(lib_context) = &*lib_context_locked {
         lib_context.clone()
     } else {
-        debug!("Get lib context: no lib context found, creating new one");
         let setting = get_settings()?;
         let lib_context = Arc::new(create_lib_context(setting).await?);
         *lib_context_locked = Some(lib_context.clone());

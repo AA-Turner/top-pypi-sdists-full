@@ -8,14 +8,14 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.68",
+    "langchain-core>=0.3.68",
     "tokenizers<1,>=0.15.1",
     "httpx<1,>=0.25.2",
     "httpx-sse<1,>=0.3.1",
     "pydantic<3,>=2",
 ]
 name = "langchain-mistralai"
-version = "0.2.11"
+version = "0.2.12"
 description = "An integration package connecting Mistral and LangChain"
 readme = "README.md"
 
@@ -40,7 +40,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "langchain-core",
@@ -66,16 +66,66 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
+    "D",
     "E",
+    "EM",
     "F",
+    "FA",
+    "FBT",
+    "FLY",
     "I",
-    "T201",
-    "UP",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
     "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
+    "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D203",
+    "D407",
+    "COM812",
+    "ISC001",
+    "PERF203",
+    "S112",
+    "RUF012",
+    "SLF001",
     "UP007",
+    "UP045",
 ]
+unfixable = [
+    "B028",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: FireWorks
-Version: 2.0.4
+Version: 2.0.5
 Summary: FireWorks workflow software
 Home-page: https://github.com/materialsproject/fireworks
 Author: Anubhav Jain
@@ -52,6 +52,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

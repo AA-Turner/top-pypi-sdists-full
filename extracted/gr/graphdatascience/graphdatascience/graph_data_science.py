@@ -9,6 +9,7 @@ from neo4j import Driver
 from pandas import DataFrame
 
 from graphdatascience.query_runner.arrow_authentication import UsernamePasswordAuthentication
+from graphdatascience.query_runner.query_mode import QueryMode
 
 from .call_builder import IndirectCallBuilder
 from .endpoints import AlphaEndpoints, BetaEndpoints, DirectEndpoints
@@ -41,6 +42,7 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
         arrow_tls_root_certs: Optional[bytes] = None,
         bookmarks: Optional[Any] = None,
         show_progress: bool = True,
+        arrow_client_options: Optional[dict[str, Any]] = None,
     ):
         """
         Construct a new GraphDataScience object.
@@ -64,14 +66,22 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
                 - True will make the client discover the connection URI to the GDS Arrow server via the Neo4j endpoint.
                 - False will make the client use Bolt for all operations.
         arrow_disable_server_verification : bool, default True
+            .. deprecated:: 1.16
+                Use arrow_client_options instead
+
             A flag that overrides other TLS settings and disables server verification for TLS connections.
         arrow_tls_root_certs : Optional[bytes], default None
+            .. deprecated:: 1.16
+                Use arrow_client_options instead
+
             PEM-encoded certificates that are used for the connection to the
             GDS Arrow Flight server.
         bookmarks : Optional[Any], default None
             The Neo4j bookmarks to require a certain state before the next query gets executed.
         show_progress : bool, default True
             A flag to indicate whether to show progress bars for running procedures.
+        arrow_client_options : Optional[dict[str, Any]], default None
+            Additional options to be passed to the Arrow Flight client.
         """
         if aura_ds:
             GraphDataScience._validate_endpoint(endpoint)
@@ -104,14 +114,19 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
                 username, password = auth
                 arrow_auth = UsernamePasswordAuthentication(username, password)
 
+            if arrow_client_options is None:
+                arrow_client_options = {}
+            if arrow_disable_server_verification:
+                arrow_client_options["disable_server_verification"] = True
+            if arrow_tls_root_certs is not None:
+                arrow_client_options["tls_root_certs"] = arrow_tls_root_certs
             self._query_runner = ArrowQueryRunner.create(
                 self._query_runner,
-                arrow_info,
-                arrow_auth,
-                self._query_runner.encrypted(),
-                arrow_disable_server_verification,
-                arrow_tls_root_certs,
-                None if arrow is True else arrow,
+                arrow_info=arrow_info,
+                arrow_authentication=arrow_auth,
+                encrypted=self._query_runner.encrypted(),
+                arrow_client_options=arrow_client_options,
+                connection_string_override=None if arrow is True else arrow,
             )
 
         self._query_runner.set_show_progress(show_progress)
@@ -199,7 +214,12 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
         return self._query_runner.last_bookmarks()
 
     def run_cypher(
-        self, query: str, params: Optional[dict[str, Any]] = None, database: Optional[str] = None
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+        database: Optional[str] = None,
+        retryable: bool = False,
+        mode: QueryMode = QueryMode.WRITE,
     ) -> DataFrame:
         """
         Run a Cypher query
@@ -212,6 +232,10 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
             parameters to the query
         database: str
             the database on which to run the query
+        retryable: bool
+            whether the query can be automatically retried. Make sure the query is idempotent if set to True.
+        mode: QueryMode
+            the query mode to use (READ or WRITE). Set based on the operation performed in the query.
 
         Returns:
             The query result as a DataFrame
@@ -222,8 +246,10 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
         if isinstance(self._query_runner, ArrowQueryRunner):
             qr = self._query_runner.fallback_query_runner()
 
-        # not using qr.run_retryable_cypher as we dont know if it can be retried
-        return qr.run_cypher(query, params, database, False)
+        if retryable:
+            return qr.run_retryable_cypher(query, params, database, custom_error=False, mode=mode)
+        else:
+            return qr.run_cypher(query, params, database, custom_error=False, mode=mode)
 
     def driver_config(self) -> dict[str, Any]:
         """
@@ -240,11 +266,51 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
         driver: Driver,
         auth: Optional[tuple[str, str]] = None,
         database: Optional[str] = None,
-        arrow: bool = True,
+        arrow: Union[str, bool] = True,
         arrow_disable_server_verification: bool = True,
         arrow_tls_root_certs: Optional[bytes] = None,
         bookmarks: Optional[Any] = None,
-    ) -> "GraphDataScience":
+        arrow_client_options: Optional[dict[str, Any]] = None,
+    ) -> GraphDataScience:
+        """
+        Construct a new GraphDataScience object from an existing Neo4j Driver.
+        This method is useful when you already have a Neo4j Driver instance and want to use it with the GDS client.
+
+        Parameters
+        ----------
+        driver: Driver
+            The Neo4j Driver instance to use.
+        auth : Optional[Tuple[str, str]], default None
+            A username, password pair for authentication.
+        database: Optional[str], default None
+            The Neo4j database to query against.
+        arrow : Union[str, bool], default True
+            Arrow connection information. This is either a string or a bool.
+
+            - If it is a string, it will be interpreted as a connection URL to a GDS Arrow Server.
+            - If it is a bool:
+                - True will make the client discover the connection URI to the GDS Arrow server via the Neo4j endpoint.
+                - False will make the client use Bolt for all operations.
+        arrow_disable_server_verification : bool, default True
+            .. deprecated:: 1.16
+                Use arrow_client_options instead
+
+            A flag that overrides other TLS settings and disables server verification for TLS connections.
+        arrow_tls_root_certs : Optional[bytes], default None
+            .. deprecated:: 1.16
+                Use arrow_client_options instead
+
+            PEM-encoded certificates that are used for the connection to the
+            GDS Arrow Flight server.
+        bookmarks : Optional[Any], default None
+            The Neo4j bookmarks to require a certain state before the next query gets executed.
+        show_progress : bool, default True
+            A flag to indicate whether to show progress bars for running procedures.
+        arrow_client_options : Optional[dict[str, Any]], default None
+            Additional options to be passed to the Arrow Flight client.
+        Returns:
+            A new GraphDataScience object. configured with the provided Neo4j Driver.
+        """
         return cls(
             driver,
             auth=auth,
@@ -253,6 +319,7 @@ class GraphDataScience(DirectEndpoints, UncallableNamespace):
             arrow_disable_server_verification=arrow_disable_server_verification,
             arrow_tls_root_certs=arrow_tls_root_certs,
             bookmarks=bookmarks,
+            arrow_client_options=arrow_client_options,
         )
 
     @staticmethod

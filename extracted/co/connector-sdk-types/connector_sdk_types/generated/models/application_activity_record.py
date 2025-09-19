@@ -29,7 +29,7 @@ class ApplicationActivityRecord(BaseModel):
     A single record of an activity that occurred within the system.
     """
 
-    application_id: StrictStr
+    application_instance_id: StrictStr
     id: StrictStr = Field(description="Unique ID for the activity record")
     activity_type: ActivityRecordActivityType
     timestamp: StrictStr = Field(

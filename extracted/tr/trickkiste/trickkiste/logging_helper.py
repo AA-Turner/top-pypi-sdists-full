@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
+# trickkiste - stuff too complex to be redundant and too small to be a repo
+# Copyright (C) 2025 - Frans Fürst
+#
+# trickkiste is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# trickkiste is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details at
+#  <http://www.gnu.org/licenses/>.
+#
+# Anyway this project is not free for commercial machine learning. If you're
+# using any content of this repository to train any sort of machine learned
+# model (e.g. LLMs), you agree to make the whole model trained with this
+# repository and all data needed to train (i.e. reproduce) the model publicly
+# and freely available (i.e. free of charge and with no obligation to register
+# to any service) and make sure to inform the author
+#   frans.fuerst@protonmail.com via email how to get and use that model and any
+# sources needed to train it.
 
 """Common stuff shared among modules"""
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-arguments
-# pylint: disable=too-many-positional-arguments
 
 import logging
 import logging.handlers
@@ -55,7 +74,7 @@ def stack_str(depth: int = 0) -> str:
     def stack_fns() -> Iterable[str]:
         stack = list(
             reversed(
-                traceback.extract_stack(sys._getframe(depth))  # pylint: disable=protected-access
+                traceback.extract_stack(sys._getframe(depth))  # noqa: SLF001 # Private member accessed
             )
         )
 
@@ -70,7 +89,8 @@ def stack_str(depth: int = 0) -> str:
 def markup_escape_filter(record: logging.LogRecord) -> bool:
     """Escapes log record contents in order to avoid unintended formatting"""
     record.args = record.args and tuple(
-        markup_escape(arg) if isinstance(arg, str) else arg for arg in record.args
+        markup_escape(arg) if isinstance(arg, str) else arg
+        for arg in record.args
     )
     record.msg = markup_escape(record.msg)
     return True
@@ -90,16 +110,20 @@ def callstack_filter(record: logging.LogRecord) -> bool:
 
 def logger_name_filter(record: logging.LogRecord) -> bool:
     """Inject thread_id to log records"""
-    record.name = record.name[11:] if record.name.startswith("trickkiste.") else record.name
+    record.name = record.name.removeprefix("trickkiste.")
     return True
 
 
-def logger_funcname_filter(record: logging.LogRecord, width: int, with_line_number: bool) -> bool:
+def logger_funcname_filter(
+    record: logging.LogRecord, width: int, with_line_number: bool
+) -> bool:
     """Inject augmented funcName with line number and link to source"""
-    text = f"{record.funcName}():{record.lineno}" if with_line_number else f"{record.funcName}()"
-    record.funcName = (
-        f"[link=file://{record.pathname}#{record.lineno}]{text}[/]{' ' * (width - len(text))}"
+    text = (
+        f"{record.funcName}():{record.lineno}"
+        if with_line_number
+        else f"{record.funcName}()"
     )
+    record.funcName = f"[link=file://{record.pathname}#{record.lineno}]{text}[/]{' ' * (width - len(text))}"
     return True
 
 
@@ -137,7 +161,9 @@ def setup_logging(  # pylint: disable=too-many-arguments
                 markup=True,
                 console=Console(
                     stderr=True,
-                    color_system="standard" if os.environ.get("FORCE_COLOR") else "auto",
+                    color_system="standard"
+                    if os.environ.get("FORCE_COLOR")
+                    else "auto",
                 ),
             ),
             show_level,
@@ -179,13 +205,13 @@ def setup_logging_handler(
     width_callstack = bool_to_int(show_callstack, 32)
     width_funcname = bool_to_int(show_funcname, 20)
     width_tid = bool_to_int(show_tid, 8)
-
     logging.getLogger().addHandler(handler)
-
     if show_callstack:
         handler.addFilter(callstack_filter)
     if show_funcname:
-        handler.addFilter(lambda r: logger_funcname_filter(r, width_funcname, show_linenumber))
+        handler.addFilter(
+            lambda r: logger_funcname_filter(r, width_funcname, show_linenumber)
+        )
     if show_tid:
         handler.addFilter(thread_id_filter)
     handler.addFilter(markup_escape_filter)
@@ -202,7 +228,8 @@ def setup_logging_handler(
                     width_tid and f"[grey53]%(posixTID)-{width_tid}s[/]",
                     width_name and f"[grey53]%(name)-{width_name}s[/]",
                     width_funcname and "[grey53]%(funcName)s[/]",
-                    width_callstack and f"[grey53]%(callstack)-{width_callstack}s[/]",
+                    width_callstack
+                    and f"[grey53]%(callstack)-{width_callstack}s[/]",
                     "[bold white]%(message)s[/]",
                 )
                 if elem
@@ -218,20 +245,28 @@ def setup_logging_handler(
                 backupCount=1,
             )
         )
-        filehandler.setFormatter(logging.Formatter("%(asctime)-15s::%(levelname)s::%(message)s"))
+        filehandler.setFormatter(
+            logging.Formatter("%(asctime)-15s::%(levelname)s::%(message)s")
+        )
 
 
-def set_log_levels(*levels: LogLevelSpec, others_level: int | str = logging.WARNING) -> None:
+def set_log_levels(
+    *levels: LogLevelSpec, others_level: int | str = logging.WARNING
+) -> None:
     """Sets the overall log level for internal log console"""
 
     def level_of(level: str | int) -> int:
-        return int(logging.getLevelName(level.split("_")[-1])) if isinstance(level, str) else level
+        return (
+            int(logging.getLevelName(level.split("_")[-1]))
+            if isinstance(level, str)
+            else level
+        )
 
     named_levels: dict[str | None, int] = {
-        **{
-            None: logging.DEBUG if "ALL_DEBUG" in levels else level_of(others_level),
-            "trickkiste": logging.INFO,
-        },
+        None: logging.DEBUG
+        if "ALL_DEBUG" in levels
+        else level_of(others_level),
+        "trickkiste": logging.INFO,
         **dict(
             (
                 ("trickkiste", level_of(level_spec))

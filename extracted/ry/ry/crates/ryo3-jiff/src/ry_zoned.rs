@@ -1,4 +1,4 @@
-use crate::errors::{map_py_overflow_err, map_py_value_err};
+use crate::errors::{map_py_overflow_err, map_py_runtime_err, map_py_value_err};
 use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
 use crate::round::RyZonedDateTimeRound;
 use crate::ry_datetime::RyDateTime;
@@ -18,7 +18,6 @@ use jiff::civil::{Date, Time, Weekday};
 use jiff::tz::{Offset, TimeZone};
 use jiff::{Zoned, ZonedDifference, ZonedRound};
 use pyo3::IntoPyObjectExt;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::{PyDict, PyTuple};
@@ -30,7 +29,8 @@ use std::str::FromStr;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, PartialEq)]
-#[pyclass(name = "ZonedDateTime", module = "ry.ryo3", frozen)]
+#[pyclass(name = "ZonedDateTime", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyZoned(pub(crate) Zoned);
 
 #[pymethods]
@@ -119,6 +119,10 @@ impl RyZoned {
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
+    fn __format__(&self, fmt: &str) -> String {
+        self.0.strftime(fmt).to_string()
+    }
+
     fn strftime(&self, fmt: &str) -> String {
         self.0.strftime(fmt).to_string()
     }
@@ -168,9 +172,8 @@ impl RyZoned {
         } else {
             ISOFORMAT_PRINTER.print_datetime(&dattie, &mut s)
         }
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{e}")))?;
-        print_isoformat_offset(&offset, &mut s)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("{e}")))?;
+        .map_err(map_py_runtime_err)?;
+        print_isoformat_offset(&offset, &mut s).map_err(map_py_runtime_err)?;
         Ok(s)
     }
 
@@ -294,7 +297,7 @@ impl RyZoned {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         #[expect(clippy::arithmetic_side_effects)]
-        if let Ok(zoned) = other.downcast::<Self>() {
+        if let Ok(zoned) = other.cast::<Self>() {
             // if other is a Zoned, return a Span
             let span = &self.0 - &zoned.get().0;
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
@@ -354,7 +357,7 @@ impl RyZoned {
         self.0
             .round(zdt_round)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn _round(&self, zdt_round: &RyZonedDateTimeRound) -> PyResult<Self> {
@@ -583,21 +586,19 @@ impl RyZoned {
         let mut builder = self.0.with();
         if let Some(obj) = obj {
             // if obj is a Zoned, use it as the base
-            if let Ok(zoned) = obj.downcast::<RyDate>() {
+            if let Ok(zoned) = obj.cast::<RyDate>() {
                 // if obj is a Zoned, use it as the base
                 let date = zoned.extract::<RyDate>()?;
                 builder = builder.date(date.0);
-            } else if let Ok(time) = obj.downcast::<RyTime>() {
+            } else if let Ok(time) = obj.cast::<RyTime>() {
                 // if obj is a Time, use it as the base
                 let time = time.extract::<RyTime>()?;
                 builder = builder.time(time.0);
-            } else if let Ok(date) = obj.downcast::<RyOffset>() {
+            } else if let Ok(date) = obj.cast::<RyOffset>() {
                 let offset = date.extract::<RyOffset>()?;
                 builder = builder.offset(offset.0);
             } else {
-                return Err(PyErr::new::<PyTypeError, _>(format!(
-                    "obj must be a Date, Time or Offset; given: {obj}",
-                )));
+                return py_type_err!("obj must be a Date, Time or Offset; given: {obj}",);
             }
         }
 
@@ -739,15 +740,15 @@ impl RyZoned {
     #[staticmethod]
     fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = value.py();
-        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
             Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
             Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
         } else if value.is_exact_instance_of::<Self>() {
             value.into_bound_py_any(py)
-        } else if let Ok(d) = value.downcast_exact::<RyTimestamp>() {
+        } else if let Ok(d) = value.cast_exact::<RyTimestamp>() {
             let dt = d.get().0.to_zoned(TimeZone::UTC);
             dt.into_bound_py_any(py)
         } else if let Ok(d) = value.extract::<JiffZoned>() {

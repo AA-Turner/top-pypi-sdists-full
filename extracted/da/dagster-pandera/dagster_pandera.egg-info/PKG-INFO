@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pandera
-Version: 0.27.10
+Version: 0.27.11
 Summary: Integration layer for dagster and pandera.
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
@@ -15,7 +15,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.14
 License-File: LICENSE
-Requires-Dist: dagster==1.11.10
+Requires-Dist: dagster==1.11.11
 Requires-Dist: pandas
 Requires-Dist: pandera>=0.24.0
 Provides-Extra: polars

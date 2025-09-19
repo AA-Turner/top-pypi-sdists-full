@@ -54,17 +54,9 @@ async def check_and_execute_tasks(stop_event: threading.Event):
             if task is not None:
                 processo_existe = await is_uuid_in_tasks(task.uuidProcesso)
                 if processo_existe:
-                    i = 0
-                    while i < 10:
-                        try:
-                            await burn_queue(task.uuidFila)
-                            break
-                        except:
-                            i += 1
-                            await asyncio.sleep(5)
-                            pass
                     logger.info(f"Executando a task: {task.nomProcesso}")
                     await perform_task(task)
+
                 else:
                     log_message = f"O processo [{task.nomProcesso}] não existe no Worker [{worker_config['NOME_ROBO']}] e foi removido da fila."
                     console.print(f"\n{log_message}\n", style="yellow")

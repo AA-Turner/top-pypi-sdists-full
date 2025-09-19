@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: csvw
-Version: 3.5.1
+Version: 3.6.0
 Summary: Python library to work with CSVW described tabular data
 Home-page: https://github.com/cldf/csvw
 Author: Robert Forkel
@@ -36,7 +36,7 @@ Requires-Dist: babel
 Requires-Dist: requests
 Requires-Dist: language-tags
 Requires-Dist: rdflib
-Requires-Dist: colorama
+Requires-Dist: termcolor
 Requires-Dist: jsonschema
 Provides-Extra: dev
 Requires-Dist: flake8; extra == "dev"

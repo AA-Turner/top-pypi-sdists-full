@@ -2599,6 +2599,17 @@ OPENSSL_EXPORT int X509_OBJECT_get_type(const X509_OBJECT *obj);
 // a certificate.
 OPENSSL_EXPORT X509 *X509_OBJECT_get0_X509(const X509_OBJECT *obj);
 
+typedef STACK_OF(X509_CRL) *(*X509_STORE_CTX_lookup_crls_fn)(
+    X509_STORE_CTX *ctx, X509_NAME *nm);
+
+OPENSSL_EXPORT X509_STORE_CTX_lookup_crls_fn X509_STORE_get_lookup_crls(X509_STORE *ctx);
+
+OPENSSL_EXPORT void X509_STORE_set_lookup_crls(
+    X509_STORE *ctx, X509_STORE_CTX_lookup_crls_fn lookup_crls);
+
+#define X509_STORE_set_lookup_crls_cb(ctx, func) \
+  X509_STORE_set_lookup_crls((ctx), (func))
+
 // Certificate verification.
 //
 // An |X509_STORE_CTX| object represents a single certificate verification
@@ -2736,6 +2747,8 @@ OPENSSL_EXPORT void X509_STORE_CTX_set_cert(X509_STORE_CTX *c, X509 *x);
 #define X509_V_ERR_EE_KEY_TOO_SMALL 68
 #define X509_V_ERR_CA_KEY_TOO_SMALL 69
 #define X509_V_ERR_CA_MD_TOO_WEAK 70
+#define X509_V_UNABLE_TO_GET_CERTS_PUBLIC_KEY 71
+#define X509_V_ERR_EC_KEY_EXPLICIT_PARAMS 72
 
 // X509_STORE_CTX_get_error, after |X509_verify_cert| returns, returns
 // |X509_V_OK| if verification succeeded or an |X509_V_ERR_*| describing why
@@ -2935,7 +2948,6 @@ OPENSSL_EXPORT void X509_STORE_CTX_set_verify_crit_oids(
     X509_STORE_CTX *ctx,
     X509_STORE_CTX_verify_crit_oids_cb verify_custom_crit_oids);
 
-
 // Verification parameters
 //
 // An |X509_VERIFY_PARAM| contains a set of parameters for certificate
@@ -3111,8 +3123,20 @@ OPENSSL_EXPORT int X509_VERIFY_PARAM_add1_host(X509_VERIFY_PARAM *param,
                                                const char *name,
                                                size_t name_len);
 
+// X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT enables always checking the subject name for host match 
+// even if subject alt names are present.
+#define X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT 0x1
+
 // X509_CHECK_FLAG_NO_WILDCARDS disables wildcard matching for DNS names.
 #define X509_CHECK_FLAG_NO_WILDCARDS 0x2
+
+// X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS constrains host name patterns passed to |X509_check_host|
+// starting with '.' to only match a single label / subdomain.
+//
+// For example, by default the host name '.example.com' would match a certificate DNS name like
+// 'www.example.com' and 'www.foo.example.com'. Setting this flag would result in the same host name
+// only matching 'www.example.com' but not 'www.foo.example.com'.
+#define X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS 0x10
 
 // X509_CHECK_FLAG_NEVER_CHECK_SUBJECT disables the subject fallback, normally
 // enabled when subjectAltNames is missing.
@@ -3284,6 +3308,19 @@ OPENSSL_EXPORT int X509_VERIFY_PARAM_set_purpose(X509_VERIFY_PARAM *param,
 OPENSSL_EXPORT int X509_VERIFY_PARAM_set_trust(X509_VERIFY_PARAM *param,
                                                int trust);
 
+// X509_VERIFY_PARAM_enable_ec_key_explicit_params enables X.509 subject public
+// keys to contain elliptic curve keys with explicit parameters. By default
+// AWS-LC rejects validation of certificate chains containing public keys
+// with explicit EC parameters. Returns 1 on success, or 0 on failure.
+OPENSSL_EXPORT int X509_VERIFY_PARAM_enable_ec_key_explicit_params(
+    X509_VERIFY_PARAM *param);
+
+// X509_VERIFY_PARAM_disable_ec_key_explicit_params disables X.509 subject
+// public keys to contain elliptic curve keys with explicit parameters. By
+// default AWS-LC rejects validation of certificate chains containing public
+// keys with explicit EC parameters. Returns 1 on success, or 0 on failure.
+OPENSSL_EXPORT int X509_VERIFY_PARAM_disable_ec_key_explicit_params(
+    X509_VERIFY_PARAM *param);
 
 // Filesystem-based certificate stores.
 //
@@ -4969,6 +5006,8 @@ typedef int (*X509_STORE_CTX_verify_cb)(int, X509_STORE_CTX *);
 OPENSSL_EXPORT void X509_STORE_CTX_set_verify_cb(
     X509_STORE_CTX *ctx, int (*verify_cb)(int ok, X509_STORE_CTX *ctx));
 
+OPENSSL_EXPORT X509_STORE_CTX_verify_cb X509_STORE_get_verify_cb(X509_STORE *ctx);
+
 // X509_STORE_set_verify_cb acts like |X509_STORE_CTX_set_verify_cb| but sets
 // the verify callback for any |X509_STORE_CTX| created from this |X509_STORE|
 //
@@ -5024,9 +5063,7 @@ OPENSSL_EXPORT void X509_STORE_CTX_set0_untrusted(X509_STORE_CTX *ctx,
 
 // The following flags do nothing. The corresponding non-standard options have
 // been removed.
-#define X509_CHECK_FLAG_ALWAYS_CHECK_SUBJECT 0
 #define X509_CHECK_FLAG_MULTI_LABEL_WILDCARDS 0
-#define X509_CHECK_FLAG_SINGLE_LABEL_SUBDOMAINS 0
 
 // X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS does nothing, but is necessary in
 // OpenSSL to enable standard wildcard matching. In AWS-LC, this behavior is

@@ -19,8 +19,8 @@ jobs:
       matrix: ${{ steps.set-config.outputs.matrix }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -34,7 +34,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: >
-          python scripts/diff_shades_gha_helper.py config ${{ github.event_name }} ${{ matrix.mode }}
+          python scripts/diff_shades_gha_helper.py config ${{ github.event_name }}
+          ${{ matrix.mode }}
 
   analysis:
     name: analysis / ${{ matrix.mode }}
@@ -48,16 +49,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.configure.outputs.matrix )}}
+        include: ${{ fromJson(needs.configure.outputs.matrix) }}
 
     steps:
       - name: Checkout this repository (full clone)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # The baseline revision could be rather old so a full clone is ideal.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -110,34 +111,33 @@ jobs:
           ${{ matrix.baseline-analysis }} ${{ matrix.target-analysis }}
 
       - name: Upload diff report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.mode }}-diff.html
           path: diff.html
 
       - name: Upload baseline analysis
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.baseline-analysis }}
           path: ${{ matrix.baseline-analysis }}
 
       - name: Upload target analysis
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target-analysis }}
           path: ${{ matrix.target-analysis }}
 
       - name: Generate summary file (PR only)
-        if: github.event_name == 'pull_request' && matrix.mode == 'preview-changes'
+        if: github.event_name == 'pull_request' && matrix.mode == 'preview-new-changes'
         run: >
-          python helper.py comment-body
-          ${{ matrix.baseline-analysis }} ${{ matrix.target-analysis }}
-          ${{ matrix.baseline-sha }} ${{ matrix.target-sha }}
-          ${{ github.event.pull_request.number }}
+          python helper.py comment-body ${{ matrix.baseline-analysis }}
+          ${{ matrix.target-analysis }} ${{ matrix.baseline-sha }}
+          ${{ matrix.target-sha }} ${{ github.event.pull_request.number }}
 
       - name: Upload summary file (PR only)
-        if: github.event_name == 'pull_request' && matrix.mode == 'preview-changes'
-        uses: actions/upload-artifact@v3
+        if: github.event_name == 'pull_request' && matrix.mode == 'preview-new-changes'
+        uses: actions/upload-artifact@v4
         with:
           name: .pr-comment.json
           path: .pr-comment.json

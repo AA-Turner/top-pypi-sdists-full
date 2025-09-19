@@ -86,6 +86,7 @@ class TestStateResponse(_TestResponseBase):
         "target_humidity",
         "aux_heat",
         "independent_aux_heat",
+        "error_code",
     ]
 
     def _test_response(self, msg) -> StateResponse:
@@ -1249,6 +1250,14 @@ class TestResponseConstruct(_TestResponseBase):
 
         self.assertIsNotNone(resp)
         self.assertEqual(type(resp), PropertiesResponse)
+
+    def test_short_packet(self) -> None:
+        """Test that a short frame raise exceptions."""
+        # https://github.com/mill1000/midea-msmart/issues/234#issuecomment-3299199631
+        TEST_RESPONSE_SHORT_FRAME = bytes.fromhex("01000000")
+
+        with self.assertRaises(InvalidFrameException):
+            Response.construct(TEST_RESPONSE_SHORT_FRAME)
 
 
 class TestGroupDataResponse(_TestResponseBase):

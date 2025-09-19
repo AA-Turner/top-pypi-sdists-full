@@ -32,13 +32,13 @@ import importlib
 import inspect
 import json  # note that ujson is faster, but at this time does not support "default" in dumps()
 import pkgutil
-import traceback
 from typing import NoReturn
 
 from monty.json import MontyDecoder, MSONable
 from ruamel.yaml import YAML
 from ruamel.yaml.compat import StringIO
 
+from fireworks.utilities.fw_utilities import get_fw_logger
 from fireworks.fw_config import (
     DECODE_MONTY,
     ENCODE_MONTY,
@@ -47,6 +47,7 @@ from fireworks.fw_config import (
     JSON_SCHEMA_VALIDATE_LIST,
     USER_PACKAGES,
     YAML_STYLE,
+    STREAM_LOGLEVEL
 )
 
 __author__ = "Anubhav Jain"
@@ -275,18 +276,19 @@ class FWSerializable(abc.ABC):
             filename(str): filename to write to
             f_format (str): serialization format, default checks the filename extension
         """
+        dct = self.to_dict()
         if f_format is None:
             f_format = filename.split(".")[-1]
+        if f_format not in ("json", "yaml"):
+            raise ValueError(f"Unsupported format {f_format}")
         with open(filename, "w", **ENCODING_PARAMS) as f_out:
             if f_format == "json":
-                json.dump(self.to_dict(), f_out, default=DATETIME_HANDLER, **kwargs)
-            elif f_format == "yaml":
+                json.dump(dct, f_out, default=DATETIME_HANDLER, **kwargs)
+            else:
                 yaml = YAML(typ="safe", pure=True)
                 yaml.default_flow_style = YAML_STYLE
                 yaml.allow_unicode = True
-                yaml.dump(self.to_dict(), f_out)
-            else:
-                raise ValueError(f"Unsupported format {f_format}")
+                yaml.dump(dct, f_out)
 
     @classmethod
     def from_file(cls, filename, f_format=None):
@@ -370,10 +372,8 @@ def load_object(obj_dict):
                 if m_object is not None:
                     found_objects.append((m_object, mod_name))
             except ImportError as ex:
-                import warnings
-
-                warnings.warn(f"{m_object} in {mod_name} cannot be loaded because of {ex!s}. Skipping..")
-                traceback.print_exc()
+                msg = f"{m_object} in {mod_name} cannot be loaded because of {ex!s}. Skipping.."
+                get_fw_logger(__name__, stream_level=STREAM_LOGLEVEL).debug(msg)
 
     if len(found_objects) == 1:
         SAVED_FW_MODULES[fw_name] = found_objects[0][1]

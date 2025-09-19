@@ -170,11 +170,6 @@ def f():
     global x
     x = "foo"
     del x  # Not okay: it will work at runtime, but is not statically analyzable
-# A minor variation on f(), relevant to specific implementation bugs in our scope analysis
-# Here we do error, but for the wrong reason - we think `x` is an immutable capture.
-def g():
-    global x
-    del x
 f()
 f()  # This will crash at runtime!
 "#,
@@ -425,6 +420,31 @@ assert_type(C().x, int)  # This should be a lookup error
 );
 
 testcase!(
+    bug = "We allow mutable captures to mutate in ways that invalidate through-barrier types on globals and nonlocals",
+    test_mutable_capture_incompatible_assign,
+    r#"
+from typing import reveal_type
+x = 5
+def f():
+    global x
+    reveal_type(x)  # E: revealed type: Literal['str', 5]
+    x = b'bytes'  # This ought to be an error (unless the reveal_type above were to account for the mutation)
+x = "str"
+"#,
+);
+
+testcase!(
+    bug = "We don't detect a case that crashes at runtime (the compiler rejects this)",
+    test_mutable_capture_read_before_declared,
+    r#"
+x = 42
+def f():
+    print(x)  # Should error, the compiler crashes with "SyntaxError: name 'x' is used prior to global declaration"
+    global x
+"#,
+);
+
+testcase!(
     test_del_name,
     r#"
 x: int
@@ -443,6 +463,18 @@ y + 1  # E: `y` is uninitialized
 z: int
 z = str(z)  # E: `z` is uninitialized  # E: `str` is not assignable to variable `z` with type `int`
 "#,
+);
+
+testcase!(
+    bug = "The duplication of flow and static leads to us accidentally allowing uninitialized reads when a var shadows an enclosing scope",
+    test_uninitialized_when_shadowing,
+    r#"
+from typing import assert_type
+x: int = 5
+def f():
+    assert_type(x, str)  # This should error, it crashes at runtime. We do understand the type, but we fail to track initialization.
+    x: str = "foo"
+    "#,
 );
 
 testcase!(
@@ -669,6 +701,33 @@ testcase!(
     test_dunder_all_mutated_without_def,
     r#"
 __all__ += []  # E: Could not find name `__all__`
+"#,
+);
+
+testcase!(
+    bug = "We give inconsistent lookup errors when a local is defined only by an augassign",
+    test_aug_assign_lookup_inconsistencies,
+    r#"
+from typing import reveal_type
+def f():
+    reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
+    x += 5  # E: Could not find name `x`
+    reveal_type(x)  # E: revealed type: Unknown
+"#,
+);
+
+testcase!(
+    bug = "We give inconsistent lookup errors when a local is defined only by a del",
+    test_del_defines_a_local,
+    r#"
+from typing import reveal_type
+x = 5
+def f():
+    reveal_type(y)  # E: revealed type: Unknown  # E: `y` is uninitialized
+    reveal_type(x)  # E: revealed type: Unknown
+    del y  # E: Could not find name `y`
+    del x  # E: `x` is not mutable from the current scope
+f()
 "#,
 );
 

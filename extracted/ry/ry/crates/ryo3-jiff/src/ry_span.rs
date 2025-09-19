@@ -16,15 +16,14 @@ use std::str::FromStr;
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "TimeSpan", module = "ry.ryo3", frozen)]
+#[pyclass(name = "TimeSpan", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RySpan(pub(crate) Span);
 
 impl RySpan {
     pub(crate) fn assert_non_zero(&self) -> PyResult<()> {
         if self.0.is_zero() {
-            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Span cannot be zero",
-            ))
+            Err(py_value_error!("Span cannot be zero",))
         } else {
             Ok(())
         }
@@ -94,6 +93,16 @@ impl RySpan {
         PyTuple::new(py, vec![args, kwargs])
     }
 
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt == "#" {
+            Ok(format!("{:#}", self.0))
+        } else if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            py_type_err!("Invalid format specifier '{fmt}' for TimeSpan")
+        }
+    }
+
     #[pyo3(signature = (*, friendly=false))]
     fn string(&self, friendly: bool) -> String {
         if friendly {
@@ -161,14 +170,12 @@ impl RySpan {
         SPAN_PARSER
             .parse_span(s)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[staticmethod]
     fn from_str(s: &str) -> PyResult<Self> {
-        Span::from_str(s)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        Span::from_str(s).map(Self::from).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -347,24 +354,24 @@ impl RySpan {
                     .0
                     .to_duration(&z.0)
                     .map(RySignedDuration)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+                    .map_err(map_py_value_err),
                 RySpanRelativeTo::Date(d) => self
                     .0
                     .to_duration(d.0)
                     .map(RySignedDuration)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+                    .map_err(map_py_value_err),
                 RySpanRelativeTo::DateTime(dt) => self
                     .0
                     .to_duration(dt.0)
                     .map(RySignedDuration)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+                    .map_err(map_py_value_err),
             }
         } else {
             let now = jiff::Zoned::now();
             self.0
                 .to_duration(&now)
                 .map(RySignedDuration)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+                .map_err(map_py_value_err)
         }
     }
 
@@ -424,8 +431,8 @@ impl RySpan {
         days_are_24_hours: Option<bool>,
     ) -> PyResult<i8> {
         if days_are_24_hours.is_some() && relative.is_some() {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Cannot provide both relative and days_are_24_hours",
+            return Err(py_value_error!(
+                "Cannot provide relative with days_are_24_hours=True",
             ));
         }
         if let Some(r) = relative {
@@ -620,17 +627,17 @@ impl RySpan {
         self.0.signum()
     }
 
-    #[pyo3(signature = (unit, relative=None, days_are_24_hours=None))]
+    #[pyo3(signature = (unit, relative=None, *, days_are_24_hours=false))]
     fn total(
         &self,
         unit: JiffUnit,
         relative: Option<SpanCompareRelative>,
-        days_are_24_hours: Option<bool>,
+        days_are_24_hours: bool,
     ) -> PyResult<f64> {
         // err on both relative and days_are_24_hours provided
-        if relative.is_some() && days_are_24_hours.is_some() {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Cannot provide both relative and days_are_24_hours",
+        if relative.is_some() && days_are_24_hours {
+            return Err(py_value_error!(
+                "Cannot provide relative with days_are_24_hours=True",
             ));
         }
         if let Some(r) = relative {
@@ -645,34 +652,30 @@ impl RySpan {
                     Ok(self.0.total((unit.0, dt.0)).map_err(map_py_value_err)?)
                 }
             }
+        } else if days_are_24_hours {
+            let span_total = SpanRelativeTo::days_are_24_hours();
+            let a = self
+                .0
+                .total((unit.0, span_total))
+                .map_err(map_py_value_err)?;
+            Ok(a)
         } else {
-            let days_are_24_hours = days_are_24_hours.unwrap_or(false);
-
-            if days_are_24_hours {
-                let span_total = SpanRelativeTo::days_are_24_hours();
-                let a = self
-                    .0
-                    .total((unit.0, span_total))
-                    .map_err(map_py_value_err)?;
-                Ok(a)
-            } else {
-                Ok(self.0.total(unit.0).map_err(map_py_value_err)?)
-            }
+            Ok(self.0.total(unit.0).map_err(map_py_value_err)?)
         }
     }
 
     #[staticmethod]
     fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         let py = value.py();
-        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
             Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
             Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
         } else if value.is_exact_instance_of::<Self>() {
             value.into_bound_py_any(py)
-        } else if let Ok(v) = value.downcast_exact::<PyFloat>() {
+        } else if let Ok(v) = value.cast_exact::<PyFloat>() {
             let f = v.extract::<f64>()?;
             if f.is_nan() || f.is_infinite() {
                 return Err(py_value_error!(
@@ -682,7 +685,7 @@ impl RySpan {
             let sd = RySignedDuration::py_try_from_secs_f64(f)?;
             let span = jiff::Span::try_from(sd.0).map_err(map_py_overflow_err)?;
             Self::from(span).into_bound_py_any(py)
-        } else if let Ok(v) = value.downcast_exact::<PyInt>() {
+        } else if let Ok(v) = value.cast_exact::<PyInt>() {
             let i = v.extract::<i64>()?;
             let sd = SignedDuration::from_secs(i);
             Span::try_from(sd)

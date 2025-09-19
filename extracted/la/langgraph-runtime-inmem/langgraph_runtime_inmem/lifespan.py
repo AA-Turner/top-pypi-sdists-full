@@ -17,6 +17,7 @@ logger = structlog.stdlib.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(
     app: Starlette | None = None,
+    cancel_event: asyncio.Event | None = None,
     taskset: set[asyncio.Task] | None = None,
     **kwargs: Any,
 ):
@@ -47,7 +48,7 @@ async def lifespan(
     try:
         async with SimpleTaskGroup(
             cancel=True,
-            taskset=taskset,
+            cancel_event=cancel_event,
             taskgroup_name="Lifespan",
         ) as tg:
             tg.create_task(metadata_loop())

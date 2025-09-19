@@ -17,6 +17,8 @@ from pywinauto.keyboard import send_keys
 from pywinauto.timings import wait_until
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
+import sys
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 from worker_automate_hub.api.ahead_service import save_xml_to_downloads
 from worker_automate_hub.api.client import (
     get_config_by_name,
@@ -644,18 +646,35 @@ async def entrada_de_notas_36(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             btn_add.click()
 
             await worker_sleep(4)
+            
             console.print(f"Verificando se o pagamento foi adicionado com sucesso... \n")
             valores_informado = tab_valores.child_window(
                 class_name="TDBIEditNumber", found_index=2
             )
             valores_informado_text = valores_informado.window_text()
-            if '0,00' in valores_informado_text:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro ao adicionar o pagamento, valor informado {valores_informado_text}.",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-                )
+            IMG_NO_DATA = r"assets\\entrada_notas\\no_data.png"
+            IMG_RESTANTE_ZERO = r"assets\\entrada_notas\\restante_zero.png"
+
+            try:
+                # (use grayscale p/ ganhar robustez; confidence exige OpenCV instalado)
+                box_parcela = pyautogui.locateOnScreen(IMG_NO_DATA, confidence=0.86, grayscale=True)
+                box_restante = pyautogui.locateOnScreen(IMG_RESTANTE_ZERO, confidence=0.86, grayscale=True)
+
+                # Regras:
+                # - NO_DATA não pode estar visível  -> box_parcela deve ser None
+                # - RESTANTE_ZERO deve estar visível -> box_restante não pode ser None
+                if (box_parcela is not None) or (box_restante is None):
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=f"Erro ao adicionar o pagamento, valor informado {valores_informado_text}. "
+                                f"(validações de tela falharam: NO_DATA visível ou RESTANTE_ZERO não encontrado)",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    )
+
+            except:
+                pass
+            
             console.print(f"Processo de incluir pagamento realizado com sucesso... \n")
 
         await worker_sleep(3)
@@ -663,7 +682,7 @@ async def entrada_de_notas_36(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         try:
             ASSETS_PATH = "assets"
             inserir_registro = pyautogui.locateOnScreen(
-                ASSETS_PATH + "\\entrada_notas\\IncluirRegistro.png", confidence=0.8
+               r"assets\\entrada_notas\\IncluirRegistro.png", confidence=0.8
             )
             pyautogui.click(inserir_registro)
         except Exception as e:
@@ -672,7 +691,7 @@ async def entrada_de_notas_36(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             )
             await incluir_registro()
 
-        await worker_sleep(3)
+        await worker_sleep(6)
         console.print(
             "Verificando a existencia de POP-UP de Itens que Ultrapassam a Variação Máxima de Custo ...\n"
         )
@@ -810,3 +829,4 @@ async def entrada_de_notas_36(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
     finally:
         # Deleta o xml
         await delete_xml(nota.get("nfe"))
+

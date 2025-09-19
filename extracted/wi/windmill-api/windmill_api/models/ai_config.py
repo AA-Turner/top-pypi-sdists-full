@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.ai_config_code_completion_model import AIConfigCodeCompletionModel
     from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
     from ..models.ai_config_default_model import AIConfigDefaultModel
+    from ..models.ai_config_max_tokens_per_model import AIConfigMaxTokensPerModel
     from ..models.ai_config_providers import AIConfigProviders
 
 
@@ -23,12 +24,14 @@ class AIConfig:
         default_model (Union[Unset, AIConfigDefaultModel]):
         code_completion_model (Union[Unset, AIConfigCodeCompletionModel]):
         custom_prompts (Union[Unset, AIConfigCustomPrompts]):
+        max_tokens_per_model (Union[Unset, AIConfigMaxTokensPerModel]):
     """
 
     providers: Union[Unset, "AIConfigProviders"] = UNSET
     default_model: Union[Unset, "AIConfigDefaultModel"] = UNSET
     code_completion_model: Union[Unset, "AIConfigCodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "AIConfigCustomPrompts"] = UNSET
+    max_tokens_per_model: Union[Unset, "AIConfigMaxTokensPerModel"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,6 +51,10 @@ class AIConfig:
         if not isinstance(self.custom_prompts, Unset):
             custom_prompts = self.custom_prompts.to_dict()
 
+        max_tokens_per_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.max_tokens_per_model, Unset):
+            max_tokens_per_model = self.max_tokens_per_model.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -59,6 +66,8 @@ class AIConfig:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
             field_dict["custom_prompts"] = custom_prompts
+        if max_tokens_per_model is not UNSET:
+            field_dict["max_tokens_per_model"] = max_tokens_per_model
 
         return field_dict
 
@@ -67,6 +76,7 @@ class AIConfig:
         from ..models.ai_config_code_completion_model import AIConfigCodeCompletionModel
         from ..models.ai_config_custom_prompts import AIConfigCustomPrompts
         from ..models.ai_config_default_model import AIConfigDefaultModel
+        from ..models.ai_config_max_tokens_per_model import AIConfigMaxTokensPerModel
         from ..models.ai_config_providers import AIConfigProviders
 
         d = src_dict.copy()
@@ -98,11 +108,19 @@ class AIConfig:
         else:
             custom_prompts = AIConfigCustomPrompts.from_dict(_custom_prompts)
 
+        _max_tokens_per_model = d.pop("max_tokens_per_model", UNSET)
+        max_tokens_per_model: Union[Unset, AIConfigMaxTokensPerModel]
+        if isinstance(_max_tokens_per_model, Unset):
+            max_tokens_per_model = UNSET
+        else:
+            max_tokens_per_model = AIConfigMaxTokensPerModel.from_dict(_max_tokens_per_model)
+
         ai_config = cls(
             providers=providers,
             default_model=default_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
+            max_tokens_per_model=max_tokens_per_model,
         )
 
         ai_config.additional_properties = d

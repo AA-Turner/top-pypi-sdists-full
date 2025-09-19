@@ -3,12 +3,12 @@ import logging
 import os
 import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Callable, Optional
 
 from lhotse.utils import NonPositiveEnergyError, Seconds, fastcopy, suppress_and_warn
 
-_DEFAULT_LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE: Seconds = 0.025
+_DEFAULT_LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE: Seconds = 0.5
 _LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE: Seconds = (
     _DEFAULT_LHOTSE_AUDIO_DURATION_MISMATCH_TOLERANCE
 )
@@ -42,6 +42,13 @@ class VideoInfo:
 
     def copy_with(self, **kwargs) -> "VideoInfo":
         return fastcopy(self, **kwargs)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "VideoInfo":
+        return VideoInfo(**data)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 def get_audio_duration_mismatch_tolerance() -> Seconds:

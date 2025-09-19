@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.136.0
+Version: 1.137.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Home-page: https://github.com/returntocorp/semgrep
 Author: Semgrep Inc.
@@ -10,12 +10,11 @@ Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs>=21.3
@@ -26,11 +25,12 @@ Requires-Dist: colorama~=0.4.0
 Requires-Dist: defusedxml~=0.7.1
 Requires-Dist: exceptiongroup~=1.2.0
 Requires-Dist: glom~=22.1
-Requires-Dist: jsonschema~=4.6
-Requires-Dist: opentelemetry-api~=1.25.0
-Requires-Dist: opentelemetry-sdk~=1.25.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.25.0
-Requires-Dist: opentelemetry-instrumentation-requests~=0.46b0
+Requires-Dist: mcp==1.12.2
+Requires-Dist: jsonschema~=4.20.0
+Requires-Dist: opentelemetry-api~=1.37.0
+Requires-Dist: opentelemetry-sdk~=1.37.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.37.0
+Requires-Dist: opentelemetry-instrumentation-requests~=0.58b0
 Requires-Dist: packaging>=21.0
 Requires-Dist: peewee~=3.14
 Requires-Dist: requests~=2.22
@@ -40,6 +40,7 @@ Requires-Dist: tomli~=2.0.1
 Requires-Dist: typing-extensions~=4.2
 Requires-Dist: urllib3~=2.0
 Requires-Dist: wcmatch~=8.3
+Requires-Dist: pywin32==311; sys_platform == "win32"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -152,31 +153,29 @@ If there are any issues, <a href="https://go.semgrep.dev/slack" target="_blank">
 
 ### Option 2: Getting started from the CLI
 
-1.  Install Semgrep CLI
+1. Install Semgrep CLI
 
-```
-# For macOS
-$ brew install semgrep
+    ```
+    # For macOS
+    $ brew install semgrep
 
-# For Ubuntu/WSL/Linux/macOS
-$ python3 -m pip install semgrep
+    # For Ubuntu/WSL/Linux/macOS
+    $ python3 -m pip install semgrep
 
-# To try Semgrep without installation run via Docker
-$ docker run -it -v "${PWD}:/src" semgrep/semgrep semgrep login
-$ docker run -e SEMGREP_APP_TOKEN=<TOKEN> --rm -v "${PWD}:/src" semgrep/semgrep semgrep ci
-```
+    # To try Semgrep without installation run via Docker
+    $ docker run -it -v "${PWD}:/src" semgrep/semgrep semgrep login
+    $ docker run -e SEMGREP_APP_TOKEN=<TOKEN> --rm -v "${PWD}:/src" semgrep/semgrep semgrep ci
+    ```
 
-2.  Run `semgrep login` to create your account and login to Semgrep.
+1. Run `semgrep login` to create your account and login to Semgrep. This step is optional, but logging into Semgrep gets you access to:
 
-Logging into Semgrep gets you access to:
+    - [Semgrep Supply Chain](https://semgrep.dev/products/semgrep-supply-chain?utm_medium=readme&utm_source=github&utm_content=ssc-product): A dependency scanner that detects reachable vulnerabilities in third party libraries
+    - [Semgrep Code's Pro rules](https://semgrep.dev/products/semgrep-code?utm_medium=readme&utm_source=github&utm_content=code-pro-rules): 600+ high confidence rules written by Semgrep's security research team
+    - [Semgrep Code's Pro engine](https://semgrep.dev/products/pro-engine?utm_medium=readme&utm_source=github&utm_content=pro-engine): An advanced code analysis engine, designed to detect complex vulnerabilities, and reduce false positives
 
-- [Semgrep Supply Chain](https://semgrep.dev/products/semgrep-supply-chain?utm_medium=readme&utm_source=github&utm_content=ssc-product): A dependency scanner that detects reachable vulnerabilities in third party libraries
-- [Semgrep Code's Pro rules](https://semgrep.dev/products/semgrep-code?utm_medium=readme&utm_source=github&utm_content=code-pro-rules): 600+ high confidence rules written by Semgrep's security research team
-- [Semgrep Code's Pro engine](https://semgrep.dev/products/pro-engine?utm_medium=readme&utm_source=github&utm_content=pro-engine): An advanced code analysis engine, designed to detect complex vulnerabilities, and reduce false positives
+1. Go to your app's root directory and run `semgrep ci`. This will scan your project to check for vulnerabilities in your source code and its dependencies.
 
-3.  Go to your app's root directory and run `semgrep ci`. This will scan your project to check for vulnerabilities in your source code and its dependencies.
-
-4.  Try writing your own query interactively with `-e`. For example, a check for Python == where the left and right hand sides are the same (potentially a bug):
+1. Try writing your own query interactively with `-e`. For example, a check for Python == where the left and right hand sides are the same (potentially a bug):
     `$ semgrep -e '$X == $X' --lang=py path/to/src`
 
 ### Semgrep Ecosystem

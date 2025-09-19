@@ -85,6 +85,9 @@ class TestPostgres(Validator):
         self.validate_identity("SELECT INTERVAL '-10.75 MINUTE'")
         self.validate_identity("SELECT INTERVAL '0.123456789 SECOND'")
         self.validate_identity(
+            "SELECT SUM(x) OVER (PARTITION BY y ORDER BY interval ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) - SUM(x) OVER (PARTITION BY y ORDER BY interval ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS total"
+        )
+        self.validate_identity(
             "SELECT * FROM test_data, LATERAL JSONB_ARRAY_ELEMENTS(data) WITH ORDINALITY AS elem(value, ordinality)"
         )
         self.validate_identity(
@@ -158,6 +161,10 @@ class TestPostgres(Validator):
             "pg_catalog.PG_TABLE_IS_VISIBLE(c.oid) "
             "ORDER BY 2, 3"
         )
+        self.validate_identity(
+            "x::JSON -> 'duration' ->> -1",
+            "JSON_EXTRACT_PATH_TEXT(CAST(x AS JSON) -> 'duration', -1)",
+        ).assert_is(exp.JSONExtractScalar).this.assert_is(exp.JSONExtract)
         self.validate_identity(
             "SELECT SUBSTRING('Thomas' FOR 3 FROM 2)",
             "SELECT SUBSTRING('Thomas' FROM 2 FOR 3)",

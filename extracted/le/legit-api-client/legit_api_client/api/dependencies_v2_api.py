@@ -24,6 +24,7 @@ from legit_api_client.models.dependency_category import DependencyCategory
 from legit_api_client.models.package_source import PackageSource
 from legit_api_client.models.package_type import PackageType
 from legit_api_client.models.programming_language import ProgrammingLanguage
+from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto
 
 from legit_api_client.api_client import ApiClient, RequestSerialized
 from legit_api_client.api_response import ApiResponse
@@ -44,17 +45,427 @@ class DependenciesV2Api:
 
 
     @validate_call
+    def get_dependencies_count_v2(
+        self,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CustomerFacingDependencyDtoCustomerFacingCursorPagedDto:
+        """Get unique dependencies count
+
+        Get the unique dependencies count (by name, version, and package type) matching the query param filters. 
+
+        :param name:
+        :type name: str
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
+        :type package_types: List[PackageType]
+        :param licenses:
+        :type licenses: List[str]
+        :param package_categories:
+        :type package_categories: List[DependencyCategory]
+        :param programming_languages:
+        :type programming_languages: List[ProgrammingLanguage]
+        :param source_scanners:
+        :type source_scanners: List[PackageSource]
+        :param repository_ids:
+        :type repository_ids: List[str]
+        :param product_unit_ids:
+        :type product_unit_ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependencies_count_v2_serialize(
+            name=name,
+            versions=versions,
+            package_types=package_types,
+            licenses=licenses,
+            package_categories=package_categories,
+            programming_languages=programming_languages,
+            source_scanners=source_scanners,
+            repository_ids=repository_ids,
+            product_unit_ids=product_unit_ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_dependencies_count_v2_with_http_info(
+        self,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[CustomerFacingDependencyDtoCustomerFacingCursorPagedDto]:
+        """Get unique dependencies count
+
+        Get the unique dependencies count (by name, version, and package type) matching the query param filters. 
+
+        :param name:
+        :type name: str
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
+        :type package_types: List[PackageType]
+        :param licenses:
+        :type licenses: List[str]
+        :param package_categories:
+        :type package_categories: List[DependencyCategory]
+        :param programming_languages:
+        :type programming_languages: List[ProgrammingLanguage]
+        :param source_scanners:
+        :type source_scanners: List[PackageSource]
+        :param repository_ids:
+        :type repository_ids: List[str]
+        :param product_unit_ids:
+        :type product_unit_ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependencies_count_v2_serialize(
+            name=name,
+            versions=versions,
+            package_types=package_types,
+            licenses=licenses,
+            package_categories=package_categories,
+            programming_languages=programming_languages,
+            source_scanners=source_scanners,
+            repository_ids=repository_ids,
+            product_unit_ids=product_unit_ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_dependencies_count_v2_without_preload_content(
+        self,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get unique dependencies count
+
+        Get the unique dependencies count (by name, version, and package type) matching the query param filters. 
+
+        :param name:
+        :type name: str
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
+        :type package_types: List[PackageType]
+        :param licenses:
+        :type licenses: List[str]
+        :param package_categories:
+        :type package_categories: List[DependencyCategory]
+        :param programming_languages:
+        :type programming_languages: List[ProgrammingLanguage]
+        :param source_scanners:
+        :type source_scanners: List[PackageSource]
+        :param repository_ids:
+        :type repository_ids: List[str]
+        :param product_unit_ids:
+        :type product_unit_ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependencies_count_v2_serialize(
+            name=name,
+            versions=versions,
+            package_types=package_types,
+            licenses=licenses,
+            package_categories=package_categories,
+            programming_languages=programming_languages,
+            source_scanners=source_scanners,
+            repository_ids=repository_ids,
+            product_unit_ids=product_unit_ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingDependencyDtoCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_dependencies_count_v2_serialize(
+        self,
+        name,
+        versions,
+        package_types,
+        licenses,
+        package_categories,
+        programming_languages,
+        source_scanners,
+        repository_ids,
+        product_unit_ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'versions': 'multi',
+            'packageTypes': 'multi',
+            'licenses': 'multi',
+            'packageCategories': 'multi',
+            'programmingLanguages': 'multi',
+            'sourceScanners': 'multi',
+            'repositoryIds': 'multi',
+            'productUnitIds': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if versions is not None:
+            
+            _query_params.append(('versions', versions))
+            
+        if package_types is not None:
+            
+            _query_params.append(('packageTypes', package_types))
+            
+        if licenses is not None:
+            
+            _query_params.append(('licenses', licenses))
+            
+        if package_categories is not None:
+            
+            _query_params.append(('packageCategories', package_categories))
+            
+        if programming_languages is not None:
+            
+            _query_params.append(('programmingLanguages', programming_languages))
+            
+        if source_scanners is not None:
+            
+            _query_params.append(('sourceScanners', source_scanners))
+            
+        if repository_ids is not None:
+            
+            _query_params.append(('repositoryIds', repository_ids))
+            
+        if product_unit_ids is not None:
+            
+            _query_params.append(('productUnitIds', product_unit_ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/dependencies/count',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_dependencies_v2(
         self,
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
-        package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
-        package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
-        programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
-        source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
-        repository_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified repository ids")] = None,
-        product_unit_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified product unit ids")] = None,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
         _request_timeout: Union[
@@ -70,27 +481,29 @@ class DependenciesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> CustomerFacingDependencyDtoCustomerFacingCursorPagedDto:
-        """Get dependencies
+        """Get unique dependencies
 
-        Get dependencies matching the query params filters. 
+        Get the unique dependencies (by name, version, and package type) matching the query param filters. 
 
         :param ids: Filter dependencies by the specified ids
         :type ids: List[str]
-        :param name: Filter dependencies that their name contains the given string
+        :param name:
         :type name: str
-        :param package_types: Filter dependencies by the specified package types
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
         :type package_types: List[PackageType]
-        :param licenses: Filter dependencies by the specified license names
+        :param licenses:
         :type licenses: List[str]
-        :param package_categories: Filter dependencies by the specified categories
+        :param package_categories:
         :type package_categories: List[DependencyCategory]
-        :param programming_languages: Filter dependencies by the specified programming languages
+        :param programming_languages:
         :type programming_languages: List[ProgrammingLanguage]
-        :param source_scanners: Filter dependencies by the specified source scanners
+        :param source_scanners:
         :type source_scanners: List[PackageSource]
-        :param repository_ids: Filter dependencies by the specified repository ids
+        :param repository_ids:
         :type repository_ids: List[str]
-        :param product_unit_ids: Filter dependencies by the specified product unit ids
+        :param product_unit_ids:
         :type product_unit_ids: List[str]
         :param token: Token from previous request (leave empty for first request)
         :type token: str
@@ -121,6 +534,7 @@ class DependenciesV2Api:
         _param = self._get_dependencies_v2_serialize(
             ids=ids,
             name=name,
+            versions=versions,
             package_types=package_types,
             licenses=licenses,
             package_categories=package_categories,
@@ -154,14 +568,15 @@ class DependenciesV2Api:
     def get_dependencies_v2_with_http_info(
         self,
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
-        package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
-        package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
-        programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
-        source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
-        repository_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified repository ids")] = None,
-        product_unit_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified product unit ids")] = None,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
         _request_timeout: Union[
@@ -177,27 +592,29 @@ class DependenciesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[CustomerFacingDependencyDtoCustomerFacingCursorPagedDto]:
-        """Get dependencies
+        """Get unique dependencies
 
-        Get dependencies matching the query params filters. 
+        Get the unique dependencies (by name, version, and package type) matching the query param filters. 
 
         :param ids: Filter dependencies by the specified ids
         :type ids: List[str]
-        :param name: Filter dependencies that their name contains the given string
+        :param name:
         :type name: str
-        :param package_types: Filter dependencies by the specified package types
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
         :type package_types: List[PackageType]
-        :param licenses: Filter dependencies by the specified license names
+        :param licenses:
         :type licenses: List[str]
-        :param package_categories: Filter dependencies by the specified categories
+        :param package_categories:
         :type package_categories: List[DependencyCategory]
-        :param programming_languages: Filter dependencies by the specified programming languages
+        :param programming_languages:
         :type programming_languages: List[ProgrammingLanguage]
-        :param source_scanners: Filter dependencies by the specified source scanners
+        :param source_scanners:
         :type source_scanners: List[PackageSource]
-        :param repository_ids: Filter dependencies by the specified repository ids
+        :param repository_ids:
         :type repository_ids: List[str]
-        :param product_unit_ids: Filter dependencies by the specified product unit ids
+        :param product_unit_ids:
         :type product_unit_ids: List[str]
         :param token: Token from previous request (leave empty for first request)
         :type token: str
@@ -228,6 +645,7 @@ class DependenciesV2Api:
         _param = self._get_dependencies_v2_serialize(
             ids=ids,
             name=name,
+            versions=versions,
             package_types=package_types,
             licenses=licenses,
             package_categories=package_categories,
@@ -261,14 +679,15 @@ class DependenciesV2Api:
     def get_dependencies_v2_without_preload_content(
         self,
         ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified ids")] = None,
-        name: Annotated[Optional[StrictStr], Field(description="Filter dependencies that their name contains the given string")] = None,
-        package_types: Annotated[Optional[List[PackageType]], Field(description="Filter dependencies by the specified package types")] = None,
-        licenses: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified license names")] = None,
-        package_categories: Annotated[Optional[List[DependencyCategory]], Field(description="Filter dependencies by the specified categories")] = None,
-        programming_languages: Annotated[Optional[List[ProgrammingLanguage]], Field(description="Filter dependencies by the specified programming languages")] = None,
-        source_scanners: Annotated[Optional[List[PackageSource]], Field(description="Filter dependencies by the specified source scanners")] = None,
-        repository_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified repository ids")] = None,
-        product_unit_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter dependencies by the specified product unit ids")] = None,
+        name: Optional[StrictStr] = None,
+        versions: Optional[List[StrictStr]] = None,
+        package_types: Optional[List[PackageType]] = None,
+        licenses: Optional[List[StrictStr]] = None,
+        package_categories: Optional[List[DependencyCategory]] = None,
+        programming_languages: Optional[List[ProgrammingLanguage]] = None,
+        source_scanners: Optional[List[PackageSource]] = None,
+        repository_ids: Optional[List[StrictStr]] = None,
+        product_unit_ids: Optional[List[StrictStr]] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
         _request_timeout: Union[
@@ -284,27 +703,29 @@ class DependenciesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Get dependencies
+        """Get unique dependencies
 
-        Get dependencies matching the query params filters. 
+        Get the unique dependencies (by name, version, and package type) matching the query param filters. 
 
         :param ids: Filter dependencies by the specified ids
         :type ids: List[str]
-        :param name: Filter dependencies that their name contains the given string
+        :param name:
         :type name: str
-        :param package_types: Filter dependencies by the specified package types
+        :param versions:
+        :type versions: List[str]
+        :param package_types:
         :type package_types: List[PackageType]
-        :param licenses: Filter dependencies by the specified license names
+        :param licenses:
         :type licenses: List[str]
-        :param package_categories: Filter dependencies by the specified categories
+        :param package_categories:
         :type package_categories: List[DependencyCategory]
-        :param programming_languages: Filter dependencies by the specified programming languages
+        :param programming_languages:
         :type programming_languages: List[ProgrammingLanguage]
-        :param source_scanners: Filter dependencies by the specified source scanners
+        :param source_scanners:
         :type source_scanners: List[PackageSource]
-        :param repository_ids: Filter dependencies by the specified repository ids
+        :param repository_ids:
         :type repository_ids: List[str]
-        :param product_unit_ids: Filter dependencies by the specified product unit ids
+        :param product_unit_ids:
         :type product_unit_ids: List[str]
         :param token: Token from previous request (leave empty for first request)
         :type token: str
@@ -335,6 +756,7 @@ class DependenciesV2Api:
         _param = self._get_dependencies_v2_serialize(
             ids=ids,
             name=name,
+            versions=versions,
             package_types=package_types,
             licenses=licenses,
             package_categories=package_categories,
@@ -364,6 +786,7 @@ class DependenciesV2Api:
         self,
         ids,
         name,
+        versions,
         package_types,
         licenses,
         package_categories,
@@ -383,6 +806,7 @@ class DependenciesV2Api:
 
         _collection_formats: Dict[str, str] = {
             'ids': 'multi',
+            'versions': 'multi',
             'packageTypes': 'multi',
             'licenses': 'multi',
             'packageCategories': 'multi',
@@ -410,6 +834,10 @@ class DependenciesV2Api:
         if name is not None:
             
             _query_params.append(('name', name))
+            
+        if versions is not None:
+            
+            _query_params.append(('versions', versions))
             
         if package_types is not None:
             
@@ -471,6 +899,551 @@ class DependenciesV2Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v2.0/dependencies',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_dependency_licenses(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[str]:
+        """Get the licenses for dependencies
+
+        Gets all the licenses found in dependencies 
+
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_licenses_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_dependency_licenses_with_http_info(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[str]]:
+        """Get the licenses for dependencies
+
+        Gets all the licenses found in dependencies 
+
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_licenses_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_dependency_licenses_without_preload_content(
+        self,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the licenses for dependencies
+
+        Gets all the licenses found in dependencies 
+
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_licenses_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[str]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_dependency_licenses_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/dependencies/licenses',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_dependency_related_issue_ids(
+        self,
+        dependency_id: StrictStr,
+        token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> StringCustomerFacingCursorPagedDto:
+        """Get the issue ids related to a dependency
+
+        Gets a list of issue ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param token: Token from previous request (leave empty for first request)
+        :type token: str
+        :param limit: Number of items to return (1-100)
+        :type limit: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_related_issue_ids_serialize(
+            dependency_id=dependency_id,
+            token=token,
+            limit=limit,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StringCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_dependency_related_issue_ids_with_http_info(
+        self,
+        dependency_id: StrictStr,
+        token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[StringCustomerFacingCursorPagedDto]:
+        """Get the issue ids related to a dependency
+
+        Gets a list of issue ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param token: Token from previous request (leave empty for first request)
+        :type token: str
+        :param limit: Number of items to return (1-100)
+        :type limit: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_related_issue_ids_serialize(
+            dependency_id=dependency_id,
+            token=token,
+            limit=limit,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StringCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_dependency_related_issue_ids_without_preload_content(
+        self,
+        dependency_id: StrictStr,
+        token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the issue ids related to a dependency
+
+        Gets a list of issue ids related to a dependency. 
+
+        :param dependency_id: (required)
+        :type dependency_id: str
+        :param token: Token from previous request (leave empty for first request)
+        :type token: str
+        :param limit: Number of items to return (1-100)
+        :type limit: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_dependency_related_issue_ids_serialize(
+            dependency_id=dependency_id,
+            token=token,
+            limit=limit,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StringCustomerFacingCursorPagedDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_dependency_related_issue_ids_serialize(
+        self,
+        dependency_id,
+        token,
+        limit,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if dependency_id is not None:
+            _path_params['dependencyId'] = dependency_id
+        # process the query parameters
+        if token is not None:
+            
+            _query_params.append(('token', token))
+            
+        if limit is not None:
+            
+            _query_params.append(('limit', limit))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/dependencies/{dependencyId}/related-issues',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

@@ -5780,6 +5780,11 @@ class AISummarizeAgg(AggFunc):
     _sql_names = ["AI_SUMMARIZE_AGG"]
 
 
+class AIClassify(Func):
+    arg_types = {"this": True, "categories": True, "config": False}
+    _sql_names = ["AI_CLASSIFY"]
+
+
 class ArrayAll(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -8311,6 +8316,9 @@ def merge(
     )
     if returning:
         merge = merge.returning(returning, dialect=dialect, copy=False, **opts)
+
+    if isinstance(using_clause := merge.args.get("using"), Alias):
+        using_clause.replace(alias_(using_clause.this, using_clause.args["alias"], table=True))
 
     return merge
 

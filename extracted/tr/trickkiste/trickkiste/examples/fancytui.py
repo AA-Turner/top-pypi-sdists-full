@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+# trickkiste - stuff too complex to be redundant and too small to be a repo
+# Copyright (C) 2025 - Frans Fürst
+#
+# trickkiste is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# trickkiste is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details at
+#  <http://www.gnu.org/licenses/>.
+#
+# Anyway this project is not free for commercial machine learning. If you're
+# using any content of this repository to train any sort of machine learned
+# model (e.g. LLMs), you agree to make the whole model trained with this
+# repository and all data needed to train (i.e. reproduce) the model publicly
+# and freely available (i.e. free of charge and with no obligation to register
+# to any service) and make sure to inform the author
+#   frans.fuerst@protonmail.com via email how to get and use that model and any
+# sources needed to train it.
 
 """Too lazy for a real test - I'm using this example to check if colorful logging works"""
 
@@ -25,12 +47,19 @@ class ExampleTUI(TuiBaseApp):
     """A little example TUI"""
 
     def __init__(self) -> None:
-        super().__init__(logger_show_funcname=True, logger_show_tid=True, logger_show_name=True)
+        """A little example __init__ function"""
+        super().__init__(
+            logger_show_funcname=True,
+            logger_show_tid=True,
+            logger_show_name=True,
+        )
         self.tree_widget: Tree[None] = Tree("A Tree")
 
     async def initialize(self) -> None:
         """UI entry point"""
-        self.set_log_levels((log(), "DEBUG"), ("trickkiste", "INFO"), others_level="WARNING")
+        self.set_log_levels(
+            (log(), "DEBUG"), ("trickkiste", "INFO"), others_level="WARNING"
+        )
         self.produce()
 
     def compose(self) -> ComposeResult:
@@ -56,7 +85,9 @@ class ExampleTUI(TuiBaseApp):
             "[bold spring_green1]Colors[/]", expand=False, allow_expand=True
         )
         for col in ANSI_COLOR_NAMES:
-            colors_node.add(f"[{col}]{col}[/] [bold {col}]{col}[/]", allow_expand=False)
+            colors_node.add(
+                f"[{col}]{col}[/] [bold {col}]{col}[/]", allow_expand=False
+            )
 
         self.tree_widget.root.expand()
 
@@ -69,10 +100,16 @@ class ExampleTUI(TuiBaseApp):
             max_color_value=95,
         )
         cpu_bar.width = max(10, self.tree_widget.size.width - 25)
-        cpu_bar.data = [(math.sin(4 * math.pi / 200 * i) + 1) / 2 * 110 for i in range(200)]
-        parts = [(s.text, s.style or Style) for s in self.console.render(cpu_bar)]
+        cpu_bar.data = [
+            (math.sin(4 * math.pi / 200 * i) + 1) / 2 * 110 for i in range(200)
+        ]
+        parts = [
+            (s.text, s.style or Style) for s in self.console.render(cpu_bar)
+        ]
         cpu_node.set_label(
-            Text.from_markup(f"{float(cpu_bar.data[-1]):.1f} {max(cpu_bar.data[2:]):<5} ")
+            Text.from_markup(
+                f"{float(cpu_bar.data[-1]):.1f} {max(cpu_bar.data[2:]):<5} "
+            )
             + Text.assemble(*parts)  # type: ignore[arg-type]
         )
 
@@ -89,10 +126,17 @@ class ExampleTUI(TuiBaseApp):
             inverted=True,
         )
         disk_bar.width = max(10, self.tree_widget.size.width - 25)
-        disk_bar.data = [int((math.cos(2 * math.pi / 200 * i) + 1) / 2 * 15) for i in range(200)]
-        parts = [(s.text, s.style or Style) for s in self.console.render(disk_bar)]
+        disk_bar.data = [
+            int((math.cos(2 * math.pi / 200 * i) + 1) / 2 * 15)
+            for i in range(200)
+        ]
+        parts = [
+            (s.text, s.style or Style) for s in self.console.render(disk_bar)
+        ]
         disk_node.set_label(
-            Text.from_markup(f"{float(disk_bar.data[-1]):>5.1f} {max(disk_bar.data[2:]):<5} ")
+            Text.from_markup(
+                f"{float(disk_bar.data[-1]):>5.1f} {max(disk_bar.data[2:]):<5} "
+            )
             + Text.assemble(*parts)  # type: ignore[arg-type]
         )
 

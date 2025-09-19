@@ -2,16 +2,16 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use crate::api::ApiClient;
-use crate::api::PowerStripPlugHandler;
 use crate::error::Error;
 use crate::responses::{
     ChildDeviceListPowerStripResult, DeviceInfoPowerStripResult, PowerStripPlugResult,
 };
 
-/// Handler for the [P300](https://www.tapo.com/en/search/?q=P300),
-/// [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
-/// [P316M](https://www.tp-link.com/us/search/?q=P316M) devices.
+use super::{ApiClient, Plug, PowerStripPlugHandler};
+
+/// Handler for the [P300](https://www.tp-link.com/en/search/?q=P300) and
+/// [P306](https://www.tp-link.com/us/search/?q=P306) devices.
+#[derive(Debug)]
 pub struct PowerStripHandler {
     client: Arc<RwLock<ApiClient>>,
 }
@@ -125,14 +125,4 @@ impl PowerStripHandler {
 
         Ok(PowerStripPlugHandler::new(self.client.clone(), device_id))
     }
-}
-
-/// Power strip plug.
-pub enum Plug {
-    ///  By Device ID.
-    ByDeviceId(String),
-    /// By Nickname.
-    ByNickname(String),
-    /// By Position.
-    ByPosition(u8),
 }

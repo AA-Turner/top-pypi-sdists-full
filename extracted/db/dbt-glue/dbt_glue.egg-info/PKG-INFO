@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dbt-glue
-Version: 1.10.9
+Version: 1.10.11
 Summary: dbt adapter for AWS Glue
 Home-page: https://github.com/aws-samples/dbt-glue
 Author: moshirm,segnina,sekiyama
@@ -17,6 +17,23 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: dbt-core~=1.10.11
+Requires-Dist: dbt-spark~=1.9.3
+Requires-Dist: dbt-common<3.0,>=1.0.4
+Requires-Dist: dbt-adapters<2.0,>=1.1.1
+Requires-Dist: waiter
+Requires-Dist: pyarrow
+Requires-Dist: boto3>=1.28.16
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <p align="center">
   <img src="/etc/dbt-logo-full.svg" alt="dbt logo" width="500"/>
@@ -1239,6 +1256,27 @@ models:
     tags_table: 
       name_of_my_table_tag: 'value_of_my_table_tag'
 ```
+
+## Building the Package
+
+Use the build script for creating distributions:
+
+```bash
+# Default: run validation tests + build both sdist and wheel
+$ ./scripts/build.py
+
+# Fast build without tests (for CI/production)
+$ ./scripts/build.py --skip-tests
+
+# Build specific formats
+$ ./scripts/build.py --build-type wheel
+$ ./scripts/build.py --build-type sdist
+```
+
+The build script automatically:
+- Cleans previous build artifacts
+- Runs duplicate macro validation tests (unless `--skip-tests`)
+- Creates source and/or wheel distributions
 
 ## Tests
 

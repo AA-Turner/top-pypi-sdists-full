@@ -20,6 +20,7 @@ def _get_kwargs(
     job_id: Union[Unset, None, str] = UNSET,
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -35,6 +36,8 @@ def _get_kwargs(
     params["include_header"] = include_header
 
     params["queue_limit"] = queue_limit
+
+    params["skip_preprocessor"] = skip_preprocessor
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -81,6 +84,7 @@ def sync_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run script by path
 
@@ -93,6 +97,7 @@ def sync_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
+        skip_preprocessor (Union[Unset, None, bool]):
         json_body (RunWaitResultScriptByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
@@ -113,6 +118,7 @@ def sync_detailed(
         job_id=job_id,
         include_header=include_header,
         queue_limit=queue_limit,
+        skip_preprocessor=skip_preprocessor,
     )
 
     response = client.get_httpx_client().request(
@@ -134,6 +140,7 @@ async def asyncio_detailed(
     job_id: Union[Unset, None, str] = UNSET,
     include_header: Union[Unset, None, str] = UNSET,
     queue_limit: Union[Unset, None, str] = UNSET,
+    skip_preprocessor: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """run script by path
 
@@ -146,6 +153,7 @@ async def asyncio_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
+        skip_preprocessor (Union[Unset, None, bool]):
         json_body (RunWaitResultScriptByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
@@ -166,6 +174,7 @@ async def asyncio_detailed(
         job_id=job_id,
         include_header=include_header,
         queue_limit=queue_limit,
+        skip_preprocessor=skip_preprocessor,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

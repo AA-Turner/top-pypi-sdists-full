@@ -156,39 +156,54 @@ class PostgresSession:
             return r
         else:
             ns = self.namespace
-            pod_name = Config().get('pg.agent.name', 'ops')
+            pod_name = Config().get('pg.agent.name', 'ops-pg-agent')
 
             if Config().get('pg.agent.just-in-time', False):
-                image = Config().get('pg.agent.image', 'seanahnsf/kaqing')
-                timeout = Config().get('pg.agent.timeout', 3600)
-                try:
-                    Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
-                except Exception as e:
-                    if e.status == 409:
-                        if Pods.completed(ns, pod_name):
-                            try:
-                                Pods.delete(pod_name, ns)
-                                Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
-                            except Exception as e2:
-                                log2("Exception when calling BatchV1Api->create_pod: %s\n" % e2)
+                if not PostgresSession.deploy_pg_agent(pod_name, ns):
+                    return
 
-                                return
-                    else:
-                        log2("Exception when calling BatchV1Api->create_pod: %s\n" % e)
-
-                        return
-
-                Pods.wait_for_running(ns, pod_name)
-
+            real_pod_name = pod_name
             try:
+                # try with dedicated pg agent pod name configured
                 Pods.get(ns, pod_name)
             except:
-                log2(f"Could not locate {pod_name} pod.")
-                return None
+                try:
+                    # try with the ops pod
+                    real_pod_name = Pods.get_with_selector(ns, label_selector = Config().get('pod.label-selector', 'run=ops')).metadata.name
+                except:
+                    log2(f"Could not locate {pod_name} pod.")
+                    return None
 
             cmd = f'PGPASSWORD="{self.password()}" psql -h {self.endpoint()} -p {self.port()} -U {self.username()} {db} --pset pager=off -c "{sql}"'
 
-            return Pods.exec(pod_name, pod_name, ns, cmd, show_out=show_out)
+            return Pods.exec(real_pod_name, pod_name, ns, cmd, show_out=show_out)
+
+    def deploy_pg_agent(pod_name: str, ns: str) -> str:
+        image = Config().get('pg.agent.image', 'seanahnsf/kaqing')
+        timeout = Config().get('pg.agent.timeout', 3600)
+        try:
+            Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
+        except Exception as e:
+            if e.status == 409:
+                if Pods.completed(ns, pod_name):
+                    try:
+                        Pods.delete(pod_name, ns)
+                        Pods.create(ns, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': ns}, sa_name='c3')
+                    except Exception as e2:
+                        log2("Exception when calling BatchV1Api->create_pod: %s\n" % e2)
+
+                        return
+            else:
+                log2("Exception when calling BatchV1Api->create_pod: %s\n" % e)
+
+                return
+
+        Pods.wait_for_running(ns, pod_name)
+
+        return pod_name
+
+    def undeploy_pg_agent(pod_name: str, ns: str):
+        Pods.delete(pod_name, ns, grace_period_seconds=0)
 
     def endpoint(self):
         if not self.conn_details:

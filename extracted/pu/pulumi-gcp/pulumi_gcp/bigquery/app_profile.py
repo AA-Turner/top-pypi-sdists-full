@@ -40,18 +40,13 @@ class AppProfileArgs:
         :param pulumi.Input[_builtins.str] description: Long form description of the use case for this app profile.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, ignore safety checks when deleting/updating the app profile.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the app profile within.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-               clusters are eligible.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         :param pulumi.Input[_builtins.bool] multi_cluster_routing_use_any: If true, read/write requests are routed to the nearest cluster in the instance, and will fail over to the nearest cluster that is available
                in the event of transient errors or delays. Clusters in a region are considered equidistant. Choosing this option sacrifices read-your-writes
                consistency to improve availability.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
-        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-               affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-               will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-               read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-               is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         :param pulumi.Input['AppProfileSingleClusterRoutingArgs'] single_cluster_routing: Use a single-cluster routing policy.
                Structure is documented below.
         :param pulumi.Input['AppProfileStandardIsolationArgs'] standard_isolation: The standard options used for isolating this app profile's traffic from other use cases.
@@ -144,8 +139,7 @@ class AppProfileArgs:
     @pulumi.getter(name="multiClusterRoutingClusterIds")
     def multi_cluster_routing_cluster_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-        clusters are eligible.
+        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         """
         return pulumi.get(self, "multi_cluster_routing_cluster_ids")
 
@@ -184,11 +178,7 @@ class AppProfileArgs:
     @pulumi.getter(name="rowAffinity")
     def row_affinity(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-        affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-        will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-        read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-        is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         """
         return pulumi.get(self, "row_affinity")
 
@@ -246,19 +236,14 @@ class _AppProfileState:
         :param pulumi.Input[_builtins.str] description: Long form description of the use case for this app profile.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, ignore safety checks when deleting/updating the app profile.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the app profile within.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-               clusters are eligible.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         :param pulumi.Input[_builtins.bool] multi_cluster_routing_use_any: If true, read/write requests are routed to the nearest cluster in the instance, and will fail over to the nearest cluster that is available
                in the event of transient errors or delays. Clusters in a region are considered equidistant. Choosing this option sacrifices read-your-writes
                consistency to improve availability.
         :param pulumi.Input[_builtins.str] name: The unique name of the requested app profile. Values are of the form `projects/<project>/instances/<instance>/appProfiles/<appProfileId>`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
-        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-               affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-               will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-               read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-               is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         :param pulumi.Input['AppProfileSingleClusterRoutingArgs'] single_cluster_routing: Use a single-cluster routing policy.
                Structure is documented below.
         :param pulumi.Input['AppProfileStandardIsolationArgs'] standard_isolation: The standard options used for isolating this app profile's traffic from other use cases.
@@ -354,8 +339,7 @@ class _AppProfileState:
     @pulumi.getter(name="multiClusterRoutingClusterIds")
     def multi_cluster_routing_cluster_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-        clusters are eligible.
+        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         """
         return pulumi.get(self, "multi_cluster_routing_cluster_ids")
 
@@ -406,11 +390,7 @@ class _AppProfileState:
     @pulumi.getter(name="rowAffinity")
     def row_affinity(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-        affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-        will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-        read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-        is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         """
         return pulumi.get(self, "row_affinity")
 
@@ -445,12 +425,12 @@ class _AppProfileState:
         pulumi.set(self, "standard_isolation", value)
 
 
-warnings.warn("""gcp.bigquery/appprofile.AppProfile has been deprecated in favor of gcp.bigtable/appprofile.AppProfile""", DeprecationWarning)
+warnings.warn("""gcp.bigquery.AppProfile has been deprecated in favor of gcp.bigtable.AppProfile""", DeprecationWarning)
 
 
 @pulumi.type_token("gcp:bigquery/appProfile:AppProfile")
 class AppProfile(pulumi.CustomResource):
-    warnings.warn("""gcp.bigquery/appprofile.AppProfile has been deprecated in favor of gcp.bigtable/appprofile.AppProfile""", DeprecationWarning)
+    warnings.warn("""gcp.bigquery.AppProfile has been deprecated in favor of gcp.bigtable.AppProfile""", DeprecationWarning)
 
     @overload
     def __init__(__self__,
@@ -635,18 +615,13 @@ class AppProfile(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: Long form description of the use case for this app profile.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, ignore safety checks when deleting/updating the app profile.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the app profile within.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-               clusters are eligible.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         :param pulumi.Input[_builtins.bool] multi_cluster_routing_use_any: If true, read/write requests are routed to the nearest cluster in the instance, and will fail over to the nearest cluster that is available
                in the event of transient errors or delays. Clusters in a region are considered equidistant. Choosing this option sacrifices read-your-writes
                consistency to improve availability.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
-        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-               affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-               will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-               read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-               is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         :param pulumi.Input[Union['AppProfileSingleClusterRoutingArgs', 'AppProfileSingleClusterRoutingArgsDict']] single_cluster_routing: Use a single-cluster routing policy.
                Structure is documented below.
         :param pulumi.Input[Union['AppProfileStandardIsolationArgs', 'AppProfileStandardIsolationArgsDict']] standard_isolation: The standard options used for isolating this app profile's traffic from other use cases.
@@ -844,7 +819,7 @@ class AppProfile(pulumi.CustomResource):
                  single_cluster_routing: Optional[pulumi.Input[Union['AppProfileSingleClusterRoutingArgs', 'AppProfileSingleClusterRoutingArgsDict']]] = None,
                  standard_isolation: Optional[pulumi.Input[Union['AppProfileStandardIsolationArgs', 'AppProfileStandardIsolationArgsDict']]] = None,
                  __props__=None):
-        pulumi.log.warn("""AppProfile is deprecated: gcp.bigquery/appprofile.AppProfile has been deprecated in favor of gcp.bigtable/appprofile.AppProfile""")
+        pulumi.log.warn("""AppProfile is deprecated: gcp.bigquery.AppProfile has been deprecated in favor of gcp.bigtable.AppProfile""")
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
             raise TypeError('Expected resource options to be a ResourceOptions instance')
@@ -867,8 +842,6 @@ class AppProfile(pulumi.CustomResource):
             __props__.__dict__["single_cluster_routing"] = single_cluster_routing
             __props__.__dict__["standard_isolation"] = standard_isolation
             __props__.__dict__["name"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="gcp:bigquery/appProfile:AppProfile")])
-        opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(AppProfile, __self__).__init__(
             'gcp:bigquery/appProfile:AppProfile',
             resource_name,
@@ -904,19 +877,14 @@ class AppProfile(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: Long form description of the use case for this app profile.
         :param pulumi.Input[_builtins.bool] ignore_warnings: If true, ignore safety checks when deleting/updating the app profile.
         :param pulumi.Input[_builtins.str] instance: The name of the instance to create the app profile within.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-               clusters are eligible.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] multi_cluster_routing_cluster_ids: The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         :param pulumi.Input[_builtins.bool] multi_cluster_routing_use_any: If true, read/write requests are routed to the nearest cluster in the instance, and will fail over to the nearest cluster that is available
                in the event of transient errors or delays. Clusters in a region are considered equidistant. Choosing this option sacrifices read-your-writes
                consistency to improve availability.
         :param pulumi.Input[_builtins.str] name: The unique name of the requested app profile. Values are of the form `projects/<project>/instances/<instance>/appProfiles/<appProfileId>`.
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
-        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-               affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-               will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-               read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-               is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        :param pulumi.Input[_builtins.bool] row_affinity: Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         :param pulumi.Input[Union['AppProfileSingleClusterRoutingArgs', 'AppProfileSingleClusterRoutingArgsDict']] single_cluster_routing: Use a single-cluster routing policy.
                Structure is documented below.
         :param pulumi.Input[Union['AppProfileStandardIsolationArgs', 'AppProfileStandardIsolationArgsDict']] standard_isolation: The standard options used for isolating this app profile's traffic from other use cases.
@@ -985,8 +953,7 @@ class AppProfile(pulumi.CustomResource):
     @pulumi.getter(name="multiClusterRoutingClusterIds")
     def multi_cluster_routing_cluster_ids(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all
-        clusters are eligible.
+        The set of clusters to route to. The order is ignored; clusters will be tried in order of distance. If left empty, all clusters are eligible.
         """
         return pulumi.get(self, "multi_cluster_routing_cluster_ids")
 
@@ -1021,11 +988,7 @@ class AppProfile(pulumi.CustomResource):
     @pulumi.getter(name="rowAffinity")
     def row_affinity(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
-        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row
-        affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key
-        will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves
-        read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency
-        is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
+        Must be used with multi-cluster routing. If true, then this app profile will use row affinity sticky routing. With row affinity, Bigtable will route single row key requests based on the row key, rather than randomly. Instead, each row key will be assigned to a cluster by Cloud Bigtable, and will stick to that cluster. Choosing this option improves read-your-writes consistency for most requests under most circumstances, without sacrificing availability. Consistency is not guaranteed, as requests may still fail over between clusters in the event of errors or latency.
         """
         return pulumi.get(self, "row_affinity")
 

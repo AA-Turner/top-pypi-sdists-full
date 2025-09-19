@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numcodecs
-Version: 0.16.2
+Version: 0.16.3
 Summary: A Python package providing buffer compression and transformation codecs for use in data storage and communication applications.
 Maintainer-email: Alistair Miles <alimanfoo@googlemail.com>
 License-Expression: MIT

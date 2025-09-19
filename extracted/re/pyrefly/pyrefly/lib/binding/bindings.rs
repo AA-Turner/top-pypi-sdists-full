@@ -14,9 +14,11 @@ use dupe::Dupe;
 use itertools::Either;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_types::types::Type;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::AnyParameterRef;
@@ -56,8 +58,9 @@ use crate::binding::binding::LastStmt;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::scope::FlowInfo;
+use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
+use crate::binding::scope::NameReadInfo;
 use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
@@ -294,37 +297,24 @@ impl Bindings {
             builder.inject_builtins();
         }
         builder.inject_globals();
-        builder.stmts(x.body);
+        builder.stmts(x.body, &NestingContext::toplevel());
         assert_eq!(builder.scopes.loop_depth(), 0);
         let scope_trace = builder.scopes.finish();
-        let last_scope = scope_trace.toplevel_scope();
         let exported = exports.exports(lookup);
-        for (name, static_info) in last_scope.stat.0.iter_hashed() {
-            let info = last_scope.flow.info.get_hashed(name);
-            let binding = match info {
-                Some(FlowInfo { key, .. }) => {
-                    if let Some(ann) = static_info.annot {
-                        Binding::AnnotatedType(ann, Box::new(Binding::Forward(*key)))
-                    } else {
-                        Binding::Forward(*key)
-                    }
+        for (name, exportable) in scope_trace.exportables().into_iter_hashed() {
+            let binding = match exportable {
+                Exportable::Initialized(key, Some(ann)) => {
+                    Binding::AnnotatedType(ann, Box::new(Binding::Forward(key)))
                 }
-                None => {
-                    // The variable is not in the flow scope, so probably it has not been defined
-                    // in any flow that reaches the end. So just use the anywhere version.
-                    Binding::Forward(
-                        builder
-                            .table
-                            .types
-                            .0
-                            .insert(static_info.as_key(name.into_key())),
-                    )
+                Exportable::Initialized(key, None) => Binding::Forward(key),
+                Exportable::Uninitialized(key) => {
+                    Binding::Forward(builder.table.types.0.insert(key))
                 }
             };
-            if exported.contains_key_hashed(name) {
+            if exported.contains_key_hashed(name.as_ref()) {
                 builder
                     .table
-                    .insert(KeyExport(name.into_key().clone()), BindingExport(binding));
+                    .insert(KeyExport(name.into_key()), BindingExport(binding));
             }
         }
         Self(Arc::new(BindingsInner {
@@ -372,7 +362,10 @@ impl BindingTable {
         idx
     }
 
-    fn insert_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
+    /// Record the binding of a value to a variable in an Anywhere binding (which
+    /// will take the phi of all values bound at different points). If necessary, we
+    /// insert the Anywhere.
+    fn record_bind_in_anywhere(&mut self, name: Name, range: TextRange, idx: Idx<Key>) {
         let phi_idx = self.types.0.insert(Key::Anywhere(name, range));
         match self
             .types
@@ -401,6 +394,7 @@ impl BindingTable {
 }
 
 /// Errors that can occur when we try to look up a name
+#[derive(Debug)]
 pub enum LookupError {
     /// We can't find the name at all
     NotFound,
@@ -619,9 +613,9 @@ impl<'a> BindingsBuilder<'a> {
         current.flow.info.reserve(current.stat.0.capacity());
     }
 
-    pub fn stmts(&mut self, xs: Vec<Stmt>) {
+    pub fn stmts(&mut self, xs: Vec<Stmt>, parent: &NestingContext) {
         for x in xs {
-            self.stmt(x);
+            self.stmt(x, parent);
         }
     }
 
@@ -684,7 +678,24 @@ impl<'a> BindingsBuilder<'a> {
         self.errors.add(range, info, msg);
     }
 
-    pub fn lookup_mutable_captured_name(
+    pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
+        let key = Key::MutableCapture(ShortIdentifier::new(name));
+        let binding = match self.lookup_mutable_capture(&name.id, kind) {
+            Ok(found) => Binding::Forward(found),
+            Err(error) => {
+                self.error(
+                    name.range,
+                    ErrorInfo::Kind(ErrorKind::UnknownName),
+                    error.message(name),
+                );
+                Binding::Type(Type::any_error())
+            }
+        };
+        let binding_key = self.insert_binding(key, binding);
+        self.bind_name(&name.id, binding_key, FlowStyle::Other);
+    }
+
+    fn lookup_mutable_capture(
         &mut self,
         name: &Name,
         kind: MutableCaptureLookupKind,
@@ -766,10 +777,10 @@ impl<'a> BindingsBuilder<'a> {
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<Idx<Key>, LookupError> {
-        self.lookup_name_inner(name, kind, usage)
+        self.get_bound_key_and_first_use_at_name(name, kind, usage)
             .map(|(result, first_use)| {
                 if let Some(used_idx) = first_use {
-                    self.record_possible_first_use(used_idx, usage);
+                    self.record_first_use(used_idx, usage);
                 }
                 result
             })
@@ -780,61 +791,17 @@ impl<'a> BindingsBuilder<'a> {
     /// When lookup succeeds, returns a pair `idx, maybe_first_use`, where `maybe_first_use`
     /// is an option of a possible first-use `(used_idx)` to track for deterministic
     /// type inference.
-    fn lookup_name_inner(
+    fn get_bound_key_and_first_use_at_name(
         &mut self,
         name: Hashed<&Name>,
         kind: LookupKind,
         usage: &mut Usage,
     ) -> Result<(Idx<Key>, Option<Idx<Key>>), LookupError> {
-        let mut barrier = false;
-        let ok_no_usage = |idx| Ok((idx, None));
-        let is_current_scope_annotation =
-            matches!(self.scopes.current().kind, ScopeKind::Annotation);
-        for (lookup_depth, scope) in self.scopes.iter_rev().enumerate() {
-            let is_class = matches!(scope.kind, ScopeKind::Class(_));
-            // From https://docs.python.org/3/reference/executionmodel.html#resolution-of-names:
-            //   The scope of names defined in a class block is limited to the
-            //   class block; it does not extend to the code blocks of
-            //   methods. This includes comprehensions and generator
-            //   expressions, but it does not include annotation scopes, which
-            //   have access to their enclosing class scopes."""
-            if is_class
-                && !((lookup_depth == 0) || (is_current_scope_annotation && lookup_depth == 1))
-            {
-                // Note: class body scopes have `barrier = false`, so skipping the barrier update is okay.
-                continue;
-            }
-
-            if let Some(flow) = scope.flow.info.get_hashed(name)
-                && !barrier
-            {
-                let (idx, maybe_pinned_idx) = self.detect_possible_first_use(flow.key, usage);
-                if let Some(pinned_idx) = maybe_pinned_idx {
-                    return Ok((idx, Some(pinned_idx)));
-                } else {
-                    return ok_no_usage(idx);
-                }
-            }
-            // Class body scopes are dynamic, not static, so if we don't find a name in the
-            // current flow we keep looking. In every other kind of scope, anything the Python
-            // compiler has identified as local shadows enclosing scopes, so we should prefer
-            // inner static lookups to outer flow lookups.
-            if !is_class && let Some(info) = scope.stat.0.get_hashed(name) {
-                match kind {
-                    LookupKind::Regular => {
-                        let key = info.as_key(name.into_key());
-                        return ok_no_usage(self.table.types.0.insert(key));
-                    }
-                    LookupKind::Mutable => {
-                        if barrier {
-                            return Err(LookupError::NotMutable);
-                        }
-                    }
-                }
-            }
-            barrier = barrier || scope.barrier;
+        match self.scopes.look_up_name_for_read(name, kind) {
+            NameReadInfo::Flow(original_idx) => Ok(self.detect_first_use(original_idx, usage)),
+            NameReadInfo::Anywhere(key) => Ok((self.table.types.0.insert(key), None)),
+            NameReadInfo::Error(lookup_error) => Err(lookup_error),
         }
-        Err(LookupError::NotFound)
     }
 
     /// Look up the idx for a name. The first output is the idx to use for the
@@ -852,24 +819,20 @@ impl<'a> BindingsBuilder<'a> {
     ///   usage as the first read, return `(pinned_idx, None)`: we don't need to
     ///   record first use because that is done already, but we want to continue
     ///   forwarding the raw binding throughout this first use.
-    fn detect_possible_first_use(
+    fn detect_first_use(
         &self,
         flow_idx: Idx<Key>,
         usage: &mut Usage,
     ) -> (Idx<Key>, Option<Idx<Key>>) {
         match self.table.types.1.get(flow_idx) {
             Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
-                Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
-                    (flow_idx, Some(flow_idx))
-                }
+                Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
                 Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
             },
             Some(Binding::Pin(unpinned_idx, first_use)) => match first_use {
                 FirstUse::DoesNotPin => (flow_idx, None),
                 FirstUse::Undetermined => match usage {
-                    Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
-                        (flow_idx, Some(flow_idx))
-                    }
+                    Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
                     Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
                 },
                 FirstUse::UsedBy(usage_idx) => {
@@ -877,9 +840,7 @@ impl<'a> BindingsBuilder<'a> {
                     // sure they all use the raw binding rather than the `Pin`.
                     let currently_in_first_use = match usage {
                         Usage::CurrentIdx(idx, ..) => idx == usage_idx,
-                        Usage::Narrowing | Usage::StaticTypeInformation | Usage::MutableLookup => {
-                            false
-                        }
+                        Usage::Narrowing | Usage::StaticTypeInformation => false,
                     };
                     if currently_in_first_use {
                         (*unpinned_idx, None)
@@ -893,7 +854,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Record a first use detected in `detect_possible_first_use`.
-    fn record_possible_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
+    fn record_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
         match self.table.types.1.get_mut(used) {
             Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
                 *first_use = match usage {
@@ -901,9 +862,7 @@ impl<'a> BindingsBuilder<'a> {
                         first_uses_of.insert(used);
                         FirstUse::UsedBy(*use_idx)
                     }
-                    Usage::StaticTypeInformation | Usage::Narrowing | Usage::MutableLookup => {
-                        FirstUse::DoesNotPin
-                    }
+                    Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
                 };
             }
             b => {
@@ -1007,7 +966,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding(Key::Definition(ShortIdentifier::new(name)), binding);
-        self.bind_name(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style)
     }
 
     /// Bind a name in scope to the idx of `current`, inserting `binding` as the binding.
@@ -1019,7 +978,7 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let idx = self.insert_binding_current(current, binding);
-        self.bind_name(&name.id, idx, style).0
+        self.bind_name(&name.id, idx, style)
     }
 
     /// Bind a name in scope to the idx of `current`, without inserting a binding.
@@ -1031,7 +990,7 @@ impl<'a> BindingsBuilder<'a> {
         name: &Name,
         current: &CurrentIdx,
         style: FlowStyle,
-    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
+    ) -> Option<Idx<KeyAnnotation>> {
         self.bind_name(name, current.idx(), style)
     }
 
@@ -1045,24 +1004,15 @@ impl<'a> BindingsBuilder<'a> {
         name: &Name,
         idx: Idx<Key>,
         style: FlowStyle,
-    ) -> (Option<Idx<KeyAnnotation>>, Option<Idx<Key>>) {
+    ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
-        let default = self.scopes.upsert_flow_info(name, idx, Some(style));
-        let info = self
-            .scopes
-            .current()
-            .stat
-            .0
-            .get_hashed(name)
-            .unwrap_or_else(|| {
-                let module = self.module_info.name();
-                panic!("Name `{name}` not found in static scope of module `{module}`")
-            });
-        if info.count > 1 {
+        let write_info = self.scopes.look_up_name_for_write(name, &self.module_info);
+        self.scopes.upsert_flow_info(name, idx, Some(style));
+        if let Some(range) = write_info.anywhere_range {
             self.table
-                .insert_anywhere(name.into_key().clone(), info.loc, idx);
+                .record_bind_in_anywhere(name.into_key().clone(), range, idx);
         }
-        (info.annot, default)
+        write_info.annotation
     }
 
     pub fn type_params(&mut self, x: &mut TypeParams) {
@@ -1112,7 +1062,6 @@ impl<'a> BindingsBuilder<'a> {
                 name.range,
                 SymbolKind::TypeParameter,
                 None,
-                false,
             );
             self.bind_definition(
                 &name,
@@ -1151,13 +1100,8 @@ impl<'a> BindingsBuilder<'a> {
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Parameter,
-            None,
-            false,
-        );
+        self.scopes
+            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Parameter, None);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
@@ -1190,7 +1134,6 @@ impl<'a> BindingsBuilder<'a> {
             name.range,
             SymbolKind::Parameter,
             annot,
-            false,
         );
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
@@ -1266,7 +1209,6 @@ impl LegacyTParamBuilder {
                     name.range,
                     SymbolKind::TypeParameter,
                     None,
-                    false,
                 );
                 builder.bind_definition(
                     name,
@@ -1275,7 +1217,7 @@ impl LegacyTParamBuilder {
                     // tparams, and we only want to do that once (which we do in
                     // the binding created by `forward_lookup`).
                     Binding::CheckLegacyTypeParam(*idx, None),
-                    builder.scopes.get_flow_style(&name.id, true).clone(),
+                    builder.scopes.get_flow_style(&name.id).clone(),
                 );
             }
         }

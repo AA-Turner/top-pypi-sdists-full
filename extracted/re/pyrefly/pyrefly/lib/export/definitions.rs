@@ -37,10 +37,21 @@ use starlark_map::small_set::SmallSet;
 
 use crate::types::globals::Global;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum MutableCaptureKind {
+    /// Mutable capture coming from a `global` statement
+    Global,
+    /// Mutable capture coming from a `nonlocal` statement
+    Nonlocal,
+}
+
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DefinitionStyle {
+    /// A name defined by a mutable capture. In valid code, the current scope
+    /// must be nested in some enclosing scope that defines the name.
+    MutableCapture(MutableCaptureKind),
     /// Defined in this module, e.g. `x = 1` or `def x(): ...`
     /// We also store what kind of symbol it is
     Local(SymbolKind),
@@ -57,6 +68,9 @@ pub enum DefinitionStyle {
     ImportModule(ModuleName),
     /// A relative import that does not exist: we do `....` more than we have depth
     ImportInvalidRelative,
+    /// A statement like `del x` defines `x` in the current scope, even if `x` has no
+    /// other definition.
+    Delete,
 }
 
 #[derive(Debug, Clone)]
@@ -85,12 +99,6 @@ pub struct Definitions {
     /// does not belong to the static scope. We can discover the fact that it is a
     /// mutable capture by checking `globals` and `nonlocals`.
     pub definitions: SmallMap<Name, Definition>,
-    /// All the global names declared in this scope.
-    /// TODO(grievejia): This field is currently unused, but may be useful in the future.
-    pub globals: SmallSet<Name>,
-    /// All the nonlocal names declared in this scope.
-    /// TODO(grievejia): This field is currently unused, but may be useful in the future.
-    pub nonlocals: SmallSet<Name>,
     /// All the modules that are imported with `from x import *`.
     pub import_all: SmallMap<ModuleName, TextRange>,
     /// The `__all__` variable contents.
@@ -418,12 +426,22 @@ impl<'a> DefinitionsBuilder<'a> {
             }
             Stmt::Nonlocal(x) => {
                 for name in &x.names {
-                    self.inner.nonlocals.insert(name.id.clone());
+                    self.add_name(
+                        &name.id,
+                        name.range,
+                        DefinitionStyle::MutableCapture(MutableCaptureKind::Nonlocal),
+                        None,
+                    );
                 }
             }
             Stmt::Global(x) => {
                 for name in &x.names {
-                    self.inner.globals.insert(name.id.clone());
+                    self.add_name(
+                        &name.id,
+                        name.range,
+                        DefinitionStyle::MutableCapture(MutableCaptureKind::Global),
+                        None,
+                    );
                 }
             }
             Stmt::Assign(x) => {
@@ -470,6 +488,14 @@ impl<'a> DefinitionsBuilder<'a> {
                         DefinitionStyle::Local(SymbolKind::Variable),
                         None,
                     )
+                }
+            }
+            Stmt::Delete(x) => {
+                for target in &x.targets {
+                    self.named_in_expr(target);
+                    if let Expr::Name(name) = target {
+                        self.add_name(&name.id, name.range, DefinitionStyle::Delete, None)
+                    }
                 }
             }
             Stmt::Expr(StmtExpr { value, .. }) => {
@@ -594,7 +620,6 @@ impl<'a> DefinitionsBuilder<'a> {
                 }
             }
             Stmt::Return(..)
-            | Stmt::Delete(..)
             | Stmt::Pass(..)
             | Stmt::Break(..)
             | Stmt::Continue(..)
@@ -917,5 +942,46 @@ import derp.c.d
             true,
         );
         assert_implicitly_imported_submodules(&defs, &["b", "c"]);
+    }
+
+    #[test]
+    fn test_named_in_del() {
+        let defs = calculate_unranged_definitions(
+            r#"
+del (y := {"x": 42})["x"]
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_definition_names(&defs, &["y"]);
+    }
+
+    #[test]
+    fn test_unused_mutable_captures() {
+        // These are illegal at the top-level, but they can occur in functions
+        // and the definitions extraction works the same way.
+        let defs = calculate_unranged_definitions(
+            r#"
+global x
+nonlocal y
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_definition_names(&defs, &["x", "y"]);
+    }
+
+    #[test]
+    fn test_unused_del() {
+        // These are illegal at the top-level, but they can occur in functions
+        // and the definitions extraction works the same way.
+        let defs = calculate_unranged_definitions(
+            r#"
+del x
+"#,
+            ModuleName::from_str("derp"),
+            true,
+        );
+        assert_definition_names(&defs, &["x"]);
     }
 }

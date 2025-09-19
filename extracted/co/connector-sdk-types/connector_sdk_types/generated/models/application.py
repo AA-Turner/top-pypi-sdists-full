@@ -29,7 +29,7 @@ class Application(BaseModel):
 
     id: StrictStr = Field(
         description="Integration specific identifier that uniquely identifies an application instance or tenant. Example: lumos.slack.com or lumostester.slack.com",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
     name: StrictStr = Field(description="The name or identifier of the application. ex: slack.com")
     display_name: Optional[StrictStr] = Field(

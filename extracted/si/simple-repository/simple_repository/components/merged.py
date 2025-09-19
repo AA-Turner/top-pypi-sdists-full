@@ -12,9 +12,9 @@ import typing
 
 import packaging.version
 
-from . import priority_selected
 from .. import errors, model
 from .._typing_compat import override
+from . import priority_selected
 
 
 class MergedRepository(priority_selected.PrioritySelectedProjectsRepository):
@@ -96,11 +96,19 @@ class MergedRepository(priority_selected.PrioritySelectedProjectsRepository):
             )
             versions = frozenset().union(*all_versions)
 
+        # Merge private metadata from all project pages (first seen wins)
+        merged_metadata: dict[str, typing.Any] = {}
+        for page in reversed(project_pages):
+            merged_metadata.update(page.private_metadata)
+
         return model.ProjectDetail(
             meta=model.Meta(str(api_version)),
             name=project_pages[0].name,
             files=tuple(files.values()),
             versions=versions,
+            private_metadata=model.PrivateMetadataMapping.from_any_mapping(
+                merged_metadata,
+            ),
         )
 
     @override

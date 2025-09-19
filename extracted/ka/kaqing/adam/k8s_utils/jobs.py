@@ -12,7 +12,7 @@ class Jobs:
             envs.append(client.V1EnvVar(name=k.upper(), value=str(v)))
         for k, v in env_from.items():
             envs.append(client.V1EnvVar(name=k.upper(), value_from=client.V1EnvVarSource(secret_key_ref=client.V1SecretKeySelector(key=k, name=v))))
-        template = Pods.create_pod_spec(job_name, image, image_pull_secret, envs, volume_name, pvc_name, mount_path, command)
+        template = Pods.create_pod_spec(job_name, image, image_pull_secret, envs, None, volume_name, pvc_name, mount_path, command)
         spec = client.V1JobSpec(template=client.V1PodTemplateSpec(spec=template), backoff_limit=1, ttl_seconds_after_finished=300)
         job = client.V1Job(
             api_version="batch/v1",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metricflow
-Version: 0.208.0
+Version: 0.208.1
 Summary: Translates a simple metric definition into reusable SQL and executes it against the SQL engine of your choice.
 Project-URL: Documentation, https://docs.getdbt.com/docs/build/about-metricflow
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow
@@ -16,8 +16,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: <3.13,>=3.9
-Requires-Dist: dbt-semantic-interfaces==0.9.3.dev1
-Requires-Dist: dbt-semantic-interfaces~=0.9.3.dev1
+Requires-Dist: dbt-semantic-interfaces==0.9.0
+Requires-Dist: dbt-semantic-interfaces~=0.9.0
 Requires-Dist: graphviz<0.21,>=0.18.2
 Requires-Dist: jinja2<3.7.0,>=3.1.6
 Requires-Dist: more-itertools<10.2.0,>=8.10.0
@@ -30,7 +30,7 @@ Provides-Extra: dev-env-requirements
 Requires-Dist: click>=8.1.6; extra == 'dev-env-requirements'
 Requires-Dist: dbt-core<1.11.0,>=1.10.4; extra == 'dev-env-requirements'
 Requires-Dist: dbt-duckdb<1.9.0,>=1.8.0; extra == 'dev-env-requirements'
-Requires-Dist: duckdb!=1.2.1; extra == 'dev-env-requirements'
+Requires-Dist: duckdb!=1.2.1,<1.4.0; extra == 'dev-env-requirements'
 Requires-Dist: halo<0.1.0,>=0.0.31; extra == 'dev-env-requirements'
 Requires-Dist: mypy<1.8.0,>=1.7.0; extra == 'dev-env-requirements'
 Requires-Dist: pre-commit<3.3.0,>=3.2.2; extra == 'dev-env-requirements'

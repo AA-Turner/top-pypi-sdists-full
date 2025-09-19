@@ -1967,7 +1967,6 @@ class UpdateAutomatedReasoningPolicyTestCaseRequestTypeDef(TypedDict):
     expectedAggregatedFindingsResult: AutomatedReasoningCheckResultType
     queryContent: NotRequired[str]
     confidenceThreshold: NotRequired[float]
-    kmsKeyArn: NotRequired[str]
     clientRequestToken: NotRequired[str]
 
 class PricingTermTypeDef(TypedDict):

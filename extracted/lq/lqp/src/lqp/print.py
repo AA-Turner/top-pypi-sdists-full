@@ -90,7 +90,8 @@ class Styled(StyleConfig):
 class PrettyOptions(Enum):
     STYLED = 1,
     PRINT_NAMES = 2,
-    PRINT_DEBUG = 3
+    PRINT_DEBUG = 3,
+    PRINT_CSV_FILENAME = 4  # Useful for snapshot testing with generated CSV filenames
 
     def __str__(self):
         return option_to_key[self]
@@ -98,27 +99,31 @@ class PrettyOptions(Enum):
 option_to_key = {
     PrettyOptions.STYLED: "styled",
     PrettyOptions.PRINT_NAMES: "print_names",
-    PrettyOptions.PRINT_DEBUG: "print_debug"
+    PrettyOptions.PRINT_DEBUG: "print_debug",
+    PrettyOptions.PRINT_CSV_FILENAME: "print_csv_filename"
 }
 
 option_to_default = {
     PrettyOptions.STYLED: False,
     PrettyOptions.PRINT_NAMES: False,
     PrettyOptions.PRINT_DEBUG: True,
+    PrettyOptions.PRINT_CSV_FILENAME: True
 }
 
 # Used for precise testing
 ugly_config = {
     str(PrettyOptions.STYLED): False,
     str(PrettyOptions.PRINT_NAMES): False,
-    str(PrettyOptions.PRINT_DEBUG): True
+    str(PrettyOptions.PRINT_DEBUG): True,
+    str(PrettyOptions.PRINT_CSV_FILENAME): True
 }
 
 # Used for humans
 pretty_config = {
     str(PrettyOptions.STYLED): True,
     str(PrettyOptions.PRINT_NAMES): True,
-    str(PrettyOptions.PRINT_DEBUG): False
+    str(PrettyOptions.PRINT_DEBUG): False,
+    str(PrettyOptions.PRINT_CSV_FILENAME): True
 }
 
 def style_config(options: Dict) -> StyleConfig:
@@ -177,7 +182,7 @@ def program_to_str(node: ir.Transaction, options: Dict = {}) -> str:
     config_dict["semantics_version"] = config.semantics_version
     if config.ivm_config.level != ir.MaintenanceLevel.UNSPECIFIED:
         config_dict["ivm.maintenance_level"] = config.ivm_config.level.name.lower()
-    
+
     s += "\n" + conf.indentation(1) + conf.LPAREN() + conf.kw("configure") + "\n"
     s += config_dict_to_str(config_dict, 2, options)
     s += conf.RPAREN()
@@ -275,17 +280,37 @@ def to_str(node: Union[ir.LqpNode, ir.Type, ir.Value, ir.SpecializedValue, int, 
         lqp += to_str(node.body, indent_level + 2, options, debug_info)
         lqp += conf.RPAREN()
 
-    elif isinstance(node, (ir.Assign, ir.Break, ir.Upsert, ir.Copy)):
+    elif isinstance(node, (ir.Assign, ir.Break)):
         if isinstance(node, ir.Assign):
             s = "assign"
         elif isinstance(node, ir.Break):
             s = "break"
-        elif isinstance(node, ir.Upsert):
-            s = "upsert"
-        elif isinstance(node, ir.Copy):
-            s = "copy"
         lqp += ind + conf.LPAREN() + conf.kw(s) + " " + to_str(node.name, 0, options, debug_info) + "\n"
         lqp += to_str(node.body, indent_level + 1, options, debug_info)
+        if len(node.attrs) == 0:
+            lqp += f"{conf.RPAREN()}"
+        else:
+            lqp += "\n"
+            lqp += conf.indentation(indent_level + 1) + conf.LPAREN() + conf.kw("attrs") + "\n"
+            lqp += list_to_str(node.attrs, indent_level + 2, "\n", options, debug_info)
+            lqp += f"{conf.RPAREN()}{conf.RPAREN()}"
+
+    elif isinstance(node, ir.Upsert):
+        lqp += ind + conf.LPAREN() + conf.kw("upsert") + " " + to_str(node.name, 0, options, debug_info) + "\n"
+        body = node.body
+        if node.value_arity == 0:
+            lqp += to_str(body, indent_level + 1, options, debug_info)
+        else: # We need a different printing mechanism
+            partition = len(body.vars)-node.value_arity
+            lvars, rvars = body.vars[:partition], body.vars[partition:]
+            lqp += ind + conf.indentation(1) + conf.LPAREN() + conf.LBRACKET()
+            lqp += " ".join(map(lambda v: conf.uname(v[0].name) \
+                    + conf.type_anno("::") + to_str(v[1], indent_level + 2, options, debug_info), lvars))
+            lqp += " | "
+            lqp += " ".join(map(lambda v: conf.uname(v[0].name) \
+                    + conf.type_anno("::") + to_str(v[1], indent_level + 2, options, debug_info), rvars))
+            lqp += conf.RBRACKET() + "\n"
+            lqp += f"{to_str(body.value, indent_level + 2, options, debug_info)}{conf.RPAREN()}"
         if len(node.attrs) == 0:
             lqp += f"{conf.RPAREN()}"
         else:
@@ -299,7 +324,20 @@ def to_str(node: Union[ir.LqpNode, ir.Type, ir.Value, ir.SpecializedValue, int, 
         lqp += ind + conf.LPAREN() + conf.kw(s) + " " \
                 + to_str(node.monoid, 0, options, debug_info) + " " \
                 + to_str(node.name, 0, options, debug_info) + "\n"
-        lqp += to_str(node.body, indent_level + 1, options, debug_info)
+        body = node.body
+        if node.value_arity == 0:
+            lqp += to_str(body, indent_level + 1, options, debug_info)
+        else:
+            partition = len(body.vars)-node.value_arity
+            lvars, rvars = body.vars[:partition], body.vars[partition:]
+            lqp += ind + conf.indentation(1) + conf.LPAREN() + conf.LBRACKET()
+            lqp += " ".join(map(lambda v: conf.uname(v[0].name) \
+                    + conf.type_anno("::") + to_str(v[1], indent_level + 2, options, debug_info), lvars))
+            lqp += " | "
+            lqp += " ".join(map(lambda v: conf.uname(v[0].name) \
+                    + conf.type_anno("::") + to_str(v[1], indent_level + 2, options, debug_info), rvars))
+            lqp += conf.RBRACKET() + "\n"
+            lqp += f"{to_str(body.value, indent_level + 2, options, debug_info)}{conf.RPAREN()}"
         if len(node.attrs) == 0:
             lqp += f"{conf.RPAREN()}"
         else:
@@ -463,7 +501,11 @@ def to_str(node: Union[ir.LqpNode, ir.Type, ir.Value, ir.SpecializedValue, int, 
             return line(kw, to_str(field, 0, options, debug_info))
 
         lqp += f"{ind}{conf.LPAREN()}{conf.kw('export_csv_config')}\n"
-        lqp += line_conf_f('path', node.path) + "\n"
+
+        if has_option(options, PrettyOptions.PRINT_CSV_FILENAME):
+            lqp += line_conf_f('path', node.path) + "\n"
+        else:
+            lqp += line_conf_f('path', '<hidden filename>') + "\n"
         lqp += line('columns', list_to_str(node.data_columns, 0, " ", options, debug_info)) + "\n"
 
         config_dict: dict[str, Union[int, str]] = {}

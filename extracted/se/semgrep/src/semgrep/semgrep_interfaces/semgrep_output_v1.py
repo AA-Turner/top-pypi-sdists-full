@@ -1390,6 +1390,23 @@ class BuildGradle:
 
 
 @dataclass(frozen=True)
+class BuildGradleKts:
+    """Original type: manifest_kind = [ ... | BuildGradleKts | ... ]"""
+
+    @property
+    def kind(self) -> str:
+        """Name of the class representing this variant."""
+        return 'BuildGradleKts'
+
+    @staticmethod
+    def to_json() -> Any:
+        return 'BuildGradleKts'
+
+    def to_json_string(self, **kw: Any) -> str:
+        return json.dumps(self.to_json(), **kw)
+
+
+@dataclass(frozen=True)
 class SettingsGradle:
     """Original type: manifest_kind = [ ... | SettingsGradle | ... ]"""
 
@@ -1614,7 +1631,7 @@ class OpamFile:
 class ManifestKind:
     """Original type: manifest_kind = [ ... ]"""
 
-    value: Union[RequirementsIn, SetupPy, PackageJson, Gemfile, GoModManifest, CargoToml, PomXml, BuildGradle, SettingsGradle, ComposerJson, NugetManifestJson, PubspecYaml, PackageSwift, Podfile, MixExs, Pipfile, PyprojectToml, ConanFileTxt, ConanFilePy, Csproj, OpamFile]
+    value: Union[RequirementsIn, SetupPy, PackageJson, Gemfile, GoModManifest, CargoToml, PomXml, BuildGradle, BuildGradleKts, SettingsGradle, ComposerJson, NugetManifestJson, PubspecYaml, PackageSwift, Podfile, MixExs, Pipfile, PyprojectToml, ConanFileTxt, ConanFilePy, Csproj, OpamFile]
 
     @property
     def kind(self) -> str:
@@ -1640,6 +1657,8 @@ class ManifestKind:
                 return cls(PomXml())
             if x == 'BuildGradle':
                 return cls(BuildGradle())
+            if x == 'BuildGradleKts':
+                return cls(BuildGradleKts())
             if x == 'SettingsGradle':
                 return cls(SettingsGradle())
             if x == 'ComposerJson':
@@ -8122,6 +8141,8 @@ class ScanMetadata:
     requested_products: List[Product]
     dry_run: bool = field(default_factory=lambda: False)
     sms_scan_id: Optional[str] = None
+    ecosystems: List[str] = field(default_factory=lambda: [])
+    packages: List[str] = field(default_factory=lambda: [])
 
     @classmethod
     def from_json(cls, x: Any) -> 'ScanMetadata':
@@ -8132,6 +8153,8 @@ class ScanMetadata:
                 requested_products=_atd_read_list(Product.from_json)(x['requested_products']) if 'requested_products' in x else _atd_missing_json_field('ScanMetadata', 'requested_products'),
                 dry_run=_atd_read_bool(x['dry_run']) if 'dry_run' in x else False,
                 sms_scan_id=_atd_read_string(x['sms_scan_id']) if 'sms_scan_id' in x else None,
+                ecosystems=_atd_read_list(_atd_read_string)(x['ecosystems']) if 'ecosystems' in x else [],
+                packages=_atd_read_list(_atd_read_string)(x['packages']) if 'packages' in x else [],
             )
         else:
             _atd_bad_json('ScanMetadata', x)
@@ -8144,6 +8167,8 @@ class ScanMetadata:
         res['dry_run'] = _atd_write_bool(self.dry_run)
         if self.sms_scan_id is not None:
             res['sms_scan_id'] = _atd_write_string(self.sms_scan_id)
+        res['ecosystems'] = _atd_write_list(_atd_write_string)(self.ecosystems)
+        res['packages'] = _atd_write_list(_atd_write_string)(self.packages)
         return res
 
     @classmethod

@@ -24,7 +24,7 @@ class ApplicationEntitlementData(BaseModel):
     An entitlement representing an authorization or permission that can be granted to users within the connector.
     """
 
-    application_id: StrictStr
+    application_instance_id: StrictStr
     entitlement_type: StrictStr = Field(
         description="Should match a previously declared entitlement type from this connector."
     )
@@ -67,7 +67,7 @@ class ApplicationEntitlementData(BaseModel):
             "x-unique-hash": [
                 "integration_specific_id",
                 "integration_specific_resource_id",
-                "application_id",
+                "application_instance_id",
             ]
         },
     )
@@ -125,7 +125,7 @@ class ApplicationEntitlementData(BaseModel):
             (
                 self.integration_specific_id,
                 self.integration_specific_resource_id,
-                self.application_id,
+                self.application_instance_id,
             )
         )
 
@@ -135,9 +135,9 @@ class ApplicationEntitlementData(BaseModel):
         return (
             self.integration_specific_id,
             self.integration_specific_resource_id,
-            self.application_id,
+            self.application_instance_id,
         ) == (
             other.integration_specific_id,
             other.integration_specific_resource_id,
-            other.application_id,
+            other.application_instance_id,
         )

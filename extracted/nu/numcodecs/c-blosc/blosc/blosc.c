@@ -732,7 +732,6 @@ static int blosc_d(struct blosc_context* context, int32_t blocksize,
   int32_t nbytes;                /* number of decompressed bytes in split */
   const int32_t compressedsize = context->compressedsize;
   int32_t cbytes;                /* number of compressed bytes in split */
-  int32_t ctbytes = 0;           /* number of compressed bytes in block */
   int32_t ntbytes = 0;           /* number of uncompressed bytes in block */
   uint8_t *_tmp = dest;
   int32_t typesize = context->typesize;
@@ -769,7 +768,6 @@ static int blosc_d(struct blosc_context* context, int32_t blocksize,
     if (cbytes < 0 || cbytes > context->compressedsize - src_offset) {
       return -1;
     }
-    ctbytes += (int32_t)sizeof(int32_t);
     src = base_src + src_offset;
     /* Uncompress */
     if (cbytes == neblock) {
@@ -784,7 +782,6 @@ static int blosc_d(struct blosc_context* context, int32_t blocksize,
       }
     }
     src_offset += cbytes;
-    ctbytes += cbytes;
     _tmp += nbytes;
     ntbytes += nbytes;
   } /* Closes j < nsplits */
@@ -1072,10 +1069,9 @@ static int initialize_context_compression(struct blosc_context* context,
                           size_t destsize,
                           int32_t compressor,
                           int32_t blocksize,
-                          int32_t numthreads)
+                          int32_t numthreads,
+                          int warnlvl)
 {
-  char *envvar = NULL;
-  int warnlvl = 0;
   /* Set parameters */
   context->compress = 1;
   context->src = (const uint8_t*)src;
@@ -1088,11 +1084,6 @@ static int initialize_context_compression(struct blosc_context* context,
   context->numthreads = numthreads;
   context->end_threads = 0;
   context->clevel = clevel;
-
-  envvar = getenv("BLOSC_WARN");
-  if (envvar != NULL) {
-    warnlvl = strtol(envvar, NULL, 10);
-  }
 
   /* Check buffer size limits */
   if (sourcesize > BLOSC_MAX_BUFFERSIZE) {
@@ -1123,6 +1114,10 @@ static int initialize_context_compression(struct blosc_context* context,
   }
 
   /* Check typesize limits */
+  if (context->typesize <= 0) {
+    fprintf(stderr, "`typesize` parameter must be greater than 0!\n");
+    return -10;
+  }
   if (context->typesize > BLOSC_MAX_TYPESIZE) {
     /* If typesize is too large, treat buffer as an 1-byte stream. */
     context->typesize = 1;
@@ -1286,7 +1281,7 @@ int blosc_compress_ctx(int clevel, int doshuffle, size_t typesize,
   error = initialize_context_compression(&context, clevel, doshuffle, typesize,
 					 nbytes, src, dest, destsize,
 					 blosc_compname_to_compcode(compressor),
-					 blocksize, numinternalthreads);
+					 blocksize, numinternalthreads, 0);
   if (error <= 0) { return error; }
 
   error = write_compression_header(&context, clevel, doshuffle);
@@ -1405,10 +1400,15 @@ int blosc_compress(int clevel, int doshuffle, size_t typesize, size_t nbytes,
   pthread_mutex_lock(global_comp_mutex);
 
   do {
+    int warnlvl = 0;
+    envvar = getenv("BLOSC_WARN");
+    if (envvar != NULL) {
+      warnlvl = strtol(envvar, NULL, 10);
+    }
     result = initialize_context_compression(g_global_context, clevel, doshuffle,
                                            typesize, nbytes, src, dest, destsize,
                                            g_compressor, g_force_blocksize,
-                                           g_threads);
+                                           g_threads, warnlvl);
     if (result <= 0) { break; }
 
     result = write_compression_header(g_global_context, clevel, doshuffle);

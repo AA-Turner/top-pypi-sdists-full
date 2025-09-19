@@ -4,7 +4,25 @@ from orionis.console.exceptions import CLIOrionisRuntimeError
 
 class CacheClearCommand(BaseCommand):
     """
-    Command class to display usage information for the Orionis CLI.
+    Command to clear Python bytecode cache files (.pyc) and __pycache__ directories in the Orionis application.
+
+    This command helps maintain a clean development environment by removing all Python cache artifacts
+    from the current working directory, preventing issues related to stale or invalid bytecode.
+
+    Attributes
+    ----------
+    timestamps : bool
+        Whether to display timestamps in the command output.
+    signature : str
+        The CLI signature to invoke this command.
+    description : str
+        A brief summary of the command's functionality.
+
+    Methods
+    -------
+    handle() -> bool
+        Executes the cache clearing process using the `pyclean .` utility. Returns True if successful,
+        otherwise raises CLIOrionisRuntimeError on failure.
     """
 
     # Indicates whether timestamps will be shown in the command output

@@ -24,10 +24,10 @@ class Pods:
 
         return _TEST_POD_EXEC_OUTS
 
-    def delete(pod_name: str, namespace: str):
+    def delete(pod_name: str, namespace: str, grace_period_seconds: int = None):
         try:
             v1 = client.CoreV1Api()
-            api_response = v1.delete_namespaced_pod(pod_name, namespace)
+            api_response = v1.delete_namespaced_pod(pod_name, namespace, grace_period_seconds=grace_period_seconds)
         except Exception as e:
             log2("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
 
@@ -240,9 +240,10 @@ class Pods:
             if not msged:
                 if not msg:
                     msg = f'Waiting for the {pod_name} pod to start up...'
-                log2(msg)
+                log2(msg, nl=False)
                 msged = True
             time.sleep(5)
+        log2(' OK')
 
     def completed(namespace: str, pod_name: str):
         return Pods.get(namespace, pod_name).status.phase in ['Succeeded', 'Failed']

@@ -55,12 +55,7 @@ class RepairScan(Command):
             else:
                 log2("Exception when calling BatchV1Apii->create_namespaced_job: %s\n" % e)
 
-        msged = False
-        while Pods.get(ns, pod_name).status.phase != 'Running':
-            if not msged:
-                log2("Waiting for the scanner pod to start up...")
-                msged = True
-            time.sleep(5)
+        Pods.wait_for_running(ns, pod_name, 'Waiting for the scanner pod to start up...')
 
         try:
             Pods.exec(pod_name, pod_name, ns, f"find {log_path} -type f -mtime -{n} -print0 | xargs -0 grep failed")

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: lhotse
-Version: 1.30.3
+Version: 1.31.1
 Summary: Data preparation for speech processing models training.
 Author: The Lhotse Development Team
 Author-email: pzelasko@jhu.edu
@@ -47,6 +47,8 @@ Requires-Dist: h5py; extra == "h5py"
 Provides-Extra: kaldi
 Requires-Dist: kaldi_native_io; extra == "kaldi"
 Requires-Dist: kaldifeat; extra == "kaldi"
+Provides-Extra: pillow
+Requires-Dist: pillow; extra == "pillow"
 Provides-Extra: docs
 Requires-Dist: numpy>=1.18.1; extra == "docs"
 Requires-Dist: sphinx_rtd_theme==2.0.0; extra == "docs"
@@ -75,6 +77,7 @@ Requires-Dist: jupyterlab; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: numpy>=1.18.1; extra == "dev"
 Requires-Dist: orjson>=3.6.6; extra == "dev"
+Requires-Dist: pillow; extra == "dev"
 Requires-Dist: pre-commit<=2.19.0,>=2.17.0; extra == "dev"
 Requires-Dist: pytest-cov==4.0.0; extra == "dev"
 Requires-Dist: pytest-forked==1.4.0; extra == "dev"
@@ -97,6 +100,7 @@ Requires-Dist: jupyterlab; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: numpy>=1.18.1; extra == "all"
 Requires-Dist: orjson>=3.6.6; extra == "all"
+Requires-Dist: pillow; extra == "all"
 Requires-Dist: pre-commit<=2.19.0,>=2.17.0; extra == "all"
 Requires-Dist: pytest-cov==4.0.0; extra == "all"
 Requires-Dist: pytest-forked==1.4.0; extra == "all"
@@ -108,17 +112,6 @@ Requires-Dist: sphinx-click==5.1.0; extra == "all"
 Requires-Dist: sphinx==7.1.2; extra == "all"
 Requires-Dist: sphinx_rtd_theme==2.0.0; extra == "all"
 Requires-Dist: webdataset==0.2.5; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <div align="center">
 <img src="https://raw.githubusercontent.com/lhotse-speech/lhotse/master/docs/logo.png" width=376>
@@ -138,7 +131,8 @@ Dynamic: summary
 
 # Lhotse
 
-Lhotse is a Python library aiming to make speech and audio data preparation flexible and accessible to a wider community. Alongside [k2](https://github.com/k2-fsa/k2), it is a part of the next generation [Kaldi](https://github.com/kaldi-asr/kaldi) speech processing library.
+Lhotse is a Python library aiming to make multimodal (speech, audio, video, image, text) data preparation flexible and accessible to a wider community.
+Alongside [k2](https://github.com/k2-fsa/k2), it is a part of the next generation [Kaldi](https://github.com/kaldi-asr/kaldi) speech processing library.
 
 ## Tutorial presentations and materials
 
@@ -148,23 +142,25 @@ Lhotse is a Python library aiming to make speech and audio data preparation flex
 
 ## About
 
-### Main goals
+### Main goals (updated for 2025)
 
-- Attract a wider community to speech processing tasks with a **Python-centric design**.
-- Accommodate experienced Kaldi users with an **expressive command-line interface**.
+- Scale to multimodal data pipelines including audio, text, image, and video modalities.
+- Provide state-of-the-art dataloading algorithms such as dataset blending and efficient on-the-fly bucketing.
+- Handle data randomization (or de-duplication) for distributed multi-node training.
+- Attract a wider community to multimodal processing tasks with a **Python-centric design**.
 - Provide **standard data preparation recipes** for commonly used corpora.
-- Provide **PyTorch Dataset classes** for speech and audio related tasks.
-- Flexible data preparation for model training with the notion of **audio cuts**.
-- **Efficiency**, especially in terms of I/O bandwidth and storage capacity.
+- Flexible data preparation for model training with the notion of **audio/video cuts**.
+- Support for efficient sequential I/O data formats such as Lhotse Shar (similar to webdataset).
 
 ### Tutorials
 
-We currently have the following tutorials available in `examples` directory:
+We offer the following tutorials available in `examples` directory:
 - Basic complete Lhotse workflow [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/00-basic-workflow.ipynb)
 - Transforming data with Cuts [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/01-cut-python-api.ipynb)
 - WebDataset integration [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/02-webdataset-integration.ipynb)
 - How to combine multiple datasets [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/03-combining-datasets.ipynb)
 - Lhotse Shar: storage format optimized for sequential I/O and modularity [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/04-lhotse-shar.ipynb)
+- Image and Video Support in Lhotse [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/lhotse-speech/lhotse/blob/master/examples/05-image-and-video-loading.ipynb)
 
 ### Examples of use
 

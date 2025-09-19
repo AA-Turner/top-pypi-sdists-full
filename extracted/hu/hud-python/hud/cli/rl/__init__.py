@@ -1,91 +1,165 @@
-"""HUD RL - Commands for reinforcement learning with HUD environments."""
+"""RL training command for HUD CLI."""
 
 from __future__ import annotations
 
-from pathlib import Path  # noqa: TC003
+import logging
+import os
+from typing import TYPE_CHECKING
 
 import typer
+from rich.console import Console
 
-from hud.utils.hud_console import HUDConsole
+from hud.cli.utils.tasks import find_tasks_file
+from hud.utils.hud_console import hud_console
 
-# Create the RL subcommand app
-rl_app = typer.Typer(
-    name="rl",
-    help="🤖 Reinforcement learning commands for HUD environments",
-    rich_markup_mode="rich",
-)
+console = Console()
 
-hud_console = HUDConsole()
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
-@rl_app.callback(invoke_without_command=True)
-def rl_main(
-    ctx: typer.Context,
-    model: str = typer.Option("Qwen/Qwen2.5-3B-Instruct", "--model", "-m", help="Model to train"),
-    dataset: str | None = typer.Option(
+def rl_command(
+    tasks_file: str | None = typer.Argument(
         None,
-        "--dataset",
-        "-d",
-        help="Dataset: JSON file path or HuggingFace name (auto-detects if not provided)",
+        help="Path to tasks file (JSON/JSONL) or HuggingFace dataset name",
     ),
-    config: Path | None = typer.Option(None, "--config", "-c", help="Config YAML path"),  # noqa: B008
-    gpus: str = typer.Option("2xA100", "--gpus", help="GPU configuration (e.g., 2xA100, 4xH100)"),
-    provider: str = typer.Option("prime", "--provider", help="Infrastructure provider"),
-    output_dir: Path = typer.Option("./checkpoints", "--output", "-o", help="Output directory"),  # noqa: B008
+    model: str | None = typer.Argument(
+        None,
+        help="Model to train (default: interactive selection)",
+    ),
+    config_file: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--config",
+        "-c",
+        help="Path to existing configuration file",
+    ),
+    output_dir: str = typer.Option(
+        "/checkpoints",
+        "--output-dir",
+        "-o",
+        help="Output directory for checkpoints",
+    ),
+    restart: bool = typer.Option(
+        False,
+        "--restart",
+        help="Restart the vLLM server before training",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Enable verbose output",
+    ),
+    # DDP options
+    no_ddp: bool = typer.Option(
+        False,
+        "--no-ddp",
+        help="Disable DDP even with multiple GPUs",
+    ),
+    ddp_gpus: str | None = typer.Option(
+        None,
+        "--ddp-gpus",
+        help="Specific GPUs for DDP (e.g., '0,1,2,3')",
+    ),
+    vllm_gpu: int | None = typer.Option(
+        None,
+        "--vllm-gpu",
+        help="Specific GPU for vLLM server",
+    ),
+    # Execution mode options
+    local: bool = typer.Option(
+        False,
+        "--local",
+        help="Run training locally instead of using remote API server",
+    ),
+    # Internal flag
+    skip_vllm_startup: bool = typer.Option(
+        False,
+        hidden=True,
+        help="Skip local vLLM server startup (for internal use)",
+    ),
 ) -> None:
-    """🤖 Train RL models on HUD environments.
+    """Run GRPO reinforcement learning training on tasks."""
+    # Configure logging based on verbose flag BEFORE any output
+    if not verbose:
+        os.environ["HUD_LOG_LEVEL"] = "WARNING"
+        logging.basicConfig(level=logging.WARNING, force=True)
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.WARNING)
 
-    Runs training on remote GPU infrastructure with automatic setup.
-    The command will:
-    1. Check for required files (config, dataset)
-    2. Offer to generate missing files
-    3. Push environment to registry if needed
-    4. Start remote training on Prime Intellect
+        # Suppress INFO logs from various components
+        for logger_name in [
+            "httpx",
+            "hud.agents",
+            "hud.utils.design",
+            "hud",
+            "asyncio",
+            "transformers",
+        ]:
+            logging.getLogger(logger_name).setLevel(logging.WARNING)
+        logging.getLogger("hud.agents.base").setLevel(logging.WARNING)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-    Dataset can be:
-    - A local JSON file with tasks (e.g., tasks.json)
-    - A HuggingFace dataset name (e.g., 'username/dataset-name')
-    - Auto-detected from current directory if not specified
+    hud_console.header("HUD RL Training")
 
-    Examples:
-        hud rl                    # Interactive mode, auto-detect tasks.json
-        hud rl --model gpt2       # Train with specific model
-        hud rl --dataset tasks.json  # Use local task file
-        hud rl --gpus 4xH100      # Use different GPU configuration
-        hud rl init my-env:latest # Generate config for environment
-    """
-    # Only run main command if no subcommand was invoked
-    if ctx.invoked_subcommand is None:
-        from .train import train_command_wrapper
+    # Determine execution mode
+    use_remote = not local
 
-        train_command_wrapper(
-            model=model,
-            dataset=dataset,
-            config=config,
-            gpus=gpus,
-            provider=provider,
-            output_dir=output_dir,
-        )
+    if not tasks_file:
+        tasks_file = find_tasks_file(tasks_file)
+        if not tasks_file:
+            hud_console.warning("No tasks file found in current directory")
+            hud_console.hint(
+                "Download a HF dataset using `hud get <dataset_name>` (e.g., `hud get hud-evals/2048-basic`)"  # noqa: E501
+            )
+            hud_console.hint("or create a tasks file manually.")
+            raise typer.Exit(1)
+
+    # If user ran bare `hud rl`, guide them through remote task conversion flow
+    # before proceeding (remote only)
+    if use_remote:
+        try:
+            from hud.cli.flows.tasks import convert_tasks_to_remote
+
+            console.print("\n[cyan]Preparing remote training tasks...[/cyan]")
+            console.print("[cyan](build/push if needed)[/cyan]")
+            tasks_file = convert_tasks_to_remote(tasks_file)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            hud_console.warning(f"[red]Tasks file is not valid for remote training: {e!s}[/red]")
+            hud_console.hint("Either ensure the tasks file has remote urls")
+            hud_console.hint("Or rerun `hud rl` within an environment directory")
+            raise typer.Exit(1) from e
+
+        try:
+            from .remote_runner import run_remote_training
+
+            run_remote_training(
+                tasks_file=tasks_file, model=model, config_file=config_file, output_dir=output_dir
+            )
+            return
+        except Exception as e:
+            console.print(f"[red]❌ Remote training failed: {e!s}[/red]")
+            raise typer.Exit(1) from e
+
+    # Local execution flow delegated to local_runner (imports heavy deps lazily)
+    from .local_runner import run_local_training
+
+    run_local_training(
+        tasks_file=tasks_file,
+        model=model,
+        config_file=config_file,
+        output_dir=output_dir,
+        restart=restart,
+        verbose=verbose,
+        no_ddp=no_ddp,
+        ddp_gpus=ddp_gpus,
+        vllm_gpu=vllm_gpu,
+        skip_vllm_startup=skip_vllm_startup,
+    )
 
 
-@rl_app.command()
-def init(
-    directory: str = typer.Argument(".", help="Environment directory or Docker image"),
-    output: Path = typer.Option(None, "--output", "-o", help="Output config file path"),  # noqa: B008
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing config"),
-    build: bool = typer.Option(False, "--build", "-b", help="Build environment if no lock file"),
-) -> None:
-    """🔧 Generate hud-vf-gym config from environment.
-
-    Generates a YAML configuration file compatible with the hud-vf-gym adapter
-    from either a directory with hud.lock.yaml or a Docker image.
-
-    Examples:
-        hud rl init                    # Use current directory
-        hud rl init environments/test  # Use specific directory
-        hud rl init my-env:latest      # Use Docker image directly
-        hud rl init . -o configs/2048.yaml --build
-    """
-    from .init import init_command_wrapper
-
-    init_command_wrapper(directory, output, force, build)
+# Export the command function
+__all__ = ["rl_command"]

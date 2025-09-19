@@ -35,6 +35,7 @@ __all__ = (
     "FallbackActionType",
     "InvocationTypeType",
     "MessagingDataTypeType",
+    "NetworkTypeType",
     "PushNotificationTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -72,6 +73,7 @@ ExpirationCriterionType = Literal["CREATED_TIMESTAMP", "LAST_MESSAGE_TIMESTAMP"]
 FallbackActionType = Literal["ABORT", "CONTINUE"]
 InvocationTypeType = Literal["ASYNC"]
 MessagingDataTypeType = Literal["Channel", "ChannelMessage"]
+NetworkTypeType = Literal["DUAL_STACK", "IPV4_ONLY"]
 PushNotificationTypeType = Literal["DEFAULT", "VOIP"]
 SearchFieldKeyType = Literal["MEMBERS"]
 SearchFieldOperatorType = Literal["EQUALS", "INCLUDES"]
@@ -361,8 +363,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -444,7 +444,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -495,15 +494,6 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 RegionName = Literal["eu-central-1", "us-east-1"]

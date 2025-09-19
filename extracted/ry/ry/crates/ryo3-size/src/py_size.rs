@@ -6,7 +6,8 @@ use pyo3::types::PyTuple;
 use std::ops::{Neg, Not};
 
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "Size", module = "ry.ryo3", frozen)]
+#[pyclass(name = "Size", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PySize(size::Size);
 
 impl From<size::Size> for PySize {
@@ -370,7 +371,7 @@ struct SizeWrapper(size::Size);
 
 impl FromPyObject<'_> for SizeWrapper {
     fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.downcast::<PySize>() {
+        if let Ok(s) = ob.cast::<PySize>() {
             let pysize = s.extract::<PySize>()?;
             Ok(Self(pysize.0))
         } else if let Ok(i) = ob.extract::<i64>() {

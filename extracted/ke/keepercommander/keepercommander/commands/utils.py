@@ -75,6 +75,7 @@ def register_commands(commands):
     commands['sync-security-data'] = SyncSecurityDataCommand()
     commands['blank-records'] = BlankRecordCommand()
     commands['run-as'] = RunAsCommand()
+    commands['login-status'] = LoginStatusCommand()
 
 
 def register_command_info(aliases, command_info):
@@ -87,7 +88,7 @@ def register_command_info(aliases, command_info):
     aliases['ssd'] = 'sync-security-data'
     for p in [sync_down_parser, whoami_parser, this_device_parser, proxy_parser, login_parser, logout_parser, echo_parser, set_parser, help_parser,
               version_parser, ksm_parser, keepalive_parser, generate_parser, reset_password_parser,
-              sync_security_data_parser]:
+              sync_security_data_parser, loginstatus_parser]:
         command_info[p.prog] = p.description
 
 
@@ -96,6 +97,7 @@ sync_down_parser.add_argument('-f', '--force', dest='force', action='store_true'
 
 whoami_parser = argparse.ArgumentParser(prog='whoami', description='Display information about the currently logged in user.')
 whoami_parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='verbose output')
+whoami_parser.add_argument('--json', dest='json_output', action='store_true', help='output in JSON format')
 whoami_parser.error = raise_parse_exception
 whoami_parser.exit = suppress_exit
 
@@ -248,6 +250,11 @@ sync_security_data_parser.add_argument('--force', '-f', action='store_true', hel
 sync_security_data_parser.add_argument('--quiet', '-q', action='store_true', help='run command w/ minimal output')
 sync_security_data_parser.error = raise_parse_exception
 sync_security_data_parser.exit = suppress_exit
+
+
+loginstatus_parser = argparse.ArgumentParser(prog='login-status', description='Check user login status.')
+loginstatus_parser.error = raise_parse_exception
+loginstatus_parser.exit = suppress_exit
 
 
 class SyncDownCommand(Command):
@@ -517,109 +524,236 @@ class WhoamiCommand(Command):
         return whoami_parser
 
     def execute(self, params, **kwargs):
-        if params.session_token:
-            hostname = get_hostname(params.rest_context.server_base)
-            print('{0:>20s}: {1:<20s}'.format('User', params.user))
-            print('{0:>20s}: {1:<20s}'.format('Server', hostname))
-            print('{0:>20s}: {1:<20s}'.format('Data Center', get_data_center(hostname)))
-            environment = get_environment(hostname)
-            if environment:
-                print('{0:>20s}: {1:<20s}'.format('Environment', get_environment(hostname)))
-            if params.license:
-                account_type = params.license['account_type'] if 'account_type' in params.license else None
-                if account_type == 2:
-                    display_admin = 'No' if params.enterprise is None else 'Yes'
-                    print('{0:>20s}: {1:<20s}'.format('Admin', display_admin))
+        json_output = kwargs.get('json_output', False)
+        verbose = kwargs.get('verbose', False)
+        
+        if json_output:
+            # Collect data for JSON output
+            data = {}
+            
+            if params.session_token:
+                data['logged_in'] = True
+                hostname = get_hostname(params.rest_context.server_base)
+                data['user'] = params.user
+                data['server'] = hostname
+                data['data_center'] = get_data_center(hostname)
+                
+                environment = get_environment(hostname)
+                if environment:
+                    data['environment'] = environment
+                
+                if params.license:
+                    account_type = params.license['account_type'] if 'account_type' in params.license else None
+                    if account_type == 2:
+                        data['admin'] = params.enterprise is not None
+                    
+                    account_type_name = 'Enterprise' if account_type == 2 \
+                        else 'Family Plan' if account_type == 1 \
+                        else params.license['product_type_name']
+                    data['account_type'] = account_type_name
+                    data['renewal_date'] = params.license['expiration_date']
+                    
+                    if 'bytes_total' in params.license:
+                        storage_bytes = int(params.license['bytes_total'])
+                        storage_gb = storage_bytes >> 30
+                        storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
+                        data['storage_capacity'] = f'{storage_gb}GB'
+                        storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0
+                        data['storage_usage'] = f'{storage_usage}%'
+                        data['storage_renewal_date'] = params.license['storage_expiration_date']
+                    
+                    data['breachwatch'] = params.license.get('breach_watch_enabled', False)
+                    if params.enterprise:
+                        data['reporting_and_alerts'] = params.license.get('audit_and_reporting_enabled', False)
 
-                print('')
-                account_type_name = 'Enterprise' if account_type == 2 \
-                    else 'Family Plan' if account_type == 1 \
-                    else params.license['product_type_name']
-                print('{0:>20s}: {1:<20s}'.format('Account Type', account_type_name))
-                print('{0:>20s}: {1:<20s}'.format('Renewal Date', params.license['expiration_date']))
-                if 'bytes_total' in params.license:
-                    storage_bytes = int(params.license['bytes_total'])  # note: int64 in protobuf in python produces string as opposed to an int or long.
-                    storage_gb = storage_bytes >> 30
-                    storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
-                    print('{0:>20s}: {1:<20s}'.format('Storage Capacity', f'{storage_gb}GB'))
-                    storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0     # note: int64 in protobuf in python produces string  as opposed to an int or long.
-                    print('{0:>20s}: {1:<20s}'.format('Usage', f'{storage_usage}%'))
-                    print('{0:>20s}: {1:<20s}'.format('Storage Renewal Date', params.license['storage_expiration_date']))
-                print('{0:>20s}: {1:<20s}'.format('BreachWatch', 'Yes' if params.license.get('breach_watch_enabled') else 'No'))
+                if verbose:
+                    data['records_count'] = len(params.record_cache)
+                    sf_count = len(params.shared_folder_cache)
+                    if sf_count > 0:
+                        data['shared_folders_count'] = sf_count
+                    team_count = len(params.team_cache)
+                    if team_count > 0:
+                        data['teams_count'] = team_count
+
                 if params.enterprise:
-                    print('{0:>20s}: {1:<20s}'.format('Reporting & Alerts', 'Yes' if params.license.get('audit_and_reporting_enabled') else 'No'))
-
-            if kwargs.get('verbose', False):
-                print('')
-                print('{0:>20s}: {1}'.format('Records', len(params.record_cache)))
-                sf_count = len(params.shared_folder_cache)
-                if sf_count > 0:
-                    print('{0:>20s}: {1}'.format('Shared Folders', sf_count))
-                team_count = len(params.team_cache)
-                if team_count > 0:
-                    print('{0:>20s}: {1}'.format('Teams', team_count))
-
-            if params.enterprise:
-                print('')
-                print('{0:>20s}:'.format('Enterprise License'))
-                for x in params.enterprise.get('licenses', []):
-                    product_type_id = x.get('product_type_id', 0)
-                    tier = x.get('tier', 0)
-                    if product_type_id in (3, 5):
-                        plan = 'Enterprise' if tier == 1 else 'Business'
-                    elif product_type_id in (9, 10):
-                        distributor = x.get('distributor', False)
-                        plan = 'Distributor' if distributor else 'Managed MSP'
-                    elif product_type_id in (11, 12):
-                        plan = 'Keeper MSP'
-                    elif product_type_id == 8:
-                        plan = 'MC ' + 'Enterprise' if tier == 1 else 'Business'
-                    else:
-                        plan = 'Unknown'
-                    if product_type_id in (5, 10, 12):
-                        plan += ' Trial'
-                    print('{0:>20s}: {1}'.format('Base Plan', plan))
-                    paid = x.get('paid') is True
-                    if paid:
-                        exp = x.get('expiration')
-                        if exp > 0:
-                            dt = datetime.datetime.fromtimestamp(exp // 1000) + datetime.timedelta(days=1)
-                            n = datetime.datetime.now()
-                            td = (dt - n).days
-                            expires = str(dt.date())
-                            if td > 0:
-                                expires += f' (in {td} days)'
-                            else:
-                                expires += ' (expired)'
-                            print('{0:>20s}: {1}'.format('Expires', expires))
-                    print('{0:>20s}: {1}'.format('User Licenses', f'Plan: {x.get("number_of_seats", "")}    Active: {x.get("seats_allocated", "")}    Invited: {x.get("seats_pending", "")}'))
-                    file_plan = x.get('file_plan')
-                    file_plan_lookup = {x[0]: x[2] for x in constants.ENTERPRISE_FILE_PLANS}
-                    print('{0:>20s}: {1}'.format('Secure File Storage', file_plan_lookup.get(file_plan, '')))
-                    addons = []
-                    addon_lookup = {a[0]: a[1] for a in constants.MSP_ADDONS}
-                    for ao in x.get('add_ons'):
-                        if isinstance(ao, dict):
-                            enabled = ao.get('enabled') is True
-                            if enabled:
-                                name = ao.get('name')
-                                addon_name = addon_lookup.get(name) or name
-                                if name == 'secrets_manager':
-                                    api_count = ao.get('api_call_count')
-                                    if isinstance(api_count, int) and api_count > 0:
-                                        addon_name += f' ({api_count:,} API calls)'
-                                elif name == 'connection_manager':
-                                    seats = ao.get('seats')
-                                    if isinstance(seats, int) and seats > 0:
-                                        addon_name += f' ({seats} licenses)'
-                                addons.append(addon_name)
-                    for i, addon in enumerate(addons):
-                        print('{0:>20s}: {1}'.format('Secure Add Ons' if i == 0 else '', addon))
+                    enterprise_licenses = []
+                    for x in params.enterprise.get('licenses', []):
+                        license_info = {}
+                        product_type_id = x.get('product_type_id', 0)
+                        tier = x.get('tier', 0)
+                        if product_type_id in (3, 5):
+                            plan = 'Enterprise' if tier == 1 else 'Business'
+                        elif product_type_id in (9, 10):
+                            distributor = x.get('distributor', False)
+                            plan = 'Distributor' if distributor else 'Managed MSP'
+                        elif product_type_id in (11, 12):
+                            plan = 'Keeper MSP'
+                        elif product_type_id == 8:
+                            plan = 'MC ' + 'Enterprise' if tier == 1 else 'Business'
+                        else:
+                            plan = 'Unknown'
+                        if product_type_id in (5, 10, 12):
+                            plan += ' Trial'
+                        license_info['base_plan'] = plan
+                        
+                        paid = x.get('paid') is True
+                        if paid:
+                            exp = x.get('expiration')
+                            if exp > 0:
+                                dt = datetime.datetime.fromtimestamp(exp // 1000) + datetime.timedelta(days=1)
+                                n = datetime.datetime.now()
+                                td = (dt - n).days
+                                expires = str(dt.date())
+                                if td > 0:
+                                    expires += f' (in {td} days)'
+                                else:
+                                    expires += ' (expired)'
+                                license_info['license_expires'] = expires
+                        
+                        license_info['user_licenses'] = {
+                            'plan': x.get("number_of_seats", ""),
+                            'active': x.get("seats_allocated", ""),
+                            'invited': x.get("seats_pending", "")
+                        }
+                        
+                        file_plan = x.get('file_plan')
+                        file_plan_lookup = {x[0]: x[2] for x in constants.ENTERPRISE_FILE_PLANS}
+                        license_info['secure_file_storage'] = file_plan_lookup.get(file_plan, '')
+                        
+                        addons = []
+                        addon_lookup = {a[0]: a[1] for a in constants.MSP_ADDONS}
+                        for ao in x.get('add_ons'):
+                            if isinstance(ao, dict):
+                                enabled = ao.get('enabled') is True
+                                if enabled:
+                                    name = ao.get('name')
+                                    addon_name = addon_lookup.get(name) or name
+                                    if name == 'secrets_manager':
+                                        api_count = ao.get('api_call_count')
+                                        if isinstance(api_count, int) and api_count > 0:
+                                            addon_name += f' ({api_count:,} API calls)'
+                                    elif name == 'connection_manager':
+                                        seats = ao.get('seats')
+                                        if isinstance(seats, int) and seats > 0:
+                                            addon_name += f' ({seats} licenses)'
+                                    addons.append(addon_name)
+                        if addons:
+                            license_info['add_ons'] = addons
+                        
+                        enterprise_licenses.append(license_info)
+                    
+                    if enterprise_licenses:
+                        data['enterprise_licenses'] = enterprise_licenses
+            else:
+                data['logged_in'] = False
+                data['message'] = 'Not logged in'
+            
+            # Output JSON
+            import json
+            print(json.dumps(data, indent=2))
         else:
-            print('{0:>20s}:'.format('Not logged in'))
+            # Original formatted output
+            if params.session_token:
+                hostname = get_hostname(params.rest_context.server_base)
+                print('{0:>20s}: {1:<20s}'.format('User', params.user))
+                print('{0:>20s}: {1:<20s}'.format('Server', hostname))
+                print('{0:>20s}: {1:<20s}'.format('Data Center', get_data_center(hostname)))
+                environment = get_environment(hostname)
+                if environment:
+                    print('{0:>20s}: {1:<20s}'.format('Environment', get_environment(hostname)))
+                if params.license:
+                    account_type = params.license['account_type'] if 'account_type' in params.license else None
+                    if account_type == 2:
+                        display_admin = 'No' if params.enterprise is None else 'Yes'
+                        print('{0:>20s}: {1:<20s}'.format('Admin', display_admin))
+
+                    print('')
+                    account_type_name = 'Enterprise' if account_type == 2 \
+                        else 'Family Plan' if account_type == 1 \
+                        else params.license['product_type_name']
+                    print('{0:>20s}: {1:<20s}'.format('Account Type', account_type_name))
+                    print('{0:>20s}: {1:<20s}'.format('Renewal Date', params.license['expiration_date']))
+                    if 'bytes_total' in params.license:
+                        storage_bytes = int(params.license['bytes_total'])  # note: int64 in protobuf in python produces string as opposed to an int or long.
+                        storage_gb = storage_bytes >> 30
+                        storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
+                        print('{0:>20s}: {1:<20s}'.format('Storage Capacity', f'{storage_gb}GB'))
+                        storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0     # note: int64 in protobuf in python produces string  as opposed to an int or long.
+                        print('{0:>20s}: {1:<20s}'.format('Usage', f'{storage_usage}%'))
+                        print('{0:>20s}: {1:<20s}'.format('Storage Renewal Date', params.license['storage_expiration_date']))
+                    print('{0:>20s}: {1:<20s}'.format('BreachWatch', 'Yes' if params.license.get('breach_watch_enabled') else 'No'))
+                    if params.enterprise:
+                        print('{0:>20s}: {1:<20s}'.format('Reporting & Alerts', 'Yes' if params.license.get('audit_and_reporting_enabled') else 'No'))
+
+                if verbose:
+                    print('')
+                    print('{0:>20s}: {1}'.format('Records', len(params.record_cache)))
+                    sf_count = len(params.shared_folder_cache)
+                    if sf_count > 0:
+                        print('{0:>20s}: {1}'.format('Shared Folders', sf_count))
+                    team_count = len(params.team_cache)
+                    if team_count > 0:
+                        print('{0:>20s}: {1}'.format('Teams', team_count))
+
+                if params.enterprise:
+                    print('')
+                    print('{0:>20s}:'.format('Enterprise License'))
+                    for x in params.enterprise.get('licenses', []):
+                        product_type_id = x.get('product_type_id', 0)
+                        tier = x.get('tier', 0)
+                        if product_type_id in (3, 5):
+                            plan = 'Enterprise' if tier == 1 else 'Business'
+                        elif product_type_id in (9, 10):
+                            distributor = x.get('distributor', False)
+                            plan = 'Distributor' if distributor else 'Managed MSP'
+                        elif product_type_id in (11, 12):
+                            plan = 'Keeper MSP'
+                        elif product_type_id == 8:
+                            plan = 'MC ' + 'Enterprise' if tier == 1 else 'Business'
+                        else:
+                            plan = 'Unknown'
+                        if product_type_id in (5, 10, 12):
+                            plan += ' Trial'
+                        print('{0:>20s}: {1}'.format('Base Plan', plan))
+                        paid = x.get('paid') is True
+                        if paid:
+                            exp = x.get('expiration')
+                            if exp > 0:
+                                dt = datetime.datetime.fromtimestamp(exp // 1000) + datetime.timedelta(days=1)
+                                n = datetime.datetime.now()
+                                td = (dt - n).days
+                                expires = str(dt.date())
+                                if td > 0:
+                                    expires += f' (in {td} days)'
+                                else:
+                                    expires += ' (expired)'
+                                print('{0:>20s}: {1}'.format('Expires', expires))
+                        print('{0:>20s}: {1}'.format('User Licenses', f'Plan: {x.get("number_of_seats", "")}    Active: {x.get("seats_allocated", "")}    Invited: {x.get("seats_pending", "")}'))
+                        file_plan = x.get('file_plan')
+                        file_plan_lookup = {x[0]: x[2] for x in constants.ENTERPRISE_FILE_PLANS}
+                        print('{0:>20s}: {1}'.format('Secure File Storage', file_plan_lookup.get(file_plan, '')))
+                        addons = []
+                        addon_lookup = {a[0]: a[1] for a in constants.MSP_ADDONS}
+                        for ao in x.get('add_ons'):
+                            if isinstance(ao, dict):
+                                enabled = ao.get('enabled') is True
+                                if enabled:
+                                    name = ao.get('name')
+                                    addon_name = addon_lookup.get(name) or name
+                                    if name == 'secrets_manager':
+                                        api_count = ao.get('api_call_count')
+                                        if isinstance(api_count, int) and api_count > 0:
+                                            addon_name += f' ({api_count:,} API calls)'
+                                    elif name == 'connection_manager':
+                                        seats = ao.get('seats')
+                                        if isinstance(seats, int) and seats > 0:
+                                            addon_name += f' ({seats} licenses)'
+                                    addons.append(addon_name)
+                        for i, addon in enumerate(addons):
+                            print('{0:>20s}: {1}'.format('Secure Add Ons' if i == 0 else '', addon))
+            else:
+                print('{0:>20s}:'.format('Not logged in'))
     
-    def is_authorised(self):
-        return False
 
 class VersionCommand(Command):
     def get_parser(self):
@@ -693,10 +827,6 @@ class KeepAliveCommand(Command):
     def execute(self, params, **kwargs):  # type: (KeeperParams, **any) -> any
         """Just send the keepalive."""
         api.send_keepalive(params)
-    
-    def is_authorised(self):
-        return False
-
 
 class ProxyCommand(Command):
     def get_parser(self):  # type: () -> Optional[argparse.ArgumentParser]
@@ -1411,3 +1541,58 @@ class RunAsCommand(Command):
             native.run_as(username, password, kwargs.get('application'))
         except OSError as e:
             raise CommandError('', str(e))
+
+
+class LoginStatusCommand(Command):
+    def get_parser(self):
+        return loginstatus_parser
+
+    def is_authorised(self):
+        return False
+
+    def execute(self, params, **kwargs):
+        if not params.user:
+            print("Not logged in")
+            return
+        
+        has_clone_code = bool(params.clone_code)
+        has_session = bool(params.session_token)
+        
+        if not has_clone_code and not has_session:
+            print("Not logged in")
+            return
+        
+        if has_session:
+            print("Logged in")
+            return
+        
+        if has_clone_code:
+            try:
+                class NonInteractiveLoginUi:
+                    def on_device_approval(self, step):
+                        step.cancel()
+                    
+                    def on_two_factor(self, step):
+                        step.cancel()
+                    
+                    def on_password(self, step):
+                        step.cancel()
+                    
+                    def on_sso_redirect(self, step):
+                        step.cancel()
+                    
+                    def on_sso_data_key(self, step):
+                        step.cancel()
+                
+                api.login(params, new_login=False, login_ui=NonInteractiveLoginUi())
+                
+                if params.session_token:
+                    print("Logged in")
+                else:
+                    print("Not logged in")
+                    
+            except Exception as e:
+                logging.debug(f"Non-interactive login failed: {e}")
+                print("Not logged in")
+        else:
+            print("Not logged in")

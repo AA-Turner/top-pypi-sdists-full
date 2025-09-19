@@ -15,6 +15,7 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_util::assert_bytes;
@@ -94,7 +95,7 @@ assert_words!(KeyUndecoratedFunction, 1);
 assert_words!(Binding, 11);
 assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
-assert_words!(BindingClass, 22);
+assert_words!(BindingClass, 23);
 assert_words!(BindingTParams, 10);
 assert_words!(BindingClassBaseType, 3);
 assert_words!(BindingClassMetadata, 8);
@@ -374,6 +375,12 @@ pub enum Key {
     YieldLink(TextRange),
     /// A use of `typing.Self` in an expression. Used to redirect to the appropriate type (which is aware of the current class).
     SelfTypeLiteral(TextRange),
+    /// A `del` statement. It is a `Binding` associated with a the type `Any` because `del` defines a name in scope,
+    /// so we need to provide a `Key` for any reads of that name in the edge case where there is no other definition
+    ///
+    /// This `Key` is *only* ever used if the variable has only a `del` but is not otherwise defined (which is
+    /// always a type error, since you cannot delete an uninitialized variable).
+    Delete(TextRange),
 }
 
 impl Ranged for Key {
@@ -400,6 +407,7 @@ impl Ranged for Key {
             Self::Unpack(r) => *r,
             Self::UsageLink(r) => *r,
             Self::YieldLink(r) => *r,
+            Self::Delete(r) => *r,
             Self::SelfTypeLiteral(r) => *r,
             Self::PatternNarrow(r) => *r,
         }
@@ -441,6 +449,7 @@ impl DisplayWith<ModuleInfo> for Key {
             Self::Unpack(r) => write!(f, "Key::Unpack({})", ctx.display(r)),
             Self::UsageLink(r) => write!(f, "Key::UsageLink({})", ctx.display(r)),
             Self::YieldLink(r) => write!(f, "Key::YieldLink({})", ctx.display(r)),
+            Self::Delete(r) => write!(f, "Key::Delete({})", ctx.display(r)),
             Self::SelfTypeLiteral(r) => write!(f, "Key::SelfTypeLiteral({})", ctx.display(r)),
             Self::PatternNarrow(r) => write!(f, "Key::PatternNarrow({})", ctx.display(r)),
         }
@@ -501,8 +510,6 @@ pub enum BindingExpect {
         existing: Idx<KeyAnnotation>,
         name: Name,
     },
-    /// `del` statement
-    Delete(Expr),
     /// Expression used in a boolean context (`bool()`, `if`, or `while`)
     Bool(Expr),
 }
@@ -519,9 +526,6 @@ impl DisplayWith<Bindings> for BindingExpect {
             }
             Self::Bool(x) => {
                 write!(f, "Bool({})", m.display(x))
-            }
-            Self::Delete(x) => {
-                write!(f, "Delete({})", m.display(x))
             }
             Self::UnpackedLength(x, range, expect) => {
                 let expectation = match expect {
@@ -980,6 +984,7 @@ pub struct ClassBinding {
     /// A class definition, but with the body stripped out.
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
+    pub parent: NestingContext,
     /// The fields are all the names declared on the class that we were able to detect
     /// from an AST traversal, which includes:
     /// - any name defined in the class body (e.g. by assignment or a def statement)
@@ -1270,6 +1275,8 @@ pub enum Binding {
     /// The Idx is the upstream raw `NameAssign`, and the slice has `Idx`s that point at
     /// all the `Pin`s for which that raw `NameAssign` was the first use.
     PinUpstream(Idx<Key>, Box<[Idx<Key>]>),
+    /// `del` statement
+    Delete(Expr),
 }
 
 impl DisplayWith<Bindings> for Binding {
@@ -1351,8 +1358,8 @@ impl DisplayWith<Bindings> for Binding {
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
             Self::Type(t) => write!(f, "Type({t})"),
             Self::Global(g) => write!(f, "Global({})", g.name()),
-            Self::TypeParameter(box TypeParameter { unique, kind, .. }) => {
-                write!(f, "TypeParameter({unique}, {kind}, ..)")
+            Self::TypeParameter(tp) => {
+                write!(f, "TypeParameter({}, {}, ..)", tp.unique, tp.kind)
             }
             Self::CheckLegacyTypeParam(k, _) => {
                 write!(f, "CheckLegacyTypeParam({})", ctx.display(*k))
@@ -1518,6 +1525,7 @@ impl DisplayWith<Bindings> for Binding {
                     commas_iter(|| first_used_by.iter().map(|x| ctx.display(*x)))
                 )
             }
+            Self::Delete(x) => write!(f, "Delete({})", m.display(x)),
         }
     }
 }
@@ -1583,7 +1591,8 @@ impl Binding {
             | Binding::SelfTypeLiteral(..)
             | Binding::AssignToSubscript(_, _)
             | Binding::Pin(..)
-            | Binding::PinUpstream(..) => None,
+            | Binding::PinUpstream(..)
+            | Binding::Delete(_) => None,
         }
     }
 }
@@ -1727,6 +1736,7 @@ pub enum BindingClass {
     FunctionalClassDef(
         ClassDefIndex,
         Identifier,
+        NestingContext,
         SmallMap<Name, ClassFieldProperties>,
     ),
 }
@@ -1735,7 +1745,7 @@ impl DisplayWith<Bindings> for BindingClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
         match self {
             Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
-            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({id})"),
+            Self::FunctionalClassDef(_, id, _, _) => write!(f, "FunctionalClassDef({id})"),
         }
     }
 }

@@ -12,7 +12,8 @@ use std::str::FromStr;
 /// Default value for the `literal_separator` parameter.
 const DEFAULT_BACKSLASH_ESCAPE: bool = cfg!(windows);
 
-#[pyclass(name = "Glob", frozen, module = "ry.ryo3")]
+#[pyclass(name = "Glob", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Debug)]
 pub struct PyGlob {
     pattern: String,
@@ -81,12 +82,12 @@ impl PyGlob {
     }
 
     #[must_use]
-    pub fn is_match_str(&self, path: &str) -> bool {
+    fn is_match_str(&self, path: &str) -> bool {
         self.matcher.is_match(path) ^ self.negative
     }
 
     #[must_use]
-    pub fn is_match(&self, path: PathLike) -> bool {
+    fn is_match(&self, path: PathLike) -> bool {
         self.matcher.is_match(path) ^ self.negative
     }
 
@@ -132,7 +133,8 @@ impl PyGlob {
     }
 }
 
-#[pyclass(name = "GlobSet", frozen, module = "ry.ryo3")]
+#[pyclass(name = "GlobSet", frozen)]
+#[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Clone, Debug)]
 pub struct PyGlobSet {
     globset: globset::GlobSet,
@@ -201,12 +203,12 @@ impl PyGlobSet {
     }
 
     #[must_use]
-    pub fn is_match_str(&self, path: &str) -> bool {
+    fn is_match_str(&self, path: &str) -> bool {
         self.globset.is_match(path)
     }
 
     #[must_use]
-    pub fn is_match(&self, path: PathLike) -> bool {
+    fn is_match(&self, path: PathLike) -> bool {
         self.globset.is_match(path)
     }
 

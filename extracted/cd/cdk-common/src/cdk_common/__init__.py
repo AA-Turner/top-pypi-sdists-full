@@ -1456,14 +1456,6 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
-    AWSIO_T1_CLICK_READ_ONLY_ACCESS = "AWSIO_T1_CLICK_READ_ONLY_ACCESS"
-    '''
-    :stability: experimental
-    '''
-    AWSIO_T1_CLICK_FULL_ACCESS = "AWSIO_T1_CLICK_FULL_ACCESS"
-    '''
-    :stability: experimental
-    '''
     AMAZON_EKS_CLUSTER_POLICY = "AMAZON_EKS_CLUSTER_POLICY"
     '''
     :stability: experimental

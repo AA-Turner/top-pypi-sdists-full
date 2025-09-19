@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+mod override_graph;
+
+use core::panic;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
@@ -16,6 +19,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Instant;
 
+use dashmap::DashMap;
 use itertools::Itertools;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
@@ -62,6 +66,8 @@ use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
+use crate::report::pysa::override_graph::OverrideGraph;
+use crate::report::pysa::override_graph::create_reversed_override_graph_for_module;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
 use crate::state::lsp::FindPreference;
@@ -80,6 +86,39 @@ struct ClassId(u32);
 impl ClassId {
     fn from_class(class: &Class) -> ClassId {
         ClassId(class.index().0)
+    }
+}
+
+/// Represents a unique identifier for a function, inside a module
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum FunctionId {
+    Function {
+        location: DisplayRange,
+    },
+    #[expect(dead_code)]
+    ModuleTopLevel,
+    #[expect(dead_code)]
+    ClassTopLevel {
+        class_id: ClassId,
+    },
+}
+
+impl FunctionId {
+    fn serialize_to_string(&self) -> String {
+        match self {
+            FunctionId::Function { location } => format!("F:{}", location_key(location)),
+            FunctionId::ModuleTopLevel => "MTL".to_owned(),
+            FunctionId::ClassTopLevel { class_id } => format!("CTL:{}", class_id.0),
+        }
+    }
+}
+
+impl Serialize for FunctionId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.serialize_to_string())
     }
 }
 
@@ -113,6 +152,23 @@ enum ScopeParent {
     TopLevel,
 }
 
+// List of class names that a type refers to, after stripping Optional and Awaitable.
+#[derive(Debug, Clone, Serialize)]
+struct ClassNamesFromType {
+    class_names: Vec<ClassRef>,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_coroutine: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_optional: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    stripped_readonly: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    unbound_type_variable: bool,
+    // Is there an element (after stripping) that isn't a class name?
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_exhaustive: bool,
+}
+
 /// Information needed from Pysa about a type.
 #[derive(Debug, Clone, Serialize)]
 struct PysaType {
@@ -129,9 +185,8 @@ struct PysaType {
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_enum: bool,
 
-    // The list of classes that this type refers to, after stripping Optional and Awaitable.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    class_names: Vec<ClassRef>,
+    #[serde(skip_serializing_if = "ClassNamesFromType::skip_serializing")]
+    class_names: ClassNamesFromType,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -180,7 +235,7 @@ struct FunctionSignature {
     return_annotation: PysaType,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
 struct ClassRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
@@ -224,15 +279,39 @@ struct FunctionDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// If the method directly overrides a method in a parent class, we record that class.
     /// This is used for building overriding graphs.
-    overridden_base_class: Option<ClassRef>,
+    overridden_base_method: Option<DefinitionRef>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 struct DefinitionRef {
     module_id: ModuleId,
     module_name: String, // For debugging purposes only. Reader should use the module id.
-    location: String,
-    identifier: String,
+    function_id: FunctionId,
+    identifier: String, // For debugging purposes only
+}
+
+impl DefinitionRef {
+    fn from_decorated_function(function: &DecoratedFunction, context: &ModuleContext) -> Self {
+        let name = function.metadata().kind.as_func_id().func;
+        let display_range = context.module_info.display_range(function.id_range());
+        DefinitionRef {
+            module_id: context
+                .module_ids
+                .get(ModuleKey::from_module(context.module_info))
+                .unwrap(),
+            module_name: context.module_info.name().to_string(),
+            function_id: FunctionId::Function {
+                location: display_range,
+            },
+            identifier: name.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+enum PysaClassMro {
+    Resolved(Vec<ClassRef>),
+    Cyclic,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -240,6 +319,7 @@ struct ClassDefinition {
     class_id: ClassId,
     name: String,
     bases: Vec<ClassRef>,
+    mro: PysaClassMro,
     parent: ScopeParent,
     #[serde(skip_serializing_if = "<&bool>::not")]
     is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
@@ -256,7 +336,7 @@ struct PysaModuleFile {
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, PysaType>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
-    function_definitions: HashMap<String, FunctionDefinition>,
+    function_definitions: HashMap<FunctionId, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
     global_variables: HashSet<String>,
 }
@@ -361,6 +441,60 @@ fn has_superclass(class: &Class, want: &Class, context: &ModuleContext) -> bool 
         .unwrap()
 }
 
+impl ClassNamesFromType {
+    fn from_class(class: Class, context: &ModuleContext) -> ClassNamesFromType {
+        ClassNamesFromType {
+            class_names: vec![ClassRef::from_class(&class, context.module_ids)],
+            stripped_coroutine: false,
+            stripped_optional: false,
+            stripped_readonly: false,
+            unbound_type_variable: false,
+            is_exhaustive: true,
+        }
+    }
+
+    fn not_a_class() -> ClassNamesFromType {
+        ClassNamesFromType {
+            class_names: vec![],
+            stripped_coroutine: false,
+            stripped_optional: false,
+            stripped_readonly: false,
+            unbound_type_variable: false,
+            is_exhaustive: false,
+        }
+    }
+
+    fn skip_serializing(&self) -> bool {
+        self.class_names.is_empty()
+    }
+
+    fn with_strip_optional(mut self) -> ClassNamesFromType {
+        self.stripped_optional = true;
+        self
+    }
+
+    fn with_strip_coroutine(mut self) -> ClassNamesFromType {
+        self.stripped_coroutine = true;
+        self
+    }
+
+    fn join_with(mut self, other: ClassNamesFromType) -> ClassNamesFromType {
+        self.class_names.extend(other.class_names);
+        self.stripped_coroutine |= other.stripped_coroutine;
+        self.stripped_optional |= other.stripped_optional;
+        self.stripped_readonly |= other.stripped_readonly;
+        self.unbound_type_variable |= other.unbound_type_variable;
+        self.is_exhaustive &= other.is_exhaustive;
+        self
+    }
+
+    fn sort_and_dedup(mut self) -> ClassNamesFromType {
+        self.class_names.sort();
+        self.class_names.dedup();
+        self
+    }
+}
+
 fn strip_optional(type_: &Type) -> Option<&Type> {
     match type_ {
         Type::Union(elements) if elements.len() == 2 && elements[0] == Type::None => {
@@ -414,24 +548,32 @@ fn is_scalar_type(get: &Type, want: &Class, context: &ModuleContext) -> bool {
     }
 }
 
-fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> Vec<Class> {
+fn get_classes_of_type(type_: &Type, context: &ModuleContext) -> ClassNamesFromType {
     if let Some(inner) = strip_optional(type_) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_optional();
     }
     if let Some(inner) = strip_awaitable(type_, context) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_coroutine();
     }
     if let Some(inner) = strip_coroutine(type_, context) {
-        return get_classes_of_type(inner, context);
+        return get_classes_of_type(inner, context).with_strip_coroutine();
     }
+    // No need to strip ReadOnly[], it is already stripped by pyrefly.
     match type_ {
-        Type::ClassType(class_type) => vec![class_type.class_object().clone()],
-        Type::Union(elements) => elements
+        Type::ClassType(class_type) => {
+            ClassNamesFromType::from_class(class_type.class_object().clone(), context)
+        }
+        Type::Tuple(_) => {
+            ClassNamesFromType::from_class(context.stdlib.tuple_object().clone(), context)
+        }
+        Type::Union(elements) if !elements.is_empty() => elements
             .iter()
-            .flat_map(|inner| get_classes_of_type(inner, context))
-            .collect(),
+            .map(|inner| get_classes_of_type(inner, context))
+            .reduce(|acc, next| acc.join_with(next))
+            .unwrap()
+            .sort_and_dedup(),
         Type::TypeAlias(alias) => get_classes_of_type(&alias.as_type(), context),
-        _ => Vec::new(),
+        _ => ClassNamesFromType::not_a_class(),
     }
 }
 
@@ -449,15 +591,7 @@ impl PysaType {
             is_int: is_scalar_type(&type_, context.stdlib.int().class_object(), context),
             is_float: is_scalar_type(&type_, context.stdlib.float().class_object(), context),
             is_enum: is_scalar_type(&type_, context.stdlib.enum_class().class_object(), context),
-            class_names: {
-                let mut classes = get_classes_of_type(&type_, context);
-                classes.sort();
-                classes.dedup();
-                classes
-                    .into_iter()
-                    .map(|class_type| ClassRef::from_class(&class_type, context.module_ids))
-                    .collect()
-            },
+            class_names: get_classes_of_type(&type_, context),
         }
     }
 }
@@ -495,7 +629,9 @@ fn add_expression_definitions(
                 Some(module_id) => Some(DefinitionRef {
                     module_id,
                     module_name: module_info.name().to_string(),
-                    location: location_key(&display_range),
+                    function_id: FunctionId::Function {
+                        location: display_range,
+                    },
                     identifier: identifier.to_owned(),
                 }),
                 None => {
@@ -865,24 +1001,11 @@ fn should_export_function(function: &DecoratedFunction, context: &ModuleContext)
     !has_successor || !function.is_overload()
 }
 
-fn get_super_class_member(
-    class: &Class,
-    field: &Name,
-    context: &ModuleContext,
-) -> Option<ClassRef> {
-    context
-        .transaction
-        .ad_hoc_solve(context.handle, |solver| {
-            solver.get_super_class_member(class, None, field)
-        })
-        .unwrap()
-        .map(|member| ClassRef::from_class(&member.defining_class, context.module_ids))
-}
-
 fn export_all_functions(
     ast: &ModModule,
+    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
     context: &ModuleContext,
-) -> HashMap<String, FunctionDefinition> {
+) -> HashMap<FunctionId, FunctionDefinition> {
     let mut function_definitions = HashMap::new();
 
     for function in get_all_functions(context.bindings, context.answers) {
@@ -922,18 +1045,14 @@ fn export_all_functions(
             }],
         };
 
-        let display_range = context.module_info.display_range(function.id_range());
-        let name = function.metadata().kind.as_func_id().func;
+        let current_function = DefinitionRef::from_decorated_function(&function, context);
         let parent = get_scope_parent(ast, context.module_info, function.id_range());
-        let overridden_base_class = function
-            .defining_cls()
-            .and_then(|class| get_super_class_member(class, &name, context));
         assert!(
             function_definitions
                 .insert(
-                    location_key(&display_range),
+                    current_function.function_id.clone(),
                     FunctionDefinition {
-                        name: name.to_string(),
+                        name: current_function.identifier.clone(),
                         parent,
                         undecorated_signatures,
                         is_overload: function.metadata().flags.is_overload,
@@ -949,7 +1068,9 @@ fn export_all_functions(
                         defining_class: function
                             .defining_cls()
                             .map(|class| ClassRef::from_class(class, context.module_ids)),
-                        overridden_base_class,
+                        overridden_base_method: reversed_override_graph
+                            .get(&current_function)
+                            .map(|r| r.clone()),
                     }
                 )
                 .is_none(),
@@ -979,6 +1100,12 @@ fn get_class_field(
         .unwrap()
 }
 
+fn get_class_mro(class: &Class, bindings: &Bindings, answers: &Answers) -> Arc<ClassMro> {
+    answers
+        .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
+        .unwrap()
+}
+
 fn export_all_classes(
     ast: &ModModule,
     context: &ModuleContext,
@@ -1002,7 +1129,7 @@ fn export_all_classes(
             .unwrap();
 
         let is_synthesized = match context.bindings.get(class_idx) {
-            BindingClass::FunctionalClassDef(_, _, _) => true,
+            BindingClass::FunctionalClassDef(_, _, _, _) => true,
             BindingClass::ClassDef(_) => false,
         };
 
@@ -1027,15 +1154,29 @@ fn export_all_classes(
             })
             .collect();
 
+        let bases = metadata
+            .base_class_objects()
+            .iter()
+            .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
+            .collect::<Vec<_>>();
+
+        let mro = match &*get_class_mro(&class, context.bindings, context.answers) {
+            ClassMro::Resolved(mro) => PysaClassMro::Resolved(
+                mro.iter()
+                    .map(|class_type| {
+                        ClassRef::from_class(class_type.class_object(), context.module_ids)
+                    })
+                    .collect(),
+            ),
+            ClassMro::Cyclic => PysaClassMro::Cyclic,
+        };
+
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
             name: class.qname().id().to_string(),
             parent,
-            bases: metadata
-                .base_class_objects()
-                .iter()
-                .map(|base_class| ClassRef::from_class(base_class, context.module_ids))
-                .collect::<Vec<_>>(),
+            bases,
+            mro,
             is_synthesized,
             fields,
         };
@@ -1053,10 +1194,7 @@ fn export_all_classes(
 
 fn is_unittest_module(bindings: &Bindings, answers: &Answers) -> bool {
     get_all_classes(bindings, answers).any(|class| {
-        match &*answers
-            .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
-            .unwrap()
-        {
+        match &*get_class_mro(&class, bindings, answers) {
             ClassMro::Resolved(mro) => mro
                 .iter()
                 .any(|base| base.has_qname("unittest.case", "TestCase")),
@@ -1114,6 +1252,7 @@ fn get_module_file(
     module_id: ModuleId,
     transaction: &Transaction,
     module_ids: &ModuleIds,
+    reversed_override_graph: &DashMap<DefinitionRef, DefinitionRef>,
 ) -> PysaModuleFile {
     let module_info = &transaction.get_module_info(handle).unwrap();
 
@@ -1148,7 +1287,7 @@ fn get_module_file(
         );
     }
 
-    let function_definitions = export_all_functions(ast, &context);
+    let function_definitions = export_all_functions(ast, reversed_override_graph, &context);
     let class_definitions = export_all_classes(ast, &context);
 
     PysaModuleFile {
@@ -1226,6 +1365,36 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
 
     let project_modules = Arc::new(Mutex::new(project_modules));
 
+    let reversed_override_graph = {
+        let reversed_override_graph = DashMap::new();
+        ThreadPool::new().install(|| {
+            module_info_tasks.par_iter().for_each(|(handle, _, _)| {
+                let module_info = &transaction.get_module_info(handle).unwrap();
+
+                let bindings = &transaction.get_bindings(handle).unwrap();
+                let answers = &*transaction.get_answers(handle).unwrap();
+                let stdlib = &*transaction.get_stdlib(handle);
+
+                let context = ModuleContext {
+                    handle,
+                    transaction,
+                    bindings,
+                    answers,
+                    stdlib,
+                    module_info,
+                    module_ids: &module_ids,
+                };
+
+                for (key, value) in create_reversed_override_graph_for_module(&context) {
+                    reversed_override_graph.insert(key, value);
+                }
+            });
+        });
+        reversed_override_graph
+    };
+
+    let _override_graph = OverrideGraph::from_reversed(&reversed_override_graph);
+
     // Retrieve and dump information about each module, in parallel.
     ThreadPool::new().install(|| -> anyhow::Result<()> {
         module_info_tasks.into_par_iter().try_for_each(
@@ -1235,7 +1404,13 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 )?);
                 serde_json::to_writer(
                     writer,
-                    &get_module_file(handle, module_id, transaction, &module_ids),
+                    &get_module_file(
+                        handle,
+                        module_id,
+                        transaction,
+                        &module_ids,
+                        &reversed_override_graph,
+                    ),
                 )?;
 
                 if is_test_module(handle, transaction) {

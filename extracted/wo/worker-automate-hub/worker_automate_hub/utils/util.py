@@ -890,27 +890,31 @@ async def send_to_webhook(
         "valor_nota": valor_nota,
     }
 
-    try:
-        async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
-        ) as session:
-            async with session.post(f"{urlSimplifica}", data=data) as response:
-                if response.status != 200:
-                    raise Exception(f"Erro ao enviar notificacao: {response.text()}")
+    i = 0
+    while i < 5:
+        try:
+        
+            async with aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(verify_ssl=True)
+            ) as session:
+                async with session.post(f"{urlSimplifica}", data=data) as response:
+                    if response.status != 200:
+                        raise Exception(f"Erro ao enviar notificacao: {response.text()}")
 
-                data = await response.text()
-                log_msg = f"\nSucesso ao enviar {data}\n para o webhook"
-                console.print(
-                    log_msg,
-                    style="bold green",
-                )
-                logger.info(log_msg)
-
-    except Exception as e:
-        err_msg = f"Erro ao comunicar com endpoint do webhoook: {e}"
-        console.print(f"\n{err_msg}\n", style="bold red")
-        logger.info(err_msg)
-
+                    data = await response.text()
+                    log_msg = f"\nSucesso ao enviar {data}\n para o webhook"
+                    console.print(
+                        log_msg,
+                        style="bold green",
+                    )
+                    logger.info(log_msg)
+                    break
+        except Exception as e:
+            err_msg = f"Erro ao comunicar com endpoint do webhoook: {e}"
+            console.print(f"\n{err_msg}\n", style="bold red")
+            logger.info(err_msg)
+            i += 1
+            await worker_sleep(3)
 
 def add_start_on_boot_to_registry():
     import winreg as reg
@@ -5001,7 +5005,7 @@ async def get_text_display_window(dados_texto):
 
 async def wait_nf_ready():
     current_try = 0
-    max_tries = 60
+    max_tries = 100
     while current_try < max_tries:
         window_closed = await wait_window_close("Aguarde...")
         if not window_closed:
@@ -5009,7 +5013,7 @@ async def wait_nf_ready():
             try:
                 window = desktop.window(title_re="Aguarde...")
                 if window.exists():
-                    await worker_sleep(30)
+                    await worker_sleep(5)
                     current_try += 1
                     continue
             except Exception as e:
@@ -5075,7 +5079,7 @@ async def wait_nf_ready():
             
         else:
             current_try +=1
-            await worker_sleep(15)
+            await worker_sleep(5)
             continue
 
     return {"sucesso": False, "retorno": f"Número máximo de tentativas excedido ao tentar transmitir a nota"}

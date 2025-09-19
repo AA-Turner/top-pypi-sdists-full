@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geemap
-Version: 0.36.2
+Version: 0.36.3
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>
@@ -25,7 +25,6 @@ Requires-Dist: geocoder
 Requires-Dist: ipyevents
 Requires-Dist: ipyfilechooser>=0.6.0
 Requires-Dist: ipyleaflet>=0.19.2
-Requires-Dist: ipytree
 Requires-Dist: matplotlib
 Requires-Dist: numpy
 Requires-Dist: pandas
@@ -59,6 +58,7 @@ Requires-Dist: gradio; extra == 'all'
 Requires-Dist: h3; extra == 'all'
 Requires-Dist: ipygany; extra == 'all'
 Requires-Dist: ipynb-py-convert; extra == 'all'
+Requires-Dist: ipytree; extra == 'all'
 Requires-Dist: ipyvtklink; extra == 'all'
 Requires-Dist: ipyvuetify; extra == 'all'
 Requires-Dist: iso8601; extra == 'all'
@@ -118,6 +118,7 @@ Requires-Dist: geeadd>=0.5.1; extra == 'extra'
 Requires-Dist: geojson; extra == 'extra'
 Requires-Dist: geopandas; extra == 'extra'
 Requires-Dist: ipynb-py-convert; extra == 'extra'
+Requires-Dist: ipytree; extra == 'extra'
 Requires-Dist: jupyterlab>=3; extra == 'extra'
 Requires-Dist: mapclassify>=2.4.0; extra == 'extra'
 Requires-Dist: mss; extra == 'extra'

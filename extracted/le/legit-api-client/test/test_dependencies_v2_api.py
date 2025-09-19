@@ -26,10 +26,31 @@ class TestDependenciesV2Api(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_get_dependencies_count_v2(self) -> None:
+        """Test case for get_dependencies_count_v2
+
+        Get unique dependencies count
+        """
+        pass
+
     def test_get_dependencies_v2(self) -> None:
         """Test case for get_dependencies_v2
 
-        Get dependencies
+        Get unique dependencies
+        """
+        pass
+
+    def test_get_dependency_licenses(self) -> None:
+        """Test case for get_dependency_licenses
+
+        Get the licenses for dependencies
+        """
+        pass
+
+    def test_get_dependency_related_issue_ids(self) -> None:
+        """Test case for get_dependency_related_issue_ids
+
+        Get the issue ids related to a dependency
         """
         pass
 

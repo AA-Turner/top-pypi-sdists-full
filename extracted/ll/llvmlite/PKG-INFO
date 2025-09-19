@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llvmlite
-Version: 0.44.0
+Version: 0.45.0
 Summary: lightweight wrapper around basic LLVM functionality
 Home-page: http://llvmlite.readthedocs.io
 License: BSD
@@ -19,6 +19,14 @@ Classifier: Topic :: Software Development :: Compilers
 Requires-Python: >=3.10
 License-File: LICENSE
 License-File: LICENSE.thirdparty
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 ========
 llvmlite
@@ -27,9 +35,6 @@ llvmlite
 .. image:: https://dev.azure.com/numba/numba/_apis/build/status/numba.llvmlite?branchName=main
    :target: https://dev.azure.com/numba/numba/_build/latest?definitionId=2&branchName=main
    :alt: Azure Pipelines
-.. image:: https://codeclimate.com/github/numba/llvmlite/badges/gpa.svg
-   :target: https://codeclimate.com/github/numba/llvmlite
-   :alt: Code Climate
 .. image:: https://coveralls.io/repos/github/numba/llvmlite/badge.svg
    :target: https://coveralls.io/github/numba/llvmlite
    :alt: Coveralls.io
@@ -82,14 +87,15 @@ Compatibility
 llvmlite has been tested with Python 3.10 -- 3.13 and is likely to work with
 greater versions.
 
-As of version 0.44.0, llvmlite requires LLVM 15.x.x on all architectures
+As of version 0.45.0, llvmlite requires LLVM 20.x.x on all architectures
 
 Historical compatibility table:
 
 =================  ========================
 llvmlite versions  compatible LLVM versions
 =================  ========================
-0.44.0 - ......    15.x.x
+0.45.0 - ......    20.x.x
+0.44.0             15.x.x and 16.x.x
 0.41.0 - 0.43.0    14.x.x
 0.40.0 - 0.40.1    11.x.x and 14.x.x (12.x.x and 13.x.x untested but may work)
 0.37.0 - 0.39.1    11.x.x

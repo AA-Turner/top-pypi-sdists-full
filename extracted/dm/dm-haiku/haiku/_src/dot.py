@@ -26,7 +26,6 @@ from haiku._src import module
 from haiku._src import utils
 import jax
 import jax.core
-from jax.experimental import pjit
 from jax.extend import core as jax_core
 from jax.extend import linear_util as lu
 
@@ -205,24 +204,24 @@ class DotTrace(jax.core.Trace):
   def process_primitive(self, primitive, tracers, params):
     vals = [self.to_val(t) for t in tracers]
     val_out = primitive.bind_with_trace(self.parent_trace, vals, params)
-    if primitive is pjit.pjit_p:
+    if primitive is jax_core.primitives.jit_p:
       f = jax_core.jaxpr_as_fun(params['jaxpr'])
       f.__name__ = params['name']
       fun = lu.wrap_init(f)
       return self.process_call(primitive, fun, tracers, params)
 
     outputs = list(jax.tree.leaves(val_out))
-
-    graph = graph_stack.peek()
-    node = Node(id=outputs[0], title=str(primitive), outputs=outputs)
-    graph.nodes.append(node)
-    graph.edges.extend([(i, outputs[0]) for i in vals])
+    if outputs:
+      graph = graph_stack.peek()
+      node = Node(id=outputs[0], title=str(primitive), outputs=outputs)
+      graph.nodes.append(node)
+      graph.edges.extend([(i, outputs[0]) for i in vals])
 
     return jax.tree.map(lambda v: DotTracer(self, v), val_out)
 
   def process_call(self, call_primitive, f, tracers, params):
     assert call_primitive.multiple_results
-    if (call_primitive in (pjit.pjit_p,) and
+    if (call_primitive in (jax_core.primitives.jit_p,) and
         params.get('inline', False)):
       f = _interpret_subtrace(f, self.tag)
       with jax.core.set_current_trace(self.parent_trace):

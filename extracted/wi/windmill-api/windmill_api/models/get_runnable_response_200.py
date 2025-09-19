@@ -15,7 +15,6 @@ class GetRunnableResponse200:
         workspace (str):
         endpoint_async (str):
         endpoint_sync (str):
-        endpoint_openai_sync (str):
         summary (str):
         kind (str):
         description (Union[Unset, str]):
@@ -24,7 +23,6 @@ class GetRunnableResponse200:
     workspace: str
     endpoint_async: str
     endpoint_sync: str
-    endpoint_openai_sync: str
     summary: str
     kind: str
     description: Union[Unset, str] = UNSET
@@ -34,7 +32,6 @@ class GetRunnableResponse200:
         workspace = self.workspace
         endpoint_async = self.endpoint_async
         endpoint_sync = self.endpoint_sync
-        endpoint_openai_sync = self.endpoint_openai_sync
         summary = self.summary
         kind = self.kind
         description = self.description
@@ -46,7 +43,6 @@ class GetRunnableResponse200:
                 "workspace": workspace,
                 "endpoint_async": endpoint_async,
                 "endpoint_sync": endpoint_sync,
-                "endpoint_openai_sync": endpoint_openai_sync,
                 "summary": summary,
                 "kind": kind,
             }
@@ -65,8 +61,6 @@ class GetRunnableResponse200:
 
         endpoint_sync = d.pop("endpoint_sync")
 
-        endpoint_openai_sync = d.pop("endpoint_openai_sync")
-
         summary = d.pop("summary")
 
         kind = d.pop("kind")
@@ -77,7 +71,6 @@ class GetRunnableResponse200:
             workspace=workspace,
             endpoint_async=endpoint_async,
             endpoint_sync=endpoint_sync,
-            endpoint_openai_sync=endpoint_openai_sync,
             summary=summary,
             kind=kind,
             description=description,

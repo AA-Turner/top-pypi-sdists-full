@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: diracx-core
-Version: 0.0.1a49
+Version: 0.0.1a50
 Summary: Common code used by all DiracX packages
 License: GPL-3.0-only
 Classifier: Intended Audience :: Science/Research
@@ -12,7 +12,7 @@ Requires-Python: >=3.11
 Requires-Dist: aiobotocore>=2.15
 Requires-Dist: botocore>=1.35
 Requires-Dist: cachetools
-Requires-Dist: diraccommon>=9.0.0a67
+Requires-Dist: diraccommon>=9.0.0
 Requires-Dist: email-validator
 Requires-Dist: gitpython
 Requires-Dist: joserfc>=1.1.0

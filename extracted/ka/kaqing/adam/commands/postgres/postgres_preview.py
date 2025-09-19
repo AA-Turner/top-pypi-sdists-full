@@ -1,5 +1,4 @@
 from adam.commands.command import Command
-from adam.commands.ls import Ls
 from adam.commands.preview_table import PreviewTable
 from adam.repl_state import ReplState, RequiredState
 

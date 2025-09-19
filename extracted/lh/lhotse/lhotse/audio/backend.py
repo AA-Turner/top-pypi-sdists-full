@@ -25,6 +25,17 @@ from lhotse.utils import Pathlike, Seconds, compute_num_samples, is_torchaudio_a
 _FFMPEG_TORCHAUDIO_INFO_ENABLED: bool = is_torchaudio_available()
 CURRENT_AUDIO_BACKEND: Optional["AudioBackend"] = None
 
+SUPPORTED_VIDEO_EXTENSIONS = (
+    ".avi",
+    ".mov",
+    ".mp4",
+    ".m4a",
+    ".wmv",
+    ".mkv",
+    ".webm",
+    ".flv",
+)
+
 
 def available_audio_backends() -> List[str]:
     """
@@ -436,6 +447,13 @@ class TorchaudioFFMPEGBackend(AudioBackend):
             offset=offset,
             duration=duration,
             resample_rate=force_opus_sampling_rate,
+        )
+
+    def handles_special_case(self, path_or_fd: Union[Pathlike, FileObject]) -> bool:
+        # The only backend to support video.
+        is_fileobj = not isinstance(path_or_fd, Path)
+        return not is_fileobj and any(
+            str(path_or_fd).endswith(ext) for ext in SUPPORTED_VIDEO_EXTENSIONS
         )
 
     def is_applicable(self, path_or_fd: Union[Pathlike, FileObject]) -> bool:
@@ -885,7 +903,8 @@ def torchaudio_ffmpeg_streamer_info(
 
     is_fileobj = not isinstance(path_or_fileobj, Path)
     is_mpeg = not is_fileobj and any(
-        str(path_or_fileobj).endswith(ext) for ext in (".mp3", ".mp4", ".m4a")
+        str(path_or_fileobj).endswith(ext)
+        for ext in (".mp3",) + SUPPORTED_VIDEO_EXTENSIONS
     )
     if not is_fileobj:
         path_or_fileobj = str(path_or_fileobj)
@@ -968,6 +987,14 @@ def torchaudio_ffmpeg_streamer_info(
             frames=tot_samples,
             samplerate=int(audio_stream.sample_rate),
             duration=tot_samples / audio_stream.sample_rate,
+        )
+    else:
+        # No audio stream in the video
+        meta.update(
+            channels=0,
+            frames=0,
+            samplerate=0,
+            duration=meta["video"].duration,
         )
 
     return LibsndfileCompatibleAudioInfo(**meta)
@@ -1083,6 +1110,11 @@ def soundfile_load(
     path_or_fd: Pathlike, offset: Seconds = 0, duration: Optional[Seconds] = None
 ) -> Tuple[np.ndarray, int]:
     import soundfile as sf
+
+    if isinstance(path_or_fd, (str, Path)) and ".tar/" in str(path_or_fd):
+        from lhotse.serialization import TarAsDirBackend
+
+        path_or_fd = TarAsDirBackend().open(path_or_fd)
 
     with sf.SoundFile(path_or_fd) as sf_desc:
         sampling_rate = sf_desc.samplerate
@@ -1400,6 +1432,12 @@ def soundfile_info(path: Pathlike) -> LibsndfileCompatibleAudioInfo:
 
     if isinstance(path, Path):
         path = str(path)
+
+    if isinstance(path, str) and ".tar/" in path:
+        from lhotse.serialization import TarAsDirBackend
+
+        path = TarAsDirBackend().open(path)
+
     info_ = sf.info(path)
     return LibsndfileCompatibleAudioInfo(
         channels=info_.channels,

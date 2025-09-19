@@ -10,12 +10,16 @@
 // copyright notice, and modified files need to carry a notice indicating
 // that they have been altered from the originals.
 
+use std::sync::Arc;
+
 use crate::exit_codes::{CInputError, ExitCode};
 use crate::pointers::{check_ptr, const_ptr_as_ref, mut_ptr_as_ref};
 use indexmap::IndexMap;
 use qiskit_circuit::operations::StandardInstruction;
 use qiskit_circuit::operations::{Operation, Param, StandardGate};
 use qiskit_circuit::packed_instruction::PackedOperation;
+use qiskit_circuit::parameter::parameter_expression::ParameterExpression;
+use qiskit_circuit::parameter::symbol_expr::Symbol;
 use qiskit_circuit::PhysicalQubit;
 use qiskit_transpiler::target::{InstructionProperties, Qargs, Target};
 use smallvec::{smallvec, SmallVec};
@@ -446,9 +450,23 @@ pub struct TargetEntry {
 
 impl TargetEntry {
     pub fn new(operation: StandardGate) -> Self {
+        let params = if operation.num_params() > 0 {
+            Some(
+                (0..operation.num_params())
+                    .map(|i| {
+                        let op_name = operation.name();
+                        Param::ParameterExpression(Arc::new(ParameterExpression::from_symbol(
+                            Symbol::new(format!("{op_name}_param_{i}").as_str(), None, None),
+                        )))
+                    })
+                    .collect(),
+            )
+        } else {
+            None
+        };
         Self {
             operation: StandardOperation::Gate(operation),
-            params: None,
+            params,
             map: Default::default(),
         }
     }
@@ -471,13 +489,12 @@ impl TargetEntry {
 }
 
 /// @ingroup QkTargetEntry
-/// Creates an entry to the ``QkTarget`` based on a ``QkGate`` instance with
-/// no parameters.
+/// Creates an entry to the ``QkTarget`` based on a ``QkGate`` instance.
 ///
-/// @note If the instance of ``QkGate`` uses fixed parameters, use ``qk_target_entry_new_fixed``.
-/// Regular parameters are not currently supported.
-///
-/// @param operation The ``QkGate`` whose properties this target entry defines.
+/// @param operation The ``QkGate`` whose properties this target entry defines. If the ``QkGate``
+/// takes parameters (which can be checked with ``qk_gate_num_params``) it will be added as a
+/// an instruction on the target which accepts any parameter value. If the gate only accepts a
+/// fixed parameter value you can use ``qk_target_entry_new_fixed`` instead.
 ///
 /// @return A pointer to the new ``QkTargetEntry``.
 ///
@@ -488,10 +505,6 @@ impl TargetEntry {
 #[no_mangle]
 #[cfg(feature = "cbinding")]
 pub extern "C" fn qk_target_entry_new(operation: StandardGate) -> *mut TargetEntry {
-    // Fast fail if the instruction is expecting parameters.
-    if operation.num_params() != 0 {
-        panic!("Tried to create an non-parametric entry with a parametric gate.")
-    }
     Box::into_raw(Box::new(TargetEntry::new(operation)))
 }
 

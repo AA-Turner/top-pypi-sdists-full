@@ -24,11 +24,11 @@ class GetApplication(BaseModel):
     Request parameters for getting a specific application.
     """
 
-    application_id: StrictStr = Field(
+    application_instance_id: StrictStr = Field(
         description="The ID of the application to retrieve",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
-    __properties: ClassVar[List[str]] = ["application_id"]
+    __properties: ClassVar[List[str]] = ["application_instance_id"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -70,5 +70,5 @@ class GetApplication(BaseModel):
             return None
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
-        _obj = cls.model_validate({"application_id": obj.get("application_id")})
+        _obj = cls.model_validate({"application_instance_id": obj.get("application_instance_id")})
         return _obj

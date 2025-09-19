@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whitenoise
-Version: 6.10.0
+Version: 6.11.0
 Summary: Radically simplified static file serving for WSGI applications
 Author: David Evans
 Maintainer: David Evans
@@ -16,6 +16,7 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only

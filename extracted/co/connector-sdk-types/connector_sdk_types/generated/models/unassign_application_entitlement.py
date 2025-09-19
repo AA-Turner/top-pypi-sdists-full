@@ -24,9 +24,9 @@ class UnassignApplicationEntitlement(BaseModel):
     Parameters required to unassign an entitlement from a user account
     """
 
-    application_id: StrictStr = Field(
+    application_instance_id: StrictStr = Field(
         description="The identifier of the application to assign the entitlement in",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_integration_specific_id: StrictStr = Field(
         description="The integration-specific identifier for the user account"

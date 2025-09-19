@@ -297,6 +297,21 @@ class APIClientBase:
         return self._params.addresses[0]
 
     @property
+    def port(self) -> int:
+        return self._params.port
+
+    @property
+    def noise_psk(self) -> str | None:
+        return self._params.noise_psk
+
+    @property
+    def connected_address(self) -> str | None:
+        """Return the address we are currently connected to, or None if not connected."""
+        if self._connection is None:
+            return None
+        return self._connection.connected_address
+
+    @property
     def api_version(self) -> APIVersion | None:
         if self._connection is None:
             return None

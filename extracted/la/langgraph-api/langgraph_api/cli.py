@@ -11,10 +11,15 @@ from typing import Literal
 from typing_extensions import TypedDict
 
 if typing.TYPE_CHECKING:
+    from packaging.version import Version
+
     from langgraph_api.config import HttpConfig, StoreConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+SUPPORT_STATUS = Literal["active", "critical", "eol"]
 
 
 def _get_ls_origin() -> str | None:
@@ -119,46 +124,6 @@ class AuthConfig(TypedDict, total=False):
         }
     """
     cache: CacheConfig | None
-
-
-def _check_newer_version(pkg: str, timeout: float = 0.2) -> None:
-    """Log a notice if PyPI reports a newer version."""
-    import importlib.metadata as md
-    import json
-    import urllib.request
-
-    from packaging.version import Version
-
-    thread_logger = logging.getLogger("check_version")
-    if not thread_logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(message)s"))
-        thread_logger.addHandler(handler)
-
-    try:
-        current = Version(md.version(pkg))
-        with urllib.request.urlopen(
-            f"https://pypi.org/pypi/{pkg}/json", timeout=timeout
-        ) as resp:
-            latest_str = json.load(resp)["info"]["version"]
-        latest = Version(latest_str)
-        if latest > current:
-            thread_logger.info(
-                "🔔  A newer version of %s is available: %s → %s (pip install -U %s)",
-                pkg,
-                current,
-                latest,
-                pkg,
-            )
-
-    except Exception:
-        pass
-
-    except RuntimeError:
-        thread_logger.info(
-            f"Failed to check for newer version of {pkg}."
-            " To disable version checks, set LANGGRAPH_NO_VERSION_CHECK=true"
-        )
 
 
 def run_server(
@@ -362,8 +327,12 @@ For production use, please use LangGraph Platform.
             threading.Thread(target=_open_browser, daemon=True).start()
         nvc = os.getenv("LANGGRAPH_NO_VERSION_CHECK")
         if nvc is None or nvc.lower() not in ("true", "1"):
+            from langgraph_api import __version__
+
             threading.Thread(
-                target=_check_newer_version, args=("langgraph-api",), daemon=True
+                target=_check_newer_version,
+                args=("langgraph-api", __version__),
+                daemon=True,
             ).start()
         supported_kwargs = {
             k: v
@@ -469,6 +438,134 @@ def main():
         ui=ui,
         ui_config=ui_config,
     )
+
+
+def _check_newer_version(pkg: str, current_version: str, timeout: float = 0.5) -> None:
+    """Check PyPI for newer versions and log support status.
+
+    Critical = one minor behind on same major, OR latest minor of previous major while latest is X.0.*
+    EOL = two+ minors behind on same major, OR any previous major after X.1.*
+    """
+    import json
+    import urllib.request
+
+    from packaging.version import InvalidVersion, Version
+
+    log = logging.getLogger("version_check")
+    if not log.handlers:
+        h = logging.StreamHandler()
+        h.setFormatter(logging.Formatter("%(message)s"))
+        log.addHandler(h)
+
+    if os.getenv("LANGGRAPH_NO_VERSION_CHECK", "").lower() in ("true", "1"):
+        return
+
+    def _parse(v: str) -> Version | None:
+        try:
+            return Version(v)
+        except InvalidVersion:
+            return None
+
+    try:
+        current = Version(current_version)
+    except InvalidVersion:
+        log.info(
+            f"[version] Could not parse installed version {current_version!r}. Skipping support check."
+        )
+        return
+
+    try:
+        with urllib.request.urlopen(
+            f"https://pypi.org/pypi/{pkg}/json", timeout=timeout
+        ) as resp:
+            payload = json.load(resp)
+        latest_str = payload["info"]["version"]
+        latest = Version(latest_str)
+        releases: dict[str, list[dict]] = payload.get("releases", {})
+    except Exception:
+        log.debug("Failed to retrieve latest version info for %s", pkg)
+        return
+    prev_major_latest_minor: Version | None = None
+    if latest.major > 0:
+        pm = latest.major - 1
+        prev_major_versions = [
+            v
+            for s in releases
+            if (v := _parse(s)) is not None and not v.is_prerelease and v.major == pm
+        ]
+        if prev_major_versions:
+            prev_major_latest_minor = max(
+                prev_major_versions, key=lambda v: (v.major, v.minor, v.micro)
+            )
+
+    if latest > current and not current.is_prerelease:
+        log.info(
+            "[version] A newer version of %s is available: %s → %s  (pip install -U %s)",
+            pkg,
+            current,
+            latest,
+            pkg,
+        )
+
+    level = _support_level(current, latest, prev_major_latest_minor)
+    changelog = (
+        "https://docs.langchain.com/langgraph-platform/langgraph-server-changelog"
+    )
+
+    if level == "critical":
+        # Distinguish same-major vs cross-major grace in the wording
+        if current.major == latest.major and current.minor == latest.minor - 1:
+            tail = "You are one minor version behind the latest (%d.%d.x).\n"
+        else:
+            tail = "You are on the latest minor of the previous major while a new major (%d.%d.x) just released.\n"
+        log.info(
+            "⚠️ [support] %s %s is in Critical support.\n"
+            "Only critical security and installation fixes are provided.\n"
+            + tail
+            + "Please plan an upgrade soon. See changelog: %s",
+            pkg,
+            current,
+            latest.major,
+            latest.minor,
+            changelog,
+        )
+    elif level == "eol":
+        log.info(
+            "⚠️ [support] %s %s is End of Life.\n"
+            "No bug fixes or security updates will be provided.\n"
+            "You are two or more minor versions behind the latest (%d.%d.x).\n"
+            "You should upgrade immediately. See changelog: %s",
+            pkg,
+            current,
+            latest.major,
+            latest.minor,
+            changelog,
+        )
+
+
+def _support_level(
+    cur: "Version", lat: "Version", prev_major_latest_minor: "Version | None"
+) -> SUPPORT_STATUS:
+    if cur.major > lat.major:
+        return "active"
+    if cur.major == lat.major:
+        if cur.minor == lat.minor:
+            return "active"
+        if cur.minor == lat.minor - 1:
+            return "critical"
+        if cur.minor <= lat.minor - 2:
+            return "eol"
+        return "active"
+
+    if cur.major == lat.major - 1 and lat.minor == 0:
+        if (
+            prev_major_latest_minor is not None
+            and cur.minor == prev_major_latest_minor.minor
+        ):
+            return "critical"
+        return "eol"
+
+    return "eol"
 
 
 if __name__ == "__main__":

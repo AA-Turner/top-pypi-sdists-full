@@ -93,8 +93,7 @@ class TestLogs(ITestLogs):
                     database=str(self.__db_path),
                     timeout=5.0,
                     isolation_level=None,
-                    check_same_thread=False,
-                    autocommit=True
+                    check_same_thread=False
                 )
 
                 # Enable Write-Ahead Logging for better concurrency

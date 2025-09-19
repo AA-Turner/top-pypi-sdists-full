@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zc.lockfile
-Version: 3.0.post1
+Version: 4.0
 Summary: Basic inter-process locks
 Home-page: https://github.com/zopefoundation/zc.lockfile
 Author: Zope Foundation
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: lock
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -15,17 +15,31 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
-Requires-Python: >=3.7
-Provides-Extra: test
+Requires-Python: >=3.9
 License-File: LICENSE.txt
+Requires-Dist: setuptools
+Provides-Extra: test
+Requires-Dist: zope.testing; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 *************************
 Basic inter-process locks
@@ -118,6 +132,16 @@ If you now inspected the lock file, you would see e.g.:
 
 Change History
 ***************
+
+4.0 (2025-09-18)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
+
 
 3.0.post1 (2023-02-28)
 ======================

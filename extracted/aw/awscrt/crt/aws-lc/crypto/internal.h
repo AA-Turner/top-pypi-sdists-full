@@ -115,8 +115,6 @@
 #include <openssl/stack.h>
 #include <openssl/thread.h>
 
-#include "fipsmodule/rand/snapsafe_detect.h"
-
 #include <assert.h>
 #include <string.h>
 
@@ -761,6 +759,8 @@ typedef enum {
   OPENSSL_THREAD_LOCAL_FIPS_COUNTERS,
   AWSLC_THREAD_LOCAL_FIPS_SERVICE_INDICATOR_STATE,
   OPENSSL_THREAD_LOCAL_TEST,
+  OPENSSL_THREAD_LOCAL_PRIVATE_RAND,
+  OPENSSL_THREAD_LOCAL_UBE,
   NUM_OPENSSL_THREAD_LOCALS,
 } thread_local_data_t;
 
@@ -1404,7 +1404,13 @@ OPENSSL_INLINE int boringssl_fips_break_test(const char *test) {
 //   6: sha256_block_armv8
 //   7: aesv8_gcm_8x_enc_128
 //   8: sha512_block_armv8
-extern uint8_t BORINGSSL_function_hit[9];
+//   9: KeccakF1600_hw
+//  10: sha3_keccak_f1600
+//  11: sha3_keccak_f1600_alt
+//  12: sha3_keccak2_f1600
+//  13: sha3_keccak4_f1600_alt
+//  14: sha3_keccak4_f1600_alt2
+extern uint8_t BORINGSSL_function_hit[15];
 #endif  // BORINGSSL_DISPATCH_TEST
 
 #if !defined(AWSLC_FIPS) && !defined(BORINGSSL_SHARED_LIBRARY)
@@ -1441,6 +1447,9 @@ OPENSSL_EXPORT int OPENSSL_vasprintf_internal(char **str, const char *format,
 #define GUARD_PTR(ptr) __AWS_LC_ENSURE((ptr) != NULL, OPENSSL_PUT_ERROR(CRYPTO, ERR_R_PASSED_NULL_PARAMETER); \
                                        return AWS_LC_ERROR)
 
+// GUARD_PTR_ABORT checks |ptr|: if it is NULL it calls abort() and does nothing
+// otherwise.
+#define GUARD_PTR_ABORT(ptr) __AWS_LC_ENSURE((ptr) != NULL, abort())
 
 // Windows doesn't really support weak symbols as of May 2019, and Clang on
 // Windows will emit strong symbols instead. See

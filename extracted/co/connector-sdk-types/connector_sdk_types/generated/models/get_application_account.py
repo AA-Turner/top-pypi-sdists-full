@@ -24,15 +24,15 @@ class GetApplicationAccount(BaseModel):
     Request parameters for retrieving a single account's application assignemnt
     """
 
-    application_id: StrictStr = Field(
+    application_instance_id: StrictStr = Field(
         description="The unique id of the application to fetch the application assignment for.",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_id: StrictStr = Field(
         description="The unique id of the account to fetch application assignemnt for.",
         json_schema_extra={"x-semantic": "account-id"},
     )
-    __properties: ClassVar[List[str]] = ["application_id", "account_id"]
+    __properties: ClassVar[List[str]] = ["application_instance_id", "account_id"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -75,6 +75,9 @@ class GetApplicationAccount(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
-            {"application_id": obj.get("application_id"), "account_id": obj.get("account_id")}
+            {
+                "application_instance_id": obj.get("application_instance_id"),
+                "account_id": obj.get("account_id"),
+            }
         )
         return _obj

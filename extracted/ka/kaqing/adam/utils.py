@@ -76,9 +76,9 @@ def log(s = None):
     else:
         click.echo(s)
 
-def log2(s = None):
+def log2(s = None, nl = True):
     if s:
-        click.echo(s, err=True)
+        click.echo(s, err=True, nl=nl)
     else:
         print(file=sys.stderr)
 

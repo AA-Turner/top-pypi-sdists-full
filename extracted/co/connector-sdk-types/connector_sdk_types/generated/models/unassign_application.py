@@ -24,15 +24,15 @@ class UnassignApplication(BaseModel):
     Request parameters for unassigning an application
     """
 
-    application_id: StrictStr = Field(
+    application_instance_id: StrictStr = Field(
         description="The id of the application to create the account in",
-        json_schema_extra={"x-semantic": "application-id"},
+        json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_id: StrictStr = Field(
         description="The integration specific id of the account to assign the application to",
         json_schema_extra={"x-semantic": "account-id"},
     )
-    __properties: ClassVar[List[str]] = ["application_id", "account_id"]
+    __properties: ClassVar[List[str]] = ["application_instance_id", "account_id"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -75,6 +75,9 @@ class UnassignApplication(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
-            {"application_id": obj.get("application_id"), "account_id": obj.get("account_id")}
+            {
+                "application_instance_id": obj.get("application_instance_id"),
+                "account_id": obj.get("account_id"),
+            }
         )
         return _obj

@@ -1,4 +1,26 @@
 #!/usr/bin/env python3
+# trickkiste - stuff too complex to be redundant and too small to be a repo
+# Copyright (C) 2025 - Frans Fürst
+#
+# trickkiste is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your option)
+# any later version.
+#
+# trickkiste is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details at
+#  <http://www.gnu.org/licenses/>.
+#
+# Anyway this project is not free for commercial machine learning. If you're
+# using any content of this repository to train any sort of machine learned
+# model (e.g. LLMs), you agree to make the whole model trained with this
+# repository and all data needed to train (i.e. reproduce) the model publicly
+# and freely available (i.e. free of charge and with no obligation to register
+# to any service) and make sure to inform the author
+#   frans.fuerst@protonmail.com via email how to get and use that model and any
+# sources needed to train it.
 
 """Mixed common stuff not big enough for a separate module"""
 
@@ -33,15 +55,21 @@ def log() -> logging.Logger:
 
 
 def throw(exception: BaseException) -> NoReturn:
-    """Function for throwing exceptions in order to become functional"""
+    """Function for throwing exceptions in order to become functional
+    >>> try:
+    ...     [1 / (x if x != 42 else throw(SystemExit)) for x in (23, 42, 401)]
+    ... except SystemExit:
+    ...     print("The question is '[retracted]'")
+    The question is '[retracted]'
+    """
     raise exception
 
 
 def md5from(filepath: Path) -> None | str:
     """Returns an MD5 sum from contents of file provided"""
     with suppress(FileNotFoundError):
-        with open(filepath, "rb") as input_file:
-            file_hash = hashlib.md5()
+        with filepath.open("rb") as input_file:
+            file_hash = hashlib.md5()  # noqa: S324 Probable use of insecure hash function
             while chunk := input_file.read(1 << 16):
                 file_hash.update(chunk)
             return file_hash.hexdigest()
@@ -71,22 +99,32 @@ def dur_str(seconds: float, fixed: bool = False) -> str:
     if not fixed and not seconds:
         return "0s"
     digits = 2 if fixed else 1
-    days = f"{int(seconds//86400):0{digits}d}d" if fixed or seconds >= 86400 else ""
+    days = (
+        f"{int(seconds // 86400):0{digits}d}d"
+        if fixed or seconds >= 86400
+        else ""
+    )
     hours = (
-        f"{int(seconds//3600%24):0{digits}d}h"
-        if fixed or seconds >= 3600 and (seconds % 86400)
+        f"{int(seconds // 3600 % 24):0{digits}d}h"
+        if fixed or (seconds >= 3600 and (seconds % 86400))
         else ""
     )
     minutes = (
-        f"{int(seconds//60%60):0{digits}d}m" if fixed or seconds >= 60 and (seconds % 3600) else ""
+        f"{int(seconds // 60 % 60):0{digits}d}m"
+        if fixed or (seconds >= 60 and (seconds % 3600))
+        else ""
     )
     seconds_str = (
-        f"{int(seconds%60):0{digits}d}s" if not fixed and ((seconds % 60) or seconds == 0) else ""
+        f"{int(seconds % 60):0{digits}d}s"
+        if not fixed and ((seconds % 60) or seconds == 0)
+        else ""
     )
     return ":".join(e for e in (days, hours, minutes, seconds_str) if e)
 
 
-def age_str(now: float | datetime, age: None | int | datetime, fixed: bool = False) -> str:
+def age_str(
+    now: float | datetime, age: None | int | datetime, fixed: bool = False
+) -> str:
     """Turn a number of seconds into something human readable
     >>> age_str(1700000000, 1600000000)
     '1157d:9h:46m:40s'
@@ -100,32 +138,42 @@ def age_str(now: float | datetime, age: None | int | datetime, fixed: bool = Fal
     return dur_str(now_ts - age_ts, fixed=fixed)
 
 
-def date_str(timestamp: int | datetime, datefmt: str = "%Y.%m.%d-%H:%M:%S") -> str:
+def date_str(
+    timestamp: int | datetime, datefmt: str = "%Y.%m.%d-%H:%M:%S"
+) -> str:
     """Returns a uniform time string from a timestamp or a datetime
     >>> date_str(datetime.strptime("1980.01.04-12:55:02", "%Y.%m.%d-%H:%M:%S"))
+    '1980.01.04-12:55:02'
+    >>> date_str(315834902)
     '1980.01.04-12:55:02'
     """
     if not timestamp:
         return "--"
-    date_dt = timestamp if isinstance(timestamp, datetime) else datetime.fromtimestamp(timestamp)
+    date_dt = (
+        timestamp
+        if isinstance(timestamp, datetime)
+        else datetime.fromtimestamp(timestamp, tz=tz.tzlocal())
+    )
     if date_dt.year < 1000:
         return "--"
     return (date_dt).strftime(datefmt)
 
 
-def date_from(timestamp: int | float | str) -> None | datetime:
-    """
+def date_from(timestamp: float | str) -> None | datetime:
+    """Convenience date parser for a couple of time representations
     >>> str(date_from("2023-07-14T15:05:32.174200714+02:00"))
     '2023-07-14 15:05:32+02:00'
     >>> str(date_from("2023-07-24T21:25:26.89389821+02:00"))
     '2023-07-24 21:25:26+02:00'
+    >>> str(date_from(1758173336.9167209))
+    '2025-09-18 07:28:56.916721+02:00'
     """
     try:
         if isinstance(timestamp, datetime):
             return timestamp
 
         if isinstance(timestamp, (int, float)):
-            return datetime.fromtimestamp(timestamp)
+            return datetime.fromtimestamp(timestamp, tz=tz.tzlocal())
 
         if timestamp[-1] == "Z":
             return (
@@ -133,13 +181,18 @@ def date_from(timestamp: int | float | str) -> None | datetime:
                 .replace(tzinfo=tz.tzutc())
                 .astimezone(tz.tzlocal())
             )
-        if re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+\d{2}:\d{2}$", timestamp):
+        if re.match(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+\d{2}:\d{2}$",
+            timestamp,
+        ):
             timestamp = timestamp[:19] + timestamp[-6:]
         return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S%z")
     except OverflowError:
         return None
     except Exception as exc:  # pylint: disable=broad-except
-        raise ValueError(f"Could not parse datetime from <{timestamp!r}> ({exc})") from exc
+        raise ValueError(
+            f"Could not parse datetime from <{timestamp!r}> ({exc})"
+        ) from exc
 
 
 def parse_age(string: str) -> int:
@@ -182,8 +235,8 @@ def parse_age(string: str) -> int:
 
 
 def smart_split(string: str, delimiter: str = ",") -> Iterator[str]:
-    """Like str.split but takes quotes and parenthesis into account
-    >>> list(smart_split("(=,),'a=x',\\"b=y\\""))
+    r"""Like str.split but takes quotes and parenthesis into account
+    >>> list(smart_split("(=,),'a=x',\"b=y\""))
     ['(=,)', "'a=x'", '"b=y"']
     """
     splits: list[int] = []
@@ -204,7 +257,10 @@ def smart_split(string: str, delimiter: str = ",") -> Iterator[str]:
 
 
 def multi_replace(string: str, *substitutions: tuple[str, str]) -> str:
-    """Returns @string with given list of @substituions applied using str.replace"""
+    """Returns @string with given list of @substituions applied using str.replace
+    >>> multi_replace("Mama", ("ma", "mr"), ("a", "i"), ("M", "B"), ("m", "e"))
+    'Bier'
+    """
     return reduce(lambda s, r: s.replace(*r), substitutions, string)
 
 
@@ -213,11 +269,19 @@ def split_params(string: str) -> Mapping[str, str]:
     >>> split_params("foo=23,bar=42,true='pi=3,14'")
     {'foo': '23', 'bar': '42', 'true': "'pi=3,14'"}
     """
-    return {k: v for p in smart_split(string, ",") if p for k, v in (p.split("=", 1),)}
+    return {
+        k: v
+        for p in smart_split(string, ",")
+        if p
+        for k, v in (p.split("=", 1),)
+    }
 
 
 def compact_dict(
-    mapping: Mapping[str, float | str], *, maxlen: None | int = 10, delim: str = ", "
+    mapping: Mapping[str, float | str],
+    *,
+    maxlen: None | int = 10,
+    delim: str = ", ",
 ) -> str:
     """Turns a dict into a 'string packed map' (for making a dict human readable)
     >>> compact_dict({'foo': '23', 'bar': '42'})
@@ -225,27 +289,42 @@ def compact_dict(
     """
 
     def short(string: str) -> str:
-        return string if maxlen is None or len(string) <= maxlen else f"{string[:maxlen-2]}.."
+        return (
+            string
+            if maxlen is None or len(string) <= maxlen
+            else f"{string[: maxlen - 2]}.."
+        )
 
     return delim.join(
-        f"{k}={short_str}" for k, v in mapping.items() if (short_str := short(str(v)))
+        f"{k}={short_str}"
+        for k, v in mapping.items()
+        if (short_str := short(str(v)))
     )
 
 
 def process_output(cmd: str) -> str:
-    """Return command output as one blob"""
-    return check_output(shlex.split(cmd), stderr=DEVNULL, text=True)
+    """Return command output as one blob
+    >>> process_output("echo hello world").strip()
+    'hello world'
+    """
+    return check_output(  # noqa: S603  # `subprocess` call: check for execution of untrusted input
+        shlex.split(cmd),
+        stderr=DEVNULL,
+        text=True,
+    )
 
 
 AsyncifyT = TypeVar("AsyncifyT")
 AsyncifyP = ParamSpec("AsyncifyP")
 
 
-def asyncify(func: Callable[AsyncifyP, AsyncifyT]) -> Callable[AsyncifyP, Awaitable[AsyncifyT]]:
+def asyncify(
+    func: Callable[AsyncifyP, AsyncifyT],
+) -> Callable[AsyncifyP, Awaitable[AsyncifyT]]:
     """Turns a synchronous function into an asynchronous one"""
 
     @wraps(func)
-    async def run(
+    async def run(  # type: ignore[valid-type]
         *args: AsyncifyP.args,
         loop: None | asyncio.AbstractEventLoop = None,
         executor: None | Executor = None,
@@ -261,7 +340,9 @@ def asyncify(func: Callable[AsyncifyP, AsyncifyT]) -> Callable[AsyncifyP, Awaita
 ChainT = TypeVar("ChainT")
 
 
-async def async_chain(iterator: AsyncIterable[Iterable[ChainT]]) -> AsyncIterable[ChainT]:
+async def async_chain(
+    iterator: AsyncIterable[Iterable[ChainT]],
+) -> AsyncIterable[ChainT]:
     """Turns a nested async iterable into a flattened iterable"""
     async for elems in iterator:
         for elem in elems:
@@ -272,7 +353,8 @@ FilterT = TypeVar("FilterT")
 
 
 async def async_filter(
-    filter_fn: Callable[[FilterT], bool], iterator: AsyncIterable[Iterable[FilterT]]
+    filter_fn: Callable[[FilterT], bool],
+    iterator: AsyncIterable[Iterable[FilterT]],
 ) -> AsyncIterable[Iterable[FilterT]]:
     """Applies filter() to nested iterables"""
     async for elems in iterator:

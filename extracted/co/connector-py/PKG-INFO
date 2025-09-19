@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-py
-Version: 4.126.0
+Version: 4.127.0
 Summary: An Abstract Tool to Perform Actions on Integrations.
 Author-email: teamlumos <security@lumos.com>
 License: 
@@ -217,7 +217,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: connector-sdk-types==0.18.0
+Requires-Dist: connector-sdk-types==0.19.0
 Requires-Dist: gql[httpx]
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: msgpack>=1

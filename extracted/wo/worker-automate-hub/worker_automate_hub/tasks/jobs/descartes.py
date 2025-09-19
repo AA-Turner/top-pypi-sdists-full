@@ -932,7 +932,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         await worker_sleep(15)
 
-        max_retries = 3
+        max_retries = 5
         retry_count = 0
         nf_sucesso = False
         log_msg = ''

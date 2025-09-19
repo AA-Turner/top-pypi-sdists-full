@@ -839,6 +839,13 @@ class _WandbInit:
                     " and reinit is set to 'create_new', so continuing"
                 )
 
+            elif settings.resume == "must":
+                raise wandb.Error(
+                    "Cannot resume a run while another run is active."
+                    " You must either finish it using run.finish(),"
+                    " or use reinit='create_new' when calling wandb.init()."
+                )
+
             else:
                 run_printer.display(
                     "wandb.init() called while a run is active and reinit is"
@@ -864,7 +871,6 @@ class _WandbInit:
         backend.ensure_launched()
         self._logger.info("backend started and connected")
 
-        # resuming needs access to the server, check server_status()?
         run = Run(
             config=config.base_no_artifacts,
             settings=settings,
@@ -1018,6 +1024,8 @@ class _WandbInit:
             run_start_handle.wait_or(timeout=30)
         except TimeoutError:
             pass
+
+        backend.interface.publish_probe_system_info()
 
         assert self._wl is not None
         self.run = run

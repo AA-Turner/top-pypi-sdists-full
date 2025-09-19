@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     )
     from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
     from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
+    from ..models.get_copilot_info_response_200_max_tokens_per_model import GetCopilotInfoResponse200MaxTokensPerModel
     from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
 
@@ -25,12 +26,14 @@ class GetCopilotInfoResponse200:
         default_model (Union[Unset, GetCopilotInfoResponse200DefaultModel]):
         code_completion_model (Union[Unset, GetCopilotInfoResponse200CodeCompletionModel]):
         custom_prompts (Union[Unset, GetCopilotInfoResponse200CustomPrompts]):
+        max_tokens_per_model (Union[Unset, GetCopilotInfoResponse200MaxTokensPerModel]):
     """
 
     providers: Union[Unset, "GetCopilotInfoResponse200Providers"] = UNSET
     default_model: Union[Unset, "GetCopilotInfoResponse200DefaultModel"] = UNSET
     code_completion_model: Union[Unset, "GetCopilotInfoResponse200CodeCompletionModel"] = UNSET
     custom_prompts: Union[Unset, "GetCopilotInfoResponse200CustomPrompts"] = UNSET
+    max_tokens_per_model: Union[Unset, "GetCopilotInfoResponse200MaxTokensPerModel"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -50,6 +53,10 @@ class GetCopilotInfoResponse200:
         if not isinstance(self.custom_prompts, Unset):
             custom_prompts = self.custom_prompts.to_dict()
 
+        max_tokens_per_model: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.max_tokens_per_model, Unset):
+            max_tokens_per_model = self.max_tokens_per_model.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -61,6 +68,8 @@ class GetCopilotInfoResponse200:
             field_dict["code_completion_model"] = code_completion_model
         if custom_prompts is not UNSET:
             field_dict["custom_prompts"] = custom_prompts
+        if max_tokens_per_model is not UNSET:
+            field_dict["max_tokens_per_model"] = max_tokens_per_model
 
         return field_dict
 
@@ -71,6 +80,9 @@ class GetCopilotInfoResponse200:
         )
         from ..models.get_copilot_info_response_200_custom_prompts import GetCopilotInfoResponse200CustomPrompts
         from ..models.get_copilot_info_response_200_default_model import GetCopilotInfoResponse200DefaultModel
+        from ..models.get_copilot_info_response_200_max_tokens_per_model import (
+            GetCopilotInfoResponse200MaxTokensPerModel,
+        )
         from ..models.get_copilot_info_response_200_providers import GetCopilotInfoResponse200Providers
 
         d = src_dict.copy()
@@ -102,11 +114,19 @@ class GetCopilotInfoResponse200:
         else:
             custom_prompts = GetCopilotInfoResponse200CustomPrompts.from_dict(_custom_prompts)
 
+        _max_tokens_per_model = d.pop("max_tokens_per_model", UNSET)
+        max_tokens_per_model: Union[Unset, GetCopilotInfoResponse200MaxTokensPerModel]
+        if isinstance(_max_tokens_per_model, Unset):
+            max_tokens_per_model = UNSET
+        else:
+            max_tokens_per_model = GetCopilotInfoResponse200MaxTokensPerModel.from_dict(_max_tokens_per_model)
+
         get_copilot_info_response_200 = cls(
             providers=providers,
             default_model=default_model,
             code_completion_model=code_completion_model,
             custom_prompts=custom_prompts,
+            max_tokens_per_model=max_tokens_per_model,
         )
 
         get_copilot_info_response_200.additional_properties = d

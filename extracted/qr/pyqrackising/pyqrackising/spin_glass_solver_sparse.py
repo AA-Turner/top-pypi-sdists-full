@@ -61,7 +61,7 @@ def int_to_bitstring(integer, length):
     return (bin(integer)[2:].zfill(length))[::-1]
 
 
-def spin_glass_solver_sparse(G, quality=None, shots=None, correction_quality=None, best_guess=None):
+def spin_glass_solver_sparse(G, quality=None, shots=None, best_guess=None):
     nodes = None
     n_qubits = 0
     G_m = None
@@ -87,9 +87,6 @@ def spin_glass_solver_sparse(G, quality=None, shots=None, correction_quality=Non
 
         return "01", weight, ([nodes[0]], [nodes[1]]), -weight
 
-    if correction_quality is None:
-        correction_quality = 2
-
     bitstring = ""
     if isinstance(best_guess, str):
         bitstring = best_guess
@@ -105,9 +102,11 @@ def spin_glass_solver_sparse(G, quality=None, shots=None, correction_quality=Non
 
     min_energy = compute_energy(best_theta, G_m.data, G_m.indptr, G_m.indices)
     improved = True
+    correction_quality = 1
     while improved:
         improved = False
-        for k in range(1, max(1, correction_quality + 1)):
+        k = 1
+        while k <= correction_quality:
             if n_qubits < k:
                 break
 
@@ -126,7 +125,11 @@ def spin_glass_solver_sparse(G, quality=None, shots=None, correction_quality=Non
                 for i in indices:
                     best_theta[i] = not best_theta[i]
                 improved = True
+                if correction_quality < (k + 1):
+                    correction_quality = k + 1
                 break
+
+            k = k + 1
 
     bitstring = ""
     l, r = [], []

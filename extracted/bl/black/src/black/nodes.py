@@ -603,6 +603,17 @@ def is_one_tuple(node: LN) -> bool:
     )
 
 
+def is_tuple(node: LN) -> bool:
+    """Return True if `node` holds a tuple."""
+    if node.type != syms.atom:
+        return False
+    gexp = unwrap_singleton_parenthesis(node)
+    if gexp is None or gexp.type != syms.testlist_gexp:
+        return False
+
+    return True
+
+
 def is_tuple_containing_walrus(node: LN) -> bool:
     """Return True if `node` holds a tuple that contains a walrus operator."""
     if node.type != syms.atom:
@@ -1047,3 +1058,21 @@ def furthest_ancestor_with_last_leaf(leaf: Leaf) -> LN:
     while node.parent and node.parent.children and node is node.parent.children[-1]:
         node = node.parent
     return node
+
+
+def has_sibling_with_type(node: LN, type: int) -> bool:
+    # Check previous siblings
+    sibling = node.prev_sibling
+    while sibling is not None:
+        if sibling.type == type:
+            return True
+        sibling = sibling.prev_sibling
+
+    # Check next siblings
+    sibling = node.next_sibling
+    while sibling is not None:
+        if sibling.type == type:
+            return True
+        sibling = sibling.next_sibling
+
+    return False

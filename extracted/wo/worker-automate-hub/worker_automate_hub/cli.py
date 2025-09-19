@@ -59,124 +59,110 @@ Existem 3 subcomandos disponíveis para essa aplicação
     [green][b]worker[/][/] --version
 
  [b]Para gerar o arquivo de configuração[/]
-    [green][b]worker[/][/] --configure
+    [green][b]worker[/][/] configure
 
  [b]Para informações detalhadas
     [blue][link=https://github.com/SIM-Rede/worker-automate-hub]Repo no GIT Argenta[/][/] | [blue][link=https://pypi.org/project/worker-automate-hub/]Publicação no PyPI[/][/]
 """
 
 
-def function_help(flag: bool):
-    if flag:
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: Context,
+    version: bool = Option(
+        False,
+        "--version",
+        help="Mostra a versão instalada",
+        is_flag=True,
+    ),
+):
+    """Comando principal"""
+    if ctx.invoked_subcommand:
+        return
+
+    if version:
         console.print(
             importlib.metadata.version("worker-automate-hub"),
             style="bold blue",
         )
         raise Exit(code=0)
 
-
-def function_configure(flag: bool):
-
-    if flag:
-        console.clear()
-        environment_names = [
-            "local",
-            "qa",
-            "main",
-        ]
-        q = [
-            inquirer.Text("vault_token", "Por favor digite o token do Vault"),
-            inquirer.List("env_list", "Selecione o ambiente", environment_names),
-        ]
-        r = inquirer.prompt(q, theme=GreenPassion())
-
-        env_sel, credentials = load_environments(r["env_list"], r["vault_token"])
-        write_env_config(env_sel, credentials)
-        workers = asyncio.run(get_workers())
-
-        if workers == None:
-            console.print("\nNenhum worker encontrado.\n", style="yellow")
-            raise Exit(code=0)
-        else:
-
-            nomes_workers = [worker["nomRobo"] for worker in workers]
-            q2 = [
-                inquirer.List(
-                    "worker_list", "Selecione um Worker", choices=nomes_workers
-                )
-            ]
-            r2 = inquirer.prompt(q2, theme=GreenPassion())
-            worker_sel = next(
-                worker for worker in workers if worker["nomRobo"] == r2["worker_list"]
-            )
-            add_worker_config(worker_sel)
-
-            q3 = [
-                inquirer.Confirm(
-                    "reg_config",
-                    message="Adicionar configuração de inicialização aos registros do Windows?",
-                )
-            ]
-            r3 = inquirer.prompt(q3, theme=GreenPassion())
-
-            if r3["reg_config"]:
-                add_start_on_boot_to_registry()
-
-            q4 = [
-                inquirer.Confirm(
-                    "assets_config",
-                    message="Atualizar a pasta assets?",
-                )
-            ]
-            r4 = inquirer.prompt(q4, theme=GreenPassion())
-
-            if r4["assets_config"]:                
-                update_assets_v2()
-
-            q5 = [
-                inquirer.Confirm(
-                    "worker_bat", message="Criar o arquivo worker-startup.bat?"
-                )
-            ]
-            r5 = inquirer.prompt(q5, theme=GreenPassion())
-
-            if r5["worker_bat"]:
-                create_worker_bat()
-
-            q6 = [
-                inquirer.Confirm(
-                    "tesseract_install", message="Iniciar a instalação do Tesseract?"
-                )
-            ]
-            r6 = inquirer.prompt(q6, theme=GreenPassion())
-
-            if r6["tesseract_install"]:
-                asyncio.run(download_tesseract())
-
-            console.print(
-                "\nConfiguração finalizada com sucesso!\n", style="bold green"
-            )
-
-            raise Exit(code=0)
-
-
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: Context,
-    version: bool = Option(False, callback=function_help, is_flag=True),
-    configure: bool = Option(False, callback=function_configure, is_flag=True),
-):
-    if ctx.invoked_subcommand:
-        return
     console.print(HELP_MESSAGE)
+
+
+@app.command()
+def configure():
+    """Executa o processo interativo de configuração"""
+    console.clear()
+    environment_names = [
+        "local",
+        "qa",
+        "main",
+    ]
+    q = [
+        inquirer.Text("vault_token", "Por favor digite o token do Vault"),
+        inquirer.List("env_list", "Selecione o ambiente", environment_names),
+    ]
+    r = inquirer.prompt(q, theme=GreenPassion())
+
+    env_sel, credentials = load_environments(r["env_list"], r["vault_token"])
+    write_env_config(env_sel, credentials)
+    workers = asyncio.run(get_workers())
+
+    if workers is None:
+        console.print("\nNenhum worker encontrado.\n", style="yellow")
+        raise Exit(code=0)
+
+    nomes_workers = [worker["nomRobo"] for worker in workers]
+    q2 = [inquirer.List("worker_list", "Selecione um Worker", choices=nomes_workers)]
+    r2 = inquirer.prompt(q2, theme=GreenPassion())
+    worker_sel = next(
+        worker for worker in workers if worker["nomRobo"] == r2["worker_list"]
+    )
+    add_worker_config(worker_sel)
+
+    q3 = [
+        inquirer.Confirm(
+            "reg_config",
+            message="Adicionar configuração de inicialização aos registros do Windows?",
+        )
+    ]
+    r3 = inquirer.prompt(q3, theme=GreenPassion())
+    if r3["reg_config"]:
+        add_start_on_boot_to_registry()
+
+    q4 = [
+        inquirer.Confirm(
+            "assets_config",
+            message="Atualizar a pasta assets?",
+        )
+    ]
+    r4 = inquirer.prompt(q4, theme=GreenPassion())
+    if r4["assets_config"]:
+        update_assets_v2()
+
+    q5 = [inquirer.Confirm("worker_bat", message="Criar o arquivo worker-startup.bat?")]
+    r5 = inquirer.prompt(q5, theme=GreenPassion())
+    if r5["worker_bat"]:
+        create_worker_bat()
+
+    q6 = [
+        inquirer.Confirm(
+            "tesseract_install", message="Iniciar a instalação do Tesseract?"
+        )
+    ]
+    r6 = inquirer.prompt(q6, theme=GreenPassion())
+    if r6["tesseract_install"]:
+        asyncio.run(download_tesseract())
+
+    console.print("\nConfiguração finalizada com sucesso!\n", style="bold green")
+
+    raise Exit(code=0)
 
 
 def is_command_running(command):
     """
     Verifica se um comando CLI está sendo executado em outro terminal.
-
-    :param command: O comando CLI a ser verificado (lista de strings).
-    :return: True se o comando estiver sendo executado, False caso contrário.
     """
     command_str = " ".join(command)
     rep = 0
@@ -186,19 +172,11 @@ def is_command_running(command):
             if cmdline and isinstance(cmdline, list):
                 cmdline_str = " ".join(cmdline)
                 if command_str in cmdline_str:
-                    print(cmdline_str)
                     rep += 1
-
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
 
-    if rep > 1:
-        return True
-    else:
-        return False
-
-
-from typer import Option
+    return rep > 1
 
 
 @app.command()
@@ -214,19 +192,21 @@ def run(
         help="Executa o download da pasta assets atualizada.",
     ),
 ):
+    """Inicializa o worker"""
     if assets:
         update_assets_v2()
-        
+
     command = ["worker", "run"]
     if not force and is_command_running(command):
         console.print(
             "\nO script já está em execução. Saindo...\n", style="bold yellow"
         )
-        raise Exit(code=0)    
-    else:
-        run_worker(stop_event)
+        raise Exit(code=0)
+
+    run_worker(stop_event)
 
 
 @app.command()
 def update():
+    """Força verificação/atualização do worker"""
     check_for_update(stop_event)
