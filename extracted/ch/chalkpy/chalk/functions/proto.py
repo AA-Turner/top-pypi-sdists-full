@@ -65,7 +65,7 @@ def proto_enum_value_to_name(value: Union[Underscore, int], proto_enum: EnumType
     return F.map_get(mapping, value)
 
 
-def proto_serialize(mapping: Mapping[str, Union[Underscore, Any]], message: Message):
+def proto_serialize(mapping: Mapping[str, Union[Underscore, Any]], message: Type[Message]):
     """
     Serialize a proto message from a mapping of field names to values.
 
@@ -96,16 +96,18 @@ def proto_serialize(mapping: Mapping[str, Union[Underscore, Any]], message: Mess
     if not _is_protobuf_message(message):
         raise TypeError(f"F.proto_serialize(): message must be a Message: got {type(message)}")
 
+    repr_override = f"F.{proto_serialize.__name__}({mapping!r}, {message.DESCRIPTOR.full_name})"
     return UnderscoreFunction(
         "proto_serialize",
         serialize_message_file_descriptor(message.DESCRIPTOR.file),
         message.DESCRIPTOR.full_name,
         list(mapping.keys()),
         *mapping.values(),
+        _chalk__repr_override=repr_override,
     )
 
 
-def proto_deserialize(body: Union[Underscore, bytes], message: Message):
+def proto_deserialize(body: Union[Underscore, bytes], message: Type[Message]):
     """
     Deserialize a proto message from a bytes feature.
 
@@ -138,12 +140,9 @@ def proto_deserialize(body: Union[Underscore, bytes], message: Message):
     message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
     message_name = message.DESCRIPTOR.full_name
     pa_scalar = create_empty_pyarrow_scalar_from_proto_type(message)
+    repr_override = f"F.{proto_deserialize.__name__}({body!r}, {message_name})"
     return UnderscoreFunction(
-        "proto_deserialize",
-        message_file_descriptor,
-        message_name,
-        pa_scalar,
-        body,
+        "proto_deserialize", message_file_descriptor, message_name, pa_scalar, body, _chalk__repr_override=repr_override
     )
 
 

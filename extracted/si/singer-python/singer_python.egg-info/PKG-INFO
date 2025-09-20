@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: singer-python
-Version: 6.1.1
+Version: 6.2.0
 Summary: Singer.io utility library
 Home-page: http://singer.io
 Author: Stitch
@@ -18,3 +18,10 @@ Requires-Dist: ipython; extra == "dev"
 Requires-Dist: ipdb; extra == "dev"
 Requires-Dist: nose; extra == "dev"
 Requires-Dist: singer-tools; extra == "dev"
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary

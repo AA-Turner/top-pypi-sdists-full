@@ -21,9 +21,10 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
-    AgentEndpointStatusType,
-    AgentStatusType,
+    AgentRuntimeEndpointStatusType,
+    AgentRuntimeStatusType,
     ApiKeyCredentialLocationType,
+    BrowserNetworkModeType,
     BrowserStatusType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
@@ -34,6 +35,7 @@ from .literals import (
     MemoryStatusType,
     MemoryStrategyStatusType,
     MemoryStrategyTypeType,
+    NetworkModeType,
     OverrideTypeType,
     ResourceTypeType,
     SchemaTypeType,
@@ -54,18 +56,22 @@ else:
 
 
 __all__ = (
-    "AgentArtifactTypeDef",
-    "AgentEndpointTypeDef",
-    "AgentTypeDef",
+    "AgentRuntimeArtifactTypeDef",
+    "AgentRuntimeEndpointTypeDef",
+    "AgentRuntimeTypeDef",
     "ApiKeyCredentialProviderItemTypeDef",
     "ApiKeyCredentialProviderTypeDef",
     "ApiSchemaConfigurationTypeDef",
     "AuthorizerConfigurationOutputTypeDef",
     "AuthorizerConfigurationTypeDef",
     "AuthorizerConfigurationUnionTypeDef",
+    "BrowserNetworkConfigurationOutputTypeDef",
     "BrowserNetworkConfigurationTypeDef",
+    "BrowserNetworkConfigurationUnionTypeDef",
     "BrowserSummaryTypeDef",
+    "CodeInterpreterNetworkConfigurationOutputTypeDef",
     "CodeInterpreterNetworkConfigurationTypeDef",
+    "CodeInterpreterNetworkConfigurationUnionTypeDef",
     "CodeInterpreterSummaryTypeDef",
     "ConsolidationConfigurationTypeDef",
     "ContainerConfigurationTypeDef",
@@ -186,6 +192,8 @@ __all__ = (
     "ListOauth2CredentialProvidersRequestPaginateTypeDef",
     "ListOauth2CredentialProvidersRequestTypeDef",
     "ListOauth2CredentialProvidersResponseTypeDef",
+    "ListTagsForResourceRequestTypeDef",
+    "ListTagsForResourceResponseTypeDef",
     "ListWorkloadIdentitiesRequestPaginateTypeDef",
     "ListWorkloadIdentitiesRequestTypeDef",
     "ListWorkloadIdentitiesResponseTypeDef",
@@ -206,7 +214,9 @@ __all__ = (
     "ModifyMemoryStrategiesTypeDef",
     "ModifyMemoryStrategyInputTypeDef",
     "ModifyStrategyConfigurationTypeDef",
+    "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
+    "NetworkConfigurationUnionTypeDef",
     "OAuthCredentialProviderOutputTypeDef",
     "OAuthCredentialProviderTypeDef",
     "OAuthCredentialProviderUnionTypeDef",
@@ -222,6 +232,9 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "ProtocolConfigurationTypeDef",
     "RecordingConfigTypeDef",
+    "RequestHeaderConfigurationOutputTypeDef",
+    "RequestHeaderConfigurationTypeDef",
+    "RequestHeaderConfigurationUnionTypeDef",
     "ResponseMetadataTypeDef",
     "S3ConfigurationTypeDef",
     "S3LocationTypeDef",
@@ -245,6 +258,7 @@ __all__ = (
     "SummaryMemoryStrategyInputTypeDef",
     "SummaryOverrideConfigurationInputTypeDef",
     "SummaryOverrideConsolidationConfigurationInputTypeDef",
+    "TagResourceRequestTypeDef",
     "TargetConfigurationOutputTypeDef",
     "TargetConfigurationTypeDef",
     "TargetConfigurationUnionTypeDef",
@@ -253,6 +267,7 @@ __all__ = (
     "ToolDefinitionTypeDef",
     "ToolSchemaOutputTypeDef",
     "ToolSchemaTypeDef",
+    "UntagResourceRequestTypeDef",
     "UpdateAgentRuntimeEndpointRequestTypeDef",
     "UpdateAgentRuntimeEndpointResponseTypeDef",
     "UpdateAgentRuntimeRequestTypeDef",
@@ -275,6 +290,8 @@ __all__ = (
     "UserPreferenceOverrideConfigurationInputTypeDef",
     "UserPreferenceOverrideConsolidationConfigurationInputTypeDef",
     "UserPreferenceOverrideExtractionConfigurationInputTypeDef",
+    "VpcConfigOutputTypeDef",
+    "VpcConfigTypeDef",
     "WaiterConfigTypeDef",
     "WorkloadIdentityDetailsTypeDef",
     "WorkloadIdentityTypeTypeDef",
@@ -285,13 +302,13 @@ class ContainerConfigurationTypeDef(TypedDict):
     containerUri: str
 
 
-AgentEndpointTypeDef = TypedDict(
-    "AgentEndpointTypeDef",
+AgentRuntimeEndpointTypeDef = TypedDict(
+    "AgentRuntimeEndpointTypeDef",
     {
         "name": str,
         "agentRuntimeEndpointArn": str,
         "agentRuntimeArn": str,
-        "status": AgentEndpointStatusType,
+        "status": AgentRuntimeEndpointStatusType,
         "id": str,
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
@@ -302,14 +319,14 @@ AgentEndpointTypeDef = TypedDict(
 )
 
 
-class AgentTypeDef(TypedDict):
+class AgentRuntimeTypeDef(TypedDict):
     agentRuntimeArn: str
     agentRuntimeId: str
     agentRuntimeVersion: str
     agentRuntimeName: str
     description: str
     lastUpdatedAt: datetime
-    status: AgentStatusType
+    status: AgentRuntimeStatusType
 
 
 class ApiKeyCredentialProviderItemTypeDef(TypedDict):
@@ -343,8 +360,14 @@ class CustomJWTAuthorizerConfigurationTypeDef(TypedDict):
     allowedClients: NotRequired[Sequence[str]]
 
 
-class BrowserNetworkConfigurationTypeDef(TypedDict):
-    networkMode: Literal["PUBLIC"]
+class VpcConfigOutputTypeDef(TypedDict):
+    securityGroups: List[str]
+    subnets: List[str]
+
+
+class VpcConfigTypeDef(TypedDict):
+    securityGroups: Sequence[str]
+    subnets: Sequence[str]
 
 
 class BrowserSummaryTypeDef(TypedDict):
@@ -355,10 +378,6 @@ class BrowserSummaryTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
-
-
-class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
-    networkMode: CodeInterpreterNetworkModeType
 
 
 class CodeInterpreterSummaryTypeDef(TypedDict):
@@ -377,6 +396,7 @@ class CreateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeVersion: NotRequired[str]
     description: NotRequired[str]
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -385,10 +405,6 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: Dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
-
-
-class NetworkConfigurationTypeDef(TypedDict):
-    networkMode: Literal["PUBLIC"]
 
 
 class ProtocolConfigurationTypeDef(TypedDict):
@@ -552,6 +568,10 @@ class GetAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeVersion: NotRequired[str]
 
 
+class RequestHeaderConfigurationOutputTypeDef(TypedDict):
+    requestHeaderAllowlist: NotRequired[List[str]]
+
+
 class GetApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
 
@@ -705,6 +725,10 @@ class Oauth2CredentialProviderItemTypeDef(TypedDict):
     lastUpdatedTime: datetime
 
 
+class ListTagsForResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+
+
 class ListWorkloadIdentitiesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -773,6 +797,10 @@ class S3LocationTypeDef(TypedDict):
     prefix: str
 
 
+class RequestHeaderConfigurationTypeDef(TypedDict):
+    requestHeaderAllowlist: NotRequired[Sequence[str]]
+
+
 SchemaDefinitionOutputTypeDef = TypedDict(
     "SchemaDefinitionOutputTypeDef",
     {
@@ -795,6 +823,16 @@ SchemaDefinitionTypeDef = TypedDict(
 )
 
 
+class TagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tags: Mapping[str, str]
+
+
+class UntagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tagKeys: Sequence[str]
+
+
 class UpdateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     agentRuntimeId: str
     endpointName: str
@@ -813,7 +851,7 @@ class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
     allowedResourceOauth2ReturnUrls: NotRequired[Sequence[str]]
 
 
-class AgentArtifactTypeDef(TypedDict):
+class AgentRuntimeArtifactTypeDef(TypedDict):
     containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
 
 
@@ -830,19 +868,41 @@ class AuthorizerConfigurationTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationTypeDef]
 
 
-class CreateCodeInterpreterRequestTypeDef(TypedDict):
-    name: str
-    networkConfiguration: CodeInterpreterNetworkConfigurationTypeDef
-    description: NotRequired[str]
-    executionRoleArn: NotRequired[str]
-    clientToken: NotRequired[str]
+class BrowserNetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: BrowserNetworkModeType
+    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class CodeInterpreterNetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: CodeInterpreterNetworkModeType
+    vpcConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class NetworkConfigurationOutputTypeDef(TypedDict):
+    networkMode: NetworkModeType
+    networkModeConfig: NotRequired[VpcConfigOutputTypeDef]
+
+
+class BrowserNetworkConfigurationTypeDef(TypedDict):
+    networkMode: BrowserNetworkModeType
+    vpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
+    networkMode: CodeInterpreterNetworkModeType
+    vpcConfig: NotRequired[VpcConfigTypeDef]
+
+
+class NetworkConfigurationTypeDef(TypedDict):
+    networkMode: NetworkModeType
+    networkModeConfig: NotRequired[VpcConfigTypeDef]
 
 
 class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     targetVersion: str
     agentRuntimeEndpointArn: str
     agentRuntimeArn: str
-    status: AgentEndpointStatusType
+    status: AgentRuntimeEndpointStatusType
     createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -871,12 +931,12 @@ class CreateWorkloadIdentityResponseTypeDef(TypedDict):
 
 
 class DeleteAgentRuntimeEndpointResponseTypeDef(TypedDict):
-    status: AgentEndpointStatusType
+    status: AgentRuntimeEndpointStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteAgentRuntimeResponseTypeDef(TypedDict):
-    status: AgentStatusType
+    status: AgentRuntimeStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -923,7 +983,7 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
         "agentRuntimeEndpointArn": str,
         "agentRuntimeArn": str,
         "description": str,
-        "status": AgentEndpointStatusType,
+        "status": AgentRuntimeEndpointStatusType,
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "failureReason": str,
@@ -932,19 +992,6 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-
-class GetCodeInterpreterResponseTypeDef(TypedDict):
-    codeInterpreterId: str
-    codeInterpreterArn: str
-    name: str
-    description: str
-    executionRoleArn: str
-    networkConfiguration: CodeInterpreterNetworkConfigurationTypeDef
-    status: CodeInterpreterStatusType
-    createdAt: datetime
-    lastUpdatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetWorkloadIdentityResponseTypeDef(TypedDict):
@@ -957,19 +1004,19 @@ class GetWorkloadIdentityResponseTypeDef(TypedDict):
 
 
 class ListAgentRuntimeEndpointsResponseTypeDef(TypedDict):
-    runtimeEndpoints: List[AgentEndpointTypeDef]
+    runtimeEndpoints: List[AgentRuntimeEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAgentRuntimeVersionsResponseTypeDef(TypedDict):
-    agentRuntimes: List[AgentTypeDef]
+    agentRuntimes: List[AgentRuntimeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAgentRuntimesResponseTypeDef(TypedDict):
-    agentRuntimes: List[AgentTypeDef]
+    agentRuntimes: List[AgentRuntimeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -992,12 +1039,17 @@ class ListCodeInterpretersResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     liveVersion: str
     targetVersion: str
     agentRuntimeEndpointArn: str
     agentRuntimeArn: str
-    status: AgentEndpointStatusType
+    status: AgentRuntimeEndpointStatusType
     createdAt: datetime
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1018,7 +1070,7 @@ class CreateAgentRuntimeResponseTypeDef(TypedDict):
     agentRuntimeId: str
     agentRuntimeVersion: str
     createdAt: datetime
-    status: AgentStatusType
+    status: AgentRuntimeStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1029,7 +1081,7 @@ class UpdateAgentRuntimeResponseTypeDef(TypedDict):
     agentRuntimeVersion: str
     createdAt: datetime
     lastUpdatedAt: datetime
-    status: AgentStatusType
+    status: AgentRuntimeStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1249,6 +1301,11 @@ class RecordingConfigTypeDef(TypedDict):
     s3Location: NotRequired[S3LocationTypeDef]
 
 
+RequestHeaderConfigurationUnionTypeDef = Union[
+    RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
+]
+
+
 class ToolDefinitionOutputTypeDef(TypedDict):
     name: str
     description: str
@@ -1263,6 +1320,25 @@ class ToolDefinitionTypeDef(TypedDict):
     outputSchema: NotRequired[SchemaDefinitionTypeDef]
 
 
+AuthorizerConfigurationUnionTypeDef = Union[
+    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
+]
+
+
+class GetCodeInterpreterResponseTypeDef(TypedDict):
+    codeInterpreterId: str
+    codeInterpreterArn: str
+    name: str
+    description: str
+    executionRoleArn: str
+    networkConfiguration: CodeInterpreterNetworkConfigurationOutputTypeDef
+    status: CodeInterpreterStatusType
+    failureReason: str
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetAgentRuntimeResponseTypeDef(TypedDict):
     agentRuntimeArn: str
     workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
@@ -1273,17 +1349,24 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     createdAt: datetime
     lastUpdatedAt: datetime
     roleArn: str
-    agentRuntimeArtifact: AgentArtifactTypeDef
-    networkConfiguration: NetworkConfigurationTypeDef
+    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
+    networkConfiguration: NetworkConfigurationOutputTypeDef
     protocolConfiguration: ProtocolConfigurationTypeDef
     environmentVariables: Dict[str, str]
     authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
-    status: AgentStatusType
+    requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
+    status: AgentRuntimeStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-AuthorizerConfigurationUnionTypeDef = Union[
-    AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
+BrowserNetworkConfigurationUnionTypeDef = Union[
+    BrowserNetworkConfigurationTypeDef, BrowserNetworkConfigurationOutputTypeDef
+]
+CodeInterpreterNetworkConfigurationUnionTypeDef = Union[
+    CodeInterpreterNetworkConfigurationTypeDef, CodeInterpreterNetworkConfigurationOutputTypeDef
+]
+NetworkConfigurationUnionTypeDef = Union[
+    NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
 ]
 
 
@@ -1416,24 +1499,16 @@ class Oauth2DiscoveryTypeDef(TypedDict):
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
 
 
-class CreateBrowserRequestTypeDef(TypedDict):
-    name: str
-    networkConfiguration: BrowserNetworkConfigurationTypeDef
-    description: NotRequired[str]
-    executionRoleArn: NotRequired[str]
-    recording: NotRequired[RecordingConfigTypeDef]
-    clientToken: NotRequired[str]
-
-
 class GetBrowserResponseTypeDef(TypedDict):
     browserId: str
     browserArn: str
     name: str
     description: str
     executionRoleArn: str
-    networkConfiguration: BrowserNetworkConfigurationTypeDef
+    networkConfiguration: BrowserNetworkConfigurationOutputTypeDef
     recording: RecordingConfigTypeDef
     status: BrowserStatusType
+    failureReason: str
     createdAt: datetime
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1449,28 +1524,50 @@ class ToolSchemaTypeDef(TypedDict):
     inlinePayload: NotRequired[Sequence[ToolDefinitionTypeDef]]
 
 
+class CreateBrowserRequestTypeDef(TypedDict):
+    name: str
+    networkConfiguration: BrowserNetworkConfigurationUnionTypeDef
+    description: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    recording: NotRequired[RecordingConfigTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class CreateCodeInterpreterRequestTypeDef(TypedDict):
+    name: str
+    networkConfiguration: CodeInterpreterNetworkConfigurationUnionTypeDef
+    description: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
 class CreateAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeName: str
-    agentRuntimeArtifact: AgentArtifactTypeDef
+    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
     roleArn: str
-    networkConfiguration: NetworkConfigurationTypeDef
+    networkConfiguration: NetworkConfigurationUnionTypeDef
     description: NotRequired[str]
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     clientToken: NotRequired[str]
     environmentVariables: NotRequired[Mapping[str, str]]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeId: str
-    agentRuntimeArtifact: AgentArtifactTypeDef
+    agentRuntimeArtifact: AgentRuntimeArtifactTypeDef
     roleArn: str
-    networkConfiguration: NetworkConfigurationTypeDef
+    networkConfiguration: NetworkConfigurationUnionTypeDef
     description: NotRequired[str]
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     clientToken: NotRequired[str]
     environmentVariables: NotRequired[Mapping[str, str]]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
 
 
 class ModifyStrategyConfigurationTypeDef(TypedDict):

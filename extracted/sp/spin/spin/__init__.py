@@ -6,7 +6,7 @@ For usage information see `python -m spin`.
 Read more at https://github.com/scientific-python/spin
 """
 
-__version__ = "0.14"
+__version__ = "0.15"
 
 from .cmds import util
 

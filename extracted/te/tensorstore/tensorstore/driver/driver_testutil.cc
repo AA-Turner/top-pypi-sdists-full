@@ -72,6 +72,7 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/random_seed.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/kvstore/memory/memory_key_value_store.h"
@@ -168,8 +169,11 @@ void TestTensorStoreDriverSpecRoundtrip(
     ReplaceStringInJson(options.create_spec, tempdir_key, tempdir->path());
     ReplaceStringInJson(options.minimal_spec, tempdir_key, tempdir->path());
     ReplaceStringInJson(options.full_base_spec, tempdir_key, tempdir->path());
-    options.url =
-        absl::StrReplaceAll(options.url, {{tempdir_key, tempdir->path()}});
+
+    // For the URL, the tempdir path must begin with a leading slash.
+    options.url = absl::StrReplaceAll(
+        options.url,
+        {{tempdir_key, internal::OsPathToUriPath(tempdir->path())}});
   }
   Transaction transaction(mode);
   auto context = Context::Default();
@@ -177,7 +181,7 @@ void TestTensorStoreDriverSpecRoundtrip(
     EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                   tensorstore::OpenMode::open)
                     .result(),
-                MatchesStatus(absl::StatusCode::kNotFound));
+                StatusIs(absl::StatusCode::kNotFound));
   }
 
   SharedArray<const void> value_to_create;
@@ -211,7 +215,7 @@ void TestTensorStoreDriverSpecRoundtrip(
                 ::testing::Optional(MatchesJson(options.minimal_spec)));
 
     if (options.url.empty()) {
-      EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Not(tensorstore::IsOk()));
+      EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Not(IsOk()));
     } else {
       EXPECT_THAT(full_spec_obj.ToUrl(), ::testing::Optional(options.url));
     }
@@ -285,7 +289,7 @@ void TestTensorStoreDriverSpecRoundtrip(
       EXPECT_THAT(tensorstore::Open(options.minimal_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kNotFound));
+                  StatusIs(absl::StatusCode::kNotFound));
     }
     TENSORSTORE_EXPECT_OK(transaction.CommitAsync().result());
   }
@@ -422,7 +426,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
     EXPECT_THAT(tensorstore::Open(options.create_spec, context, transaction,
                                   tensorstore::OpenMode::create)
                     .result(),
-                MatchesStatus(absl::StatusCode::kAlreadyExists));
+                StatusIs(absl::StatusCode::kAlreadyExists));
   }
 
   ASSERT_EQ(options.expected_domain, store.domain());
@@ -496,7 +500,7 @@ void DriverRandomOperationTester::TestBasicFunctionality(
       EXPECT_THAT(tensorstore::Open(options.create_spec, context,
                                     tensorstore::OpenMode::open)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kNotFound));
+                  StatusIs(absl::StatusCode::kNotFound));
     }
     ASSERT_FALSE(transaction.commit_started());
     EXPECT_THAT(store | no_transaction,
@@ -927,7 +931,7 @@ void TestMetadataOnlyResize(const TestTensorStoreDriverResizeOptions& options,
                                           ? ResizeMode::shrink_only
                                           : ResizeMode::expand_only)
                       .result(),
-                  MatchesStatus(absl::StatusCode::kFailedPrecondition));
+                  StatusIs(absl::StatusCode::kFailedPrecondition));
       TENSORSTORE_ASSERT_OK_AND_ASSIGN(
           auto resized_store,
           tensorstore::Resize(

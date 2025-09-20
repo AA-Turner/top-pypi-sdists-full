@@ -92,8 +92,8 @@ class ValidationResult(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-			"metadata": obj.get("metadata"),
             "outcome": obj.get("outcome"),
+            "metadata": obj.get("metadata"),
             "validated_chunk": obj.get("validatedChunk")
         })
         return _obj

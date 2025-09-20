@@ -16,7 +16,7 @@ classifiers = [
 license = "MIT"
 
 [project.urls]
-Homepage = "https://github.com/autinerd/eheimdigital"
+Homepage = "https://codeberg.org/autinerd/eheimdigital"
 
 [tool.hatch.version]
 path = "eheimdigital/__init__.py"

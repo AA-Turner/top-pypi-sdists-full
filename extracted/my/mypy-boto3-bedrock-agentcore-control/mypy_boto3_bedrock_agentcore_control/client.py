@@ -118,10 +118,14 @@ from .type_defs import (
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestTypeDef,
     ListOauth2CredentialProvidersResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     ListWorkloadIdentitiesRequestTypeDef,
     ListWorkloadIdentitiesResponseTypeDef,
     SetTokenVaultCMKRequestTypeDef,
     SetTokenVaultCMKResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
     UpdateAgentRuntimeEndpointRequestTypeDef,
     UpdateAgentRuntimeEndpointResponseTypeDef,
     UpdateAgentRuntimeRequestTypeDef,
@@ -213,7 +217,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[CreateAgentRuntimeRequestTypeDef]
     ) -> CreateAgentRuntimeResponseTypeDef:
         """
-        Creates an Amazon Secure Agent.
+        Creates an Amazon Bedrock AgentCore Runtime.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_agent_runtime.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_agent_runtime)
@@ -223,7 +227,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[CreateAgentRuntimeEndpointRequestTypeDef]
     ) -> CreateAgentRuntimeEndpointResponseTypeDef:
         """
-        Creates an Amazon Secure AgentEndpoint.
+        Creates an AgentCore Runtime endpoint.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_agent_runtime_endpoint.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_agent_runtime_endpoint)
@@ -283,7 +287,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[CreateMemoryInputTypeDef]
     ) -> CreateMemoryOutputTypeDef:
         """
-        Creates a new memory.
+        Creates a new Amazon Bedrock AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_memory.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_memory)
@@ -313,7 +317,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[DeleteAgentRuntimeRequestTypeDef]
     ) -> DeleteAgentRuntimeResponseTypeDef:
         """
-        Deletes an Amazon Secure Agent.
+        Deletes an Amazon Bedrock AgentCore Runtime.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_agent_runtime.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_agent_runtime)
@@ -323,7 +327,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[DeleteAgentRuntimeEndpointRequestTypeDef]
     ) -> DeleteAgentRuntimeEndpointResponseTypeDef:
         """
-        Deletes an Amazon Secure AgentEndpoint.
+        Deletes an AAgentCore Runtime endpoint.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_agent_runtime_endpoint.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_agent_runtime_endpoint)
@@ -363,7 +367,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[DeleteGatewayRequestTypeDef]
     ) -> DeleteGatewayResponseTypeDef:
         """
-        Deletes a Gateway.
+        Deletes a gateway.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway)
@@ -373,7 +377,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[DeleteGatewayTargetRequestTypeDef]
     ) -> DeleteGatewayTargetResponseTypeDef:
         """
-        Deletes a Gateway Target.
+        Deletes a gateway target.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_target.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway_target)
@@ -383,7 +387,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[DeleteMemoryInputTypeDef]
     ) -> DeleteMemoryOutputTypeDef:
         """
-        Deletes a memory.
+        Deletes an Amazon Bedrock AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_memory.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_memory)
@@ -413,7 +417,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[GetAgentRuntimeRequestTypeDef]
     ) -> GetAgentRuntimeResponseTypeDef:
         """
-        Gets an Amazon Secure Agent.
+        Gets an Amazon Bedrock AgentCore Runtime.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_agent_runtime.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_agent_runtime)
@@ -469,7 +473,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[GetGatewayTargetRequestTypeDef]
     ) -> GetGatewayTargetResponseTypeDef:
         """
-        Retrieves information about a specific Gateway Target.
+        Retrieves information about a specific gateway target.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_target.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway_target)
@@ -477,7 +481,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
     def get_memory(self, **kwargs: Unpack[GetMemoryInputTypeDef]) -> GetMemoryOutputTypeDef:
         """
-        Retrieve an existing memory.
+        Retrieve an existing Amazon Bedrock AgentCore Memory resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_memory.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_memory)
@@ -577,7 +581,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[ListGatewayTargetsRequestTypeDef]
     ) -> ListGatewayTargetsResponseTypeDef:
         """
-        Lists all targets for a specific Gateway.
+        Lists all targets for a specific gateway.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateway_targets.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_gateway_targets)
@@ -587,7 +591,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[ListGatewaysRequestTypeDef]
     ) -> ListGatewaysResponseTypeDef:
         """
-        Lists all Gateways in the account.
+        Lists all gateways in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateways.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_gateways)
@@ -597,7 +601,8 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[ListMemoriesInputTypeDef]
     ) -> ListMemoriesOutputTypeDef:
         """
-        Lists the memory present.
+        Lists the available Amazon Bedrock AgentCore Memory resources in the current
+        Amazon Web Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_memories.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_memories)
@@ -611,6 +616,16 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_oauth2_credential_providers.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_oauth2_credential_providers)
+        """
+
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        Lists the tags associated with the specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_tags_for_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_tags_for_resource)
         """
 
     def list_workload_identities(
@@ -633,6 +648,22 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#set_token_vault_cmk)
         """
 
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Associates the specified tags to a resource with the specified resourceArn.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/tag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Removes the specified tags from the specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/untag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#untag_resource)
+        """
+
     def update_agent_runtime(
         self, **kwargs: Unpack[UpdateAgentRuntimeRequestTypeDef]
     ) -> UpdateAgentRuntimeResponseTypeDef:
@@ -647,7 +678,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[UpdateAgentRuntimeEndpointRequestTypeDef]
     ) -> UpdateAgentRuntimeEndpointResponseTypeDef:
         """
-        Updates an existing Amazon Secure AgentEndpoint.
+        Updates an existing Amazon Bedrock AgentCore Runtime endpoint.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_agent_runtime_endpoint.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_agent_runtime_endpoint)
@@ -667,7 +698,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[UpdateGatewayRequestTypeDef]
     ) -> UpdateGatewayResponseTypeDef:
         """
-        Updates an existing Gateway.
+        Updates an existing gateway.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway)
@@ -677,7 +708,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[UpdateGatewayTargetRequestTypeDef]
     ) -> UpdateGatewayTargetResponseTypeDef:
         """
-        Updates an existing Gateway Target.
+        Updates an existing gateway target.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway_target.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway_target)
@@ -687,7 +718,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         self, **kwargs: Unpack[UpdateMemoryInputTypeDef]
     ) -> UpdateMemoryOutputTypeDef:
         """
-        Update memory.
+        Update an Amazon Bedrock AgentCore Memory resource memory.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_memory.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_memory)

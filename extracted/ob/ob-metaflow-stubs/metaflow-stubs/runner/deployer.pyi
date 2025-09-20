@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
-# Generated on 2025-09-16T23:23:08.894445                                                            #
+# MF version: 2.18.7.5+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-19T21:56:58.878242                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,12 +9,12 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.plugins.argo.argo_workflows_deployer_objects
-    import metaflow.runner.deployer
-    import metaflow.plugins.aws.step_functions.step_functions_deployer
     import metaflow.plugins.argo.argo_workflows_deployer
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
+    import metaflow.plugins.aws.step_functions.step_functions_deployer
+    import metaflow.runner.deployer
+    import metaflow.plugins.argo.argo_workflows_deployer_objects
+    import metaflow
 
 from ..exception import MetaflowNotFound as MetaflowNotFound
 

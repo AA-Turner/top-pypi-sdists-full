@@ -125,6 +125,7 @@ class Validation(BaseModel):
             "maxProperties": obj.get("maxProperties"),
             "minProperties": obj.get("minProperties"),
             "required": obj.get("required"),
+            "dependentRequired": obj.get("dependentRequired"),
             "const": obj.get("const"),
             "enum": obj.get("enum"),
             "type": ValidationType.from_dict(obj["type"]) if obj.get("type") is not None else None

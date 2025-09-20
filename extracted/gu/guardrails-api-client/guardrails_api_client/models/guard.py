@@ -79,9 +79,9 @@ class Guard(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in validators (list)
         _items = []
         if self.validators:
-            for _item in self.validators:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_validators in self.validators:
+                if _item_validators:
+                    _items.append(_item_validators.to_dict())
             _dict['validators'] = _items
         # override the default output from pydantic by calling `to_dict()` of output_schema
         if self.output_schema:
@@ -89,9 +89,9 @@ class Guard(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in history (list)
         _items = []
         if self.history:
-            for _item in self.history:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_history in self.history:
+                if _item_history:
+                    _items.append(_item_history.to_dict())
             _dict['history'] = _items
         return _dict
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spin
-Version: 0.14
+Version: 0.15
 Summary: Developer tool for scientific Python libraries
 Maintainer-email: Scientific Python <spin@discuss.scientific-python.org>
 License: BSD 3-Clause License
@@ -46,16 +46,17 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: click
+Requires-Dist: click<8.3,>=8
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: colorama; platform_system == "Windows"
 Requires-Dist: importlib_metadata>=7
 Provides-Extra: lint
-Requires-Dist: pre-commit==4.2.0; extra == "lint"
+Requires-Dist: pre-commit==4.3.0; extra == "lint"
 Provides-Extra: dev
 Requires-Dist: changelist==0.5; extra == "dev"
 Dynamic: license-file

@@ -8,20 +8,21 @@ European Space Agency (ESA)
 """
 import binascii
 import os
+import pprint
 import tarfile
 import zipfile
-from collections.abc import Iterable
-from datetime import datetime
-
 from astropy import units
 from astropy import units as u
 from astropy.coordinates import Angle
 from astropy.units import Quantity
+from collections.abc import Iterable
+from datetime import datetime
 from requests.exceptions import HTTPError
 
 from astroquery import log
 from astroquery.utils import commons
 from astroquery.utils.tap import TapPlus
+from astroquery.utils.tap import taputils
 from . import conf
 
 
@@ -114,6 +115,156 @@ class EuclidClass(TapPlus):
 
         if show_server_messages:
             self.get_status_messages()
+
+    def cross_match_basic(self, *, table_a_full_qualified_name, table_a_column_ra, table_a_column_dec,
+                          table_b_full_qualified_name=None, table_b_column_ra=None, table_b_column_dec=None,
+                          results_name=None,
+                          radius=1.0, background=False, verbose=False):
+        """Performs a positional cross-match between the specified tables.
+
+        This method carries out the following steps in one step:
+
+            1. updates the user table metadata to flag the positional RA/Dec columns;
+            2. launches a positional cross-match as an asynchronous query;
+            3. returns all the columns from both tables plus the angular distance (deg) for the cross-matched sources.
+
+        The result is a join table with the identifies of both tables and the distance (degrees), that is returned
+        without metadata units. If desired, units can be added using the Units package of Astropy as follows:
+        ``results[‘separation’].unit = u.degree``. To speed up the cross-match, pass the biggest table to the
+        ``table_b_full_qualified_name`` parameter.
+        TAP+ only
+
+        Parameters
+        ----------
+        table_a_full_qualified_name : str, mandatory
+            a full qualified table name (i.e. schema name and table name)
+        table_a_column_ra : str, mandatory
+            the ‘ra’ column in the table table_a_full_qualified_name
+        table_a_column_dec :  str, mandatory
+            the ‘dec’ column in the table table_a_full_qualified_name
+        table_b_full_qualified_name : str, optional, default the main_table associated to the selected environment
+            a full qualified table name (i.e. schema name and table name)
+        table_b_column_ra : str, optional, default the main_table_ra_column associated to the selected environment
+            the ‘ra’ column in the table table_b_full_qualified_name
+        table_b_column_dec :  str, default the main_table_dec_column associated to the selected environment
+            the ‘dec’ column in the table table_b_full_qualified_name
+        results_name : str, optional, default None
+            custom name defined by the user for the job that is going to be created
+        radius : float (arc. seconds), str or astropy.coordinate, optional, default 1.0
+            radius  (valid range: 0.1-10.0). For an astropy.coordinate any angular unit is valid, but its value in arc
+            sec must be contained within the valid range.
+        background : bool, optional, default 'False'
+            when the job is executed in asynchronous mode, this flag specifies
+            whether the execution will wait until results are available
+        verbose : bool, optional, default 'False'
+            flag to display information about the process
+
+        Returns
+        -------
+        A Job object
+        """
+
+        radius_quantity = self.__get_radius_as_quantity_arcsec(radius)
+
+        radius_arc_sec = radius_quantity.value
+
+        if radius_arc_sec < 0.1 or radius_arc_sec > 10.0:
+            raise ValueError(f"Invalid radius value. Found {radius_quantity}, valid range is: 0.1 to 10.0")
+
+        schema_a = self.__get_schema_name(table_a_full_qualified_name)
+        if not schema_a:
+            raise ValueError(f"Schema name is empty in full qualified table: '{table_a_full_qualified_name}'")
+
+        if table_b_full_qualified_name is None:
+            table_b_full_qualified_name = self.main_table
+            table_b_column_ra = self.main_table_ra
+            table_b_column_dec = self.main_table_dec
+        else:
+            if table_b_column_ra is None or table_b_column_dec is None:
+                raise ValueError(f"Invalid ra or dec column names: '{table_b_column_ra}' and '{table_b_column_dec}'")
+
+        schema_b = self.__get_schema_name(table_b_full_qualified_name)
+        if not schema_b:
+            raise ValueError(f"Schema name is empty in full qualified table: '{table_b_full_qualified_name}'")
+
+        table_metadata_a = self.__get_table_metadata(table_a_full_qualified_name, verbose)
+
+        table_metadata_b = self.__get_table_metadata(table_b_full_qualified_name, verbose)
+
+        self.__check_columns_exist(table_metadata_a, table_a_full_qualified_name, table_a_column_ra, table_a_column_dec)
+
+        self.__update_ra_dec_columns(table_a_full_qualified_name, table_a_column_ra, table_a_column_dec,
+                                     table_metadata_a, verbose)
+
+        self.__check_columns_exist(table_metadata_b, table_b_full_qualified_name, table_b_column_ra, table_b_column_dec)
+
+        self.__update_ra_dec_columns(table_b_full_qualified_name, table_b_column_ra, table_b_column_dec,
+                                     table_metadata_b, verbose)
+
+        query = (
+            f"SELECT a.*, DISTANCE(a.{table_a_column_ra}, a.{table_a_column_dec}, b.{table_b_column_ra}, "
+            f"b.{table_b_column_dec}) AS separation, b.* "
+            f"FROM {table_a_full_qualified_name} AS a JOIN {table_b_full_qualified_name} AS b "
+            f"ON DISTANCE(a.{table_a_column_ra}, a.{table_a_column_dec}, b.{table_b_column_ra}, b.{table_b_column_dec})"
+            f" < {radius_quantity.to(u.deg).value}")
+
+        return self.launch_job_async(query=query, name=results_name, output_file=None, output_format="votable_gzip",
+                                     verbose=verbose, dump_to_file=False, background=background, upload_resource=None,
+                                     upload_table_name=None)
+
+    def __get_radius_as_quantity_arcsec(self, radius):
+        """
+        transform the input radius into an astropy.Quantity in arc seconds
+        """
+        if not isinstance(radius, units.Quantity):
+            radius_quantity = Quantity(value=radius, unit=u.arcsec)
+        else:
+            radius_quantity = radius.to(u.arcsec)
+        return radius_quantity
+
+    def __update_ra_dec_columns(self, full_qualified_table_name, column_ra, column_dec, table_metadata, verbose):
+        """
+        Update table metadata for the ‘ra’ and the ‘dec’ columns in the input table
+        """
+        if full_qualified_table_name.startswith("user_"):
+            list_of_changes = list()
+            for column in table_metadata.columns:
+                if column.name == column_ra and column.flags != '1':
+                    list_of_changes.append([column_ra, "flags", "Ra"])
+                    list_of_changes.append([column_ra, "indexed", True])
+                if column.name == column_dec and column.flags != '2':
+                    list_of_changes.append([column_dec, "flags", "Dec"])
+                    list_of_changes.append([column_dec, "indexed", True])
+
+            if list_of_changes:
+                TapPlus.update_user_table(self, table_name=full_qualified_table_name, list_of_changes=list_of_changes,
+                                          verbose=verbose)
+
+    def __check_columns_exist(self, table_metadata_a, full_qualified_table_name, column_ra, column_dec):
+        """
+        Check whether the ‘ra’ and the ‘dec’ columns exists the input table
+        """
+        column_names = [column.name for column in table_metadata_a.columns]
+        if column_ra not in column_names or column_dec not in column_names:
+            raise ValueError(
+                f"Please check: columns {column_ra} or {column_dec} not available in the table '"
+                f"{full_qualified_table_name}'")
+
+    def __get_table_metadata(self, full_qualified_table_name, verbose):
+        """
+        Get the table metadata for the input table
+        """
+
+        return self.load_table(table=full_qualified_table_name, verbose=verbose)
+
+    def __get_schema_name(self, full_qualified_table_name):
+        """
+        Get the schema name from the full qualified table
+        """
+        schema = taputils.get_schema_name(full_qualified_table_name)
+        if schema is None:
+            raise ValueError(f"Not found schema name in full qualified table: '{full_qualified_table_name}'")
+        return schema
 
     def launch_job(self, query, *, name=None, dump_to_file=False, output_file=None, output_format="csv", verbose=False,
                    upload_resource=None, upload_table_name=None):
@@ -256,7 +407,8 @@ class EuclidClass(TapPlus):
             height_quantity = self.__get_quantity_input(height, "height")
             width_deg = width_quantity.to(units.deg)
             height_deg = height_quantity.to(units.deg)
-            query = ("SELECT DISTANCE(POINT('ICRS'," + self.main_table_ra + "," + self.main_table_dec + "), \
+            query = ("SELECT " + (("TOP " + str(self.ROW_LIMIT)) if self.ROW_LIMIT > 0 else "")
+                     + " DISTANCE(POINT('ICRS'," + self.main_table_ra + "," + self.main_table_dec + "), \
                 POINT('ICRS'," + str(ra) + "," + str(dec) + ")) AS dist, * \
                 FROM " + self.main_table + " WHERE CONTAINS(\
                 POINT('ICRS'," + self.main_table_ra + "," + self.main_table_dec + "),\
@@ -281,10 +433,10 @@ class EuclidClass(TapPlus):
             coordinates center point
         radius : astropy.units, mandatory
             radius
-        table_name : str, optional, default main gaia table name doing the cone search against
-        ra_column_name : str, optional, default ra column in main gaia table
+        table_name : str, optional, default main table name doing the cone search against
+        ra_column_name : str, optional, default ra column in main table
             ra column doing the cone search against
-        dec_column_name : str, optional, default dec column in main gaia table
+        dec_column_name : str, optional, default dec column in main table
             dec column doing the cone search against
         async_job : bool, optional, default 'False'
             executes the job in asynchronous/synchronous mode (default
@@ -408,12 +560,10 @@ class EuclidClass(TapPlus):
             ra_column_name = self.main_table_ra
             dec_column_name = self.main_table_dec
 
-        """
         if columns:
             columns = ','.join(map(str, columns))
         else:
             columns = "*"
-        """
 
         query = """
                 SELECT
@@ -472,6 +622,10 @@ class EuclidClass(TapPlus):
             file containing user and password in two lines
         verbose : bool, optional, default 'False'
             flag to display information about the process
+
+        Returns
+        -------
+        None
         """
         try:
             log.info(f"Login to Euclid TAP server: {self._TapPlus__getconnhandler().get_host_url()}")
@@ -503,6 +657,10 @@ class EuclidClass(TapPlus):
         ----------
         verbose : bool, optional, default 'False'
             flag to display information about the process
+
+        Returns
+        -------
+        None
         """
         try:
             log.info(f"Login to Euclid TAP server: {self._TapPlus__getconnhandler().get_host_url()}")
@@ -540,6 +698,11 @@ class EuclidClass(TapPlus):
         ----------
         verbose : bool, optional, default 'False'
             flag to display information about the process
+
+        Returns
+        -------
+        None
+
         """
         try:
             super().logout(verbose=verbose)
@@ -779,7 +942,7 @@ class EuclidClass(TapPlus):
 
         Returns
         -------
-        The list of products (astropy.table)
+        The products in an astropy.table.Table
         """
 
         if tile_index is None:
@@ -884,7 +1047,7 @@ class EuclidClass(TapPlus):
                 #. NISP
                     DpdNispRawFrame: NISP Raw Frame Product
 
-            #. Euclid LE2/LE3 products:
+            #. Euclid LE2 products:
 
                 #. VIS
                     DpdVisCalibratedQuadFrame: VIS Calibrated Frame Product
@@ -1275,6 +1438,158 @@ class EuclidClass(TapPlus):
         """
 
         return self.__eucliddata.get_datalinks(ids=ids, linking_parameter=linking_parameter, verbose=verbose)
+
+    def get_scientific_product_list(self, *, observation_id=None, tile_index=None, category=None, group=None,
+                                    product_type=None, dataset_release='REGREPROC1_R2', verbose=False):
+        """ Gets the LE3 products (the high-level science data products).
+
+        Please note that not all combinations of category, group, and product_type are valid. Check the available values
+        in https://astroquery.readthedocs.io/en/latest/esa/euclid/euclid.html#appendix
+
+        Parameters
+        ----------
+        observation_id: str, optional, default None.
+            It is not compatible with parameter tile_index.
+        tile_index: str, optional, default None.
+            It is not compatible with parameter observation_id.
+        category: str, optional, default None.
+        group : str, optional, default None
+        product_type : str, optional, default None
+        dataset_release : str, mandatory. Default REGREPROC1_R2
+            Data release from which data should be taken.
+        verbose : bool, optional, default 'False'
+            flag to display information about the process
+
+        Returns
+        -------
+        The products in an astropy.table.Table
+
+        """
+
+        query_extra_condition = ""
+
+        if (observation_id is None and tile_index is None and category is None and group is None and product_type is
+                None):
+            raise ValueError("Include a valid parameter to retrieve a LE3 product.")
+
+        if dataset_release is None:
+            raise ValueError("The release is required.")
+
+        if observation_id is not None and tile_index is not None:
+            raise ValueError(self.__ERROR_MSG_REQUESTED_OBSERVATION_ID_AND_TILE_ID)
+
+        if tile_index is not None:
+            query_extra_condition = f" AND '{tile_index}' = ANY(tile_index_list) "
+
+        if observation_id is not None:
+            query_extra_condition = f" AND '{observation_id}' = ANY(observation_id_list) "
+
+        if category is not None:
+
+            try:
+                _ = conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS[category]
+            except KeyError:
+                raise ValueError(
+                    f"Invalid combination of parameters: category={category}. Valid values:\n "
+                    f"{pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+            if group is not None:
+
+                try:
+                    product_type_for_category_group_list = conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS[category][
+                        group]
+                except KeyError:
+                    raise ValueError(
+                        f"Invalid combination of parameters: category={category}; group={group}. Valid "
+                        f"values:\n {pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                if product_type is not None:
+
+                    if product_type not in product_type_for_category_group_list:
+                        raise ValueError(
+                            f"Invalid combination of parameters: category={category}; group={group}; "
+                            f"product_type={product_type}. Valid values:\n "
+                            f"{pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                    query_extra_condition = query_extra_condition + f" AND product_type ='{product_type}' "
+                else:
+
+                    final_products = ', '.join(f"'{w}'" for w in product_type_for_category_group_list)
+                    query_extra_condition = query_extra_condition + f" AND product_type IN ({final_products}) "
+            else:  # category is not None and group is None
+
+                product_type_for_category_group_list = [item for row in
+                                                        conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS[category]
+                                                        .values() for item in row]
+                if product_type is not None:
+
+                    if product_type not in product_type_for_category_group_list:
+                        raise ValueError(
+                            f"Invalid combination of parameters: category={category}; product_type={product_type}."
+                            f" Valid values:\n {pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                    query_extra_condition = query_extra_condition + f" AND product_type = '{product_type}' "
+
+                else:  # category is not None and group is None and product_type is None
+                    final_products = ', '.join(f"'{w}'" for w in product_type_for_category_group_list)
+                    query_extra_condition = query_extra_condition + f" AND product_type IN ({final_products}) "
+        else:  # category is None
+
+            all_groups_dict = {}
+            for i in conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS.keys():
+                all_groups_dict.update(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS[i])
+
+            if group is not None:
+
+                try:
+                    _ = all_groups_dict[group]
+                except KeyError:
+                    raise ValueError(
+                        f"Invalid combination of parameters: group={group}. Valid values:\n "
+                        f"{pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                if product_type is not None:
+
+                    if product_type not in all_groups_dict[group]:
+                        raise ValueError(
+                            f"Invalid combination of parameters: group={group}; product_type={product_type}. Valid "
+                            f"values:\n {pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                    query_extra_condition = query_extra_condition + f" AND product_type = '{product_type}' "
+                else:  # group is not None and product_type is None
+
+                    product_type_for_group_list = all_groups_dict[group]
+                    final_products = ', '.join(f"'{w}'" for w in product_type_for_group_list)
+                    query_extra_condition = query_extra_condition + f" AND product_type IN ({final_products}) "
+
+            else:  # category is None and group is None
+
+                product_type_for_category_group_list = [element for sublist in all_groups_dict.values() for element
+                                                        in sublist]
+
+                if product_type is not None:
+                    if product_type not in product_type_for_category_group_list:
+                        raise ValueError(
+                            f"Invalid combination of parameters: product_type={product_type}. Valid values:\n "
+                            f"{pprint.pformat(conf.VALID_LE3_PRODUCT_TYPES_CATEGORIES_GROUPS)}")
+
+                    query_extra_condition = query_extra_condition + f" AND product_type = '{product_type}' "
+
+                else:
+                    query_extra_condition = query_extra_condition + ""
+
+        query = (
+            f"SELECT basic_download_data.basic_download_data_oid, basic_download_data.product_type, "
+            f"basic_download_data.product_id, CAST(basic_download_data.observation_id_list as text) AS "
+            f"observation_id_list, CAST(basic_download_data.tile_index_list as text) AS tile_index_list, "
+            f"CAST(basic_download_data.patch_id_list as text) AS patch_id_list, "
+            f"CAST(basic_download_data.filter_name as text) AS filter_name FROM sedm.basic_download_data WHERE "
+            f"release_name='{dataset_release}' {query_extra_condition} ORDER BY observation_id_list ASC")
+
+        job = super().launch_job(query=query, output_format='votable_plain', verbose=verbose,
+                                 format_with_results_compressed=('votable_gzip',))
+
+        return job.get_results()
 
 
 Euclid = EuclidClass()

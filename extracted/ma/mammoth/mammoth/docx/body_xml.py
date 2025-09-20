@@ -288,6 +288,12 @@ def _create_reader(numbering, content_types, relationships, styles, docx_file, f
             if level is not None:
                 return level
 
+        # Some malformed documents define numbering levels without an index, and
+        # reference the numbering using a w:numPr element without a w:ilvl child.
+        # To handle such cases, we assume a level of 0 as a fallback.
+        if num_id is not None:
+            return numbering.find_level(num_id, "0")
+
         return None
 
     def _read_paragraph_indent(element):
@@ -399,6 +405,7 @@ def _create_reader(numbering, content_types, relationships, styles, docx_file, f
             for row in rows
         )
         if unexpected_non_rows:
+            rows = remove_unmerged_table_cells(rows)
             return _elements_result_with_messages(rows, [results.warning(
                 "unexpected non-row element in table, cell merging may be incorrect"
             )])
@@ -409,6 +416,7 @@ def _create_reader(numbering, content_types, relationships, styles, docx_file, f
             for cell in row.children
         )
         if unexpected_non_cells:
+            rows = remove_unmerged_table_cells(rows)
             return _elements_result_with_messages(rows, [results.warning(
                 "unexpected non-cell element in table row, cell merging may be incorrect"
             )])
@@ -436,6 +444,20 @@ def _create_reader(numbering, content_types, relationships, styles, docx_file, f
             ]
 
         return _success(rows)
+
+
+    def remove_unmerged_table_cells(rows):
+        return list(map(
+            transforms.element_of_type(
+                documents.TableCellUnmerged,
+                lambda cell: documents.table_cell(
+                    children=cell.children,
+                    colspan=cell.colspan,
+                    rowspan=cell.rowspan,
+                ),
+            ),
+            rows,
+        ))
 
 
     def read_child_elements(element):

@@ -12,7 +12,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     python_requires=">=3.8, <4",
-    install_requires=["python_dateutil >= 2.5.3", "setuptools >= 21.0.0", "urllib3 >= 1.25.3, < 2.1.0", "pydantic >= 2", "typing-extensions >= 4.7.1"],
+    install_requires=["urllib3 >= 2.1.0, < 3.0.0", "python_dateutil >= 2.8.2", "pydantic >= 2", "typing-extensions >= 4.7.1", "lazy-imports >= 1, < 2"],
     package_data={"guardrails_api_client": ["py.typed", "openapi-spec.json"]},
 )
   

@@ -57,6 +57,8 @@ class dec1(TDecimal):
         value=f"{value:.3f}"
         return super().__new__(self,value)
 
+def chunker(l,size):
+    return [l[i:i+size] for i in range(0,len(l),int(size))]
 
 class stre(str):
     '''String Extended to include operators for some useful functionality.'''

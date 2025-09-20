@@ -26,7 +26,7 @@ clean: uninstall
 
 .PHONY: install
 install:
-	./ci/install-tools.sh
+	./ci/install-tools.sh --dev
 	if ! [ -f .git/hooks/pre-commit ]; then\
 		pre-commit install --install-hooks --overwrite -t pre-commit;\
 	fi
@@ -70,7 +70,6 @@ tests:
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
 	cp -a tests $(COV_TMPDIR)/
-	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && pytest --dist=loadfile -nauto -v || true
 
 .PHONY: cov
@@ -81,9 +80,8 @@ cov:
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
 	cp -a tests $(COV_TMPDIR)/
-	cp -a wheelhouse $(COV_TMPDIR)/
 	cd $(COV_TMPDIR) && coverage run ||true
-	coverage combine --keep -a $(COV_TMPDIR)/
+	coverage combine --keep --quiet -a $(COV_TMPDIR)/
 	coverage report
 	coverage html
 

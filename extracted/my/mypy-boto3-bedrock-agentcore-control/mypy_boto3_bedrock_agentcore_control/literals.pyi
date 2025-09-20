@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_bedrock_agentcore_control.literals import AgentEndpointStatusType
+    from mypy_boto3_bedrock_agentcore_control.literals import AgentRuntimeEndpointStatusType
 
-    data: AgentEndpointStatusType = "CREATE_FAILED"
+    data: AgentRuntimeEndpointStatusType = "CREATE_FAILED"
     ```
 """
 
@@ -22,8 +22,8 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
-    "AgentEndpointStatusType",
-    "AgentStatusType",
+    "AgentRuntimeEndpointStatusType",
+    "AgentRuntimeStatusType",
     "ApiKeyCredentialLocationType",
     "AuthorizerTypeType",
     "BedrockAgentCoreControlPlaneFrontingLayerServiceName",
@@ -65,19 +65,19 @@ __all__ = (
     "WaiterName",
 )
 
-AgentEndpointStatusType = Literal[
+AgentRuntimeEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
-AgentStatusType = Literal[
+AgentRuntimeStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
 AuthorizerTypeType = Literal["CUSTOM_JWT"]
-BrowserNetworkModeType = Literal["PUBLIC"]
+BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
 BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
-CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX"]
+CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
@@ -111,7 +111,7 @@ MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 MemoryStrategyTypeType = Literal["CUSTOM", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"]
-NetworkModeType = Literal["PUBLIC"]
+NetworkModeType = Literal["PUBLIC", "VPC"]
 OverrideTypeType = Literal["SEMANTIC_OVERRIDE", "SUMMARY_OVERRIDE", "USER_PREFERENCE_OVERRIDE"]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
@@ -148,6 +148,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -159,8 +160,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -402,8 +405,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -485,7 +486,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -536,16 +536,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_agent_runtime_endpoints",

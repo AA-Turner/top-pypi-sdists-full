@@ -31,7 +31,7 @@ def remove_fintech_duplicates(
         logger = logging.getLogger()
         logger.setLevel(logging.FATAL)
     date_col = _get_column_by_key(search_keys, [SearchKey.DATE, SearchKey.DATETIME])
-    if define_task(df[TARGET], date_col is not None, silent=True) != ModelTaskType.BINARY:
+    if define_task(df[TARGET], date_col is not None, logger=logger, silent=True) != ModelTaskType.BINARY:
         return df, []
 
     if date_col is None:
@@ -160,7 +160,10 @@ def remove_fintech_duplicates(
 
 
 def clean_full_duplicates(
-    df: pd.DataFrame, logger: Optional[Logger] = None, bundle: Optional[ResourceBundle] = None
+    df: pd.DataFrame,
+    is_transform: bool = False,
+    logger: Optional[Logger] = None,
+    bundle: Optional[ResourceBundle] = None,
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     if logger is None:
         logger = logging.getLogger()
@@ -193,7 +196,7 @@ def clean_full_duplicates(
         logger.warning(bundle.get("dataset_full_duplicates").format(share_full_dedup))
 
     msg = None
-    if TARGET in df.columns:
+    if not is_transform and TARGET in df.columns:
         unique_columns.remove(TARGET)
 
         # Separate rows to exclude from deduplication:

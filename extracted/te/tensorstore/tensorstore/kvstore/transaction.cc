@@ -22,6 +22,7 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <optional>
 #include <string>
@@ -41,7 +42,6 @@
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/metrics/counter.h"
 #include "tensorstore/internal/metrics/metadata.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/driver.h"
@@ -759,7 +759,7 @@ void RequestWritebackForRead(
     void set_value(ReadResult read_result) {
       {
         assert(!StorageGeneration::IsUnknown(read_result.stamp.generation));
-        absl::MutexLock lock(&entry_->mutex());
+        absl::MutexLock lock(entry_->mutex());
         auto* req_entry = ReadFromPrev ? entry_->prev_ : entry_;
         ReceiveWritebackCommon(*req_entry, read_result);
         if constexpr (ReadFromPrev) {
@@ -1408,7 +1408,7 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
       // without a prior read request.
       TimestampedStorageGeneration expected_stamp;
       {
-        absl::MutexLock lock(&mutex_);
+        absl::MutexLock lock(mutex_);
         expected_stamp = expected_stamp_;
       }
       if (StorageGeneration::IsUnknown(expected_stamp.generation)) {
@@ -1437,7 +1437,7 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
       void set_value(ReadResult read_result) {
         bool mismatch;
         {
-          absl::MutexLock lock(&node_.mutex_);
+          absl::MutexLock lock(node_.mutex_);
           mismatch = !StorageGeneration::EqualOrUnspecified(
               read_result.stamp.generation, node_.expected_stamp_.generation);
         }
@@ -1486,7 +1486,7 @@ class ReadViaExistingTransactionNode : public internal::TransactionState::Node,
 
       void set_value(ReadResult read_result) {
         if (read_node_->transaction()->mode() & repeatable_read) {
-          absl::MutexLock lock(&read_node_->mutex_);
+          absl::MutexLock lock(read_node_->mutex_);
           if (!StorageGeneration::IsUnknown(read_result.stamp.generation) &&
               !StorageGeneration::EqualOrUnspecified(
                   read_result.stamp.generation,
@@ -1675,7 +1675,7 @@ struct ListOperationState
     std::vector<ReadModifyWriteEntry*> modified_keys;
     std::vector<RangeToQuery> ranges;
 
-    absl::MutexLock lock(&multi_phase.mutex());
+    absl::MutexLock lock(multi_phase.mutex());
     auto& single_phase_mutation = GetCurrentSinglePhaseMutation(multi_phase);
 
     // Find the first existing entry that intersects or is after `range`.  We
@@ -1809,7 +1809,7 @@ struct ListOperationState
           return;
         }
       }
-      execution::set_value(state->shared_receiver->receiver, std::move(entry));
+      state->YieldValue(std::move(entry));
     }
   };
 
@@ -1850,10 +1850,8 @@ struct ListOperationState
       std::string_view key;
       key = modified_keys[i]->key_;
       key.remove_prefix(std::min(key.size(), strip_prefix_length));
-      execution::set_value(
-          shared_receiver->receiver,
-          kvstore::ListEntry{std::string(key),
-                             std::max(info, static_cast<int64_t>(-1))});
+      YieldValue(kvstore::ListEntry{std::string(key),
+                                    std::max(info, static_cast<int64_t>(-1))});
     }
   }
 
@@ -2021,7 +2019,7 @@ absl::Status GetNonAtomicReadModifyWriteError(
     return node.MarkAsTerminal();
   }
   if (modify_status == ReadModifyWriteStatus::kAddedSubsequent) {
-    absl::MutexLock lock(&node.mutex_);
+    absl::MutexLock lock(node.mutex_);
     auto& single_phase_mutation = *node.phases_.prev_;
     // Even though we have released and then re-acquired the mutex, there
     // must still be at least two entries, since the number of entries can
@@ -2090,7 +2088,7 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
       execution::set_value(receiver, kvstore::ReadResult{});
       return;
     }
-    UniqueWriterLock lock(mutex_);
+    std::unique_lock lock(mutex_);
     if (!StorageGeneration::IsConditional(read_result_.stamp.generation) ||
         (fail_transaction_on_mismatch_ &&
          !this->transaction()->commit_started())) {
@@ -2131,7 +2129,7 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
       OptionalByteRangeRequest byte_range_;
       void set_value(ReadResult read_result) {
         {
-          UniqueWriterLock lock(source_.mutex_);
+          std::unique_lock lock(source_.mutex_);
           auto base_generation = source_.GetBaseGeneration();
           // Check if the new read generation matches the condition specified in
           // the read request.
@@ -2340,7 +2338,7 @@ absl::Status Driver::ReadModifyWrite(internal::OpenTransactionPtr& transaction,
           internal_kvstore::NonAtomicTransactionNode>(this, transaction));
   internal_kvstore::MultiPhaseMutation::ReadModifyWriteStatus rmw_status;
   {
-    absl::MutexLock lock(&node->mutex_);
+    absl::MutexLock lock(node->mutex_);
     rmw_status = node->ReadModifyWrite(phase, std::move(key), source);
   }
   return internal_kvstore::GetNonAtomicReadModifyWriteError(*node, rmw_status);

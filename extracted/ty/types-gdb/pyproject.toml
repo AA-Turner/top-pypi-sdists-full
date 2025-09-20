@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-gdb"
-version = "16.3.0.20250915"
+version = "16.3.0.20250920"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gdb"
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
+[`b158ccd3c1b204b2379f898425724d82e7234337`](https://github.com/python/typeshed/commit/b158ccd3c1b204b2379f898425724d82e7234337).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

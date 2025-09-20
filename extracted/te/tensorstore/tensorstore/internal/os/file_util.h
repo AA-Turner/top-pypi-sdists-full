@@ -67,6 +67,9 @@ class MappedRegion;
 /// multiple of this value.
 uint32_t GetDefaultPageSize();
 
+/// Returns the block alignment for Direct IO.
+size_t GetDirectIoBlockAlignment(FileDescriptor fd);
+
 /// Returns a Cord containing the contents of the file.
 ///
 /// \param fd File descriptor opened with `OpenFlags::OpenReadOnly`. The
@@ -86,7 +89,13 @@ enum class OpenFlags : int {
   OpenReadWrite = O_RDWR,
   Create = O_CREAT,
   Append = O_APPEND,
+  Truncate = O_TRUNC,
   Exclusive = O_EXCL,
+#if defined(O_DIRECT)
+  Direct = O_DIRECT,
+#else
+  Direct = 0x4000,
+#endif
   CloseOnExec = O_CLOEXEC,
   ReadWriteMask = O_RDONLY | O_WRONLY | O_RDWR,
 

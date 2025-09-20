@@ -1,10 +1,11 @@
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Literal
 
 import dagster as dg
 from pydantic import Field, PrivateAttr
 from typing_extensions import override
 
-from dagster_ray._base.resources import BaseRayResource, Lifecycle
+from dagster_ray._base.resources import RayResource
+from dagster_ray.configs import Lifecycle
 from dagster_ray.kuberay.client import RayJobClient
 from dagster_ray.kuberay.client.base import load_kubeconfig
 from dagster_ray.kuberay.configs import RayJobConfig, RayJobSpec
@@ -22,8 +23,8 @@ if TYPE_CHECKING:
 class KubeRayJobClientResource(dg.ConfigurableResource[RayJobClient]):
     """This configurable resource provides a `dagster_ray.kuberay.client.RayJobClient`."""
 
-    kube_context: Optional[str] = None
-    kube_config: Optional[str] = None
+    kube_context: str | None = None
+    kube_config: str | None = None
 
     def create_resource(self, context: dg.InitResourceContext):
         load_kubeconfig(context=self.kube_context, config_file=self.kube_config)
@@ -42,7 +43,7 @@ class InteractiveRayJobConfig(RayJobConfig):
     spec: InteractiveRayJobSpec = Field(default_factory=InteractiveRayJobSpec)  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
-class KubeRayInteractiveJob(BaseRayResource, BaseKubeRayResourceConfig):
+class KubeRayInteractiveJob(RayResource, BaseKubeRayResourceConfig):
     """
     Provides a `RayJob` for Dagster steps.
 

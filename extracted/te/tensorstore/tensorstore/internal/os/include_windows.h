@@ -52,6 +52,9 @@ struct FileDispositionInfoExData {
 #if !defined(O_RDWR)
 #define O_RDWR 0x2
 #endif
+#if !defined(O_TRUNC)
+#define O_TRUNC 0x200
+#endif
 #if !defined(O_CREAT)
 #define O_CREAT 0x40
 #endif
@@ -60,6 +63,9 @@ struct FileDispositionInfoExData {
 #endif
 #if !defined(O_APPEND)
 #define O_APPEND 0x400
+#endif
+#if !defined(O_DIRECT)
+#define O_DIRECT 0x4000
 #endif
 #if !defined(O_CLOEXEC)
 #define O_CLOEXEC 0x80000

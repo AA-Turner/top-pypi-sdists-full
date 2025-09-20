@@ -956,6 +956,11 @@ rmc.quikRn()
                                 print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{cost_report_txt_file}{Style.reset}")
                                 gzf.add(cost_report_txt_file)
 
+                        bootable_directory=Path("RadBoy_Boot_Directory")
+                        if bootable_directory.exists():
+                            print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{bootable_directory}{Style.reset}")
+                            gzf.add(bootable_directory)
+
                         with Session(ENGINE) as session:
                             files=session.query(SystemPreference).filter(SystemPreference.name.icontains('ClipBoordImport_')).all()
                             for num,i in enumerate(files):

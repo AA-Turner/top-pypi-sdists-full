@@ -147,7 +147,7 @@ def ensure_ids(
             ) from None
     else:
         results.append(None)
-    return tuple(results)
+    return tuple(results)  # type: ignore[invalid-return-type]
 
 
 def assign_defaults(

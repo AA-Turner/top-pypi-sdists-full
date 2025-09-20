@@ -1,8 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional, Union
-from edgar.richtools import rich_to_text
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    from edgar.documents.nodes import BaseNode
 import re
 from functools import lru_cache
+
+from edgar.richtools import rich_to_text
 
 
 @dataclass

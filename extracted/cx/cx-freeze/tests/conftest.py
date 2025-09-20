@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -10,9 +11,9 @@ import string
 import subprocess
 import sys
 import sysconfig
-from contextlib import suppress
+from contextlib import redirect_stdout, suppress
 from pathlib import Path
-from shutil import copyfile, copytree, ignore_patterns, rmtree, which
+from shutil import copytree, ignore_patterns, rmtree, which
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -146,7 +147,7 @@ class TempPackage:
 
     def freeze(
         self,
-        command: Sequence | Path | None = None,
+        command: Sequence | None = None,
         cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
         timeout: float | None = None,
@@ -164,8 +165,20 @@ class TempPackage:
                 command = "cxfreeze build"
             else:
                 command = "python setup.py build"
-        elif isinstance(command, Path):
-            command = [os.fspath(command)]
+        command = (
+            command.split() if isinstance(command, str) else list(command)
+        )
+
+        python_path = env and env.get("PYTHONPATH")  # pop
+        if python_path:
+            if "build_exe" not in command and "build" in command:
+                command.append("build_exe")
+            try:
+                build_exe = command.index("build_exe")
+            except ValueError:
+                build_exe = len(command)
+            if build_exe > 0:
+                command.insert(build_exe + 1, f"--include-path={python_path}")
 
         with self._lock:
             return self.run(command, cwd=cwd, env=env, timeout=timeout)
@@ -216,11 +229,6 @@ class TempPackage:
         )
         print(process.stdout)
         print(process.stderr)
-        if os.environ.get("COVERAGE_RUN", "") == "true":
-            for src in Path(cwd).glob(".coverage*"):
-                dst = self.system_path / src.name
-                if src != dst:
-                    copyfile(src, dst)
         return pytest.RunResult(
             process.returncode,
             process.stdout.splitlines(),
@@ -323,8 +331,12 @@ class TempPackage:
             with suppress(KeyError):
                 packages[i] = self.map_package_to_conda[package]
         packages = " ".join(packages)
-        prefix = self.prefix
-        cmd = f"conda install -c conda-forge -S -q -y -p {prefix} {packages}"
+        cmd = f"conda install -S -q -y -p {self.prefix}"
+        if not any(
+            opc for opc in ("-c", "--channel", "::") if opc in packages
+        ):
+            cmd = f"{cmd} -c conda-forge"
+        cmd = f"{cmd} {packages}"
         result = self.run(cmd, cwd=self.system_path)
         if result.ret > 0:
             raise ModuleNotFoundError(packages) from None
@@ -336,8 +348,8 @@ class TempPackage:
             try:
                 package = self.map_package_to_mingw[pkg]
             except KeyError:
-                package = pkg
-            packages[i] = f"{MINGW_PACKAGE_PREFIX}-python-{package}"
+                package = f"python-{pkg}"
+            packages[i] = f"{MINGW_PACKAGE_PREFIX}-{package}"
         packages = " ".join(packages)
         cmd = f"pacman -S --needed --noconfirm --quiet {packages}"
         result = self.run(cmd, cwd=self.system_path)
@@ -414,17 +426,17 @@ class TempPackage:
     def cleanup(self) -> None:
         os.chdir(self.system_path)
 
-        # remove directories to reduce disk usage
-        if os.environ.get("CI"):
-            # remove temporary prefix
-            tmp_prefix = self.path / ".tmp_prefix"
-            if tmp_prefix.is_dir():
-                rmtree(tmp_prefix, ignore_errors=True)
-
-            # remove build directory
+        # remove build directory (to reduce disk usage)
+        if not self.request.config.option.venv_keep_build:
             build_dir: Path = self.path / "build"
             if build_dir.is_dir():
                 rmtree(build_dir, ignore_errors=True)
+
+        # remove temporary prefix (to reduce disk usage)
+        if not self.request.config.option.venv_keep_prefix:
+            tmp_prefix = self.path / ".tmp_prefix"
+            if tmp_prefix.is_dir():
+                rmtree(tmp_prefix, ignore_errors=True)
 
 
 class TempPackageVenv(TempPackage):
@@ -448,9 +460,11 @@ class TempPackageVenv(TempPackage):
             self._root = self._root.parent
 
         # activate the venv
-        self.origin_prefix = self.prefix
-        self.origin_python = self.python
-        self.origin_lock = self._lock
+        self._prefix = self.prefix
+        self._python = self.python
+        self.venv_prefix = None
+        self.venv_python = None
+        self.venv_lock = None
         self._venv()
 
     def create(self, source: str) -> None:
@@ -460,6 +474,8 @@ class TempPackageVenv(TempPackage):
         install_deps = venv_marker.kwargs.get("install_dependencies", True)
         if install_deps:
             self.install_dependencies()
+        if self.venv_lock and self.venv_lock.is_locked:
+            self.venv_lock.release()
 
     def create_from_sample(self, sample: str) -> None:
         super().create_from_sample(sample)
@@ -468,6 +484,46 @@ class TempPackageVenv(TempPackage):
         install_deps = venv_marker.kwargs.get("install_dependencies", True)
         if install_deps:
             self.install_dependencies()
+        if self.venv_lock and self.venv_lock.is_locked:
+            self.venv_lock.release()
+
+    def freeze(
+        self,
+        command: Sequence | Path | None = None,
+        cwd: str | Path | None = None,
+        env: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> pytest.RunResult:
+        # PYTHONPATH is the key here
+        if env is None:
+            env = os.environ.copy()
+        venv_site = os.path.normpath(self.venv_prefix / self.relative_site)
+        env["PYTHONPATH"] = venv_site
+        return super().freeze(command, cwd, env, timeout)
+
+    def install(
+        self,
+        packages: str | list[str],
+        *,
+        backend: str | None = None,
+        binary: bool = True,
+        index: bool | str | None = None,
+        isolated: bool = False,  # noqa: ARG002
+    ) -> pytest.RunResult:
+        # install in the venv prefix
+        self.prefix = self.venv_prefix
+        self.python = self.venv_python
+        try:
+            return super().install(
+                packages,
+                backend=backend,
+                binary=binary,
+                index=index,
+                isolated=False,
+            )
+        finally:
+            self.prefix = self._prefix
+            self.python = self._python
 
     def _venv(self) -> None:
         venv_marker = self.request.node.get_closest_marker(name="venv")
@@ -476,7 +532,9 @@ class TempPackageVenv(TempPackage):
         # activate the venv
         if self.backend == "mingw":
             # do not use venv in mingw
-            pass
+            self.venv_prefix = self._prefix
+            self.venv_python = self._python
+            self.venv_lock = self._lock
         else:
             # point to the new environment (or reuse an existing one)
             prefix = self._root / f".{self.backend}-{self._name}"
@@ -484,9 +542,12 @@ class TempPackageVenv(TempPackage):
                 prefix = prefix.with_name(
                     f"{prefix.name}-{self.request.function.__name__}"
                 )
-            self.prefix = prefix
-            self.python = prefix / self.relative_bin / self.python.name
-            if not self.python.is_file():
+            self.venv_prefix = prefix
+            self.venv_python = prefix / self.relative_bin / self.python.name
+            self.venv_lock = FileLock(prefix.with_suffix(".lock"))
+            self.venv_lock.acquire()
+
+            if not self.venv_python.is_file():
                 # create venv
                 if self.backend == "conda":
                     self._venv_conda_clone()
@@ -494,79 +555,47 @@ class TempPackageVenv(TempPackage):
                     self._venv_pip()
             # point to the existing lock file
             elif self.backend == "pip":
-                self._lock = FileLock(self.prefix / ".lock")
-
-    def _install_pip(
-        self,
-        packages: list[str],
-        *,
-        backend: str | None = None,
-        binary: bool = True,
-        index: bool | str | Path | None = None,
-        isolated: bool = False,  # noqa: ARG002
-    ) -> pytest.RunResult:
-        return super()._install_pip(
-            packages,
-            backend=backend,
-            binary=binary,
-            index=index,
-            isolated=False,
-        )
+                self._lock = FileLock(self.venv_prefix / ".lock")
 
     def _venv_conda_clone(self) -> None:
         # create a clone venv
         conda_env = os.environ["CONDA_DEFAULT_ENV"]
-        with self._lock:
-            self.run(
-                f"conda create --clone {conda_env} -p {self.prefix} -q -y",
-                cwd=self.system_path,
-            )
-
-    def _venv_pip(self) -> None:
-        # get packages and create the new venv using the sys.executable python
-        installed = self._get_installed_packages(sys.executable)
-
-        # create venv
-        if self.backend == "uv":
-            cmd = f"uv venv --clear --python={PYTHON_VERSION}{ABI_THREAD} "
-        else:
-            cmd = f"{sys.executable} -m venv --clear --upgrade-deps "
-        cmd += os.path.normpath(self.prefix)
+        cmd = f"conda create --clone {conda_env} -p {self.venv_prefix} -q -y"
         self.run(cmd, cwd=self.system_path)
 
-        # set venv lock file (not for uv, that continues to use the fake lock)
-        if self.backend == "pip":
-            self._lock = FileLock(self.prefix / ".lock")
-
-        # install cx_Freeze and its dependencies in the new environment
-        with self._lock:
-            pyproject = self.system_path / "pyproject.toml"
-            if pyproject.is_file():
-                self.install_dependencies(pyproject)
-            # install cx-freeze, editable or from wheelhouse
-            for pkg in filter(
-                lambda pkg: pkg["name"] == "cx-freeze", installed
-            ):
-                project_location = pkg.get("editable_project_location")
-                if project_location:
-                    self._install_pip(["-e", project_location])
-                else:
-                    wheelhouse = self.system_path / "wheelhouse"
-                    self._install_pip([pkg["spec"]], index=wheelhouse)
+    def _venv_pip(self) -> None:
+        # create venv
+        prefix = os.path.normpath(self.venv_prefix)
+        if self.backend == "uv":
+            python = f"{PYTHON_VERSION}{ABI_THREAD}"
+            cmd = f"uv venv --clear --python={python} {prefix}"
+        else:
+            cmd = f"{self.python} -m venv --clear --upgrade-deps {prefix}"
+        self.run(cmd, cwd=self.system_path)
 
     def cleanup(self) -> None:
         super().cleanup()
 
-        # remove the conda venv to reduce disk usage
-        if self.backend == "conda":
+        # release lock
+        if self.venv_lock and self.venv_lock.is_locked:
+            self.venv_lock.release()
 
-            def _conda_cleanup() -> None:
-                self.run(
-                    f"conda remove --all -p {self.prefix} -q -y",
-                    cwd=self.system_path,
-                )
+        # remove venv prefix (to reduce disk usage)
+        if not self.request.config.option.venv_keep_prefix:
+            prefix = self.venv_prefix
+            if self.backend == "conda":
 
-            self.request.config.add_cleanup(_conda_cleanup)
+                def _conda_cleanup() -> None:
+                    cmd = f"conda remove --all -p {prefix} -q -y --offline"
+                    with io.StringIO() as f, redirect_stdout(f):
+                        self.run(cmd, cwd=self.system_path)
+
+                self.request.config.add_cleanup(_conda_cleanup)
+            elif self.backend == "mingw":
+                # venv is not used in mingw
+                pass
+            elif prefix.is_dir():
+                rmtree(prefix, ignore_errors=True)
 
 
 def normalize(name: str) -> str:
@@ -645,6 +674,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="BACKEND",
         type=_validate_backend,
         help="Venv backend to use. Default to current venv.",
+    )
+    group.addoption(
+        "--venv-keep-build",
+        action="store_true",
+        help="Keep build directory of the test.",
+    )
+    group.addoption(
+        "--venv-keep-prefix",
+        action="store_true",
+        help="Keep venv directory (aka prefix).",
     )
 
 

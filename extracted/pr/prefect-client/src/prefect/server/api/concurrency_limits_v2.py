@@ -2,11 +2,12 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional, Union
 from uuid import UUID
 
-from fastapi import Body, Depends, HTTPException, Path, status
+from fastapi import Body, Depends, HTTPException, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import prefect.server.models as models
 import prefect.server.schemas as schemas
+from prefect._internal.compatibility.starlette import status
 from prefect.server.api.dependencies import LimitBody
 from prefect.server.concurrency.lease_storage import (
     ConcurrencyLimitLeaseMetadata,
@@ -316,7 +317,7 @@ async def bulk_increment_active_slots_with_lease(
             ttl=timedelta(seconds=lease_duration),
             metadata=ConcurrencyLimitLeaseMetadata(
                 slots=slots,
-                holder=holder.model_dump() if holder else None,
+                holder=holder,
             ),
         )
         return ConcurrencyLimitWithLeaseResponse(

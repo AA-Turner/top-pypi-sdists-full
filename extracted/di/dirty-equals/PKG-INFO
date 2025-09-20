@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dirty-equals
-Version: 0.9.0
+Version: 0.10.0
 Summary: Doing dirty (but extremely useful) things with equals.
 Project-URL: Homepage, https://github.com/samuelcolvin/dirty-equals
 Project-URL: Documentation, https://dirty-equals.helpmanual.io
@@ -23,7 +23,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -32,8 +31,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: pytz>=2021.3; python_version < '3.9'
+Requires-Python: >=3.9
 Provides-Extra: pydantic
 Requires-Dist: pydantic>=2.4.2; extra == 'pydantic'
 Description-Content-Type: text/markdown
@@ -136,4 +134,4 @@ Simply:
 pip install dirty-equals
 ```
 
-**dirty-equals** requires **Python 3.8+**.
+**dirty-equals** requires **Python 3.9+**.

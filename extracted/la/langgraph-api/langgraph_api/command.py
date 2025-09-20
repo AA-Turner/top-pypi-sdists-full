@@ -21,7 +21,7 @@ def map_cmd(cmd: RunCommand) -> Command:
         update=update,
         goto=(
             [
-                it if isinstance(it, str) else Send(it["node"], it["input"])
+                it if isinstance(it, str) else Send(it["node"], it["input"])  # type: ignore[non-subscriptable]
                 for it in goto
             ]
             if goto

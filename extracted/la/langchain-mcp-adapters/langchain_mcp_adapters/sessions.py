@@ -6,7 +6,6 @@ MCP transport types including stdio, SSE, WebSocket, and streamable HTTP.
 
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal, Protocol
@@ -69,7 +68,17 @@ class StdioConnection(TypedDict):
     """Command line arguments to pass to the executable."""
 
     env: NotRequired[dict[str, str] | None]
-    """The environment to use when spawning the process."""
+    """The environment to use when spawning the process.
+
+    If not specified or set to None, a subset of the default environment
+    variables from the current process will be used.
+
+    Please refer to the MCP SDK documentation for details on which
+    environment variables are included by default. The behavior
+    varies by operating system.
+
+    https://github.com/modelcontextprotocol/python-sdk/blob/c47c767ff437ee88a19e6b9001e2472cb6f7d5ed/src/mcp/client/stdio/__init__.py#L51
+    """
 
     cwd: NotRequired[str | Path | None]
     """The working directory to use when spawning the process."""
@@ -95,7 +104,7 @@ class StdioConnection(TypedDict):
 
 
 class SSEConnection(TypedDict):
-    """Configuration for Server-Sent Events (SSE) transport connections to MCP servers."""
+    """Configuration for Server-Sent Events (SSE) transport connections to MCP."""
 
     transport: Literal["sse"]
 
@@ -172,7 +181,9 @@ class WebsocketConnection(TypedDict):
     """Additional keyword arguments to pass to the ClientSession"""
 
 
-Connection = StdioConnection | SSEConnection | StreamableHttpConnection | WebsocketConnection
+Connection = (
+    StdioConnection | SSEConnection | StreamableHttpConnection | WebsocketConnection
+)
 
 
 @asynccontextmanager
@@ -183,7 +194,9 @@ async def _create_stdio_session(  # noqa: PLR0913
     env: dict[str, str] | None = None,
     cwd: str | Path | None = None,
     encoding: str = DEFAULT_ENCODING,
-    encoding_error_handler: Literal["strict", "ignore", "replace"] = DEFAULT_ENCODING_ERROR_HANDLER,
+    encoding_error_handler: Literal[
+        "strict", "ignore", "replace"
+    ] = DEFAULT_ENCODING_ERROR_HANDLER,
     session_kwargs: dict[str, Any] | None = None,
 ) -> AsyncIterator[ClientSession]:
     """Create a new session to an MCP server using stdio.
@@ -192,6 +205,8 @@ async def _create_stdio_session(  # noqa: PLR0913
         command: Command to execute.
         args: Arguments for the command.
         env: Environment variables for the command.
+            If not specified, inherits a subset of the current environment.
+            The details are implemented in the MCP sdk.
         cwd: Working directory for the command.
         encoding: Character encoding.
         encoding_error_handler: How to handle encoding errors.
@@ -200,13 +215,6 @@ async def _create_stdio_session(  # noqa: PLR0913
     Yields:
         An initialized ClientSession.
     """
-    # NOTE: execution commands (e.g., `uvx` / `npx`) require PATH envvar to be set.
-    # To address this, we automatically inject existing PATH envvar into the `env` value,
-    # if it's not already set.
-    env = env or {}
-    if "PATH" not in env:
-        env["PATH"] = os.environ.get("PATH", "")
-
     server_params = StdioServerParameters(
         command=command,
         args=args,
@@ -282,7 +290,8 @@ async def _create_streamable_http_session(  # noqa: PLR0913
         url: URL of the endpoint to connect to.
         headers: HTTP headers to send to the endpoint.
         timeout: HTTP timeout.
-        sse_read_timeout: How long the client will wait for a new event before disconnecting.
+        sse_read_timeout: How long the client will wait for a new event before
+            disconnecting.
         terminate_on_close: Whether to terminate the session on close.
         session_kwargs: Additional keyword arguments to pass to the ClientSession.
         httpx_client_factory: Custom factory for httpx.AsyncClient (optional).
@@ -334,7 +343,7 @@ async def _create_websocket_session(
     except ImportError:
         msg = (
             "Could not import websocket_client. "
-            "To use Websocket connections, please install the required dependency with: "
+            "To use Websocket connections, please install the required dependency: "
             "'pip install mcp[ws]' or 'pip install websockets'"
         )
         raise ImportError(msg) from None

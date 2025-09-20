@@ -57,9 +57,10 @@ class Parser(ABC):
         env_path = os.environ["PATH"].split(os.pathsep)
         new_path = []
         for path in self._path + self._bin_path_includes + env_path:
-            resolved_path = Path(path).resolve()
-            if resolved_path not in new_path and resolved_path.is_dir():
-                new_path.append(resolved_path)
+            with suppress(PermissionError):
+                resolved_path = Path(path).resolve()
+                if resolved_path not in new_path and resolved_path.is_dir():
+                    new_path.append(resolved_path)
         return new_path
 
     def find_library(
@@ -233,12 +234,9 @@ class PEParser(Parser):
             binary = self._pe.parse(raw, self.resource_only or filename.name)
         resources_manager = binary.resources_manager
         resources_manager.manifest = manifest
-        builder = self._pe.Builder(binary)
-        builder.build_resources(True)
-        builder.build()
         with TemporaryDirectory(prefix="cxfreeze-") as tmp_dir:
             tmp_path = Path(tmp_dir, filename.name)
-            builder.write(os.fspath(tmp_path))
+            binary.write(os.fspath(tmp_path))
             shutil.move(tmp_path, filename)
 
 

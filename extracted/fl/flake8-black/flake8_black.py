@@ -19,7 +19,7 @@ from flake8 import utils as stdin_utils
 from flake8 import LOG
 
 
-__version__ = "0.3.6"
+__version__ = "0.3.7"
 
 black_prefix = "BLK"
 
@@ -50,7 +50,7 @@ class BadBlackConfig(ValueError):
 
 
 def load_black_mode(toml_filename=None):
-    """Load a black configuration TOML file (or return defaults) as FileMode."""
+    """Load black configuration TOML file (or return defaults) as black.Mode object."""
     if not toml_filename:
         return black.FileMode(
             target_versions=set(),
@@ -72,7 +72,7 @@ def load_black_mode(toml_filename=None):
 
     # Extract the fields we care about,
     # cast to int explicitly otherwise line length could be a string
-    return black.FileMode(
+    return black.Mode(
         target_versions={
             black.TargetVersion[val.upper()]
             for val in black_config.get("target_version", [])
@@ -136,7 +136,7 @@ class BlackStyleChecker:
 
     @classmethod
     def add_options(cls, parser):
-        """Adding black-config option."""
+        """Add black-config options."""
         parser.add_option(
             "--black-config",
             metavar="TOML_FILENAME",
@@ -154,7 +154,7 @@ class BlackStyleChecker:
 
     @classmethod
     def parse_options(cls, optmanager, options, extra_args):
-        """Adding black-config option."""
+        """Parse black-config options."""
         # We have one and only one flake8 plugin configuration
         if options.black_config is None:
             LOG.info("flake8-black: No black configuration set")

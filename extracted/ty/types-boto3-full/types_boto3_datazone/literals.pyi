@@ -959,6 +959,7 @@ PaginatorName = Literal[
     "search_user_profiles",
 ]
 RegionName = Literal[
+    "ap-east-1",
     "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
@@ -975,6 +976,7 @@ RegionName = Literal[
     "ca-central-1",
     "ca-west-1",
     "eu-central-1",
+    "eu-central-2",
     "eu-north-1",
     "eu-south-1",
     "eu-west-1",

@@ -33,6 +33,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 runtime = os.getenv("SHUFFLE_SWARM_CONFIG", "")
+if runtime == "swarm":
+    runtime = "run"
 
 ###
 ###
@@ -328,8 +330,6 @@ def url_decode(base):
 ###
 ###
 
-pastAppExecutions = []
-
 class AppBase:
     __version__ = None
     app_name = None
@@ -360,24 +360,10 @@ class AppBase:
         self.full_execution = os.getenv("FULL_EXECUTION", "") 
         self.result_wrapper_count = 0
         self.singul = None
+        self.standalone = False 
 
         # Make start time with milliseconds
         self.start_time = int(time.time_ns())
-        try:
-            if isinstance(self.action, str):
-                self.action = json.loads(self.action)
-
-            action_id = self.action.get("id")
-            fullKey = str(self.current_execution_id) + "-" + str(action_id)
-            if fullKey in pastAppExecutions:
-                self.logger.error(f"[ERROR] Duplicate execution detected for execution id - {self.current_execution_id} and action - {str(action_id)}")
-                return
-
-            pastAppExecutions.append(fullKey)
-            if len(pastAppExecutions) > 50:
-                pastAppExecutions[:] = pastAppExecutions[-50:]
-        except Exception as e:
-            self.logger.info(f"[ERROR] Failed to access action ID in the execution({self.current_execution_id}): {e}")
 
         self.init_singul()
 
@@ -1646,6 +1632,22 @@ class AppBase:
             #return response.json()
             return json.dumps({"success": False, "reason": f"Failed to delete cache for key '{key}'"})
 
+    def list_category(self, category, items=50):
+
+        if len(category) == 0:
+            return {"success": False, "reason": "Category can't be empty"}
+
+        org_id = self.full_execution["workflow"]["execution_org"]["id"]
+        url = "%s/api/v2/datastore?category=%s&top=%d" % (self.url, category, items)
+        resp = requests.get(url, verify=False, proxies=self.proxy_config)
+        return {
+            "success": resp.status_code == 200,
+            "status": resp.status_code,
+            "url": url,
+            "details": "Execution Auth is not implemented for this action yet. Please use the API directly.",
+            "body": resp.text,
+        }
+
     def set_key(self, key, value, category=""):
         return self.set_cache(key, value, category=category)
 
@@ -2002,7 +2004,7 @@ class AppBase:
         self.action = copy.deepcopy(action)
 
         headers = {
-            "Content-Type": "application/json",     
+            "Content-Type": "application/json",
             "Authorization": f"Bearer {self.authorization}",
             "User-Agent": "Shuffle 1.1.0",
         }
@@ -2047,6 +2049,7 @@ class AppBase:
                 "app_name": ""
             }
 
+            self.standalone = True
             self.authorization = "standalone"
             self.current_execution_id = "standalone"
             for key in unknown_args:
@@ -2067,6 +2070,17 @@ class AppBase:
                     # Remove quotes before/after
                     if newkey.startswith("'") and newkey.endswith("'"):
                         newkey = newkey[1:-1]
+
+                    if newkey == "shuffle_authorization":
+                        self.authorization = keysplit[1]
+                        continue
+                    elif newkey == "shuffle_execution_id" or newkey == "shuffle_executionid":
+                        self.current_execution_id = keysplit[1]
+                        continue
+                    elif newkey == "shuffle_url":
+                        self.url = keysplit[1]
+                        self.base_url = self.url
+                        continue
 
                     self.action["parameters"].append({
                         "name": newkey,
@@ -2102,9 +2116,16 @@ class AppBase:
 
         # Forcing this to run due to potential self.full_execution loading issues in cloud run
         fullexecution = {}
+        if self.standalone == True:
+            fullexecution = {
+                "workflow": {
+                    "id": "STANDALONE",
+                    "execution_org": {
+                        "id": "STANDALONE"
+                    }
+                }
+            }
 
-        if self.authorization == "standalone": 
-            pass
         elif True or (isinstance(self.full_execution, str) and len(self.full_execution) == 0):
             #self.logger.info("[DEBUG] NO EXECUTION - LOADING!")
             try:
@@ -2190,7 +2211,6 @@ class AppBase:
 
 
         self.full_execution = fullexecution
-
         found_id = ""
         try:
             if "execution_id" in self.full_execution and len(self.full_execution["execution_id"]) > 0:
@@ -2198,7 +2218,7 @@ class AppBase:
             elif len(self.current_execution_id) > 0:
                 found_id = self.current_execution_id
         except Exception as e:
-            print("[ERROR] Failed in get full exec")
+            print(f"[ERROR] Failed in get full exec: {e}")
                 
         try:
             contains_body = False
@@ -2212,7 +2232,7 @@ class AppBase:
 
             self.logger.info("[INFO][%s] Action name: %s, Params: %d, Has Body: %s" % (self.current_execution_id, self.action["name"], parameter_count, str(contains_body)))
         except Exception as e:
-            print("[ERROR] Failed in init print handler: %s" % e)
+            print(f"[ERROR] Failed in init print handler: {e}") 
 
         try:
             if replace_params == True:
@@ -3609,7 +3629,7 @@ class AppBase:
             func = getattr(self, actionname, None)
             if func == None:
                 self.logger.debug(f"[DEBUG] Failed executing {actionname} because func is None (no function / wrong action name).")
-                if self.authorization == "standalone": 
+                if self.standalone or self.authorization == "standalone": 
                     exit()
 
                 self.action_result["status"] = "FAILURE" 
@@ -3952,11 +3972,12 @@ class AppBase:
                             timeout = 55
 
                         timeout_env = os.getenv("SHUFFLE_APP_SDK_TIMEOUT", timeout)
-                        try:
-                            timeout = int(timeout_env)
-                            #self.logger.info(f"[DEBUG] Timeout set to {timeout} seconds")  
-                        except Exception as e:
-                            self.logger.info(f"[ERROR] Failed parsing timeout to int: {e}")
+                        if len(timeout_env) > 0:
+                            try:
+                                timeout = int(timeout_env)
+                                #self.logger.info(f"[DEBUG] Timeout set to {timeout} seconds")  
+                            except Exception as e:
+                                self.logger.info(f"[ERROR] Failed parsing timeout to int: {e}")
 
                         # Single exec
                         if not multiexecution:
@@ -4040,7 +4061,7 @@ class AppBase:
                                             newres = json.dumps({
                                                 "success": False,
                                                 "exception": str(e),
-                                                "reason": "Timeout error within %d seconds (1). This happens if we can't reach or use the API you're trying to use within the time limit. Configure SHUFFLE_APP_SDK_TIMEOUT=100 in Orborus to increase it to 100 seconds. Not changeable for cloud." % timeout,
+                                                "reason": "Timeout error within %d seconds (1). This happens if we can't reach or use the API you're trying to use within the time limit. Configure SHUFFLE_APP_SDK_TIMEOUT=100 in Orborus to increase it to 100 seconds. If you want to change this for cloud-hosted apps, contact support@shuffler.io." % timeout,
                                             })
 
                                         else:
@@ -4251,7 +4272,7 @@ class AppBase:
                                 #self.logger.info("Normal result - no list?")
                                 result = results
 
-                    if self.authorization == "standalone": 
+                    if self.standalone or self.authorization == "standalone": 
                         print("\n\n===== Successful result From the Function =====\n\n%s" % result)
                         exit()
 
@@ -4264,7 +4285,7 @@ class AppBase:
                     #self.logger.debug(f"Data: %s" % action_result)
                 except TypeError as e:
                     self.logger.info("[ERROR] TypeError issue: %s" % e)
-                    if self.authorization == "standalone": 
+                    if self.standalone or self.authorization == "standalone": 
                         exit()
 
                     self.action_result["status"] = "FAILURE" 
@@ -4349,7 +4370,8 @@ class AppBase:
 
         exposed_port = os.getenv("SHUFFLE_APP_EXPOSED_PORT", "")
         #logger.info(f"[DEBUG] \"{runtime}\" - run indicates microservices. Port: \"{exposed_port}\"")
-        if runtime == "run" and exposed_port != "":
+
+        if runtime == "run" and exposed_port != "": 
             # Base port is 33334. Exposed port may differ based on discovery from Worker
             port = int(exposed_port)
             #logger.info(f"[DEBUG] Starting webserver on port {port} (same as exposed port)")
@@ -4375,10 +4397,11 @@ class AppBase:
                             "success": False,
                             "reason": f"Invalid Action data {e}",
                         }
-        
+
                     # Remaking class for each request
                     app = cls(redis=None, logger=logger, console_logger=logger)
                     extra_info = ""
+
                     try:
                         #asyncio.run(AppBase.run(action=requestdata), debug=True)
                         #value = json.dumps(value)
@@ -4432,20 +4455,56 @@ class AppBase:
         
             logger.info(f"[DEBUG] Serving on port {port}")
 
-            #flask_app.run(
-            #    host="0.0.0.0", 
-            #    port=port, 
-            #    threaded=True, 
-            #    processes=1, 
-            #    debug=False,
-            #)
+            #timeout = 30 
+            #timeout_env = os.getenv("SHUFFLE_APP_SDK_TIMEOUT", timeout)
+            #try:
+            #    timeout = int(timeout_env)
+            #except Exception as e:
+            #    pass
+
+            # Can run channel_timeout low because socket closes, BUT thread stays open
+
+            threads = 8
+            backlog = 2048
+            channel_timeout = 2
+            connection_limit = 1000
+
+            found_threads = os.getenv("SHUFFLE_APP_SDK_WAITRESS_THREADS", "")
+            found_backlog = os.getenv("SHUFFLE_APP_SDK_WAITRESS_BACKLOG", "")
+            found_channel_timeout = os.getenv("SHUFFLE_APP_SDK_WAITRESS_CHANNEL_TIMEOUT", "")
+            found_connection_limit = os.getenv("SHUFFLE_APP_SDK_WAITRESS_CONNECTION_LIMIT", "")
+            if len(found_threads) > 0:
+                try:
+                    threads = int(found_threads)
+                except Exception as e:
+                    logger.info(f"[WARNING] Failed parsing SHUFFLE_APP_SDK_WAITRESS_THREADS: {e}")
+
+            if len(found_backlog) > 0:
+                try:
+                    backlog = int(found_backlog)
+                except Exception as e:
+                    logger.info(f"[WARNING] Failed parsing SHUFFLE_APP_SDK_WAITRESS_BACKLOG: {e}")
+
+            if len(found_channel_timeout) > 0:
+                try:
+                    channel_timeout = int(found_channel_timeout)
+                except Exception as e:
+                    logger.info(f"[WARNING] Failed parsing SHUFFLE_APP_SDK_WAITRESS_CHANNEL_TIMEOUT: {e}")
+
+            if len(found_connection_limit) > 0:
+                try:
+                    connection_limit = int(found_connection_limit)
+                except Exception as e:
+                    logger.info(f"[WARNING] Failed parsing SHUFFLE_APP_SDK_WAITRESS_CONNECTION_LIMIT: {e}")
 
             serve(
                 flask_app, 
                 host="0.0.0.0", 
                 port=port, 
-                threads=8,
-                channel_timeout=30,
+                threads=threads,
+                backlog=backlog,
+                channel_timeout=channel_timeout,
+                connection_limit=connection_limit,
                 expose_tracebacks=True,
                 asyncore_use_poll=True,
             )

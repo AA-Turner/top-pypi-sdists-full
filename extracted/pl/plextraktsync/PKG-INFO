@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PlexTraktSync
-Version: 0.34.14
+Version: 0.34.15
 Summary: Plex-Trakt-Sync is a two-way-sync between trakt.tv and Plex Media Server
 License: MIT License
         
@@ -43,7 +43,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: apluggy==1.1.0; python_version >= "3.9"
 Requires-Dist: attrs==25.3.0; python_version >= "3.8"
-Requires-Dist: cattrs==25.1.1; python_version >= "3.9"
+Requires-Dist: cattrs==25.2.0; python_version >= "3.9"
 Requires-Dist: certifi==2025.8.3; python_version >= "3.7"
 Requires-Dist: charset-normalizer==3.4.3; python_version >= "3.7"
 Requires-Dist: click==8.1.8; python_version >= "3.7"
@@ -65,7 +65,7 @@ Requires-Dist: pygments==2.19.2; python_version >= "3.8"
 Requires-Dist: python-dotenv==1.1.1; python_version >= "3.9"
 Requires-Dist: python-git-info==0.8.3
 Requires-Dist: pytimeparse==1.1.8
-Requires-Dist: pytrakt==4.2.1
+Requires-Dist: pytrakt==4.2.2
 Requires-Dist: pyyaml==6.0.2
 Requires-Dist: requests==2.32.5; python_version >= "3.9"
 Requires-Dist: requests-cache==1.2.1

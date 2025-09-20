@@ -304,7 +304,7 @@ async def astream_state(
                                 else:
                                     msg = convert_to_messages([msg_])[0]
                             else:
-                                msg = cast(BaseMessage, msg_)
+                                msg = msg_
                             if msg.id in messages:
                                 messages[msg.id] += msg
                             else:
@@ -404,7 +404,7 @@ async def astream_state(
                             else:
                                 msg = convert_to_messages([msg_])[0]
                         else:
-                            msg = cast(BaseMessage, msg_)
+                            msg = msg_
                         if msg.id in messages:
                             messages[msg.id] += msg
                         else:

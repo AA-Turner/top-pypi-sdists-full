@@ -2527,14 +2527,15 @@ class ISecurityPrice(metaclass=abc.ABCMeta):
         """
         ...
 
-    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool]) -> None:
+    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool], is_internal_config: bool) -> None:
         """
         Updates all of the security properties, such as price/OHLCV/bid/ask based
         on the data provided. Data is also stored into the security's data cache
         
         :param data: The security update data
         :param data_type: The data type
-        :param contains_fill_forward_data: Flag indicating whether  contains any fill forward bar or not
+        :param contains_fill_forward_data: Flag indicating whether True if this update data corresponds to an internal subscription such as currency or security benchmark contains any fill forward bar or not
+        :param is_internal_config: True if this update data corresponds to an internal subscription such as currency or security benchmark
         """
         ...
 

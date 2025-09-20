@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-xmltodict"
-version = "0.15.0.20250907"
+version = "1.0.1.20250920"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for xmltodict"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`xmltodict`](https://github.com/martinblech/xmltodict) package. It can be used by type checkers
 to check code that uses `xmltodict`. This version of
 `types-xmltodict` aims to provide accurate annotations for
-`xmltodict==0.15.*`.
+`xmltodict~=1.0.1`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
+* [mypy](https://github.com/python/mypy/) 1.18.1
 * [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`bf484ab320778d9ced0a986243282691aa7425cb`](https://github.com/python/typeshed/commit/bf484ab320778d9ced0a986243282691aa7425cb).
+[`b158ccd3c1b204b2379f898425724d82e7234337`](https://github.com/python/typeshed/commit/b158ccd3c1b204b2379f898425724d82e7234337).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

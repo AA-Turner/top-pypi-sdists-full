@@ -95,16 +95,16 @@ class Outputs(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in reasks (list)
         _items = []
         if self.reasks:
-            for _item in self.reasks:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_reasks in self.reasks:
+                if _item_reasks:
+                    _items.append(_item_reasks.to_dict())
             _dict['reasks'] = _items
         # override the default output from pydantic by calling `to_dict()` of each item in validator_logs (list)
         _items = []
         if self.validator_logs:
-            for _item in self.validator_logs:
-                if _item:
-                    _items.append(_item.to_dict())
+            for _item_validator_logs in self.validator_logs:
+                if _item_validator_logs:
+                    _items.append(_item_validator_logs.to_dict())
             _dict['validatorLogs'] = _items
         return _dict
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cronitor
-Version: 4.7.1
+Version: 4.8.0
 Summary: A lightweight Python client for Cronitor.
 Home-page: https://github.com/cronitorio/cronitor-python
 Author: August Flanagan
@@ -92,6 +92,21 @@ def send_invoices_task(*args, **kwargs):
     ...
 ```
 
+#### You can provide monitor attributes that will be synced when your app starts
+
+To sync attributes, provide an API key with monitor:write privileges.
+
+```python
+import cronitor
+
+# Copy your SDK Integration key from https://cronitor.io/app/settings/api
+cronitor.api_key = 'apiKey123'
+
+@cronitor.job('send-invoices', attributes={'schedule': '0 8 * * *', 'notify': ['devops-alerts']})
+def send_invoices_task(*args, **kwargs):
+    ...
+```
+
 ## Sending Telemetry Events
 
 If you want to send a heartbeat events, or want finer control over when/how [telemetry events](https://cronitor.io/docs/telemetry-api) are sent for your jobs, you can create a monitor instance and call the `.ping` method.
@@ -123,9 +138,10 @@ monitor.ping(
 
 ## Configuring Monitors
 
+### YAML Configuration File
+
 You can configure all of your monitors using a single YAML file. This can be version controlled and synced to Cronitor as part of
 a deployment or build process. For details on all of the attributes that can be set, see the [Monitor API](https://cronitor.io/docs/monitor-api) documentation.
-
 
 ```python
 import cronitor
@@ -194,8 +210,12 @@ heartbeats:
             events: true # send alert when the event occurs
 
 ```
+#### Async Uploads
+If you are working with large YAML files (300+ monitors), you may hit timeouts when trying to sync monitors in a single http request. This workload to be processed asynchronously by adding the key `async: true` to the config file. The request will immediately return a `batch_key`. If a `webhook_url` parameter is included, Cronitor will POST to that URL with the results of the background processing and will include the `batch_key` matching the one returned in the initial response.
 
-You can also create and update monitors by calling `Monitor.put`. For details on all of the attributes that can be set see the Monitor API [documentation)(https://cronitor.io/docs/monitor-api#attributes).
+### Monitor.put
+
+You can also create and update monitors by calling `Monitor.put`. For details on all of the attributes that can be set see the Monitor API [documentation](https://cronitor.io/docs/monitor-api#attributes).
 
 ```python
 import cronitor

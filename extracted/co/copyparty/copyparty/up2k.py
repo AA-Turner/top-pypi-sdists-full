@@ -209,7 +209,7 @@ class Up2k(object):
             t = "could not initialize sqlite3, will use in-memory registry only"
             self.log(t, 3)
 
-        self.fstab = Fstab(self.log_func, self.args)
+        self.fstab = Fstab(self.log_func, self.args, True)
         self.gen_fk = self._gen_fk if self.args.log_fk else gen_filekey
 
         if self.args.hash_mt < 2:
@@ -1491,6 +1491,7 @@ class Up2k(object):
 
         th_cvd = self.args.th_coversd
         th_cvds = self.args.th_coversd_set
+        scan_pr_s = self.args.scan_pr_s
 
         self.pp.msg = "a%d %s" % (self.pp.n, cdir)
 
@@ -1702,7 +1703,7 @@ class Up2k(object):
             if nohash or not sz:
                 wark = up2k_wark_from_metadata(self.salt, sz, lmod, rd, fn)
             else:
-                if sz > 1024 * 1024:
+                if sz > 1024 * 1024 * scan_pr_s:
                     self.log("file: %r" % (abspath,))
 
                 try:
@@ -2991,7 +2992,7 @@ class Up2k(object):
 
         # check if filesystem supports sparse files;
         # refuse out-of-order / multithreaded uploading if sprs False
-        sprs = self.fstab.get(pdir) != "ng"
+        sprs = self.fstab.get(pdir)[0] != "ng"
 
         if True:
             jcur = self.cur.get(ptop)
@@ -5155,7 +5156,7 @@ class Up2k(object):
                     sprs = False
 
             if not ANYWIN and sprs and sz > 1024 * 1024:
-                fs = self.fstab.get(pdir)
+                fs, mnt = self.fstab.get(pdir)
                 if fs == "ok":
                     pass
                 elif "nosparse" in vf:

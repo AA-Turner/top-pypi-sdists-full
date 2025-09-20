@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: astroquery
-Version: 0.4.10
+Version: 0.4.11
 Summary: Functions and classes to access online astronomical data resources
 Author: The Astroquery Developers
 License: BSD
@@ -26,6 +26,9 @@ Requires-Dist: html5lib>=0.999
 Requires-Dist: keyring>=15.0
 Requires-Dist: pyvo>=1.5
 Provides-Extra: test
+Requires-Dist: pytest>=7.4; extra == "test"
+Requires-Dist: pytest-doctestplus>=1.4; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: pytest-astropy; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: pytest-dependency; extra == "test"
@@ -45,6 +48,7 @@ Requires-Dist: boto3; extra == "all"
 Requires-Dist: regions>=0.5; extra == "all"
 Dynamic: description
 Dynamic: description-content-type
+Dynamic: license-file
 
 `Documentation`_ | `View on Github`_ |  `Download Development ZIP`_
 

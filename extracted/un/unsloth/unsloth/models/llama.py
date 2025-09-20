@@ -25,7 +25,7 @@ from ._utils import _prepare_model_for_qat
 from torch.nn.functional import scaled_dot_product_attention
 from transformers import __version__ as transformers_version
 from unsloth_zoo.utils import Version, _get_dtype
-from unsloth_zoo.hf_utils import dtype_from_config, add_dtype_kwargs
+from unsloth_zoo.hf_utils import dtype_from_config, add_dtype_kwargs, fix_lora_auto_mapping
 from unsloth_zoo.peft_utils import SKIP_QUANTIZATION_MODULES
 from unsloth import DEVICE_TYPE, DEVICE_COUNT
 
@@ -1200,7 +1200,8 @@ def CausalLM_fast_forward(fast_forward_inference):
 
             if not RETURN_LOGITS and labels is not None:
 
-                n_items = kwargs.get("num_items_in_batch", None) or kwargs.get("n_items", None)
+                n_items = kwargs.get("num_items_in_batch", None)
+                if n_items is None: n_items = kwargs.get("n_items", None)
 
                 if self.config.model_type == "falcon_h1":
                     hidden_states = hidden_states * self.config.lm_head_multiplier
@@ -1264,12 +1265,14 @@ def CausalLM_fast_forward(fast_forward_inference):
             shift_labels[..., :-1] = labels[..., 1:]
             shift_labels[..., -1] = -100
             # shift_labels = torch.hstack((labels[..., 1:], self.extra_ignored_labels[:labels.shape[0]]))
+            n_items = kwargs.get("num_items_in_batch", None)
+            if n_items is None: n_items = kwargs.get("n_items", None)
             loss = fast_cross_entropy_loss(
                 logits = shift_logits,
                 labels = shift_labels,
                 logit_softcapping = logit_softcapping,
                 logit_scaling     = logit_scaling,
-                n_items           = kwargs.get("num_items_in_batch", None) or kwargs.get("n_items", None),
+                n_items           = n_items,
             )
         else:
             if logit_scaling != 0:
@@ -2629,6 +2632,8 @@ class FastLlamaModel:
         pass
 
         model = _get_peft_model(model, lora_config)
+        # Fix LoraConfig.auto_mapping is None
+        fix_lora_auto_mapping(model)
 
         # Apply QAT + LoRA if specified
         if qat_scheme is not None:

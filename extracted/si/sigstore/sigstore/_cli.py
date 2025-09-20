@@ -20,26 +20,24 @@ import json
 import logging
 import os
 import sys
+from concurrent import futures
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn, Optional, TextIO, Union
+from typing import Any, NoReturn, Union
 
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import load_pem_x509_certificate
 from pydantic import ValidationError
 from rich.console import Console
 from rich.logging import RichHandler
-from sigstore_protobuf_specs.dev.sigstore.bundle.v1 import (
-    Bundle as RawBundle,
-)
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import HashAlgorithm
+from sigstore_models.bundle.v1 import Bundle as RawBundle
+from sigstore_models.common.v1 import HashAlgorithm
 from typing_extensions import TypeAlias
 
 from sigstore import __version__, dsse
 from sigstore._internal.fulcio.client import ExpiredCertificate
 from sigstore._internal.rekor import _hashedrekord_from_parts
 from sigstore._internal.rekor.client import RekorClient
-from sigstore._internal.trust import ClientTrustConfig, TrustedRoot
 from sigstore._utils import sha256_digest
 from sigstore.dsse import StatementBuilder, Subject
 from sigstore.dsse._predicate import (
@@ -47,17 +45,16 @@ from sigstore.dsse._predicate import (
     SLSAPredicateV0_2,
     SLSAPredicateV1_0,
 )
-from sigstore.errors import Error, VerificationError
+from sigstore.errors import CertValidationError, Error, VerificationError
 from sigstore.hashes import Hashed
-from sigstore.models import Bundle, InvalidBundle
+from sigstore.models import Bundle, ClientTrustConfig, InvalidBundle
 from sigstore.oidc import (
-    DEFAULT_OAUTH_ISSUER_URL,
     ExpiredIdentity,
     IdentityToken,
     Issuer,
     detect_credential,
 )
-from sigstore.sign import SigningContext
+from sigstore.sign import Signer, SigningContext
 from sigstore.verify import (
     Verifier,
     policy,
@@ -77,9 +74,9 @@ _package_logger.setLevel(os.environ.get("SIGSTORE_LOGLEVEL", "INFO").upper())
 
 @dataclass(frozen=True)
 class SigningOutputs:
-    signature: Optional[Path] = None
-    certificate: Optional[Path] = None
-    bundle: Optional[Path] = None
+    signature: Path | None = None
+    certificate: Path | None = None
+    bundle: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -229,8 +226,8 @@ def _add_shared_oidc_options(
         "--oidc-issuer",
         metavar="URL",
         type=str,
-        default=os.getenv("SIGSTORE_OIDC_ISSUER", DEFAULT_OAUTH_ISSUER_URL),
-        help="The OpenID Connect issuer to use (conflicts with --staging)",
+        default=os.getenv("SIGSTORE_OIDC_ISSUER", None),
+        help="The OpenID Connect issuer to use",
     )
     group.add_argument(
         "--oauth-force-oob",
@@ -287,6 +284,13 @@ def _parser() -> argparse.ArgumentParser:
         help="sign one or more inputs using DSSE",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[parent_parser],
+    )
+    attest.add_argument(
+        "--rekor-version",
+        type=int,
+        metavar="VERSION",
+        default=argparse.SUPPRESS,
+        help="Force the rekor transparency log version. Valid values are [1, 2]. By default the highest available version is used",
     )
     attest.add_argument(
         "files",
@@ -347,6 +351,13 @@ def _parser() -> argparse.ArgumentParser:
         help="sign one or more inputs",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[parent_parser],
+    )
+    sign.add_argument(
+        "--rekor-version",
+        type=int,
+        metavar="VERSION",
+        default=argparse.SUPPRESS,
+        help="Force the rekor transparency log version. Valid values are [1, 2]. By default the highest available version is used",
     )
 
     oidc_options = sign.add_argument_group("OpenID Connect options")
@@ -614,11 +625,7 @@ def main(args: list[str] | None = None) -> None:
             elif args.verify_subcommand == "github":
                 _verify_github(args)
         elif args.subcommand == "get-identity-token":
-            identity = _get_identity(args)
-            if identity:
-                print(identity)
-            else:
-                _invalid_arguments(args, "No identity token supplied or detected!")
+            _get_identity_token(args)
         elif args.subcommand == "plumbing":
             if args.plumbing_subcommand == "fix-bundle":
                 _fix_bundle(args)
@@ -628,6 +635,68 @@ def main(args: list[str] | None = None) -> None:
             _invalid_arguments(args, f"Unknown subcommand: {args.subcommand}")
     except Error as e:
         e.log_and_exit(_logger, args.verbose >= 1)
+
+
+def _get_identity_token(args: argparse.Namespace) -> None:
+    """
+    Output the OIDC authentication token
+    """
+    identity = _get_identity(args, _get_trust_config(args))
+    if identity:
+        print(identity)
+    else:
+        _invalid_arguments(args, "No identity token supplied or detected!")
+
+
+def _sign_file_threaded(
+    signer: Signer,
+    predicate_type: str | None,
+    predicate: dict[str, Any] | None,
+    file: Path,
+    outputs: SigningOutputs,
+) -> None:
+    """sign method to be called from signing thread"""
+    _logger.debug(f"signing for {file.name}")
+    with file.open(mode="rb") as io:
+        # The input can be indefinitely large, so we perform a streaming
+        # digest and sign the prehash rather than buffering it fully.
+        digest = sha256_digest(io)
+    try:
+        if predicate is None:
+            result = signer.sign_artifact(input_=digest)
+        else:
+            subject = Subject(name=file.name, digest={"sha256": digest.digest.hex()})
+            statement_builder = StatementBuilder(
+                subjects=[subject],
+                predicate_type=predicate_type,
+                predicate=predicate,
+            )
+            result = signer.sign_dsse(statement_builder.build())
+    except ExpiredIdentity as exp_identity:
+        _logger.error("Signature failed: identity token has expired")
+        raise exp_identity
+
+    except ExpiredCertificate as exp_certificate:
+        _logger.error("Signature failed: Fulcio signing certificate has expired")
+        raise exp_certificate
+
+    _logger.info(
+        f"Transparency log entry created at index: {result.log_entry._inner.log_index}"
+    )
+
+    if outputs.signature is not None:
+        signature = base64.b64encode(result.signature).decode()
+        with outputs.signature.open(mode="w") as io:
+            print(signature, file=io)
+
+    if outputs.certificate is not None:
+        cert_pem = signer._signing_cert().public_bytes(Encoding.PEM).decode()
+        with outputs.certificate.open(mode="w") as io:
+            print(cert_pem, file=io)
+
+    if outputs.bundle is not None:
+        with outputs.bundle.open(mode="w") as io:
+            print(result.to_json(), file=io)
 
 
 def _sign_common(
@@ -643,17 +712,8 @@ def _sign_common(
     not, it will use a hashedrekord.
     """
     # Select the signing context to use.
-    if args.staging:
-        _logger.debug("sign: staging instances requested")
-        signing_ctx = SigningContext.staging()
-    elif args.trust_config:
-        trust_config = ClientTrustConfig.from_json(args.trust_config.read_text())
-        signing_ctx = SigningContext._from_trust_config(trust_config)
-    else:
-        # If the user didn't request the staging instance or pass in an
-        # explicit client trust config, we're using the public good (i.e.
-        # production) instance.
-        signing_ctx = SigningContext.production()
+    trust_config = _get_trust_config(args)
+    signing_ctx = SigningContext.from_trust_config(trust_config)
 
     # The order of precedence for identities is as follows:
     #
@@ -662,72 +722,44 @@ def _sign_common(
     # 3) Interactive OAuth flow
     identity: IdentityToken | None
     if args.identity_token:
-        identity = IdentityToken(args.identity_token)
+        identity = IdentityToken(args.identity_token, args.oidc_client_id)
     else:
-        identity = _get_identity(args)
+        identity = _get_identity(args, trust_config)
 
     if not identity:
         _invalid_arguments(args, "No identity token supplied or detected!")
 
+    # Not all commands provide --predicate-type
+    predicate_type = getattr(args, "predicate_type", None)
+
     with signing_ctx.signer(identity) as signer:
+        print("Using ephemeral certificate:")
+        cert_pem = signer._signing_cert().public_bytes(Encoding.PEM).decode()
+        print(cert_pem)
+
+        # sign in threads: this is relevant for especially Rekor v2 as otherwise we wait
+        # for log inclusion for each signature separately
+        with futures.ThreadPoolExecutor() as executor:
+            jobs = [
+                executor.submit(
+                    _sign_file_threaded,
+                    signer,
+                    predicate_type,
+                    predicate,
+                    file,
+                    outputs,
+                )
+                for file, outputs in output_map.items()
+            ]
+            for job in futures.as_completed(jobs):
+                job.result()
+
         for file, outputs in output_map.items():
-            _logger.debug(f"signing for {file.name}")
-            with file.open(mode="rb") as io:
-                # The input can be indefinitely large, so we perform a streaming
-                # digest and sign the prehash rather than buffering it fully.
-                digest = sha256_digest(io)
-            try:
-                if predicate is None:
-                    result = signer.sign_artifact(input_=digest)
-                else:
-                    subject = Subject(
-                        name=file.name, digest={"sha256": digest.digest.hex()}
-                    )
-                    predicate_type = args.predicate_type
-                    statement_builder = StatementBuilder(
-                        subjects=[subject],
-                        predicate_type=predicate_type,
-                        predicate=predicate,
-                    )
-                    result = signer.sign_dsse(statement_builder.build())
-            except ExpiredIdentity as exp_identity:
-                print("Signature failed: identity token has expired")
-                raise exp_identity
-
-            except ExpiredCertificate as exp_certificate:
-                print("Signature failed: Fulcio signing certificate has expired")
-                raise exp_certificate
-
-            print("Using ephemeral certificate:")
-            cert = result.signing_certificate
-            cert_pem = cert.public_bytes(Encoding.PEM).decode()
-            print(cert_pem)
-
-            print(
-                f"Transparency log entry created at index: {result.log_entry.log_index}"
-            )
-
-            sig_output: TextIO
-            if outputs.signature is not None:
-                sig_output = outputs.signature.open("w")
-            else:
-                sig_output = sys.stdout
-
-            signature = base64.b64encode(
-                result._inner.message_signature.signature
-            ).decode()
-            print(signature, file=sig_output)
             if outputs.signature is not None:
                 print(f"Signature written to {outputs.signature}")
-
             if outputs.certificate is not None:
-                with outputs.certificate.open(mode="w") as io:
-                    print(cert_pem, file=io)
                 print(f"Certificate written to {outputs.certificate}")
-
             if outputs.bundle is not None:
-                with outputs.bundle.open(mode="w") as io:
-                    print(result.to_json(), file=io)
                 print(f"Sigstore bundle written to {outputs.bundle}")
 
 
@@ -1011,14 +1043,8 @@ def _collect_verification_state(
                 f"Missing verification materials for {(hashed)}: {', '.join(missing)}",
             )
 
-    if args.staging:
-        _logger.debug("verify: staging instances requested")
-        verifier = Verifier.staging(offline=args.offline)
-    elif args.trust_config:
-        trust_config = ClientTrustConfig.from_json(args.trust_config.read_text())
-        verifier = Verifier._from_trust_config(trust_config)
-    else:
-        verifier = Verifier.production(offline=args.offline)
+    trust_config = _get_trust_config(args)
+    verifier = Verifier(trusted_root=trust_config.trusted_root)
 
     all_materials = []
     for file_or_hashed, materials in input_map.items():
@@ -1079,6 +1105,11 @@ def _verify_identity(args: argparse.Namespace) -> None:
             if statement is not None:
                 print(statement._contents.decode())
         except Error as exc:
+            if isinstance(exc, CertValidationError):
+                _logger.warning(
+                    "A certificate chain was not valid, are you using the correct Sigstore instance?"
+                )
+
             _logger.error(f"FAIL: {file_or_digest}")
             exc.log_and_exit(_logger, args.verbose >= 1)
 
@@ -1127,6 +1158,11 @@ def _verify_github(args: argparse.Namespace) -> None:
             if statement is not None:
                 print(statement._contents)
         except Error as exc:
+            if isinstance(exc, CertValidationError):
+                _logger.warning(
+                    "A certificate chain was not valid, are you using the correct Sigstore instance?"
+                )
+
             _logger.error(f"FAIL: {file_or_digest}")
             exc.log_and_exit(_logger, args.verbose >= 1)
 
@@ -1169,21 +1205,44 @@ def _verify_common(
         return None
 
 
-def _get_identity(args: argparse.Namespace) -> Optional[IdentityToken]:
+def _get_trust_config(args: argparse.Namespace) -> ClientTrustConfig:
+    """
+    Return the client trust configuration (Sigstore service URLs, key material and lifetimes)
+
+    The configuration may come from explicit argument (--trust-config) or from the TUF
+    repository of the used Sigstore instance.
+    """
+    # Not all commands provide --offline
+    offline = getattr(args, "offline", False)
+
+    if args.trust_config:
+        trust_config = ClientTrustConfig.from_json(args.trust_config.read_text())
+    elif args.staging:
+        trust_config = ClientTrustConfig.staging(offline=offline)
+    else:
+        trust_config = ClientTrustConfig.production(offline=offline)
+
+    # Enforce rekor version if --rekor-version is used
+    trust_config.force_tlog_version = getattr(args, "rekor_version", None)
+
+    return trust_config
+
+
+def _get_identity(
+    args: argparse.Namespace, trust_config: ClientTrustConfig
+) -> IdentityToken | None:
     token = None
     if not args.oidc_disable_ambient_providers:
-        token = detect_credential()
+        token = detect_credential(args.oidc_client_id)
 
     # Happy path: we've detected an ambient credential, so we can return early.
     if token:
-        return IdentityToken(token)
+        return IdentityToken(token, args.oidc_client_id)
 
-    if args.staging:
-        issuer = Issuer.staging()
-    elif args.oidc_issuer == DEFAULT_OAUTH_ISSUER_URL:
-        issuer = Issuer.production()
-    else:
+    if args.oidc_issuer is not None:
         issuer = Issuer(args.oidc_issuer)
+    else:
+        issuer = Issuer(trust_config.signing_config.get_oidc_url())
 
     if args.oidc_client_secret is None:
         args.oidc_client_secret = ""  # nosec: B105
@@ -1200,9 +1259,10 @@ def _get_identity(args: argparse.Namespace) -> Optional[IdentityToken]:
 def _fix_bundle(args: argparse.Namespace) -> None:
     # NOTE: We could support `--trusted-root` here in the future,
     # for custom Rekor instances.
+
     rekor = RekorClient.staging() if args.staging else RekorClient.production()
 
-    raw_bundle = RawBundle().from_json(args.bundle.read_text())
+    raw_bundle = RawBundle.from_json(args.bundle.read_bytes())
 
     if len(raw_bundle.verification_material.tlog_entries) != 1:
         _fatal("unfixable bundle: must have exactly one log entry")
@@ -1215,8 +1275,8 @@ def _fix_bundle(args: argparse.Namespace) -> None:
     inclusion_proof = tlog_entry.inclusion_proof
     if not inclusion_proof.checkpoint:
         _logger.info("fixable: bundle's log entry is missing a checkpoint")
-        new_entry = rekor.log.entries.get(log_index=tlog_entry.log_index)._to_rekor()
-        raw_bundle.verification_material.tlog_entries = [new_entry]
+        new_entry = rekor.log.entries.get(log_index=tlog_entry.log_index)
+        raw_bundle.verification_material.tlog_entries = [new_entry._inner]
 
     # Try to create our invariant-preserving Bundle from the any changes above.
     try:
@@ -1236,13 +1296,10 @@ def _fix_bundle(args: argparse.Namespace) -> None:
 
 
 def _update_trust_root(args: argparse.Namespace) -> None:
-    # Simply creating the TrustedRoot in online mode is enough to perform
+    # Simply creating the TrustConfig in online mode is enough to perform
     # a metadata update.
-    if args.staging:
-        trusted_root = TrustedRoot.staging(offline=False)
-    else:
-        trusted_root = TrustedRoot.production(offline=False)
 
+    config = _get_trust_config(args)
     _console.print(
-        f"Trust root updated: {len(trusted_root.get_fulcio_certs())} Fulcio certificates"
+        f"Trust root & signing config updated: {len(config.trusted_root.get_fulcio_certs())} Fulcio certificates"
     )

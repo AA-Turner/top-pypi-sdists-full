@@ -10,6 +10,7 @@ from typing import Any, cast, Iterable
 import regex
 
 from arelle import XbrlConst, XmlUtil
+from arelle.LinkbaseType import LinkbaseType
 from arelle.ModelDtsObject import ModelConcept
 from arelle.ModelInstanceObject import ModelFact
 from arelle.ModelObject import ModelObject
@@ -970,3 +971,239 @@ def rule_gfm_1_5_10(
                     labelrole=label.role,
                     modelObject=label
                 )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_6_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.6.1] All presentation relationships must have an order attribute
+    """
+    presentationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.PRESENTATION.getArcroles()))
+    if presentationRelationshipSet is None:
+        return
+    for rel in presentationRelationshipSet.modelRelationships:
+        if not rel.arcElement.get("order"):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.6.1',
+                msg=_("The presentation relationship is missing the order attribute"),
+                modelObject=rel
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_6_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.6.2] Presentation relationships must have unique order attributes
+    """
+    presentationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.PRESENTATION.getArcroles()))
+    if presentationRelationshipSet is None:
+        return
+    for modelObject, rels in presentationRelationshipSet.fromModelObjects().items():
+        if len(rels) <= 1:
+            continue
+        relsByOrder = defaultdict(list)
+        for rel in rels:
+            order = rel.arcElement.get("order")
+            if order is not None:
+                relsByOrder[(order, rel.linkrole)].append(rel)
+        for key, orderRels in relsByOrder.items():
+            if len(orderRels) > 1:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.6.2',
+                    msg=_("The presentation relationships have the same order attribute: '%(order)s'"),
+                    order=key[0],
+                    modelObject=orderRels
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_6_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.6.5] If an element used in an instance is the target in the instance DTS of more than one
+                                effective presentation arc in a base set with the same source element, then the
+                                presentation arcs must have distinct values of the preferredLabel attribute.
+    """
+    presentationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.PRESENTATION.getArcroles()))
+    if presentationRelationshipSet is None:
+        return
+    for modelObject, rels in presentationRelationshipSet.toModelObjects().items():
+        if len(rels) <= 1:
+            continue
+        relsByFrom = defaultdict(list)
+        for rel in rels:
+            relsByFrom[(rel.fromModelObject, rel.preferredLabel, rel.linkrole)].append(rel)
+        for key, fromRels in relsByFrom.items():
+            if len(fromRels) > 1:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.6.5',
+                    msg=_("The presentation relationships must have distinct values of the preferredLabel attribute "
+                          "when they have the same source and target elements"),
+                    modelObject=fromRels
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_7_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.7.1] All calculation relationships must have an order attribute
+    """
+    calculationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.CALCULATION.getArcroles()))
+    if calculationRelationshipSet is None:
+        return
+    for rel in calculationRelationshipSet.modelRelationships:
+        if not rel.arcElement.get("order"):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.7.1',
+                msg=_("The calculation relationship is missing the order attribute"),
+                modelObject=rel
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_7_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.7.2] All calculation relationships must have a weight of either 1 or -1
+    """
+    calculationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.CALCULATION.getArcroles()))
+    if calculationRelationshipSet is None:
+        return
+    for rel in calculationRelationshipSet.modelRelationships:
+        if rel.weight not in [1, -1]:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.7.2',
+                msg=_("The calculation relationship must have a weight of 1 or -1, actual weight: '%(weight)s'"),
+                weight=rel.weight,
+                modelObject=rel
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_7_3(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.7.3] The concepts participating in a calculation relationship must have the same period type
+    """
+    calculationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.CALCULATION.getArcroles()))
+    if calculationRelationshipSet is None:
+        return
+    for rel in calculationRelationshipSet.modelRelationships:
+        fromConcept = rel.fromModelObject
+        toConcept = rel.toModelObject
+        if fromConcept is not None and toConcept is not None and fromConcept.periodType != toConcept.periodType:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.7.3',
+                msg=_("The concepts participating in a calculation relationship must have the same period types. "
+                      "The concept of '%(concept1)s' has a period type of '%(concept1PeriodType)s' and the concept "
+                      "of '%(concept2)s' has a period type of '%(concept2PeriodType)s'"),
+                concept1=fromConcept.qname,
+                concept1PeriodType=fromConcept.periodType,
+                concept2=toConcept.qname,
+                concept2PeriodType=toConcept.periodType,
+                modelObject=rel
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_7_6(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.7.6] Calculation relationships must have unique order attributes
+    """
+    calculationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.CALCULATION.getArcroles()))
+    if calculationRelationshipSet is None:
+        return
+    for modelObject, rels in calculationRelationshipSet.fromModelObjects().items():
+        if len(rels) <= 1:
+            continue
+        relsByOrder = defaultdict(list)
+        for rel in rels:
+            order = rel.arcElement.get("order")
+            if order is not None:
+                relsByOrder[(order, rel.linkrole)].append(rel)
+        for key, orderRels in relsByOrder.items():
+            if len(orderRels) > 1:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.7.6',
+                    msg=_("The calculation relationships have the same order attribute: '%(order)s'"),
+                    order=key[0],
+                    modelObject=orderRels
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_8_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.8.1] All definition relationships must have an order attribute
+    """
+    definitionRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.DEFINITION.getArcroles()))
+    if definitionRelationshipSet is None:
+        return
+    for rel in definitionRelationshipSet.modelRelationships:
+        if not rel.arcElement.get("order"):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.8.1',
+                msg=_("The definition relationship is missing the order attribute"),
+                modelObject=rel
+            )

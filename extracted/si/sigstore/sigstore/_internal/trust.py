@@ -19,9 +19,8 @@ Client trust configuration and trust root management for sigstore-python.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import ClassVar, NewType
@@ -29,61 +28,30 @@ from typing import ClassVar, NewType
 import cryptography.hazmat.primitives.asymmetric.padding as padding
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.x509 import (
     Certificate,
     load_der_x509_certificate,
 )
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import PublicKey as _PublicKey
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import (
-    PublicKeyDetails as _PublicKeyDetails,
-)
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import TimeRange
-from sigstore_protobuf_specs.dev.sigstore.trustroot.v1 import (
-    CertificateAuthority as _CertificateAuthority,
-)
-from sigstore_protobuf_specs.dev.sigstore.trustroot.v1 import (
-    ClientTrustConfig as _ClientTrustConfig,
-)
-from sigstore_protobuf_specs.dev.sigstore.trustroot.v1 import (
-    TransparencyLogInstance,
-)
-from sigstore_protobuf_specs.dev.sigstore.trustroot.v1 import (
-    TrustedRoot as _TrustedRoot,
-)
+from sigstore_models.common import v1 as common_v1
+from sigstore_models.trustroot import v1 as trustroot_v1
 
-from sigstore._internal.tuf import DEFAULT_TUF_URL, STAGING_TUF_URL, TrustUpdater
 from sigstore._utils import (
     KeyID,
     PublicKey,
+    is_timerange_valid,
     key_id,
     load_der_public_key,
 )
-from sigstore.errors import Error, MetadataError, VerificationError
+from sigstore.errors import Error, VerificationError
+
+# Versions supported by this client
+REKOR_VERSIONS = [1, 2]
+TSA_VERSIONS = [1]
+FULCIO_VERSIONS = [1]
+OIDC_VERSIONS = [1]
 
 _logger = logging.getLogger(__name__)
-
-
-def _is_timerange_valid(period: TimeRange | None, *, allow_expired: bool) -> bool:
-    """
-    Given a `period`, checks that the the current time is not before `start`. If
-    `allow_expired` is `False`, also checks that the current time is not after
-    `end`.
-    """
-    now = datetime.now(timezone.utc)
-
-    # If there was no validity period specified, the key is always valid.
-    if not period:
-        return True
-
-    # Active: if the current time is before the starting period, we are not yet
-    # valid.
-    if now < period.start:
-        return False
-
-    # If we want Expired keys, the key is valid at this point. Otherwise, check
-    # that we are within range.
-    return allow_expired or (period.end is None or now <= period.end)
 
 
 @dataclass(init=False)
@@ -92,24 +60,24 @@ class Key:
     Represents a key in a `Keyring`.
     """
 
-    hash_algorithm: hashes.HashAlgorithm
+    hash_algorithm: hashes.HashAlgorithm | None
     key: PublicKey
     key_id: KeyID
 
-    _RSA_SHA_256_DETAILS: ClassVar[set[_PublicKeyDetails]] = {
-        _PublicKeyDetails.PKCS1_RSA_PKCS1V5,
-        _PublicKeyDetails.PKIX_RSA_PKCS1V15_2048_SHA256,
-        _PublicKeyDetails.PKIX_RSA_PKCS1V15_3072_SHA256,
-        _PublicKeyDetails.PKIX_RSA_PKCS1V15_4096_SHA256,
+    _RSA_SHA_256_DETAILS: ClassVar = {
+        common_v1.PublicKeyDetails.PKCS1_RSA_PKCS1V5,
+        common_v1.PublicKeyDetails.PKIX_RSA_PKCS1V15_2048_SHA256,
+        common_v1.PublicKeyDetails.PKIX_RSA_PKCS1V15_3072_SHA256,
+        common_v1.PublicKeyDetails.PKIX_RSA_PKCS1V15_4096_SHA256,
     }
 
-    _EC_DETAILS_TO_HASH: ClassVar[dict[_PublicKeyDetails, hashes.HashAlgorithm]] = {
-        _PublicKeyDetails.PKIX_ECDSA_P256_SHA_256: hashes.SHA256(),
-        _PublicKeyDetails.PKIX_ECDSA_P384_SHA_384: hashes.SHA384(),
-        _PublicKeyDetails.PKIX_ECDSA_P521_SHA_512: hashes.SHA512(),
+    _EC_DETAILS_TO_HASH: ClassVar = {
+        common_v1.PublicKeyDetails.PKIX_ECDSA_P256_SHA_256: hashes.SHA256(),
+        common_v1.PublicKeyDetails.PKIX_ECDSA_P384_SHA_384: hashes.SHA384(),
+        common_v1.PublicKeyDetails.PKIX_ECDSA_P521_SHA_512: hashes.SHA512(),
     }
 
-    def __init__(self, public_key: _PublicKey) -> None:
+    def __init__(self, public_key: common_v1.PublicKey) -> None:
         """
         Construct a key from the given Sigstore PublicKey message.
         """
@@ -119,7 +87,7 @@ class Key:
         if not public_key.raw_bytes:
             raise VerificationError("public key is empty")
 
-        hash_algorithm: hashes.HashAlgorithm
+        hash_algorithm: hashes.HashAlgorithm | None
         if public_key.key_details in self._RSA_SHA_256_DETAILS:
             hash_algorithm = hashes.SHA256()
             key = load_der_public_key(public_key.raw_bytes, types=(rsa.RSAPublicKey,))
@@ -127,6 +95,11 @@ class Key:
             hash_algorithm = self._EC_DETAILS_TO_HASH[public_key.key_details]
             key = load_der_public_key(
                 public_key.raw_bytes, types=(ec.EllipticCurvePublicKey,)
+            )
+        elif public_key.key_details == common_v1.PublicKeyDetails.PKIX_ED25519:
+            hash_algorithm = None
+            key = load_der_public_key(
+                public_key.raw_bytes, types=(ed25519.Ed25519PublicKey,)
             )
         else:
             raise VerificationError(f"unsupported key type: {public_key.key_details}")
@@ -139,7 +112,7 @@ class Key:
         """
         Verifies the given `data` against `signature` using the current key.
         """
-        if isinstance(self.key, rsa.RSAPublicKey):
+        if isinstance(self.key, rsa.RSAPublicKey) and self.hash_algorithm is not None:
             self.key.verify(
                 signature=signature,
                 data=data,
@@ -147,11 +120,22 @@ class Key:
                 padding=padding.PKCS1v15(),
                 algorithm=self.hash_algorithm,
             )
-        elif isinstance(self.key, ec.EllipticCurvePublicKey):
+        elif (
+            isinstance(self.key, ec.EllipticCurvePublicKey)
+            and self.hash_algorithm is not None
+        ):
             self.key.verify(
                 signature=signature,
                 data=data,
                 signature_algorithm=ec.ECDSA(self.hash_algorithm),
+            )
+        elif (
+            isinstance(self.key, ed25519.Ed25519PublicKey)
+            and self.hash_algorithm is None
+        ):
+            self.key.verify(
+                signature=signature,
+                data=data,
             )
         else:
             # Unreachable without API misuse.
@@ -163,7 +147,7 @@ class Keyring:
     Represents a set of keys, each of which is a potentially valid verifier.
     """
 
-    def __init__(self, public_keys: list[_PublicKey] = []):
+    def __init__(self, public_keys: list[common_v1.PublicKey] = []):
         """
         Create a new `Keyring`, with `keys` as the initial set of verifying keys.
         """
@@ -228,7 +212,7 @@ class CertificateAuthority:
     Certificate Authority used in a Trusted Root configuration.
     """
 
-    def __init__(self, inner: _CertificateAuthority):
+    def __init__(self, inner: trustroot_v1.CertificateAuthority):
         """
         Construct a new `CertificateAuthority`.
 
@@ -243,7 +227,7 @@ class CertificateAuthority:
         """
         Create a CertificateAuthority directly from JSON.
         """
-        inner = _CertificateAuthority().from_json(Path(path).read_bytes())
+        inner = trustroot_v1.CertificateAuthority.from_json(Path(path).read_bytes())
         return cls(inner)
 
     def _verify(self) -> None:
@@ -259,7 +243,7 @@ class CertificateAuthority:
             raise Error("missing a certificate in Certificate Authority")
 
     @property
-    def validity_period_start(self) -> datetime | None:
+    def validity_period_start(self) -> datetime:
         """
         Validity period start.
         """
@@ -279,203 +263,6 @@ class CertificateAuthority:
         The certificates are returned in order from leaf to root, with any
         intermediate certificates in between.
         """
-        if not _is_timerange_valid(self._inner.valid_for, allow_expired=allow_expired):
+        if not is_timerange_valid(self._inner.valid_for, allow_expired=allow_expired):
             return []
         return self._certificates
-
-
-class TrustedRoot:
-    """
-    The cryptographic root(s) of trust for a Sigstore instance.
-    """
-
-    class TrustedRootType(str, Enum):
-        """
-        Known Sigstore trusted root media types.
-        """
-
-        TRUSTED_ROOT_0_1 = "application/vnd.dev.sigstore.trustedroot+json;version=0.1"
-
-        def __str__(self) -> str:
-            """Returns the variant's string value."""
-            return self.value
-
-    def __init__(self, inner: _TrustedRoot):
-        """
-        Construct a new `TrustedRoot`.
-
-        @api private
-        """
-        self._inner = inner
-        self._verify()
-
-    def _verify(self) -> None:
-        """
-        Performs various feats of heroism to ensure that the trusted root
-        is well-formed.
-        """
-
-        # The trusted root must have a recognized media type.
-        try:
-            TrustedRoot.TrustedRootType(self._inner.media_type)
-        except ValueError:
-            raise Error(f"unsupported trusted root format: {self._inner.media_type}")
-
-    @classmethod
-    def from_file(
-        cls,
-        path: str,
-    ) -> TrustedRoot:
-        """Create a new trust root from file"""
-        inner = _TrustedRoot().from_json(Path(path).read_bytes())
-        return cls(inner)
-
-    @classmethod
-    def from_tuf(
-        cls,
-        url: str,
-        offline: bool = False,
-    ) -> TrustedRoot:
-        """Create a new trust root from a TUF repository.
-
-        If `offline`, will use trust root in local TUF cache. Otherwise will
-        update the trust root from remote TUF repository.
-        """
-        path = TrustUpdater(url, offline).get_trusted_root_path()
-        return cls.from_file(path)
-
-    @classmethod
-    def production(
-        cls,
-        offline: bool = False,
-    ) -> TrustedRoot:
-        """Create new trust root from Sigstore production TUF repository.
-
-        If `offline`, will use trust root in local TUF cache. Otherwise will
-        update the trust root from remote TUF repository.
-        """
-        return cls.from_tuf(DEFAULT_TUF_URL, offline)
-
-    @classmethod
-    def staging(
-        cls,
-        offline: bool = False,
-    ) -> TrustedRoot:
-        """Create new trust root from Sigstore staging TUF repository.
-
-        If `offline`, will use trust root in local TUF cache. Otherwise will
-        update the trust root from remote TUF repository.
-        """
-        return cls.from_tuf(STAGING_TUF_URL, offline)
-
-    def _get_tlog_keys(
-        self, tlogs: list[TransparencyLogInstance], purpose: KeyringPurpose
-    ) -> Iterable[_PublicKey]:
-        """
-        Yields an iterator of public keys for transparency log instances that
-        are suitable for `purpose`.
-        """
-        allow_expired = purpose is KeyringPurpose.VERIFY
-        for tlog in tlogs:
-            if not _is_timerange_valid(
-                tlog.public_key.valid_for, allow_expired=allow_expired
-            ):
-                continue
-
-            yield tlog.public_key
-
-    def rekor_keyring(self, purpose: KeyringPurpose) -> RekorKeyring:
-        """Return keyring with keys for Rekor."""
-
-        keys: list[_PublicKey] = list(self._get_tlog_keys(self._inner.tlogs, purpose))
-        if len(keys) == 0:
-            raise MetadataError("Did not find any Rekor keys in trusted root")
-        return RekorKeyring(Keyring(keys))
-
-    def ct_keyring(self, purpose: KeyringPurpose) -> CTKeyring:
-        """Return keyring with key for CTFE."""
-        ctfes: list[_PublicKey] = list(self._get_tlog_keys(self._inner.ctlogs, purpose))
-        if not ctfes:
-            raise MetadataError("CTFE keys not found in trusted root")
-        return CTKeyring(Keyring(ctfes))
-
-    def get_fulcio_certs(self) -> list[Certificate]:
-        """Return the Fulcio certificates."""
-
-        certs: list[Certificate] = []
-
-        # Return expired certificates too: they are expired now but may have
-        # been active when the certificate was used to sign.
-        for authority in self._inner.certificate_authorities:
-            certificate_authority = CertificateAuthority(authority)
-            certs.extend(certificate_authority.certificates(allow_expired=True))
-
-        if not certs:
-            raise MetadataError("Fulcio certificates not found in trusted root")
-        return certs
-
-    def get_timestamp_authorities(self) -> list[CertificateAuthority]:
-        """
-        Return the TSA present in the trusted root.
-
-        This list may be empty and in this case, no timestamp verification can be
-        performed.
-        """
-        certificate_authorities: list[CertificateAuthority] = [
-            CertificateAuthority(cert_chain)
-            for cert_chain in self._inner.timestamp_authorities
-        ]
-        return certificate_authorities
-
-
-class ClientTrustConfig:
-    """
-    Represents a Sigstore client's trust configuration, including a root of trust.
-    """
-
-    class ClientTrustConfigType(str, Enum):
-        """
-        Known Sigstore client trust config media types.
-        """
-
-        CONFIG_0_1 = "application/vnd.dev.sigstore.clienttrustconfig.v0.1+json"
-
-        def __str__(self) -> str:
-            """Returns the variant's string value."""
-            return self.value
-
-    @classmethod
-    def from_json(cls, raw: str) -> ClientTrustConfig:
-        """
-        Deserialize the given client trust config.
-        """
-        inner = _ClientTrustConfig().from_json(raw)
-        return cls(inner)
-
-    def __init__(self, inner: _ClientTrustConfig) -> None:
-        """
-        @api private
-        """
-        self._inner = inner
-        self._verify()
-
-    def _verify(self) -> None:
-        """
-        Performs various feats of heroism to ensure that the client trust config
-        is well-formed.
-        """
-
-        # The client trust config must have a recognized media type.
-        try:
-            ClientTrustConfig.ClientTrustConfigType(self._inner.media_type)
-        except ValueError:
-            raise Error(
-                f"unsupported client trust config format: {self._inner.media_type}"
-            )
-
-    @property
-    def trusted_root(self) -> TrustedRoot:
-        """
-        Return the interior root of trust, as a `TrustedRoot`.
-        """
-        return TrustedRoot(self._inner.trusted_root)

@@ -54,6 +54,7 @@
 #include "tensorstore/internal/metrics/gauge.h"
 #include "tensorstore/internal/metrics/histogram.h"
 #include "tensorstore/internal/metrics/metadata.h"
+#include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/thread/thread.h"
 
 ABSL_FLAG(std::optional<uint32_t>, tensorstore_http_threads, std::nullopt,
@@ -398,7 +399,7 @@ MultiTransportImpl::~MultiTransportImpl() {
   // Wake everything...
   for (size_t i = 0; i < threads_.size(); ++i) {
     auto& thread_data = thread_data_[i];
-    absl::MutexLock l(&thread_data.mutex);
+    absl::MutexLock l(thread_data.mutex);
     thread_data.done = true;
     curl_multi_wakeup(thread_data.multi.get());
   }
@@ -433,7 +434,7 @@ void MultiTransportImpl::EnqueueRequest(const HttpRequest& request,
   }
 
   auto& selected = thread_data_[selected_index];
-  absl::MutexLock l(&selected.mutex);
+  absl::MutexLock l(selected.mutex);
   selected.pending.push_back(std::move(state));
   selected.count++;
   curl_multi_wakeup(selected.multi.get());
@@ -487,7 +488,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
 
     if (thread_data.count == 0) {
       // There are no active requests; wait for active requests or shutdown.
-      absl::MutexLock l(&thread_data.mutex);
+      absl::MutexLock l(thread_data.mutex);
       if (thread_data.done) break;
       thread_data.mutex.Await(absl::Condition(
           +[](ThreadData* td) { return !td->pending.empty() || td->done; },
@@ -534,7 +535,7 @@ void MultiTransportImpl::Run(ThreadData& thread_data) {
 }
 
 void MultiTransportImpl::MaybeAddPendingTransfers(ThreadData& thread_data) {
-  absl::MutexLock l(&thread_data.mutex);
+  absl::MutexLock l(thread_data.mutex);
   while (!thread_data.pending.empty()) {
     std::unique_ptr<CurlRequestState> state =
         std::move(thread_data.pending.front());
@@ -594,7 +595,12 @@ CurlTransport::CurlTransport(std::shared_ptr<CurlHandleFactory> factory)
     : impl_(std::make_unique<Impl>(std::move(factory),
                                    /*nthreads=*/GetHttpThreads())) {}
 
-CurlTransport::~CurlTransport() = default;
+CurlTransport::~CurlTransport() {
+  // The last reference to `this` may be dropped when a request receives a
+  // response, and self deletion may lead to crashes, so move the actual
+  // deletion to a background thread.
+  internal::ScheduleAt(absl::InfinitePast(), [impl = std::move(impl_)] {});
+};
 
 void CurlTransport::IssueRequestWithHandler(
     const HttpRequest& request, IssueRequestOptions options,

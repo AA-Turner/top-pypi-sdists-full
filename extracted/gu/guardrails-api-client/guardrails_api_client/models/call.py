@@ -76,9 +76,9 @@ class Call(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in iterations (list)
         _items = []
         if self.iterations:
-            for _item in self.iterations:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_iterations in self.iterations:
+                if _item_iterations:
+                    _items.append(_item_iterations.to_dict())
             _dict['iterations'] = _items
         # override the default output from pydantic by calling `to_dict()` of inputs
         if self.inputs:

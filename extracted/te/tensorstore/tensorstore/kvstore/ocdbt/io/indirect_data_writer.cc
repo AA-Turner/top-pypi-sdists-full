@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <cassert>
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -25,6 +26,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "riegeli/base/byte_fill.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/metrics/histogram.h"
@@ -50,21 +52,28 @@ auto& indirect_data_writer_histogram =
 
 ABSL_CONST_INIT internal_log::VerboseFlag ocdbt_logging("ocdbt");
 
+// Direct IO is only useful on larger files.
+// These are the values where block padding will be applied.
+constexpr size_t kMinPaddingSize = 1024 * 1024 * 4;
+constexpr size_t kDefaultPaddingAlignment = 4096;
+
 }  // namespace
 
 class IndirectDataWriter
     : public internal::AtomicReferenceCount<IndirectDataWriter> {
  public:
   explicit IndirectDataWriter(kvstore::KvStore kvstore, std::string prefix,
-                              size_t target_size)
+                              size_t target_size, size_t write_alignment)
       : kvstore_(std::move(kvstore)),
         prefix_(std::move(prefix)),
-        target_size_(target_size) {}
+        target_size_(target_size),
+        write_alignment_(write_alignment) {}
 
   // Treat as private:
   kvstore::KvStore kvstore_;
   std::string prefix_;
   size_t target_size_;
+  size_t write_alignment_;
   absl::Mutex mutex_;
 
   // Count of in-flight flush operations.
@@ -97,7 +106,8 @@ void intrusive_ptr_decrement(IndirectDataWriter* p) {
 }
 
 namespace {
-void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
+void MaybeFlush(IndirectDataWriter& self,
+                std::unique_lock<absl::Mutex>&& lock) {
   bool buffer_at_target =
       self.target_size_ > 0 && self.buffer_.size() >= self.target_size_;
 
@@ -119,6 +129,15 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
   absl::Cord buffer = std::exchange(self.buffer_, {});
   DataFileId data_file_id = self.data_file_id_;
   lock.unlock();
+
+  // zero-pad up to the block boundary to allow for potential direct io reads
+  // on larger files.
+  if (self.write_alignment_ > 1 && buffer.size() > kMinPaddingSize &&
+      (buffer.size() % self.write_alignment_) > 0) {
+    size_t pad_size =
+        self.write_alignment_ - (buffer.size() % self.write_alignment_);
+    riegeli::ByteFill(pad_size, 0).AppendTo(buffer);
+  }
 
   indirect_data_writer_histogram.Observe(buffer.size());
   ABSL_LOG_IF(INFO, ocdbt_logging)
@@ -142,7 +161,7 @@ void MaybeFlush(IndirectDataWriter& self, UniqueWriterLock<absl::Mutex> lock) {
         } else {
           promise.SetResult(absl::OkStatus());
         }
-        UniqueWriterLock lock{self->mutex_};
+        std::unique_lock lock{self->mutex_};
         assert(self->in_flight_ > 0);
         self->in_flight_--;
         // Another flush may have been requested even while this flush was in
@@ -165,7 +184,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
     ref.length = 0;
     return absl::OkStatus();
   }
-  UniqueWriterLock lock{self.mutex_};
+  std::unique_lock lock{self.mutex_};
   Future<const void> future;
   if (self.promise_.null() || (future = self.promise_.future()).null()) {
     // Create new data file.
@@ -177,7 +196,7 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
         [self = internal::IntrusivePtr<IndirectDataWriter>(&self)](
             Promise<void> promise) {
           ABSL_LOG_IF(INFO, ocdbt_logging) << "Force called";
-          UniqueWriterLock lock{self->mutex_};
+          std::unique_lock lock{self->mutex_};
           if (!HaveSameSharedState(promise, self->promise_)) return;
           self->flush_requested_ = true;
           MaybeFlush(*self, std::move(lock));
@@ -197,8 +216,10 @@ Future<const void> Write(IndirectDataWriter& self, absl::Cord data,
 IndirectDataWriterPtr MakeIndirectDataWriter(kvstore::KvStore kvstore,
                                              std::string prefix,
                                              size_t target_size) {
+  // Align output up to 4k to allow for potential direct io reads.
   return internal::MakeIntrusivePtr<IndirectDataWriter>(
-      std::move(kvstore), std::move(prefix), target_size);
+      std::move(kvstore), std::move(prefix), target_size,
+      /*write_alignment=*/kDefaultPaddingAlignment);
 }
 
 }  // namespace internal_ocdbt

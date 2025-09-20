@@ -90,9 +90,9 @@ class PassResult(BaseModel):
         if obj.get("outcome") != "pass":
             raise ValueError("PassResult must have an outcome value of \"pass\"!")
         _obj = cls.model_validate({
-			"metadata": obj.get("metadata"),
 			"value_override": obj.get("valueOverride"),
             "outcome": obj.get("outcome"),
+            "metadata": obj.get("metadata"),
             "validated_chunk": obj.get("validatedChunk")
         })
         return _obj

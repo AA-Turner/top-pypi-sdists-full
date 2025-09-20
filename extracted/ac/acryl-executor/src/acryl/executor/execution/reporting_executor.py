@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import os
 import time
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
 )
 from pydantic import validator
 
+from acryl.executor.cloud_utils.env_utils import get_payload_max_length
 from acryl.executor.execution.default_executor import (
     DefaultExecutor,
     DefaultExecutorConfig,
@@ -45,7 +45,6 @@ from acryl.executor.secret.secret_store import SecretStoreConfig
 DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"
 REPORTS_TO_EMIT_MAX_SIZE = 10
-DEFAULT_GMS_PAYLOAD_MAX_LENGTH = 15368520
 
 logger = logging.getLogger(__name__)
 
@@ -267,14 +266,6 @@ class ReportingExecutor(DefaultExecutor):
     ) -> ExecutionRequestKeyClass:
         return ExecutionRequestKeyClass(id=execution_request_id)
 
-    def _get_gms_payload_limit(self) -> int:
-        val = os.environ.get("ACRYL_EXECUTOR_GMS_PAYLOAD_MAX_LENGTH")
-        if val is None:
-            return DEFAULT_GMS_PAYLOAD_MAX_LENGTH
-        if val.isdigit():
-            return int(val)
-        return DEFAULT_GMS_PAYLOAD_MAX_LENGTH
-
     def _build_execution_request_result_aspect(
         self,
         status: str,
@@ -288,7 +279,7 @@ class ReportingExecutor(DefaultExecutor):
         # which causes hard-to-explain behavior througout the stack. To protect from this report/structured_report
         # is truncated/removed if it exceeds the limit, and a warning is logged.
 
-        max_length = self._get_gms_payload_limit()
+        max_length = get_payload_max_length()
         if (
             structured_report is not None
             and report is not None

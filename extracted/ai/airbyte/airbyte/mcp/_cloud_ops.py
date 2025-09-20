@@ -1,13 +1,12 @@
 # Copyright (c) 2024 Airbyte, Inc., all rights reserved.
 """Airbyte Cloud MCP operations."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from pydantic import Field
 
 from airbyte import cloud, get_destination, get_source
-from airbyte._util.api_imports import JobStatusEnum
 from airbyte.cloud.auth import (
     resolve_cloud_api_url,
     resolve_cloud_client_id,
@@ -18,7 +17,7 @@ from airbyte.cloud.connections import CloudConnection
 from airbyte.cloud.connectors import CloudDestination, CloudSource
 from airbyte.cloud.workspaces import CloudWorkspace
 from airbyte.destinations.util import get_noop_destination
-from airbyte.mcp._util import resolve_config
+from airbyte.mcp._util import resolve_config, resolve_list_of_strings
 
 
 def _get_cloud_workspace() -> CloudWorkspace:
@@ -44,16 +43,25 @@ def deploy_source_to_cloud(
     *,
     config: Annotated[
         dict | str | None,
-        Field(description="The configuration for the source connector."),
-    ] = None,
+        Field(
+            description="The configuration for the source connector.",
+            default=None,
+        ),
+    ],
     config_secret_name: Annotated[
         str | None,
-        Field(description="The name of the secret containing the configuration."),
-    ] = None,
+        Field(
+            description="The name of the secret containing the configuration.",
+            default=None,
+        ),
+    ],
     unique: Annotated[
         bool,
-        Field(description="Whether to require a unique name."),
-    ] = True,
+        Field(
+            description="Whether to require a unique name.",
+            default=True,
+        ),
+    ],
 ) -> str:
     """Deploy a source connector to Airbyte Cloud.
 
@@ -62,7 +70,10 @@ def deploy_source_to_cloud(
     Airbyte Cloud API.
     """
     try:
-        source = get_source(source_connector_name)
+        source = get_source(
+            source_connector_name,
+            install_if_missing=False,
+        )
         config_dict = resolve_config(
             config=config,
             config_secret_name=config_secret_name,
@@ -99,16 +110,25 @@ def deploy_destination_to_cloud(
     *,
     config: Annotated[
         dict | str | None,
-        Field(description="The configuration for the destination connector."),
-    ] = None,
+        Field(
+            description="The configuration for the destination connector.",
+            default=None,
+        ),
+    ],
     config_secret_name: Annotated[
         str | None,
-        Field(description="The name of the secret containing the configuration."),
-    ] = None,
+        Field(
+            description="The name of the secret containing the configuration.",
+            default=None,
+        ),
+    ],
     unique: Annotated[
         bool,
-        Field(description="Whether to require a unique name."),
-    ] = True,
+        Field(
+            description="Whether to require a unique name.",
+            default=True,
+        ),
+    ],
 ) -> str:
     """Deploy a destination connector to Airbyte Cloud.
 
@@ -117,7 +137,10 @@ def deploy_destination_to_cloud(
     Airbyte Cloud API.
     """
     try:
-        destination = get_destination(destination_connector_name)
+        destination = get_destination(
+            destination_connector_name,
+            install_if_missing=False,
+        )
         config_dict = resolve_config(
             config=config,
             config_secret_name=config_secret_name,
@@ -156,13 +179,22 @@ def create_connection_on_cloud(
         Field(description="The ID of the deployed destination."),
     ],
     selected_streams: Annotated[
-        list[str],
-        Field(description="The selected stream names to sync within the connection."),
+        str | list[str],
+        Field(
+            description=(
+                "The selected stream names to sync within the connection. "
+                "Must be an explicit stream name or list of streams. "
+                "Cannot be empty or '*'."
+            )
+        ),
     ],
     table_prefix: Annotated[
         str | None,
-        Field(description="Optional table prefix to use when syncing to the destination."),
-    ] = None,
+        Field(
+            description="Optional table prefix to use when syncing to the destination.",
+            default=None,
+        ),
+    ],
 ) -> str:
     """Create a connection between a deployed source and destination on Airbyte Cloud.
 
@@ -170,13 +202,14 @@ def create_connection_on_cloud(
     and `AIRBYTE_API_ROOT` environment variables will be used to authenticate with the
     Airbyte Cloud API.
     """
+    resolved_streams_list: list[str] = resolve_list_of_strings(selected_streams)
     try:
         workspace: CloudWorkspace = _get_cloud_workspace()
         deployed_connection = workspace.deploy_connection(
             connection_name=connection_name,
             source=source_id,
             destination=destination_id,
-            selected_streams=selected_streams,
+            selected_streams=resolved_streams_list,
             table_prefix=table_prefix,
         )
 
@@ -199,12 +232,18 @@ def run_cloud_sync(
     *,
     wait: Annotated[
         bool,
-        Field(description="Whether to wait for the sync to complete."),
-    ] = True,
+        Field(
+            description="Whether to wait for the sync to complete.",
+            default=True,
+        ),
+    ],
     wait_timeout: Annotated[
         int,
-        Field(description="Maximum time to wait for sync completion (seconds)."),
-    ] = 300,
+        Field(
+            description="Maximum time to wait for sync completion (seconds).",
+            default=300,
+        ),
+    ],
 ) -> str:
     """Run a sync job on Airbyte Cloud.
 
@@ -298,21 +337,69 @@ def get_cloud_sync_status(
     ],
     job_id: Annotated[
         int | None,
-        Field(description="Optional job ID. If not provided, the latest job will be used."),
-    ] = None,
-) -> JobStatusEnum | None:
+        Field(
+            description="Optional job ID. If not provided, the latest job will be used.",
+            default=None,
+        ),
+    ],
+    *,
+    include_attempts: Annotated[
+        bool,
+        Field(
+            description="Whether to include detailed attempts information.",
+            default=False,
+        ),
+    ],
+) -> dict[str, Any]:
     """Get the status of a sync job from the Airbyte Cloud.
 
     By default, the `AIRBYTE_CLIENT_ID`, `AIRBYTE_CLIENT_SECRET`, `AIRBYTE_WORKSPACE_ID`,
     and `AIRBYTE_API_ROOT` environment variables will be used to authenticate with the
     Airbyte Cloud API.
     """
-    workspace: CloudWorkspace = _get_cloud_workspace()
-    connection = workspace.get_connection(connection_id=connection_id)
+    try:
+        workspace: CloudWorkspace = _get_cloud_workspace()
+        connection = workspace.get_connection(connection_id=connection_id)
 
-    # If a job ID is provided, get the job by ID.
-    sync_result: cloud.SyncResult | None = connection.get_sync_result(job_id=job_id)
-    return sync_result.get_job_status() if sync_result else None
+        # If a job ID is provided, get the job by ID.
+        sync_result: cloud.SyncResult | None = connection.get_sync_result(job_id=job_id)
+
+        if not sync_result:
+            return {"status": None, "job_id": None, "attempts": []}
+
+        result = {
+            "status": sync_result.get_job_status(),
+            "job_id": sync_result.job_id,
+            "bytes_synced": sync_result.bytes_synced,
+            "records_synced": sync_result.records_synced,
+            "start_time": sync_result.start_time.isoformat(),
+            "job_url": sync_result.job_url,
+            "attempts": [],
+        }
+
+        if include_attempts:
+            attempts = sync_result.get_attempts()
+            result["attempts"] = [
+                {
+                    "attempt_number": attempt.attempt_number,
+                    "attempt_id": attempt.attempt_id,
+                    "status": attempt.status,
+                    "bytes_synced": attempt.bytes_synced,
+                    "records_synced": attempt.records_synced,
+                    "created_at": attempt.created_at.isoformat(),
+                }
+                for attempt in attempts
+            ]
+
+        return result  # noqa: TRY300
+
+    except Exception as ex:
+        return {
+            "status": None,
+            "job_id": job_id,
+            "error": f"Failed to get sync status for connection '{connection_id}': {ex}",
+            "attempts": [],
+        }
 
 
 # @app.tool()  # << deferred
@@ -340,6 +427,69 @@ def list_deployed_cloud_destination_connectors() -> list[CloudDestination]:
 
 
 # @app.tool()  # << deferred
+def get_cloud_sync_logs(
+    connection_id: Annotated[
+        str,
+        Field(description="The ID of the Airbyte Cloud connection."),
+    ],
+    job_id: Annotated[
+        int | None,
+        Field(description="Optional job ID. If not provided, the latest job will be used."),
+    ] = None,
+    attempt_number: Annotated[
+        int | None,
+        Field(
+            description="Optional attempt number. If not provided, the latest attempt will be used."
+        ),
+    ] = None,
+) -> str:
+    """Get the logs from a sync job attempt on Airbyte Cloud.
+
+    By default, the `AIRBYTE_CLIENT_ID`, `AIRBYTE_CLIENT_SECRET`, `AIRBYTE_WORKSPACE_ID`,
+    and `AIRBYTE_API_ROOT` environment variables will be used to authenticate with the
+    Airbyte Cloud API.
+    """
+    try:
+        workspace: CloudWorkspace = _get_cloud_workspace()
+        connection = workspace.get_connection(connection_id=connection_id)
+
+        sync_result: cloud.SyncResult | None = connection.get_sync_result(job_id=job_id)
+
+        if not sync_result:
+            return f"No sync job found for connection '{connection_id}'"
+
+        attempts = sync_result.get_attempts()
+
+        if not attempts:
+            return f"No attempts found for job '{sync_result.job_id}'"
+
+        if attempt_number is not None:
+            target_attempt = None
+            for attempt in attempts:
+                if attempt.attempt_number == attempt_number:
+                    target_attempt = attempt
+                    break
+
+            if target_attempt is None:
+                return f"Attempt number {attempt_number} not found for job '{sync_result.job_id}'"
+        else:
+            target_attempt = max(attempts, key=lambda a: a.attempt_number)
+
+        logs = target_attempt.get_full_log_text()
+
+        if not logs:
+            return (
+                f"No logs available for job '{sync_result.job_id}', "
+                f"attempt {target_attempt.attempt_number}"
+            )
+
+        return logs  # noqa: TRY300
+
+    except Exception as ex:
+        return f"Failed to get logs for connection '{connection_id}': {ex}"
+
+
+# @app.tool()  # << deferred
 def list_deployed_cloud_connections() -> list[CloudConnection]:
     """List all deployed connections in the Airbyte Cloud workspace.
 
@@ -360,6 +510,7 @@ def register_cloud_ops_tools(app: FastMCP) -> None:
     app.tool(create_connection_on_cloud)
     app.tool(run_cloud_sync)
     app.tool(get_cloud_sync_status)
+    app.tool(get_cloud_sync_logs)
     app.tool(list_deployed_cloud_source_connectors)
     app.tool(list_deployed_cloud_destination_connectors)
     app.tool(list_deployed_cloud_connections)

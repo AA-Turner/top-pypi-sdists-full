@@ -1,7 +1,7 @@
 r'''
 # `google_developer_connect_insights_config`
 
-Refer to the Terraform Registry for docs: [`google_developer_connect_insights_config`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config).
+Refer to the Terraform Registry for docs: [`google_developer_connect_insights_config`](https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DeveloperConnectInsightsConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.developerConnectInsightsConfig.DeveloperConnectInsightsConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config google_developer_connect_insights_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config google_developer_connect_insights_config}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DeveloperConnectInsightsConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config google_developer_connect_insights_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config google_developer_connect_insights_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_hub_application: The name of the App Hub Application. Format: projects/{project}/locations/{location}/applications/{application}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
-        :param insights_config_id: ID of the requesting InsightsConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
-        :param annotations: User specified annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
-        :param artifact_configs: artifact_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with an InsightsConfig. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
+        :param app_hub_application: The name of the App Hub Application. Format: projects/{project}/locations/{location}/applications/{application}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
+        :param insights_config_id: ID of the requesting InsightsConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
+        :param annotations: User specified annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
+        :param artifact_configs: artifact_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with an InsightsConfig. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DeveloperConnectInsightsConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DeveloperConnectInsightsConfig to import.
-        :param import_from_id: The id of the existing DeveloperConnectInsightsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DeveloperConnectInsightsConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DeveloperConnectInsightsConfig to import is found.
         '''
         if __debug__:
@@ -160,9 +160,9 @@ class DeveloperConnectInsightsConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.
         '''
         value = DeveloperConnectInsightsConfigTimeouts(
             create=create, delete=delete, update=update
@@ -423,9 +423,9 @@ class DeveloperConnectInsightsConfigArtifactConfigs:
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param google_artifact_analysis: google_artifact_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#google_artifact_analysis DeveloperConnectInsightsConfig#google_artifact_analysis}
-        :param google_artifact_registry: google_artifact_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#google_artifact_registry DeveloperConnectInsightsConfig#google_artifact_registry}
-        :param uri: The URI of the artifact that is deployed. e.g. 'us-docker.pkg.dev/my-project/my-repo/image'. The URI does not include the tag / digest because it captures a lineage of artifacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#uri DeveloperConnectInsightsConfig#uri}
+        :param google_artifact_analysis: google_artifact_analysis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#google_artifact_analysis DeveloperConnectInsightsConfig#google_artifact_analysis}
+        :param google_artifact_registry: google_artifact_registry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#google_artifact_registry DeveloperConnectInsightsConfig#google_artifact_registry}
+        :param uri: The URI of the artifact that is deployed. e.g. 'us-docker.pkg.dev/my-project/my-repo/image'. The URI does not include the tag / digest because it captures a lineage of artifacts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#uri DeveloperConnectInsightsConfig#uri}
         '''
         if isinstance(google_artifact_analysis, dict):
             google_artifact_analysis = DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis(**google_artifact_analysis)
@@ -450,7 +450,7 @@ class DeveloperConnectInsightsConfigArtifactConfigs:
     ) -> typing.Optional["DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis"]:
         '''google_artifact_analysis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#google_artifact_analysis DeveloperConnectInsightsConfig#google_artifact_analysis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#google_artifact_analysis DeveloperConnectInsightsConfig#google_artifact_analysis}
         '''
         result = self._values.get("google_artifact_analysis")
         return typing.cast(typing.Optional["DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis"], result)
@@ -461,7 +461,7 @@ class DeveloperConnectInsightsConfigArtifactConfigs:
     ) -> typing.Optional["DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry"]:
         '''google_artifact_registry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#google_artifact_registry DeveloperConnectInsightsConfig#google_artifact_registry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#google_artifact_registry DeveloperConnectInsightsConfig#google_artifact_registry}
         '''
         result = self._values.get("google_artifact_registry")
         return typing.cast(typing.Optional["DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry"], result)
@@ -474,7 +474,7 @@ class DeveloperConnectInsightsConfigArtifactConfigs:
         The URI does not include the tag / digest because it captures a lineage of
         artifacts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#uri DeveloperConnectInsightsConfig#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#uri DeveloperConnectInsightsConfig#uri}
         '''
         result = self._values.get("uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -499,7 +499,7 @@ class DeveloperConnectInsightsConfigArtifactConfigs:
 class DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis:
     def __init__(self, *, project_id: builtins.str) -> None:
         '''
-        :param project_id: The project id of the project where the provenance is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        :param project_id: The project id of the project where the provenance is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84bcb85f6b3b6d5b0b5d89b9a6fac30c4e68dfa2d2ad65ee91336ac827841b41)
@@ -512,7 +512,7 @@ class DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis:
     def project_id(self) -> builtins.str:
         '''The project id of the project where the provenance is stored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -601,8 +601,8 @@ class DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry:
         project_id: builtins.str,
     ) -> None:
         '''
-        :param artifact_registry_package: The name of the artifact registry package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
-        :param project_id: The host project of Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        :param artifact_registry_package: The name of the artifact registry package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
+        :param project_id: The host project of Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec8c60632299da1e9bbfb488c222005e18dbbab60d2b156d497863c9a9496002)
@@ -617,7 +617,7 @@ class DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry:
     def artifact_registry_package(self) -> builtins.str:
         '''The name of the artifact registry package.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
         '''
         result = self._values.get("artifact_registry_package")
         assert result is not None, "Required property 'artifact_registry_package' is missing"
@@ -627,7 +627,7 @@ class DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry:
     def project_id(self) -> builtins.str:
         '''The host project of Artifact Registry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         result = self._values.get("project_id")
         assert result is not None, "Required property 'project_id' is missing"
@@ -839,7 +839,7 @@ class DeveloperConnectInsightsConfigArtifactConfigsOutputReference(
     @jsii.member(jsii_name="putGoogleArtifactAnalysis")
     def put_google_artifact_analysis(self, *, project_id: builtins.str) -> None:
         '''
-        :param project_id: The project id of the project where the provenance is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        :param project_id: The project id of the project where the provenance is stored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         value = DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactAnalysis(
             project_id=project_id
@@ -855,8 +855,8 @@ class DeveloperConnectInsightsConfigArtifactConfigsOutputReference(
         project_id: builtins.str,
     ) -> None:
         '''
-        :param artifact_registry_package: The name of the artifact registry package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
-        :param project_id: The host project of Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
+        :param artifact_registry_package: The name of the artifact registry package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_registry_package DeveloperConnectInsightsConfig#artifact_registry_package}
+        :param project_id: The host project of Artifact Registry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project_id DeveloperConnectInsightsConfig#project_id}
         '''
         value = DeveloperConnectInsightsConfigArtifactConfigsGoogleArtifactRegistry(
             artifact_registry_package=artifact_registry_package, project_id=project_id
@@ -990,15 +990,15 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_hub_application: The name of the App Hub Application. Format: projects/{project}/locations/{location}/applications/{application}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
-        :param insights_config_id: ID of the requesting InsightsConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
-        :param annotations: User specified annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
-        :param artifact_configs: artifact_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Set of labels associated with an InsightsConfig. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
+        :param app_hub_application: The name of the App Hub Application. Format: projects/{project}/locations/{location}/applications/{application}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
+        :param insights_config_id: ID of the requesting InsightsConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
+        :param annotations: User specified annotations. See https://google.aip.dev/148#annotations for more details such as format and size limitations. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
+        :param artifact_configs: artifact_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Set of labels associated with an InsightsConfig. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1122,7 +1122,7 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def app_hub_application(self) -> builtins.str:
         '''The name of the App Hub Application. Format: projects/{project}/locations/{location}/applications/{application}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#app_hub_application DeveloperConnectInsightsConfig#app_hub_application}
         '''
         result = self._values.get("app_hub_application")
         assert result is not None, "Required property 'app_hub_application' is missing"
@@ -1132,7 +1132,7 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def insights_config_id(self) -> builtins.str:
         '''ID of the requesting InsightsConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#insights_config_id DeveloperConnectInsightsConfig#insights_config_id}
         '''
         result = self._values.get("insights_config_id")
         assert result is not None, "Required property 'insights_config_id' is missing"
@@ -1142,7 +1142,7 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#location DeveloperConnectInsightsConfig#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1157,7 +1157,7 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#annotations DeveloperConnectInsightsConfig#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1168,14 +1168,14 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DeveloperConnectInsightsConfigArtifactConfigs]]]:
         '''artifact_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#artifact_configs DeveloperConnectInsightsConfig#artifact_configs}
         '''
         result = self._values.get("artifact_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DeveloperConnectInsightsConfigArtifactConfigs]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#id DeveloperConnectInsightsConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1190,14 +1190,14 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#labels DeveloperConnectInsightsConfig#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#project DeveloperConnectInsightsConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1205,7 +1205,7 @@ class DeveloperConnectInsightsConfigConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["DeveloperConnectInsightsConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#timeouts DeveloperConnectInsightsConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DeveloperConnectInsightsConfigTimeouts"], result)
@@ -2008,9 +2008,9 @@ class DeveloperConnectInsightsConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03803e53c81a0b0cc5f0d63f8efcafd4f10fbfce5afad40798246cacc5e1aea7)
@@ -2027,19 +2027,19 @@ class DeveloperConnectInsightsConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#create DeveloperConnectInsightsConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#delete DeveloperConnectInsightsConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/developer_connect_insights_config#update DeveloperConnectInsightsConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

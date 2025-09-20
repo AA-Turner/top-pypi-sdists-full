@@ -246,8 +246,8 @@ UB_CSENDCNT_ = 1
 UB_VARS_ = '{"UB_PROMO": "#911", "UB_CHANNEL": 0, "UB_CHANNELTID": 0, "UB_GROUP": 0, "UB_GROUPTID": 0, "USER_COMMENT": "","UB_TZ": "+00:00", "UB_DT": "", "UB_LZ": "en", "UB_LC": "en"}'
 UB_LSTS_ = '{}'
 
-GROUPP_CONFIG_ = '☑☐☑☐☐☐☐☑☐☐☐☐☑☑☑☐☑'
-GROUPP_CCHECK_ = '☐☑☐☐☐☐'
+GROUPP_CONFIG_ = '☑☑☑☐☐☐☐'
+GROUPP_CCHECK_ = '☑☐☐☐☐'
 GROUPP_CBAN_ = '☐☐☑☐☐'
 GROUPP_CCHANNEL_ = '☑☐'
 GROUPP_CNEURO_ = '☐☐☐☐☐☐☐☐'
@@ -261,9 +261,9 @@ GROUPP_CTIMER_ = 0
 GROUPP_CWORK_ = ''
 GROUPP_CINVITECNT_ = 1
 GROUPP_CUSERDELAY_ = 1
-GROUPP_CUSER_ = '☐☑☐☐☑'
+GROUPP_CUSER_ = '☐☑'
 GROUPP_CADMIN_ = '☑☐'
-GROUPP_CPAY_ = '☐☐'
+GROUPP_CPAY_ = '☐☐☐'
 GROUPP_CCOMMENT_ = '☑☑'
 GROUPP_CDECOR_ = '☐☐☐'
 GROUPP_CSYSTEM_ = '☑'
@@ -13734,7 +13734,6 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
             tgph_ph = channel_logo_jpeg
         elif PROJECT_TYPE == 'GROUP':
             tgph_ph = group_logo_jpeg
-            PROJECT_TYPE = f"{PROJECT_TYPE}P"
         else:
             tgph_ph = user_logo_jpeg
 

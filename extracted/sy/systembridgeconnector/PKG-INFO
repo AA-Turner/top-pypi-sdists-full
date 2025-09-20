@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: systembridgeconnector
-Version: 4.1.12
+Version: 5.1.0
 Summary: System Bridge Connector
 Home-page: https://github.com/timmo001/system-bridge-connector
 Author: Aidan Timson (Timmo)
@@ -12,7 +12,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.12.15
 Requires-Dist: packaging>=24.0
-Requires-Dist: systembridgemodels>=4.2.5
+Requires-Dist: systembridgemodels>=5.1.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

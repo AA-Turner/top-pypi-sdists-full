@@ -27,8 +27,8 @@ class ValidatePayload(BaseModel):
     """
     ValidatePayload
     """ # noqa: E501
-    llm_output: Optional[Any] = Field(default=None, description="The LLM output as a string or the input prompts for the LLM", alias="llmOutput")
-    num_reasks: Optional[Any] = Field(default=None, description="An override for the number of re-asks to perform", alias="numReasks")
+    llm_output: Optional[str] = Field(default=None, description="The LLM output as a string or the input prompts for the LLM", alias="llmOutput")
+    num_reasks: Optional[int] = Field(default=None, description="An override for the number of re-asks to perform", alias="numReasks")
     prompt_params: Optional[Dict[str, Any]] = Field(default=None, description="additional params for llm prompts", alias="promptParams")
     llm_api: Optional[LLMResource] = Field(default=None, alias="llmApi")
     additional_properties: Dict[str, Any] = {}
@@ -80,16 +80,6 @@ class ValidatePayload(BaseModel):
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
 
-        # set to None if llm_output (nullable) is None
-        # and model_fields_set contains the field
-        if self.llm_output is None and "llm_output" in self.model_fields_set:
-            _dict['llmOutput'] = None
-
-        # set to None if num_reasks (nullable) is None
-        # and model_fields_set contains the field
-        if self.num_reasks is None and "num_reasks" in self.model_fields_set:
-            _dict['numReasks'] = None
-
         return _dict
 
     @classmethod
@@ -104,6 +94,7 @@ class ValidatePayload(BaseModel):
         _obj = cls.model_validate({
             "llmOutput": obj.get("llmOutput"),
             "numReasks": obj.get("numReasks"),
+            "promptParams": obj.get("promptParams"),
             "llmApi": obj.get("llmApi")
         })
         # store additional fields in additional_properties

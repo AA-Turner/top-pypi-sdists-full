@@ -14405,27 +14405,27 @@ class module_CreateModuleRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'name': ConjureFieldDefinition('name', str),
+            'api_name': ConjureFieldDefinition('apiName', str),
             'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
             'definition': ConjureFieldDefinition('definition', module_ModuleVersionDefinition),
             'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
         }
 
-    __slots__: List[str] = ['_name', '_title', '_description', '_definition', '_workspace']
+    __slots__: List[str] = ['_api_name', '_title', '_description', '_definition', '_workspace']
 
-    def __init__(self, definition: "module_ModuleVersionDefinition", description: str, name: str, title: str, workspace: Optional[str] = None) -> None:
-        self._name = name
+    def __init__(self, api_name: str, definition: "module_ModuleVersionDefinition", description: str, title: str, workspace: Optional[str] = None) -> None:
+        self._api_name = api_name
         self._title = title
         self._description = description
         self._definition = definition
         self._workspace = workspace
 
     @builtins.property
-    def name(self) -> str:
-        """The name of the module. This should be unique to the module in the current workspace.
+    def api_name(self) -> str:
+        """The API name for the module. This string will uniquely identify the module within the organization.
         """
-        return self._name
+        return self._api_name
 
     @builtins.property
     def title(self) -> str:
@@ -14456,18 +14456,18 @@ class module_DerivedSeriesMetadata(ConjureBeanType):
         return {
             'function_name': ConjureFieldDefinition('functionName', str),
             'function_description': ConjureFieldDefinition('functionDescription', str),
-            'module_name': ConjureFieldDefinition('moduleName', str),
+            'module_api_name': ConjureFieldDefinition('moduleApiName', str),
             'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
             'application_resolved_parameters': ConjureFieldDefinition('applicationResolvedParameters', List[module_ModuleVariable]),
             'data_type': ConjureFieldDefinition('dataType', module_ValueType)
         }
 
-    __slots__: List[str] = ['_function_name', '_function_description', '_module_name', '_module_application_rid', '_application_resolved_parameters', '_data_type']
+    __slots__: List[str] = ['_function_name', '_function_description', '_module_api_name', '_module_application_rid', '_application_resolved_parameters', '_data_type']
 
-    def __init__(self, application_resolved_parameters: List["module_ModuleVariable"], data_type: "module_ValueType", function_description: str, function_name: str, module_application_rid: str, module_name: str) -> None:
+    def __init__(self, application_resolved_parameters: List["module_ModuleVariable"], data_type: "module_ValueType", function_description: str, function_name: str, module_api_name: str, module_application_rid: str) -> None:
         self._function_name = function_name
         self._function_description = function_description
-        self._module_name = module_name
+        self._module_api_name = module_api_name
         self._module_application_rid = module_application_rid
         self._application_resolved_parameters = application_resolved_parameters
         self._data_type = data_type
@@ -14481,8 +14481,8 @@ class module_DerivedSeriesMetadata(ConjureBeanType):
         return self._function_description
 
     @builtins.property
-    def module_name(self) -> str:
-        return self._module_name
+    def module_api_name(self) -> str:
+        return self._module_api_name
 
     @builtins.property
     def module_application_rid(self) -> str:
@@ -14875,7 +14875,7 @@ class module_ModuleMetadata(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
-            'name': ConjureFieldDefinition('name', str),
+            'api_name': ConjureFieldDefinition('apiName', str),
             'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
@@ -14883,11 +14883,11 @@ class module_ModuleMetadata(ConjureBeanType):
             'archived_at': ConjureFieldDefinition('archivedAt', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_rid', '_name', '_title', '_description', '_created_by', '_created_at', '_archived_at']
+    __slots__: List[str] = ['_rid', '_api_name', '_title', '_description', '_created_by', '_created_at', '_archived_at']
 
-    def __init__(self, created_at: str, created_by: str, description: str, name: str, rid: str, title: str, archived_at: Optional[str] = None) -> None:
+    def __init__(self, api_name: str, created_at: str, created_by: str, description: str, rid: str, title: str, archived_at: Optional[str] = None) -> None:
         self._rid = rid
-        self._name = name
+        self._api_name = api_name
         self._title = title
         self._description = description
         self._created_by = created_by
@@ -14899,11 +14899,11 @@ class module_ModuleMetadata(ConjureBeanType):
         return self._rid
 
     @builtins.property
-    def name(self) -> str:
-        """The API name for the module. This uniquely identifies the module within the org.
+    def api_name(self) -> str:
+        """This uniquely identifies the module within the org.
 Note that this cannot be changed after creation.
         """
-        return self._name
+        return self._api_name
 
     @builtins.property
     def title(self) -> str:
@@ -14968,15 +14968,15 @@ class module_ModuleRef(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
-            'name': ConjureFieldDefinition('name', str),
+            'api_name': ConjureFieldDefinition('apiName', str),
             'version': ConjureFieldDefinition('version', module_ModuleVersion)
         }
 
-    __slots__: List[str] = ['_rid', '_name', '_version']
+    __slots__: List[str] = ['_rid', '_api_name', '_version']
 
-    def __init__(self, name: str, rid: str, version: str) -> None:
+    def __init__(self, api_name: str, rid: str, version: str) -> None:
         self._rid = rid
-        self._name = name
+        self._api_name = api_name
         self._version = version
 
     @builtins.property
@@ -14984,8 +14984,8 @@ class module_ModuleRef(ConjureBeanType):
         return self._rid
 
     @builtins.property
-    def name(self) -> str:
-        return self._name
+    def api_name(self) -> str:
+        return self._api_name
 
     @builtins.property
     def version(self) -> str:
@@ -14999,7 +14999,7 @@ module_ModuleRef.__module__ = "nominal_api.module"
 
 class module_ModuleService(Service):
     """Modules define collections of compute logic that can be shared and used across different contexts by applying them
-to assets. The Modules Service provides the api for managing these collections and using them.
+to assets. The Modules Service provides the API for managing these collections and using them.
     """
 
     def create_module(self, auth_header: str, request: "module_CreateModuleRequest") -> "module_Module":
@@ -15536,19 +15536,19 @@ class module_RequestModuleNameRef(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'name': ConjureFieldDefinition('name', str),
+            'api_name': ConjureFieldDefinition('apiName', str),
             'version_strategy': ConjureFieldDefinition('versionStrategy', module_VersionStrategy)
         }
 
-    __slots__: List[str] = ['_name', '_version_strategy']
+    __slots__: List[str] = ['_api_name', '_version_strategy']
 
-    def __init__(self, name: str, version_strategy: "module_VersionStrategy") -> None:
-        self._name = name
+    def __init__(self, api_name: str, version_strategy: "module_VersionStrategy") -> None:
+        self._api_name = api_name
         self._version_strategy = version_strategy
 
     @builtins.property
-    def name(self) -> str:
-        return self._name
+    def api_name(self) -> str:
+        return self._api_name
 
     @builtins.property
     def version_strategy(self) -> "module_VersionStrategy":
@@ -16544,25 +16544,25 @@ class module_internal_ModuleComputeDefinition(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_name': ConjureFieldDefinition('moduleName', str),
+            'module_api_name': ConjureFieldDefinition('moduleApiName', str),
             'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
             'version': ConjureFieldDefinition('version', module_ModuleVersion),
             'default_variables': ConjureFieldDefinition('defaultVariables', List[module_ModuleVariable]),
             'functions': ConjureFieldDefinition('functions', List[module_Function])
         }
 
-    __slots__: List[str] = ['_module_name', '_module_rid', '_version', '_default_variables', '_functions']
+    __slots__: List[str] = ['_module_api_name', '_module_rid', '_version', '_default_variables', '_functions']
 
-    def __init__(self, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_name: str, module_rid: str, version: str) -> None:
-        self._module_name = module_name
+    def __init__(self, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_api_name: str, module_rid: str, version: str) -> None:
+        self._module_api_name = module_api_name
         self._module_rid = module_rid
         self._version = version
         self._default_variables = default_variables
         self._functions = functions
 
     @builtins.property
-    def module_name(self) -> str:
-        return self._module_name
+    def module_api_name(self) -> str:
+        return self._module_api_name
 
     @builtins.property
     def module_rid(self) -> str:
@@ -50757,6 +50757,46 @@ scout_compute_api_OutputRangeStartVisitor.__qualname__ = "OutputRangeStartVisito
 scout_compute_api_OutputRangeStartVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_PaddedRanges(ConjureBeanType):
+    """Expands ranges durations by adding temporal padding to the start, end, or both sides. Note that if the input
+ranges contain a RangeValue, it will be dropped.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_RangeSeries),
+            'padding': ConjureFieldDefinition('padding', scout_compute_api_DurationConstant),
+            'padding_configuration': ConjureFieldDefinition('paddingConfiguration', OptionalTypeWrapper[scout_compute_api_RangePaddingConfiguration])
+        }
+
+    __slots__: List[str] = ['_input', '_padding', '_padding_configuration']
+
+    def __init__(self, input: "scout_compute_api_RangeSeries", padding: "scout_compute_api_DurationConstant", padding_configuration: Optional["scout_compute_api_RangePaddingConfiguration"] = None) -> None:
+        self._input = input
+        self._padding = padding
+        self._padding_configuration = padding_configuration
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_RangeSeries":
+        return self._input
+
+    @builtins.property
+    def padding(self) -> "scout_compute_api_DurationConstant":
+        return self._padding
+
+    @builtins.property
+    def padding_configuration(self) -> Optional["scout_compute_api_RangePaddingConfiguration"]:
+        """Configuration for how to apply padding to the ranges. Defaults to PAD_START_AND_END if not specified.
+        """
+        return self._padding_configuration
+
+
+scout_compute_api_PaddedRanges.__name__ = "PaddedRanges"
+scout_compute_api_PaddedRanges.__qualname__ = "PaddedRanges"
+scout_compute_api_PaddedRanges.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_PageInfo(ConjureBeanType):
     """Specification of a page for a series. Returns raw undecimated points beginning nearest to the given page
 token, advancing pageSize points in the time direction specified by the sign of the page size.
@@ -51904,6 +51944,26 @@ scout_compute_api_RangeMap.__qualname__ = "RangeMap"
 scout_compute_api_RangeMap.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_RangePaddingConfiguration(ConjureEnumType):
+
+    PAD_START = 'PAD_START'
+    '''PAD_START'''
+    PAD_END = 'PAD_END'
+    '''PAD_END'''
+    PAD_START_AND_END = 'PAD_START_AND_END'
+    '''PAD_START_AND_END'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_RangePaddingConfiguration.__name__ = "RangePaddingConfiguration"
+scout_compute_api_RangePaddingConfiguration.__qualname__ = "RangePaddingConfiguration"
+scout_compute_api_RangePaddingConfiguration.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_RangeSeries(ConjureUnionType):
     _approximate_threshold: Optional["scout_compute_api_ApproximateThresholdRanges"] = None
     _duration_filter: Optional["scout_compute_api_DurationFilterRanges"] = None
@@ -51925,6 +51985,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     _stale_range: Optional["scout_compute_api_StaleRanges"] = None
     _threshold: Optional["scout_compute_api_ThresholdingRanges"] = None
     _union_range: Optional["scout_compute_api_UnionRanges"] = None
+    _padded_ranges: Optional["scout_compute_api_PaddedRanges"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -51948,7 +52009,8 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             'stability_detection': ConjureFieldDefinition('stabilityDetection', scout_compute_api_StabilityDetectionRanges),
             'stale_range': ConjureFieldDefinition('staleRange', scout_compute_api_StaleRanges),
             'threshold': ConjureFieldDefinition('threshold', scout_compute_api_ThresholdingRanges),
-            'union_range': ConjureFieldDefinition('unionRange', scout_compute_api_UnionRanges)
+            'union_range': ConjureFieldDefinition('unionRange', scout_compute_api_UnionRanges),
+            'padded_ranges': ConjureFieldDefinition('paddedRanges', scout_compute_api_PaddedRanges)
         }
 
     def __init__(
@@ -51973,10 +52035,11 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             stale_range: Optional["scout_compute_api_StaleRanges"] = None,
             threshold: Optional["scout_compute_api_ThresholdingRanges"] = None,
             union_range: Optional["scout_compute_api_UnionRanges"] = None,
+            padded_ranges: Optional["scout_compute_api_PaddedRanges"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (derived is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
+            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (derived is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) + (padded_ranges is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if approximate_threshold is not None:
@@ -52039,6 +52102,9 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             if union_range is not None:
                 self._union_range = union_range
                 self._type = 'unionRange'
+            if padded_ranges is not None:
+                self._padded_ranges = padded_ranges
+                self._type = 'paddedRanges'
 
         elif type_of_union == 'approximateThreshold':
             if approximate_threshold is None:
@@ -52140,6 +52206,11 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._union_range = union_range
             self._type = 'unionRange'
+        elif type_of_union == 'paddedRanges':
+            if padded_ranges is None:
+                raise ValueError('a union value must not be None')
+            self._padded_ranges = padded_ranges
+            self._type = 'paddedRanges'
 
     @builtins.property
     def approximate_threshold(self) -> Optional["scout_compute_api_ApproximateThresholdRanges"]:
@@ -52225,6 +52296,10 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     def union_range(self) -> Optional["scout_compute_api_UnionRanges"]:
         return self._union_range
 
+    @builtins.property
+    def padded_ranges(self) -> Optional["scout_compute_api_PaddedRanges"]:
+        return self._padded_ranges
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_RangeSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_RangeSeriesVisitor'.format(visitor.__class__.__name__))
@@ -52268,6 +52343,8 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             return visitor._threshold(self.threshold)
         if self._type == 'unionRange' and self.union_range is not None:
             return visitor._union_range(self.union_range)
+        if self._type == 'paddedRanges' and self.padded_ranges is not None:
+            return visitor._padded_ranges(self.padded_ranges)
 
 
 scout_compute_api_RangeSeries.__name__ = "RangeSeries"
@@ -52355,6 +52432,10 @@ class scout_compute_api_RangeSeriesVisitor:
 
     @abstractmethod
     def _union_range(self, union_range: "scout_compute_api_UnionRanges") -> Any:
+        pass
+
+    @abstractmethod
+    def _padded_ranges(self, padded_ranges: "scout_compute_api_PaddedRanges") -> Any:
         pass
 
 
@@ -61946,6 +62027,41 @@ scout_compute_resolved_api_OnChangeRangesNode.__qualname__ = "OnChangeRangesNode
 scout_compute_resolved_api_OnChangeRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_PaddedRangesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_RangesNode),
+            'padding': ConjureFieldDefinition('padding', scout_run_api_Duration),
+            'padding_configuration': ConjureFieldDefinition('paddingConfiguration', scout_compute_api_RangePaddingConfiguration)
+        }
+
+    __slots__: List[str] = ['_input', '_padding', '_padding_configuration']
+
+    def __init__(self, input: "scout_compute_resolved_api_RangesNode", padding: "scout_run_api_Duration", padding_configuration: "scout_compute_api_RangePaddingConfiguration") -> None:
+        self._input = input
+        self._padding = padding
+        self._padding_configuration = padding_configuration
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_RangesNode":
+        return self._input
+
+    @builtins.property
+    def padding(self) -> "scout_run_api_Duration":
+        return self._padding
+
+    @builtins.property
+    def padding_configuration(self) -> "scout_compute_api_RangePaddingConfiguration":
+        return self._padding_configuration
+
+
+scout_compute_resolved_api_PaddedRangesNode.__name__ = "PaddedRangesNode"
+scout_compute_resolved_api_PaddedRangesNode.__qualname__ = "PaddedRangesNode"
+scout_compute_resolved_api_PaddedRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_PercentageThreshold(ConjureBeanType):
 
     @builtins.classmethod
@@ -62159,6 +62275,7 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     _threshold: Optional["scout_compute_resolved_api_ThresholdingRangesNode"] = None
     _union_range: Optional["scout_compute_resolved_api_UnionRangesNode"] = None
     _event_search: Optional["scout_compute_resolved_api_EventSearchNode"] = None
+    _padded_ranges: Optional["scout_compute_resolved_api_PaddedRangesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -62178,7 +62295,8 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             'stability_detection': ConjureFieldDefinition('stabilityDetection', scout_compute_resolved_api_StabilityDetectionRangesNode),
             'threshold': ConjureFieldDefinition('threshold', scout_compute_resolved_api_ThresholdingRangesNode),
             'union_range': ConjureFieldDefinition('unionRange', scout_compute_resolved_api_UnionRangesNode),
-            'event_search': ConjureFieldDefinition('eventSearch', scout_compute_resolved_api_EventSearchNode)
+            'event_search': ConjureFieldDefinition('eventSearch', scout_compute_resolved_api_EventSearchNode),
+            'padded_ranges': ConjureFieldDefinition('paddedRanges', scout_compute_resolved_api_PaddedRangesNode)
         }
 
     def __init__(
@@ -62199,10 +62317,11 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             threshold: Optional["scout_compute_resolved_api_ThresholdingRangesNode"] = None,
             union_range: Optional["scout_compute_resolved_api_UnionRangesNode"] = None,
             event_search: Optional["scout_compute_resolved_api_EventSearchNode"] = None,
+            padded_ranges: Optional["scout_compute_resolved_api_PaddedRangesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) + (event_search is not None) != 1:
+            if (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) + (event_search is not None) + (padded_ranges is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if duration_filter is not None:
@@ -62253,6 +62372,9 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             if event_search is not None:
                 self._event_search = event_search
                 self._type = 'eventSearch'
+            if padded_ranges is not None:
+                self._padded_ranges = padded_ranges
+                self._type = 'paddedRanges'
 
         elif type_of_union == 'durationFilter':
             if duration_filter is None:
@@ -62334,6 +62456,11 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._event_search = event_search
             self._type = 'eventSearch'
+        elif type_of_union == 'paddedRanges':
+            if padded_ranges is None:
+                raise ValueError('a union value must not be None')
+            self._padded_ranges = padded_ranges
+            self._type = 'paddedRanges'
 
     @builtins.property
     def duration_filter(self) -> Optional["scout_compute_resolved_api_DurationFilterRangesNode"]:
@@ -62399,6 +62526,10 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     def event_search(self) -> Optional["scout_compute_resolved_api_EventSearchNode"]:
         return self._event_search
 
+    @builtins.property
+    def padded_ranges(self) -> Optional["scout_compute_resolved_api_PaddedRangesNode"]:
+        return self._padded_ranges
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_RangesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_RangesNodeVisitor'.format(visitor.__class__.__name__))
@@ -62434,6 +62565,8 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             return visitor._union_range(self.union_range)
         if self._type == 'eventSearch' and self.event_search is not None:
             return visitor._event_search(self.event_search)
+        if self._type == 'paddedRanges' and self.padded_ranges is not None:
+            return visitor._padded_ranges(self.padded_ranges)
 
 
 scout_compute_resolved_api_RangesNode.__name__ = "RangesNode"
@@ -62505,6 +62638,10 @@ class scout_compute_resolved_api_RangesNodeVisitor:
 
     @abstractmethod
     def _event_search(self, event_search: "scout_compute_resolved_api_EventSearchNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _padded_ranges(self, padded_ranges: "scout_compute_resolved_api_PaddedRangesNode") -> Any:
         pass
 
 

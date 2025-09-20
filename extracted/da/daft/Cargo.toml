@@ -193,8 +193,8 @@ default-features = false
 path = "src/daft-proto"
 default-features = false
 
-[dependencies.daft-py-runners]
-path = "src/daft-py-runners"
+[dependencies.daft-runners]
+path = "src/daft-runners"
 default-features = false
 
 [dependencies.daft-recordbatch]
@@ -262,7 +262,7 @@ name = "daft"
 edition = "2024"
 name = "daft"
 publish = false
-version = "0.6.1"
+version = "0.6.2"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -466,8 +466,8 @@ path = "src/daft-micropartition"
 [workspace.dependencies.daft-proto]
 path = "src/daft-proto"
 
-[workspace.dependencies.daft-py-runners]
-path = "src/daft-py-runners"
+[workspace.dependencies.daft-runners]
+path = "src/daft-runners"
 
 [workspace.dependencies.daft-recordbatch]
 path = "src/daft-recordbatch"
@@ -657,4 +657,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.6.1"
+version = "0.6.2"

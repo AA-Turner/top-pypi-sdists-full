@@ -1212,6 +1212,7 @@ def add_upload(ap):
     ap2.add_argument("--chmod-d", metavar="UGO", type=u, default="755", help="unix file permissions to use when creating directories; see --help-chmod. Examples: [\033[32m755\033[0m] = owner-RW + all-R, [\033[32m777\033[0m] = full-yolo (volflag=chmod_d)")
     ap2.add_argument("--uid", metavar="N", type=int, default=-1, help="unix user-id to chown new files/folders to; default = -1 = do-not-change (volflag=uid)")
     ap2.add_argument("--gid", metavar="N", type=int, default=-1, help="unix group-id to chown new files/folders to; default = -1 = do-not-change (volflag=gid)")
+    ap2.add_argument("--wram", action="store_true", help="allow uploading even if a volume is inside a ramdisk, meaning that all data will be lost on the next server reboot (volflag=wram)")
     ap2.add_argument("--dedup", action="store_true", help="enable symlink-based upload deduplication (volflag=dedup)")
     ap2.add_argument("--safe-dedup", metavar="N", type=int, default=50, help="how careful to be when deduplicating files; [\033[32m1\033[0m] = just verify the filesize, [\033[32m50\033[0m] = verify file contents have not been altered (volflag=safededup)")
     ap2.add_argument("--hardlink", action="store_true", help="enable hardlink-based dedup; will fallback on symlinks when that is impossible (across filesystems) (volflag=hardlink)")
@@ -1569,6 +1570,9 @@ def add_logging(ap):
     ap2.add_argument("--ihead", metavar="HEADER", type=u, action='append', help="print request \033[33mHEADER\033[0m; [\033[32m*\033[0m]=all")
     ap2.add_argument("--ohead", metavar="HEADER", type=u, action='append', help="print response \033[33mHEADER\033[0m; [\033[32m*\033[0m]=all")
     ap2.add_argument("--lf-url", metavar="RE", type=u, default=r"^/\.cpr/|[?&]th=[wjp]|/\.(_|ql_|DS_Store$|localized$)", help="dont log URLs matching regex \033[33mRE\033[0m")
+    ap2.add_argument("--scan-st-r", metavar="SEC", type=float, default=0.1, help="fs-indexing: wait \033[33mSEC\033[0m between each status-message")
+    ap2.add_argument("--scan-pr-r", metavar="SEC", type=float, default=10, help="fs-indexing: wait \033[33mSEC\033[0m between each 'progress:' message")
+    ap2.add_argument("--scan-pr-s", metavar="MiB", type=float, default=1, help="fs-indexing: say 'file: <name>' when a file larger than \033[33mMiB\033[0m is about to be hashed")
 
 
 def add_admin(ap):

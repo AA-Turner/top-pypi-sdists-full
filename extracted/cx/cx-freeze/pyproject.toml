@@ -49,7 +49,7 @@ dependencies = [
     # Windows
     "cabarchive>=0.2.4 ;sys_platform == 'win32'",
     "cx-logging>=3.1 ;sys_platform == 'win32' and platform_machine != 'ARM64'",
-    "lief>=0.15.1,<=0.16.6 ;sys_platform == 'win32'",
+    "lief>=0.15.1,<=0.17.0 ;sys_platform == 'win32'",
     "striprtf>=0.0.26 ;sys_platform == 'win32'",
 ]
 dynamic = ["version"]
@@ -61,9 +61,9 @@ requires-python = ">=3.9"
 
 [project.optional-dependencies]
 dev = [
-    "bump-my-version==1.2.1",
+    "bump-my-version==1.2.3",
     "cibuildwheel==2.23.3",
-    "pre-commit==4.2.0",           # python_version >= 3.9
+    "pre-commit==4.3.0",           # python_version >= 3.9
 ]
 doc = [
     "sphinx==8.2.3 ;python_version >= '3.11'",
@@ -74,10 +74,10 @@ doc = [
     "myst-parser==4.0.1 ;python_version >= '3.11'",
 ]
 tests = [
-    "coverage==7.10.2",
-    "pytest==8.4.1",
+    "coverage==7.10.6",
+    "pytest==8.4.2",
         "pluggy==1.6.0",
-    "pytest-mock==3.14.1",
+    "pytest-mock==3.15.1",
     "pytest-timeout==2.4.0",
     "pytest-xdist==3.8.0",
 ]
@@ -117,7 +117,7 @@ target-version = ["py39"]
 
 [tool.bumpversion]
 commit = true
-current_version = "8.4.0"
+current_version = "8.4.1"
 message = "Bump version: {current_version} → {new_version} [ci skip]"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
@@ -366,3 +366,7 @@ strict-checking = true
 
 [tool.ruff.lint.flake8-unused-arguments]
 ignore-variadic-names = true
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 50

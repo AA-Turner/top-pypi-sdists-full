@@ -29,17 +29,15 @@ class CallInputs(BaseModel):
     """ # noqa: E501
     llm_api: Optional[str] = Field(default=None, description="The LLM resource targeted by the user. e.g. openai.chat.completions.create", alias="llmApi")
     llm_output: Optional[str] = Field(default=None, description="The string output from an external LLM call provided by the user via Guard.parse.", alias="llmOutput")
-    instructions: Optional[str] = Field(default=None, description="The instructions for chat models.")
-    prompt: Optional[str] = Field(default=None, description="The prompt for the LLM.")
-    msg_history: Optional[List[Dict[str, Any]]] = Field(default=None, description="The message history for chat models.", alias="msgHistory")
-    prompt_params: Optional[Dict[str, Any]] = Field(default=None, description="Parameters to be formatted into the prompt.", alias="promptParams")
+    messages: Optional[List[Dict[str, Any]]] = Field(default=None, description="The messages for chat models.")
+    prompt_params: Optional[Dict[str, Any]] = Field(default=None, description="Parameters to be formatted into the messages.", alias="promptParams")
     num_reasks: Optional[int] = Field(default=None, description="The total number of times the LLM can be called to correct output excluding the initial call.", alias="numReasks")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional data to be used by Validators during execution time.")
     full_schema_reask: Optional[bool] = Field(default=None, description="Whether to perform reasks for the entire schema rather than for individual fields.", alias="fullSchemaReask")
     stream: Optional[bool] = Field(default=None, description="Whether to use streaming.")
     args: Optional[List[object]] = None
     kwargs: Optional[Dict[str, Any]] = None
-    __properties: ClassVar[List[str]] = ["llmApi", "llmOutput", "instructions", "prompt", "msgHistory", "promptParams", "numReasks", "metadata", "fullSchemaReask", "stream", "args", "kwargs"]
+    __properties: ClassVar[List[str]] = ["llmApi", "llmOutput", "messages", "promptParams", "numReasks", "metadata", "fullSchemaReask", "stream", "args", "kwargs"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,9 +81,9 @@ class CallInputs(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in args (list)
         _items = []
         if self.args:
-            for _item in self.args:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_args in self.args:
+                if _item_args:
+                    _items.append(_item_args.to_dict())
             _dict['args'] = _items
         return _dict
 
@@ -99,18 +97,16 @@ class CallInputs(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-			"promptParams": obj.get("promptParams"),
-			"metadata": obj.get("metadata"),
-			"kwargs": obj.get("kwargs"),
             "llmApi": obj.get("llmApi"),
             "llmOutput": obj.get("llmOutput"),
-            "instructions": obj.get("instructions"),
-            "prompt": obj.get("prompt"),
-            "msgHistory": obj.get("msgHistory"),
+            "messages": obj.get("messages"),
+            "promptParams": obj.get("promptParams"),
             "numReasks": obj.get("numReasks"),
+            "metadata": obj.get("metadata"),
             "fullSchemaReask": obj.get("fullSchemaReask"),
             "stream": obj.get("stream"),
             "args": obj.get("args"),
+            "kwargs": obj.get("kwargs")
         })
         return _obj
 

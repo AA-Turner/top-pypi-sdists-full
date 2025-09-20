@@ -118,6 +118,7 @@
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/file_descriptor.h"
 #include "tensorstore/internal/os/file_info.h"
+#include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/uri_utils.h"
@@ -134,6 +135,7 @@
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/kvstore/url_registry.h"
+#include "tensorstore/util/division.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
@@ -169,6 +171,7 @@ using ::tensorstore::internal_os::FileInfo;
 using ::tensorstore::internal_os::kLockSuffix;
 using ::tensorstore::internal_os::MemmapFileReadOnly;
 using ::tensorstore::internal_os::OpenFlags;
+using ::tensorstore::internal_os::TruncateAndOverwrite;
 using ::tensorstore::internal_os::UniqueFileDescriptor;
 using ::tensorstore::kvstore::ListEntry;
 using ::tensorstore::kvstore::ListReceiver;
@@ -184,6 +187,7 @@ namespace jb = tensorstore::internal_json_binding;
 struct FileMetrics : public internal_kvstore::CommonMetrics {
   internal_metrics::Counter<int64_t>& open_read;
   internal_metrics::Counter<int64_t>& lock_contention;
+  internal_metrics::Counter<int64_t>& direct_io_read;
   // no additional members
 };
 
@@ -192,7 +196,9 @@ auto file_metrics = []() -> FileMetrics {
           TENSORSTORE_KVSTORE_COUNTER_IMPL(
               file, open_read, "Number of times a file is opened for reading"),
           TENSORSTORE_KVSTORE_COUNTER_IMPL(file, lock_contention,
-                                           " kvstore::Write lock contention")};
+                                           " kvstore::Write lock contention"),
+          TENSORSTORE_KVSTORE_COUNTER_IMPL(file, direct_io_read,
+                                           " kvstore::Reads using direct IO")};
 }();
 
 ABSL_CONST_INIT internal_log::VerboseFlag verbose_logging("file");
@@ -208,12 +214,12 @@ bool IsFileKvstorePathValid(std::string_view path) {
 struct FileKeyValueStoreSpecData {
   Context::Resource<internal::FileIoConcurrencyResource> file_io_concurrency;
   Context::Resource<FileIoSyncResource> file_io_sync;
-  Context::Resource<FileIoMemmapResource> file_io_memmap;
   Context::Resource<FileIoLockingResource> file_io_locking;
+  Context::Resource<FileIoModeResource> file_io_mode;
 
   constexpr static auto ApplyMembers = [](auto& x, auto f) {
-    return f(x.file_io_concurrency, x.file_io_sync, x.file_io_memmap,
-             x.file_io_locking);
+    return f(x.file_io_concurrency, x.file_io_sync, x.file_io_locking,
+             x.file_io_mode);
   };
 
   // TODO(jbms): Storing a UNIX path as a JSON string presents a challenge
@@ -237,10 +243,10 @@ struct FileKeyValueStoreSpecData {
           jb::Projection<&FileKeyValueStoreSpecData::file_io_concurrency>()),
       jb::Member(FileIoSyncResource::id,
                  jb::Projection<&FileKeyValueStoreSpecData::file_io_sync>()),
-      jb::Member(FileIoMemmapResource::id,
-                 jb::Projection<&FileKeyValueStoreSpecData::file_io_memmap>()),
       jb::Member(FileIoLockingResource::id,
-                 jb::Projection<&FileKeyValueStoreSpecData::file_io_locking>())
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_locking>()),
+      jb::Member(FileIoModeResource::id,
+                 jb::Projection<&FileKeyValueStoreSpecData::file_io_mode>())
       //
   );
 };
@@ -263,7 +269,12 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return absl::StrCat(id, "://", internal::PercentEncodeKvStoreUriPath(path));
+    std::string uri_path = internal::OsPathToUriPath(path);
+    if (uri_path.empty() || uri_path[0] == '/') {
+      return absl::StrCat(id, "://", uri_path);
+    }
+    return absl::InvalidArgumentError(absl::StrCat(
+        "file: URIs do not support relative paths: ", QuoteString(path)));
   }
 };
 
@@ -299,7 +310,9 @@ class FileKeyValueStore
   }
 
   bool sync() const { return *spec_.file_io_sync; }
-  bool memmap() const { return *spec_.file_io_memmap; }
+  FileIoModeResource::IoMode file_io_mode() const {
+    return spec_.file_io_mode->mode;
+  }
 
   FileIoLockingResource::Spec file_io_locking() const {
     return *spec_.file_io_locking;
@@ -368,6 +381,7 @@ class BatchReadTask final
   TimestampedStorageGeneration stamp_;
   UniqueFileDescriptor fd_;
   int64_t size_;
+  int64_t block_alignment_ = 0;
 
  public:
   BatchReadTask(BatchEntryKey&& batch_entry_key_)
@@ -387,17 +401,21 @@ class BatchReadTask final
   Result<kvstore::ReadResult> DoByteRangeRead(ByteRange byte_range) {
     file_metrics.batch_read.Increment();
     absl::Time start_time = absl::Now();
-
-    auto read_result = ReadFromFileDescriptor(fd_.get(), byte_range);
-    if (!read_result.ok()) {
-      return tensorstore::MaybeAnnotateStatus(std::move(read_result).status(),
-                                              "Error reading from open file");
+    auto read_result =
+        ReadFromFileDescriptor(fd_.get(), byte_range, block_alignment_);
+    if (read_result.ok()) {
+      file_metrics.bytes_read.IncrementBy(read_result->size());
     }
-    file_metrics.bytes_read.IncrementBy(read_result->size());
     file_metrics.read_latency_ms.Observe(
         absl::ToInt64Milliseconds(absl::Now() - start_time));
 
-    return kvstore::ReadResult::Value(std::move(read_result).value(), stamp_);
+    if (!read_result.ok()) {
+      return MaybeAnnotateStatus(
+          std::move(read_result).status(),
+          absl::StrCat("Error reading from open file ",
+                       std::get<std::string>(batch_entry_key)));
+    }
+    return kvstore::ReadResult::Value(*std::move(read_result), stamp_);
   }
 
   void ProcessBatch() {
@@ -423,51 +441,15 @@ class BatchReadTask final
 
     if (requests.empty()) return;
 
-    if (driver().memmap()) {
-      // Extract the bounds for all requests.
-      int64_t exclusive_max = 0;
-      int64_t inclusive_min = std::numeric_limits<int64_t>::max();
-      int64_t total_size = 0;
-      for (const auto& req : requests) {
-        const auto byte_range =
-            std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
-                .byte_range.AsByteRange();
-        inclusive_min = std::min(inclusive_min, byte_range.inclusive_min);
-        exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
-        total_size += byte_range.size();
-      }
-      // Normalize the minimum bound to be a multiple of the page size.
-      if (inclusive_min < internal_os::GetDefaultPageSize()) {
-        inclusive_min = 0;
-      } else {
-        inclusive_min = (inclusive_min / internal_os::GetDefaultPageSize()) *
-                        internal_os::GetDefaultPageSize();
-      }
-      static constexpr int64_t kMMapThreshold = 256 * 1024;
-      if (total_size >= kMMapThreshold) {
-        auto mapped_result = MemmapFileReadOnly(fd_.get(), inclusive_min,
-                                                exclusive_max - inclusive_min);
-        if (!mapped_result.ok() &&
-            !absl::IsUnimplemented(mapped_result.status())) {
-          internal_kvstore_batch::SetCommonResult(
-              requests, std::move(mapped_result).status());
-          return;
-        } else if (mapped_result.ok()) {
-          absl::Cord file_contents = std::move(mapped_result).value().as_cord();
-          for (const auto& req : requests) {
-            auto& byte_range_request =
-                std::get<internal_kvstore_batch::ByteRangeReadRequest>(req);
-            ByteRange byte_range = byte_range_request.byte_range.AsByteRange();
-            assert(byte_range.inclusive_min >= inclusive_min);
-            absl::Cord subcord = file_contents.Subcord(
-                byte_range.inclusive_min - inclusive_min, byte_range.size());
-            byte_range_request.promise.SetResult(
-                kvstore::ReadResult::Value(std::move(subcord), stamp_));
-          }
-          return;
-        }
-      }
-      // Otherwise, fall back to the ::read path.
+    switch (driver().file_io_mode()) {
+      case FileIoModeResource::IoMode::kMemmap:
+        if (HandleMMapRead(requests)) return;
+        break;
+      case FileIoModeResource::IoMode::kDirect:
+        PrepareDirectIoRead(requests);
+        break;
+      case FileIoModeResource::IoMode::kDefault:
+        break;
     }
 
     if (requests.size() == 1) {
@@ -495,6 +477,80 @@ class BatchReadTask final
                                        coalesced_requests);
           });
         });
+  }
+
+  bool HandleMMapRead(tensorstore::span<Request> requests) {
+    // Extract the bounds for all requests.
+    int64_t exclusive_max = 0;
+    int64_t inclusive_min = std::numeric_limits<int64_t>::max();
+    int64_t total_size = 0;
+    for (const auto& req : requests) {
+      const auto byte_range =
+          std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
+              .byte_range.AsByteRange();
+      inclusive_min = std::min(inclusive_min, byte_range.inclusive_min);
+      exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
+      total_size += byte_range.size();
+    }
+    // Normalize the minimum bound to be a multiple of the page size.
+    inclusive_min =
+        inclusive_min - (inclusive_min % internal_os::GetDefaultPageSize());
+
+    static constexpr int64_t kMMapThreshold = 256 * 1024;
+    if (total_size >= kMMapThreshold) {
+      auto mapped_result = MemmapFileReadOnly(fd_.get(), inclusive_min,
+                                              exclusive_max - inclusive_min);
+      if (!mapped_result.ok() &&
+          !absl::IsUnimplemented(mapped_result.status())) {
+        internal_kvstore_batch::SetCommonResult(
+            requests, std::move(mapped_result).status());
+        return true;
+      } else if (mapped_result.ok()) {
+        absl::Cord file_contents = std::move(mapped_result).value().as_cord();
+        for (const auto& req : requests) {
+          auto& byte_range_request =
+              std::get<internal_kvstore_batch::ByteRangeReadRequest>(req);
+          ByteRange byte_range = byte_range_request.byte_range.AsByteRange();
+          assert(byte_range.inclusive_min >= inclusive_min);
+          absl::Cord subcord = file_contents.Subcord(
+              byte_range.inclusive_min - inclusive_min, byte_range.size());
+          byte_range_request.promise.SetResult(
+              kvstore::ReadResult::Value(std::move(subcord), stamp_));
+        }
+        return true;
+      }
+    }
+    // Otherwise, fall back to the ::read path.
+    return false;
+  }
+
+  // Direct IO reads can only be performed if block-aligned read bounds
+  // fit within the entire file.
+  void PrepareDirectIoRead(tensorstore::span<Request> requests) {
+    int64_t block_alignment = internal_os::GetDirectIoBlockAlignment(fd_.get());
+    if (block_alignment == 0) {
+      return;
+    }
+
+    // Determine if it's possible to read entire blocks.
+    int64_t exclusive_max = 0;
+    for (const auto& req : requests) {
+      const auto byte_range =
+          std::get<internal_kvstore_batch::ByteRangeReadRequest>(req)
+              .byte_range.AsByteRange();
+      exclusive_max = std::max(exclusive_max, byte_range.exclusive_max);
+    }
+    exclusive_max = RoundUpTo(exclusive_max, block_alignment);
+    if (exclusive_max > size_) return;
+    auto status = internal_os::SetFileFlags(
+        fd_.get(), OpenFlags::DefaultRead | OpenFlags::Direct);
+    if (status.ok()) {
+      block_alignment_ = block_alignment;
+      return;
+    }
+    // NOTE: if absl::IsUnimplemented(status) then setting Direct IO flags are
+    // not supported, but we could fall back to re-open with direct io flags.
+    ABSL_LOG_FIRST_N(WARNING, 1) << "Failed to set Direct IO: " << status;
   }
 
   void ProcessCoalescedRead(ByteRange coalesced_byte_range,
@@ -556,9 +612,25 @@ struct WriteTask {
     r.time = absl::Now();
     TENSORSTORE_ASSIGN_OR_RETURN(auto dir_fd, OpenParentDirectory(full_path));
 
+    const bool is_non_atomic_mode =
+        file_io_locking.mode == FileIoLockingResource::LockingMode::non_atomic;
+    if (is_non_atomic_mode &&
+        !StorageGeneration::IsUnknown(options.generation_conditions.if_equal)) {
+      StorageGeneration generation;
+      TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
+                                   OpenValueFile(full_path, &generation));
+      if (generation != options.generation_conditions.if_equal) {
+        r.generation = StorageGeneration::Unknown();
+        return r;
+      }
+    }
+
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto lock_helper, [&]() -> Result<internal_os::FileLock> {
           switch (file_io_locking.mode) {
+            case FileIoLockingResource::LockingMode::non_atomic: {
+              return TruncateAndOverwrite(full_path);
+            }
             case FileIoLockingResource::LockingMode::none: {
               // This will generate a unique "lock" file without waiting or
               // attempting to cleanup.
@@ -581,8 +653,8 @@ struct WriteTask {
 
     absl::Status status = [&]() {
       // Check condition.
-      if (!StorageGeneration::IsUnknown(
-              options.generation_conditions.if_equal)) {
+      if (!is_non_atomic_mode && !StorageGeneration::IsUnknown(
+                                     options.generation_conditions.if_equal)) {
         StorageGeneration generation;
         TENSORSTORE_ASSIGN_OR_RETURN(UniqueFileDescriptor value_fd,
                                      OpenValueFile(full_path, &generation));
@@ -591,14 +663,18 @@ struct WriteTask {
           return absl::OkStatus();
         }
       }
+
       TENSORSTORE_RETURN_IF_ERROR(WriteWithSync(
           lock_helper.fd(), lock_helper.lock_path(), value, sync));
       // Stat and Rename
       FileInfo info;
       TENSORSTORE_RETURN_IF_ERROR(
           internal_os::GetFileInfo(lock_helper.fd(), &info));
-      TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
-          lock_helper.fd(), lock_helper.lock_path(), full_path));
+
+      if (lock_helper.lock_path() != full_path) {
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::RenameOpenFile(
+            lock_helper.fd(), lock_helper.lock_path(), full_path));
+      }
 
       delete_lock_file = false;
       r.generation = GetFileGeneration(info);
@@ -838,16 +914,20 @@ Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureSchemaWithAuthorityDelimiter(
       parsed, FileKeyValueStoreSpec::id));
   TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
-  std::string path = internal::PercentDecode(parsed.authority_and_path);
+  if (!parsed.authority.empty() && parsed.authority != "localhost") {
+    // NOTE: Consider allowing network paths in windows?
+    return absl::InvalidArgumentError("file uris do not support authority");
+  }
+  std::string path = internal::UriPathToOsPath(parsed.path);
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();
   driver_spec->data_.file_io_sync =
       Context::Resource<FileIoSyncResource>::DefaultSpec();
-  driver_spec->data_.file_io_memmap =
-      Context::Resource<FileIoMemmapResource>::DefaultSpec();
   driver_spec->data_.file_io_locking =
       Context::Resource<FileIoLockingResource>::DefaultSpec();
+  driver_spec->data_.file_io_mode =
+      Context::Resource<FileIoModeResource>::DefaultSpec();
 
   return {std::in_place, std::move(driver_spec), std::move(path)};
 }

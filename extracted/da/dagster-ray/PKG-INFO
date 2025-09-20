@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-ray
-Version: 0.2.1
+Version: 0.3.0
 Summary: Dagster integration library for Ray
 Project-URL: GitHub, https://github.com/danielgafni/dagster-ray
 Project-URL: Documentation, https://danielgafni.github.io/dagster-ray/
@@ -11,12 +11,11 @@ License-File: LICENSE
 Keywords: ETL,dagster,distributed,ray
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Requires-Dist: dagster>=1.10.0
 Requires-Dist: eval-type-backport>=0.2.2; python_full_version < '3.10'
 Requires-Dist: tenacity>=8.0.0
@@ -71,9 +70,10 @@ pip install dagster-ray
 
 ### Example
 
+Define a Dagster asset that uses Ray in client mode
 ```python
 import dagster as dg
-from dagster_ray import LocalRay, RayResource, KubeRayInteractiveJob
+from dagster_ray import RayResource
 import ray
 
 
@@ -86,16 +86,22 @@ def compute_square(x: int) -> int:
 def my_distributed_computation(ray_cluster: RayResource) -> int:
     futures = [compute_square.remote(i) for i in range(10)]
     return sum(ray.get(futures))
+```
 
+Now use `LocalRay` for local development and swap it with a thick cluster in Kubernetes!
 
-ray_cluster = LocalRay() if not IN_KUBERNETES else KubeRayInteractiveJob()
+```python
+from dagster_ray.kuberay import in_k8s, KubeRayInteractiveJob
 
+ray_cluster = LocalRay() if not in_k8s else KubeRayInteractiveJob()
 
 definitions = dg.Definitions(
     assets=[my_distributed_computation],
     resources={"ray_cluster": ray_cluster},
 )
 ```
+
+Learn more by reading the [tutorials](https://danielgafni.github.io/dagster-ray/tutorial).
 
 ## 📚 Docs
 

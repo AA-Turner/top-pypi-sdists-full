@@ -102,14 +102,16 @@ class ConnectAppBundle(_message.Message):
     def __init__(self, s3_path: _Optional[_Union[_types_pb2.Handle, _Mapping]] = ..., metadata: _Optional[_Union[ConnectAppBundleMetadata, _Mapping]] = ...) -> None: ...
 
 class ConnectAppBundleMetadata(_message.Message):
-    __slots__ = ("title", "contains_experimental_features", "sha256_checksum")
+    __slots__ = ("title", "contains_experimental_features", "sha256_checksum", "connect_file_path")
     TITLE_FIELD_NUMBER: _ClassVar[int]
     CONTAINS_EXPERIMENTAL_FEATURES_FIELD_NUMBER: _ClassVar[int]
     SHA256_CHECKSUM_FIELD_NUMBER: _ClassVar[int]
+    CONNECT_FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     title: str
     contains_experimental_features: bool
     sha256_checksum: str
-    def __init__(self, title: _Optional[str] = ..., contains_experimental_features: bool = ..., sha256_checksum: _Optional[str] = ...) -> None: ...
+    connect_file_path: str
+    def __init__(self, title: _Optional[str] = ..., contains_experimental_features: bool = ..., sha256_checksum: _Optional[str] = ..., connect_file_path: _Optional[str] = ...) -> None: ...
 
 class ConnectAppSearchQuery(_message.Message):
     __slots__ = ("search_text", "label", "property", "workspace", "is_archived")
@@ -171,16 +173,18 @@ class ConnectAppMetadata(_message.Message):
     def __init__(self, rid: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., is_archived: bool = ..., is_published: bool = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., workspace: _Optional[str] = ...) -> None: ...
 
 class ConnectApp(_message.Message):
-    __slots__ = ("rid", "commit", "metadata", "bundle")
+    __slots__ = ("rid", "commit", "metadata", "bundle", "version_number")
     RID_FIELD_NUMBER: _ClassVar[int]
     COMMIT_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     BUNDLE_FIELD_NUMBER: _ClassVar[int]
+    VERSION_NUMBER_FIELD_NUMBER: _ClassVar[int]
     rid: str
     commit: str
     metadata: ConnectAppMetadata
     bundle: ConnectAppBundle
-    def __init__(self, rid: _Optional[str] = ..., commit: _Optional[str] = ..., metadata: _Optional[_Union[ConnectAppMetadata, _Mapping]] = ..., bundle: _Optional[_Union[ConnectAppBundle, _Mapping]] = ...) -> None: ...
+    version_number: int
+    def __init__(self, rid: _Optional[str] = ..., commit: _Optional[str] = ..., metadata: _Optional[_Union[ConnectAppMetadata, _Mapping]] = ..., bundle: _Optional[_Union[ConnectAppBundle, _Mapping]] = ..., version_number: _Optional[int] = ...) -> None: ...
 
 class GetConnectAppRequest(_message.Message):
     __slots__ = ("rid", "branch_or_commit")

@@ -1,4 +1,4 @@
-"""Mongo database source helpers"""
+"""Mongo database source helpers and destination utilities"""
 
 import re
 from itertools import islice
@@ -23,6 +23,7 @@ from bson.timestamp import Timestamp
 from dlt.common import logger
 from dlt.common.configuration.specs import BaseConfiguration, configspec
 from dlt.common.data_writers import TDataItemFormat
+from dlt.common.schema import TTableSchema
 from dlt.common.time import ensure_pendulum_datetime
 from dlt.common.typing import TDataItem
 from dlt.common.utils import map_nested_in_place
@@ -945,3 +946,70 @@ def convert_mongo_shell_to_extended_json(query_string: str) -> str:
 
 
 __source_name__ = "mongodb"
+
+
+# MongoDB destination helper functions
+def process_file_items(file_path: str) -> list[dict]:
+    """Process items from a file path (JSONL format)."""
+    import json
+
+    documents = []
+    with open(file_path, "r") as f:
+        for line in f:
+            if line.strip():
+                doc = json.loads(line.strip())
+                documents.append(doc)  # Include all fields including DLT metadata
+    return documents
+
+
+def mongodb_insert(uri: str, database: str):
+    """Creates a dlt.destination for inserting data into a MongoDB collection.
+
+    Args:
+        uri (str): MongoDB connection URI.
+        database (str): Name of the MongoDB database.
+
+    Returns:
+        dlt.destination: A DLT destination object configured for MongoDB.
+    """
+
+    state = {"first_batch": True}
+
+    def destination(items: TDataItem, table: TTableSchema) -> None:
+        import pyarrow
+        from pymongo import MongoClient
+
+        # Extract database name from connection string
+        # Get collection name from table metadata
+        collection_name = table["name"]
+
+        # Connect to MongoDB
+        client: MongoClient
+
+        with MongoClient(uri) as client:
+            db = client[database]
+            collection = db[collection_name]
+
+            # Process and insert documents
+            if isinstance(items, str):
+                documents = process_file_items(items)
+            elif isinstance(items, pyarrow.RecordBatch):
+                documents = [item for item in items.to_pylist()]
+            else:
+                documents = [item for item in items if isinstance(item, dict)]
+
+            if state["first_batch"] and documents:
+                collection.delete_many({})
+                state["first_batch"] = False
+
+            if documents:
+                collection.insert_many(documents)  # Insert all new data
+
+    return dlt.destination(
+        destination,
+        name="mongodb",
+        loader_file_format="typed-jsonl",
+        batch_size=1000,
+        naming_convention="snake_case",
+        loader_parallelism_strategy="sequential",
+    )

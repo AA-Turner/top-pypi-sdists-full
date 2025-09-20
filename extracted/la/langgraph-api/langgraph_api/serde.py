@@ -149,7 +149,7 @@ def json_loads(content: bytes | Fragment | dict) -> Any:
         content = content.buf
     if isinstance(content, dict):
         return content
-    return orjson.loads(cast(bytes, content))
+    return orjson.loads(content)
 
 
 # Do not use. orjson holds the GIL the entire time it's running anyway.

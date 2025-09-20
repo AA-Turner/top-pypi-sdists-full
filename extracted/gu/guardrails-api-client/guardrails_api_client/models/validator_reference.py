@@ -27,9 +27,9 @@ class ValidatorReference(BaseModel):
     """
     ValidatorReference
     """ # noqa: E501
-    id: Optional[str] = Field(description="The unique identifier for this Validator.  Often the hub id; e.g. guardrails/regex_match")
-    on: Optional[str] = Field(default=None, description="A reference to the property this validator should be applied against.  Can be a valid JSON path or a meta-property such as \"prompt\" or \"output\"")
-    on_fail: Optional[str] = Field(default=None, alias="onFail")
+    id: str = Field(description="The unique identifier for this Validator.  Often the hub id; e.g. guardrails/regex_match")
+    on: Optional[Any] = Field(default=None, description="A reference to the property this validator should be applied against.  Can be a valid JSON path or a meta-property such as \"messages\" or \"output\"")
+    on_fail: Optional[str] = Field(default='noop', alias="onFail")
     args: Optional[List[object]] = None
     kwargs: Optional[Dict[str, Any]] = None
     __properties: ClassVar[List[str]] = ["args", "kwargs"]
@@ -86,9 +86,9 @@ class ValidatorReference(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in args (list)
         _items = []
         if self.args:
-            for _item in self.args:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_args in self.args:
+                if _item_args:
+                    _items.append(_item_args.to_dict())
             _dict['args'] = _items
         return _dict
 
@@ -104,6 +104,7 @@ class ValidatorReference(BaseModel):
         _obj = cls.model_validate({
             **obj,
 "args": obj.get("args"),
+            "kwargs": obj.get("kwargs")
         })
         return _obj
 

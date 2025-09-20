@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RESTinstance
-Version: 1.5.2
+Version: 1.5.3
 Summary: Robot Framework library for RESTful JSON APIs
 Author-email: Anssi Syrjäsalo <opensource@syrjasalo.com>
 License: LGPLv3
@@ -34,9 +34,10 @@ Requires-Dist: pytz
 Requires-Dist: requests
 Requires-Dist: robotframework
 Requires-Dist: tzlocal
+Requires-Dist: setuptools<80
 Dynamic: license-file
 
-# RESTinstance (1.5.2)
+# RESTinstance (1.5.3)
 
 [Robot Framework](http://robotframework.org) library for RESTful JSON APIs
 

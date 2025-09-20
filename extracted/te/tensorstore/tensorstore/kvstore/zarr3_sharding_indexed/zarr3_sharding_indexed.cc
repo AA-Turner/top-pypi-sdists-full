@@ -49,7 +49,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/dimension_indexed.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
-#include "tensorstore/internal/mutex.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
@@ -285,18 +284,16 @@ struct ListOperationState
     auto [start_index, end_index] = InternalKeyRangeToEntryRange(
         options_.range.inclusive_min, options_.range.exclusive_max,
         shard_index_params.num_entries);
-    auto& receiver = shared_receiver->receiver;
     for (EntryId i = start_index; i < end_index; ++i) {
       auto index_entry = (*shard_index)[i];
       if (index_entry.IsMissing()) continue;
       auto key = internal_keys_ ? EntryIdToInternalKey(i)
                                 : EntryIdToKey(i, grid_shape);
       key.erase(0, options_.strip_prefix_length);
-      execution::set_value(receiver,
-                           ListEntry{
-                               std::move(key),
-                               ListEntry::checked_size(index_entry.length),
-                           });
+      YieldValue(ListEntry{
+          std::move(key),
+          ListEntry::checked_size(index_entry.length),
+      });
     }
   }
 };
@@ -460,7 +457,7 @@ class ShardedKeyValueStoreWriteCache
     void RecordEntryWritebackError(
         internal_kvstore::ReadModifyWriteEntry& entry,
         absl::Status error) override {
-      absl::MutexLock lock(&mutex_);
+      absl::MutexLock lock(mutex_);
       if (apply_status_.ok()) {
         apply_status_ = std::move(error);
       }
@@ -469,7 +466,8 @@ class ShardedKeyValueStoreWriteCache
     void Revoke() override {
       Base::TransactionNode::Revoke();
       {
-        UniqueWriterLock(*this);
+        lock();
+        unlock();
       }
       // At this point, no new entries may be added and we can safely traverse
       // the list of entries without a lock.

@@ -20,10 +20,12 @@ from __future__ import annotations
 
 import base64
 import logging
-import typing
+from collections import defaultdict
+from collections.abc import Iterable
 from enum import Enum
+from pathlib import Path
 from textwrap import dedent
-from typing import Any, Optional
+from typing import Any
 
 import rfc8785
 from cryptography.hazmat.primitives.serialization import Encoding
@@ -31,261 +33,160 @@ from cryptography.x509 import (
     Certificate,
     load_der_x509_certificate,
 )
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    StrictInt,
-    StrictStr,
-    TypeAdapter,
-    ValidationInfo,
-    field_validator,
-)
-from pydantic.dataclasses import dataclass
+from pydantic import TypeAdapter
 from rekor_types import Dsse, Hashedrekord, ProposedEntry
 from rfc3161_client import TimeStampResponse, decode_timestamp_response
-from sigstore_protobuf_specs.dev.sigstore.bundle import v1 as bundle_v1
-from sigstore_protobuf_specs.dev.sigstore.bundle.v1 import (
-    Bundle as _Bundle,
-)
-from sigstore_protobuf_specs.dev.sigstore.bundle.v1 import (
+from sigstore_models.bundle import v1 as bundle_v1
+from sigstore_models.bundle.v1 import Bundle as _Bundle
+from sigstore_models.bundle.v1 import (
     TimestampVerificationData as _TimestampVerificationData,
 )
-from sigstore_protobuf_specs.dev.sigstore.bundle.v1 import (
-    VerificationMaterial as _VerificationMaterial,
-)
-from sigstore_protobuf_specs.dev.sigstore.common import v1 as common_v1
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import Rfc3161SignedTimestamp
-from sigstore_protobuf_specs.dev.sigstore.rekor import v1 as rekor_v1
-from sigstore_protobuf_specs.dev.sigstore.rekor.v1 import (
-    InclusionProof,
-)
+from sigstore_models.bundle.v1 import VerificationMaterial as _VerificationMaterial
+from sigstore_models.common import v1 as common_v1
+from sigstore_models.common.v1 import MessageSignature, RFC3161SignedTimestamp
+from sigstore_models.rekor import v1 as rekor_v1
+from sigstore_models.rekor.v1 import TransparencyLogEntry as _TransparencyLogEntry
+from sigstore_models.trustroot import v1 as trustroot_v1
 
 from sigstore import dsse
+from sigstore._internal.fulcio.client import FulcioClient
 from sigstore._internal.merkle import verify_merkle_inclusion
+from sigstore._internal.rekor import RekorLogSubmitter
 from sigstore._internal.rekor.checkpoint import verify_checkpoint
-from sigstore._utils import (
-    B64Str,
-    KeyID,
-    cert_is_leaf,
-    cert_is_root_ca,
+from sigstore._internal.timestamp import TimestampAuthorityClient
+from sigstore._internal.trust import (
+    CertificateAuthority,
+    CTKeyring,
+    Keyring,
+    KeyringPurpose,
+    RekorKeyring,
 )
-from sigstore.errors import Error, VerificationError
+from sigstore._internal.tuf import DEFAULT_TUF_URL, STAGING_TUF_URL, TrustUpdater
+from sigstore._utils import KeyID, cert_is_leaf, cert_is_root_ca, is_timerange_valid
+from sigstore.errors import Error, MetadataError, TUFError, VerificationError
 
-if typing.TYPE_CHECKING:
-    from sigstore._internal.trust import RekorKeyring
+# Versions supported by this client
+REKOR_VERSIONS = [1, 2]
+TSA_VERSIONS = [1]
+FULCIO_VERSIONS = [1]
+OIDC_VERSIONS = [1]
 
 
 _logger = logging.getLogger(__name__)
 
 
-class LogInclusionProof(BaseModel):
-    """
-    Represents an inclusion proof for a transparency log entry.
-    """
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    checkpoint: StrictStr = Field(..., alias="checkpoint")
-    hashes: list[StrictStr] = Field(..., alias="hashes")
-    log_index: StrictInt = Field(..., alias="logIndex")
-    root_hash: StrictStr = Field(..., alias="rootHash")
-    tree_size: StrictInt = Field(..., alias="treeSize")
-
-    @field_validator("log_index")
-    def _log_index_positive(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError(f"Inclusion proof has invalid log index: {v} < 0")
-        return v
-
-    @field_validator("tree_size")
-    def _tree_size_positive(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError(f"Inclusion proof has invalid tree size: {v} < 0")
-        return v
-
-    @field_validator("tree_size")
-    def _log_index_within_tree_size(
-        cls, v: int, info: ValidationInfo, **kwargs: Any
-    ) -> int:
-        if "log_index" in info.data and v <= info.data["log_index"]:
-            raise ValueError(
-                "Inclusion proof has log index greater than or equal to tree size: "
-                f"{v} <= {info.data['log_index']}"
-            )
-        return v
-
-
-@dataclass(frozen=True)
-class LogEntry:
+class TransparencyLogEntry:
     """
     Represents a transparency log entry.
-
-    Log entries are retrieved from the transparency log after signing or verification events,
-    or loaded from "Sigstore" bundles provided by the user.
-
-    This representation allows for either a missing inclusion promise or a missing
-    inclusion proof, but not both: attempting to construct a `LogEntry` without
-    at least one will fail.
     """
 
-    uuid: Optional[str]
-    """
-    This entry's unique ID in the log instance it was retrieved from.
+    def __init__(self, inner: _TransparencyLogEntry) -> None:
+        """
+        Creates a new `TransparencyLogEntry` from the given inner object.
 
-    For sharded log deployments, IDs are unique per-shard.
+        @private
+        """
+        self._inner = inner
+        self._validate()
 
-    Not present for `LogEntry` instances loaded from Sigstore bundles.
-    """
+    def _validate(self) -> None:
+        """
+        Ensure this transparency log entry is well-formed and upholds our
+        client invariants.
+        """
 
-    body: B64Str
-    """
-    The base64-encoded body of the transparency log entry.
-    """
+        inclusion_proof: rekor_v1.InclusionProof | None = self._inner.inclusion_proof
+        # This check is required by us as the client, not the
+        # protobuf-specs themselves.
+        if not inclusion_proof or not inclusion_proof.checkpoint:
+            raise InvalidBundle("entry must contain inclusion proof, with checkpoint")
 
-    integrated_time: int
-    """
-    The UNIX time at which this entry was integrated into the transparency log.
-    """
+    def __eq__(self, value: object) -> bool:
+        """
+        Compares this `TransparencyLogEntry` with another object for equality.
 
-    log_id: str
-    """
-    The log's ID (as the SHA256 hash of the DER-encoded public key for the log
-    at the time of entry inclusion).
-    """
-
-    log_index: int
-    """
-    The index of this entry within the log.
-    """
-
-    inclusion_proof: LogInclusionProof
-    """
-    An inclusion proof for this log entry.
-    """
-
-    inclusion_promise: Optional[B64Str]
-    """
-    An inclusion promise for this log entry, if present.
-
-    Internally, this is a base64-encoded Signed Entry Timestamp (SET) for this
-    log entry.
-    """
+        Two `TransparencyLogEntry` instances are considered equal if their
+        inner contents are equal.
+        """
+        if not isinstance(value, TransparencyLogEntry):
+            return NotImplemented
+        return self._inner == value._inner
 
     @classmethod
-    def _from_response(cls, dict_: dict[str, Any]) -> LogEntry:
+    def _from_v1_response(cls, dict_: dict[str, Any]) -> TransparencyLogEntry:
         """
-        Create a new `LogEntry` from the given API response.
+        Create a new `TransparencyLogEntry` from the given API response.
         """
 
         # Assumes we only get one entry back
         entries = list(dict_.items())
         if len(entries) != 1:
             raise ValueError("Received multiple entries in response")
-
-        uuid, entry = entries[0]
-        return LogEntry(
-            uuid=uuid,
-            body=entry["body"],
-            integrated_time=entry["integratedTime"],
-            log_id=entry["logID"],
-            log_index=entry["logIndex"],
-            inclusion_proof=LogInclusionProof.model_validate(
-                entry["verification"]["inclusionProof"]
-            ),
-            inclusion_promise=entry["verification"]["signedEntryTimestamp"],
-        )
-
-    @classmethod
-    def _from_dict_rekor(cls, dict_: dict[str, Any]) -> LogEntry:
-        """
-        Create a new `LogEntry` from the given Rekor TransparencyLogEntry.
-        """
-        tlog_entry = rekor_v1.TransparencyLogEntry()
-        tlog_entry.from_dict(dict_)
-
-        inclusion_proof: InclusionProof | None = tlog_entry.inclusion_proof
-        # This check is required by us as the client, not the
-        # protobuf-specs themselves.
-        if not inclusion_proof or not inclusion_proof.checkpoint.envelope:
-            raise InvalidBundle("entry must contain inclusion proof, with checkpoint")
-
-        parsed_inclusion_proof = LogInclusionProof(
-            checkpoint=inclusion_proof.checkpoint.envelope,
-            hashes=[h.hex() for h in inclusion_proof.hashes],
-            log_index=inclusion_proof.log_index,
-            root_hash=inclusion_proof.root_hash.hex(),
-            tree_size=inclusion_proof.tree_size,
-        )
-
-        return LogEntry(
-            uuid=None,
-            body=B64Str(base64.b64encode(tlog_entry.canonicalized_body).decode()),
-            integrated_time=tlog_entry.integrated_time,
-            log_id=tlog_entry.log_id.key_id.hex(),
-            log_index=tlog_entry.log_index,
-            inclusion_proof=parsed_inclusion_proof,
-            inclusion_promise=B64Str(
-                base64.b64encode(
-                    tlog_entry.inclusion_promise.signed_entry_timestamp
-                ).decode()
-            ),
-        )
-
-    def _to_rekor(self) -> rekor_v1.TransparencyLogEntry:
-        """
-        Create a new protobuf-level `TransparencyLogEntry` from this `LogEntry`.
-
-        @private
-        """
-        inclusion_promise: rekor_v1.InclusionPromise | None = None
-        if self.inclusion_promise:
-            inclusion_promise = rekor_v1.InclusionPromise(
-                signed_entry_timestamp=base64.b64decode(self.inclusion_promise)
-            )
-
-        inclusion_proof = rekor_v1.InclusionProof(
-            log_index=self.inclusion_proof.log_index,
-            root_hash=bytes.fromhex(self.inclusion_proof.root_hash),
-            tree_size=self.inclusion_proof.tree_size,
-            hashes=[bytes.fromhex(hash_) for hash_ in self.inclusion_proof.hashes],
-            checkpoint=rekor_v1.Checkpoint(envelope=self.inclusion_proof.checkpoint),
-        )
-
-        tlog_entry = rekor_v1.TransparencyLogEntry(
-            log_index=self.log_index,
-            log_id=common_v1.LogId(key_id=bytes.fromhex(self.log_id)),
-            integrated_time=self.integrated_time,
-            inclusion_promise=inclusion_promise,  # type: ignore[arg-type]
-            inclusion_proof=inclusion_proof,
-            canonicalized_body=base64.b64decode(self.body),
-        )
+        _, entry = entries[0]
 
         # Fill in the appropriate kind
         body_entry: ProposedEntry = TypeAdapter(ProposedEntry).validate_json(
-            tlog_entry.canonicalized_body
+            base64.b64decode(entry["body"])
         )
         if not isinstance(body_entry, (Hashedrekord, Dsse)):
             raise InvalidBundle("log entry is not of expected type")
 
-        tlog_entry.kind_version = rekor_v1.KindVersion(
-            kind=body_entry.kind, version=body_entry.api_version
+        raw_inclusion_proof = entry["verification"]["inclusionProof"]
+
+        # NOTE: The type ignores below are a consequence of our Pydantic
+        # modeling: mypy and other typecheckers see `ProtoU64` as `int`,
+        # but it gets coerced from a string due to Protobuf's JSON serialization.
+        inner = _TransparencyLogEntry(
+            log_index=str(entry["logIndex"]),  # type: ignore[arg-type]
+            log_id=common_v1.LogId(
+                key_id=base64.b64encode(bytes.fromhex(entry["logID"]))
+            ),
+            kind_version=rekor_v1.KindVersion(
+                kind=body_entry.kind, version=body_entry.api_version
+            ),
+            integrated_time=str(entry["integratedTime"]),  # type: ignore[arg-type]
+            inclusion_promise=rekor_v1.InclusionPromise(
+                signed_entry_timestamp=entry["verification"]["signedEntryTimestamp"]
+            ),
+            inclusion_proof=rekor_v1.InclusionProof(
+                log_index=str(raw_inclusion_proof["logIndex"]),  # type: ignore[arg-type]
+                root_hash=base64.b64encode(
+                    bytes.fromhex(raw_inclusion_proof["rootHash"])
+                ),
+                tree_size=str(raw_inclusion_proof["treeSize"]),  # type: ignore[arg-type]
+                hashes=[
+                    base64.b64encode(bytes.fromhex(h))
+                    for h in raw_inclusion_proof["hashes"]
+                ],
+                checkpoint=rekor_v1.Checkpoint(
+                    envelope=raw_inclusion_proof["checkpoint"]
+                ),
+            ),
+            canonicalized_body=entry["body"],
         )
 
-        return tlog_entry
+        return cls(inner)
 
-    def encode_canonical(self) -> bytes:
+    def _encode_canonical(self) -> bytes:
         """
         Returns a canonicalized JSON (RFC 8785) representation of the transparency log entry.
 
         This encoded representation is suitable for verification against
         the Signed Entry Timestamp.
         """
+        # We might not have an integrated time if our log entry is from rekor
+        # v2, i.e. was integrated synchronously instead of via an
+        # inclusion promise.
+        if self._inner.integrated_time is None:
+            raise ValueError(
+                "can't encode canonical form for SET without integrated time"
+            )
+
         payload: dict[str, int | str] = {
-            "body": self.body,
-            "integratedTime": self.integrated_time,
-            "logID": self.log_id,
-            "logIndex": self.log_index,
+            "body": base64.b64encode(self._inner.canonicalized_body).decode(),
+            "integratedTime": self._inner.integrated_time,
+            "logID": self._inner.log_id.key_id.hex(),
+            "logIndex": self._inner.log_index,
         }
 
         return rfc8785.dumps(payload)
@@ -298,16 +199,16 @@ class LogEntry:
         Fails if the given log entry does not contain an inclusion promise.
         """
 
-        if self.inclusion_promise is None:
+        if self._inner.inclusion_promise is None:
             raise VerificationError("SET: invalid inclusion promise: missing")
 
-        signed_entry_ts = base64.b64decode(self.inclusion_promise)
+        signed_entry_ts = self._inner.inclusion_promise.signed_entry_timestamp
 
         try:
             keyring.verify(
-                key_id=KeyID(bytes.fromhex(self.log_id)),
+                key_id=KeyID(self._inner.log_id.key_id),
                 signature=signed_entry_ts,
-                data=self.encode_canonical(),
+                data=self._encode_canonical(),
             )
         except VerificationError as exc:
             raise VerificationError(f"SET: invalid inclusion promise: {exc}")
@@ -327,12 +228,14 @@ class LogEntry:
         verify_merkle_inclusion(self)
         verify_checkpoint(keyring, self)
 
-        _logger.debug(f"successfully verified inclusion proof: index={self.log_index}")
+        _logger.debug(
+            f"successfully verified inclusion proof: index={self._inner.log_index}"
+        )
 
-        if self.inclusion_promise:
+        if self._inner.inclusion_promise and self._inner.integrated_time:
             self._verify_set(keyring)
             _logger.debug(
-                f"successfully verified inclusion promise: index={self.log_index}"
+                f"successfully verified inclusion promise: index={self._inner.log_index}"
             )
 
 
@@ -355,10 +258,12 @@ class TimestampVerificationData:
         It verifies that TimeStamp Responses embedded in the bundle are correctly
         formed.
         """
+        if not (timestamps := self._inner.rfc3161_timestamps):
+            timestamps = []
+
         try:
             self._signed_ts = [
-                decode_timestamp_response(ts.signed_timestamp)
-                for ts in self._inner.rfc3161_timestamps
+                decode_timestamp_response(ts.signed_timestamp) for ts in timestamps
             ]
         except ValueError:
             raise VerificationError("Invalid Timestamp Response")
@@ -373,7 +278,7 @@ class TimestampVerificationData:
         """
         Deserialize the given timestamp verification data.
         """
-        inner = _TimestampVerificationData().from_json(raw)
+        inner = _TimestampVerificationData.from_json(raw)
         return cls(inner)
 
 
@@ -387,11 +292,16 @@ class VerificationMaterial:
         self._inner = inner
 
     @property
-    def timestamp_verification_data(self) -> TimestampVerificationData:
+    def timestamp_verification_data(self) -> TimestampVerificationData | None:
         """
-        Returns the Timestamp Verification Data.
+        Returns the Timestamp Verification Data, if present.
         """
-        return TimestampVerificationData(self._inner.timestamp_verification_data)
+        if (
+            self._inner.timestamp_verification_data
+            and self._inner.timestamp_verification_data.rfc3161_timestamps
+        ):
+            return TimestampVerificationData(self._inner.timestamp_verification_data)
+        return None
 
 
 class InvalidBundle(Error):
@@ -466,6 +376,9 @@ class Bundle:
             Bundle.BundleType.BUNDLE_0_3_ALT,
         ):
             # For "v3" bundles, the signing certificate is the only one present.
+            if not self._inner.verification_material.certificate:
+                raise InvalidBundle("expected certificate in bundle")
+
             leaf_cert = load_der_x509_certificate(
                 self._inner.verification_material.certificate.raw_bytes
             )
@@ -473,11 +386,11 @@ class Bundle:
             # In older bundles, there is an entire pool (misleadingly called
             # a chain) of certificates, the first of which is the signing
             # certificate.
-            certs = (
-                self._inner.verification_material.x509_certificate_chain.certificates
-            )
+            if not self._inner.verification_material.x509_certificate_chain:
+                raise InvalidBundle("expected certificate chain in bundle")
 
-            if len(certs) == 0:
+            chain = self._inner.verification_material.x509_certificate_chain
+            if not chain.certificates:
                 raise InvalidBundle("expected non-empty certificate chain in bundle")
 
             # Per client policy in protobuf-specs: the first entry in the chain
@@ -488,9 +401,9 @@ class Bundle:
             # We expect some old bundles to violate the rules around root
             # and intermediate CAs, so we issue warnings and not hard errors
             # in those cases.
-            leaf_cert, *chain_certs = [
-                load_der_x509_certificate(cert.raw_bytes) for cert in certs
-            ]
+            leaf_cert, *chain_certs = (
+                load_der_x509_certificate(cert.raw_bytes) for cert in chain.certificates
+            )
             if not cert_is_leaf(leaf_cert):
                 raise InvalidBundle(
                     "bundle contains an invalid leaf or non-leaf certificate in the leaf position"
@@ -533,22 +446,22 @@ class Bundle:
         #
         # Before all of this, we require that the inclusion proof be present
         # (when constructing the LogEntry).
-        log_entry = LogEntry._from_dict_rekor(tlog_entry.to_dict())
+        log_entry = TransparencyLogEntry(tlog_entry)
 
         if media_type == Bundle.BundleType.BUNDLE_0_1:
-            if not log_entry.inclusion_promise:
+            if not log_entry._inner.inclusion_promise:
                 raise InvalidBundle("bundle must contain an inclusion promise")
-            if not log_entry.inclusion_proof.checkpoint:
+            if not log_entry._inner.inclusion_proof.checkpoint:
                 _logger.debug(
                     "0.1 bundle contains inclusion proof without checkpoint; ignoring"
                 )
         else:
-            if not log_entry.inclusion_proof.checkpoint:
+            if not log_entry._inner.inclusion_proof.checkpoint:
                 raise InvalidBundle("expected checkpoint in inclusion proof")
 
             if (
-                not log_entry.inclusion_promise
-                and not self._inner.verification_material.timestamp_verification_data.rfc3161_timestamps
+                not log_entry._inner.inclusion_promise
+                and not self.verification_material.timestamp_verification_data
             ):
                 raise InvalidBundle(
                     "bundle must contain an inclusion promise or signed timestamp(s)"
@@ -562,7 +475,7 @@ class Bundle:
         return self._signing_certificate
 
     @property
-    def log_entry(self) -> LogEntry:
+    def log_entry(self) -> TransparencyLogEntry:
         """
         Returns the bundle's log entry, containing an inclusion proof
         (with checkpoint) and an inclusion promise (if the latter is present).
@@ -576,7 +489,7 @@ class Bundle:
 
         @private
         """
-        if self._inner.dsse_envelope:
+        if self._inner.dsse_envelope is not None:
             return dsse.Envelope(self._inner.dsse_envelope)
         return None
 
@@ -589,7 +502,7 @@ class Bundle:
         return (
             self._dsse_envelope.signature
             if self._dsse_envelope
-            else self._inner.message_signature.signature
+            else self._inner.message_signature.signature  # type: ignore[union-attr]
         )
 
     @property
@@ -604,7 +517,10 @@ class Bundle:
         """
         Deserialize the given Sigstore bundle.
         """
-        inner = _Bundle().from_json(raw)
+        try:
+            inner = _Bundle.from_json(raw)
+        except ValueError as exc:
+            raise InvalidBundle(f"failed to load bundle: {exc}")
         return cls(inner)
 
     def to_json(self) -> str:
@@ -615,65 +531,450 @@ class Bundle:
 
     def _to_parts(
         self,
-    ) -> tuple[Certificate, common_v1.MessageSignature | dsse.Envelope, LogEntry]:
+    ) -> tuple[Certificate, MessageSignature | dsse.Envelope, TransparencyLogEntry]:
         """
         Decompose the `Bundle` into its core constituent parts.
 
         @private
         """
 
-        content: common_v1.MessageSignature | dsse.Envelope
-        content = self._dsse_envelope or self._inner.message_signature
+        content: MessageSignature | dsse.Envelope
+        if self._dsse_envelope:
+            content = self._dsse_envelope
+        else:
+            content = self._inner.message_signature  # type: ignore[assignment]
 
         return (self.signing_certificate, content, self.log_entry)
 
     @classmethod
-    def from_parts(cls, cert: Certificate, sig: bytes, log_entry: LogEntry) -> Bundle:
+    def from_parts(
+        cls, cert: Certificate, sig: bytes, log_entry: TransparencyLogEntry
+    ) -> Bundle:
         """
         Construct a Sigstore bundle (of `hashedrekord` type) from its
         constituent parts.
         """
 
         return cls._from_parts(
-            cert, common_v1.MessageSignature(signature=sig), log_entry
+            cert, MessageSignature(signature=base64.b64encode(sig)), log_entry
         )
 
     @classmethod
     def _from_parts(
         cls,
         cert: Certificate,
-        content: common_v1.MessageSignature | dsse.Envelope,
-        log_entry: LogEntry,
-        signed_timestamp: Optional[list[TimeStampResponse]] = None,
+        content: MessageSignature | dsse.Envelope,
+        log_entry: TransparencyLogEntry,
+        signed_timestamp: list[TimeStampResponse] | None = None,
     ) -> Bundle:
         """
         @private
         """
 
+        timestamp_verifcation_data = bundle_v1.TimestampVerificationData(
+            rfc3161_timestamps=[]
+        )
+        if signed_timestamp is not None:
+            timestamp_verifcation_data.rfc3161_timestamps.extend(
+                [
+                    RFC3161SignedTimestamp(
+                        signed_timestamp=base64.b64encode(response.as_bytes())
+                    )
+                    for response in signed_timestamp
+                ]
+            )
+
+        # Fill in the appropriate variant.
+        message_signature = None
+        dsse_envelope = None
+        if isinstance(content, MessageSignature):
+            message_signature = content
+        else:
+            dsse_envelope = content._inner
+
         inner = _Bundle(
             media_type=Bundle.BundleType.BUNDLE_0_3.value,
             verification_material=bundle_v1.VerificationMaterial(
-                certificate=common_v1.X509Certificate(cert.public_bytes(Encoding.DER)),
+                certificate=common_v1.X509Certificate(
+                    raw_bytes=base64.b64encode(cert.public_bytes(Encoding.DER))
+                ),
+                tlog_entries=[log_entry._inner],
+                timestamp_verification_data=timestamp_verifcation_data,
             ),
+            message_signature=message_signature,
+            dsse_envelope=dsse_envelope,
         )
 
-        # Fill in the appropriate variants.
-        if isinstance(content, common_v1.MessageSignature):
-            inner.message_signature = content
+        return cls(inner)
+
+
+class SigningConfig:
+    """
+    Signing configuration for a Sigstore instance.
+    """
+
+    class SigningConfigType(str, Enum):
+        """
+        Known Sigstore signing config media types.
+        """
+
+        SIGNING_CONFIG_0_2 = "application/vnd.dev.sigstore.signingconfig.v0.2+json"
+
+        def __str__(self) -> str:
+            """Returns the variant's string value."""
+            return self.value
+
+    def __init__(
+        self, inner: trustroot_v1.SigningConfig, tlog_version: int | None = None
+    ):
+        """
+        Construct a new `SigningConfig`.
+
+        tlog_version is an optional argument that enforces that only specified
+        versions of rekor are included in the transparency logs.
+
+        @api private
+        """
+        self._inner = inner
+
+        # must have a recognized media type.
+        try:
+            SigningConfig.SigningConfigType(self._inner.media_type)
+        except ValueError:
+            raise Error(f"unsupported signing config format: {self._inner.media_type}")
+
+        # Create lists of service protos that are valid, selected by the service
+        # configuration & supported by this client
+        if tlog_version is None:
+            tlog_versions = REKOR_VERSIONS
         else:
-            inner.dsse_envelope = content._inner
+            tlog_versions = [tlog_version]
 
-        tlog_entry = log_entry._to_rekor()
-        inner.verification_material.tlog_entries = [tlog_entry]
+        self._tlogs = self._get_valid_services(
+            self._inner.rekor_tlog_urls, tlog_versions, self._inner.rekor_tlog_config
+        )
+        if not self._tlogs:
+            raise Error("No valid Rekor transparency log found in signing config")
 
-        if signed_timestamp is not None:
-            inner.verification_material.timestamp_verification_data = (
-                bundle_v1.TimestampVerificationData(
-                    rfc3161_timestamps=[
-                        Rfc3161SignedTimestamp(signed_timestamp=response.as_bytes())
-                        for response in signed_timestamp
-                    ]
-                )
+        self._tsas = self._get_valid_services(
+            self._inner.tsa_urls, TSA_VERSIONS, self._inner.tsa_config
+        )
+
+        self._fulcios = self._get_valid_services(
+            self._inner.ca_urls, FULCIO_VERSIONS, None
+        )
+        if not self._fulcios:
+            raise Error("No valid Fulcio CA found in signing config")
+
+        self._oidcs = self._get_valid_services(
+            self._inner.oidc_urls, OIDC_VERSIONS, None
+        )
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str,
+    ) -> SigningConfig:
+        """Create a new signing config from file"""
+        inner = trustroot_v1.SigningConfig.from_json(Path(path).read_bytes())
+        return cls(inner)
+
+    @staticmethod
+    def _get_valid_services(
+        services: list[trustroot_v1.Service],
+        supported_versions: list[int],
+        config: trustroot_v1.ServiceConfiguration | None,
+    ) -> list[trustroot_v1.Service]:
+        """Return supported services, taking SigningConfig restrictions into account"""
+
+        # split services by operator, only include valid services
+        services_by_operator: dict[str, list[trustroot_v1.Service]] = defaultdict(list)
+        for service in services:
+            if service.major_api_version not in supported_versions:
+                continue
+
+            if not is_timerange_valid(service.valid_for, allow_expired=False):
+                continue
+
+            services_by_operator[service.operator].append(service)
+
+        # build a list of services but make sure we only include one service per operator
+        # and use the highest version available for that operator
+        result: list[trustroot_v1.Service] = []
+        for op_services in services_by_operator.values():
+            op_services.sort(key=lambda s: s.major_api_version)
+            result.append(op_services[-1])
+
+        # Depending on ServiceSelector, prune the result list
+        if not config or config.selector == trustroot_v1.ServiceSelector.ALL:
+            return result
+
+        # handle EXACT and ANY selectors
+        count = (
+            config.count
+            if config.selector == trustroot_v1.ServiceSelector.EXACT and config.count
+            else 1
+        )
+
+        if (
+            config.selector == trustroot_v1.ServiceSelector.EXACT
+            and len(result) < count
+        ):
+            raise ValueError(
+                f"Expected {count} services in signing config, found {len(result)}"
             )
 
+        return result[:count]
+
+    def get_tlogs(self) -> list[RekorLogSubmitter]:
+        """
+        Returns the rekor transparency log clients to sign with.
+        """
+        result: list[RekorLogSubmitter] = []
+        for tlog in self._tlogs:
+            if tlog.major_api_version == 1:
+                from sigstore._internal.rekor.client import RekorClient
+
+                result.append(RekorClient(tlog.url))
+            elif tlog.major_api_version == 2:
+                from sigstore._internal.rekor.client_v2 import RekorV2Client
+
+                result.append(RekorV2Client(tlog.url))
+            else:
+                raise AssertionError(f"Unexpected Rekor v{tlog.major_api_version}")
+        return result
+
+    def get_fulcio(self) -> FulcioClient:
+        """
+        Returns a Fulcio client to get a signing certificate from
+        """
+        return FulcioClient(self._fulcios[0].url)
+
+    def get_oidc_url(self) -> str:
+        """
+        Returns url for the OIDC provider that client should use to interactively
+        authenticate.
+        """
+        if not self._oidcs:
+            raise Error("No valid OIDC provider found in signing config")
+        return self._oidcs[0].url
+
+    def get_tsas(self) -> list[TimestampAuthorityClient]:
+        """
+        Returns timestamp authority clients for urls configured in signing config.
+        """
+        return [TimestampAuthorityClient(s.url) for s in self._tsas]
+
+
+class TrustedRoot:
+    """
+    The cryptographic root(s) of trust for a Sigstore instance.
+    """
+
+    class TrustedRootType(str, Enum):
+        """
+        Known Sigstore trusted root media types.
+        """
+
+        TRUSTED_ROOT_0_1 = "application/vnd.dev.sigstore.trustedroot+json;version=0.1"
+
+        def __str__(self) -> str:
+            """Returns the variant's string value."""
+            return self.value
+
+    def __init__(self, inner: trustroot_v1.TrustedRoot):
+        """
+        Construct a new `TrustedRoot`.
+
+        @api private
+        """
+        self._inner = inner
+        self._verify()
+
+    def _verify(self) -> None:
+        """
+        Performs various feats of heroism to ensure that the trusted root
+        is well-formed.
+        """
+
+        # The trusted root must have a recognized media type.
+        try:
+            TrustedRoot.TrustedRootType(self._inner.media_type)
+        except ValueError:
+            raise Error(f"unsupported trusted root format: {self._inner.media_type}")
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str,
+    ) -> TrustedRoot:
+        """Create a new trust root from file"""
+        inner = trustroot_v1.TrustedRoot.from_json(Path(path).read_bytes())
         return cls(inner)
+
+    def _get_tlog_keys(
+        self, tlogs: list[trustroot_v1.TransparencyLogInstance], purpose: KeyringPurpose
+    ) -> Iterable[common_v1.PublicKey]:
+        """
+        Yields an iterator of public keys for transparency log instances that
+        are suitable for `purpose`.
+        """
+        allow_expired = purpose is KeyringPurpose.VERIFY
+        for tlog in tlogs:
+            if not is_timerange_valid(
+                tlog.public_key.valid_for, allow_expired=allow_expired
+            ):
+                continue
+
+            yield tlog.public_key
+
+    def rekor_keyring(self, purpose: KeyringPurpose) -> RekorKeyring:
+        """Return keyring with keys for Rekor."""
+
+        keys: list[common_v1.PublicKey] = list(
+            self._get_tlog_keys(self._inner.tlogs, purpose)
+        )
+        if len(keys) == 0:
+            raise MetadataError("Did not find any Rekor keys in trusted root")
+        return RekorKeyring(Keyring(keys))
+
+    def ct_keyring(self, purpose: KeyringPurpose) -> CTKeyring:
+        """Return keyring with key for CTFE."""
+        ctfes: list[common_v1.PublicKey] = list(
+            self._get_tlog_keys(self._inner.ctlogs, purpose)
+        )
+        if not ctfes:
+            raise MetadataError("CTFE keys not found in trusted root")
+        return CTKeyring(Keyring(ctfes))
+
+    def get_fulcio_certs(self) -> list[Certificate]:
+        """Return the Fulcio certificates."""
+
+        certs: list[Certificate] = []
+
+        # Return expired certificates too: they are expired now but may have
+        # been active when the certificate was used to sign.
+        for authority in self._inner.certificate_authorities:
+            certificate_authority = CertificateAuthority(authority)
+            certs.extend(certificate_authority.certificates(allow_expired=True))
+
+        if not certs:
+            raise MetadataError("Fulcio certificates not found in trusted root")
+        return certs
+
+    def get_timestamp_authorities(self) -> list[CertificateAuthority]:
+        """
+        Return the TSA present in the trusted root.
+
+        This list may be empty and in this case, no timestamp verification can be
+        performed.
+        """
+        certificate_authorities: list[CertificateAuthority] = [
+            CertificateAuthority(cert_chain)
+            for cert_chain in self._inner.timestamp_authorities
+        ]
+        return certificate_authorities
+
+
+class ClientTrustConfig:
+    """
+    Represents a Sigstore client's trust configuration, including a root of trust.
+    """
+
+    class ClientTrustConfigType(str, Enum):
+        """
+        Known Sigstore client trust config media types.
+        """
+
+        CONFIG_0_1 = "application/vnd.dev.sigstore.clienttrustconfig.v0.1+json"
+
+        def __str__(self) -> str:
+            """Returns the variant's string value."""
+            return self.value
+
+    @classmethod
+    def from_json(cls, raw: str) -> ClientTrustConfig:
+        """
+        Deserialize the given client trust config.
+        """
+        inner = trustroot_v1.ClientTrustConfig.from_json(raw)
+        return cls(inner)
+
+    @classmethod
+    def production(
+        cls,
+        offline: bool = False,
+    ) -> ClientTrustConfig:
+        """Create new trust config from Sigstore production TUF repository.
+
+        If `offline`, will use data in local TUF cache. Otherwise will
+        update the data from remote TUF repository.
+        """
+        return cls.from_tuf(DEFAULT_TUF_URL, offline)
+
+    @classmethod
+    def staging(
+        cls,
+        offline: bool = False,
+    ) -> ClientTrustConfig:
+        """Create new trust config from Sigstore staging TUF repository.
+
+        If `offline`, will use data in local TUF cache. Otherwise will
+        update the data from remote TUF repository.
+        """
+        return cls.from_tuf(STAGING_TUF_URL, offline)
+
+    @classmethod
+    def from_tuf(
+        cls,
+        url: str,
+        offline: bool = False,
+    ) -> ClientTrustConfig:
+        """Create a new trust config from a TUF repository.
+
+        If `offline`, will use data in local TUF cache. Otherwise will
+        update the trust config from remote TUF repository.
+        """
+        updater = TrustUpdater(url, offline)
+
+        tr_path = updater.get_trusted_root_path()
+        inner_tr = trustroot_v1.TrustedRoot.from_json(Path(tr_path).read_bytes())
+
+        try:
+            sc_path = updater.get_signing_config_path()
+            inner_sc = trustroot_v1.SigningConfig.from_json(Path(sc_path).read_bytes())
+        except TUFError as e:
+            raise e
+
+        return cls(
+            trustroot_v1.ClientTrustConfig(
+                media_type=ClientTrustConfig.ClientTrustConfigType.CONFIG_0_1.value,
+                trusted_root=inner_tr,
+                signing_config=inner_sc,
+            )
+        )
+
+    def __init__(self, inner: trustroot_v1.ClientTrustConfig) -> None:
+        """
+        @api private
+        """
+        self._inner = inner
+
+        # This can be used to enforce a specific rekor major version in signingconfig
+        self.force_tlog_version: int | None = None
+
+    @property
+    def trusted_root(self) -> TrustedRoot:
+        """
+        Return the interior root of trust, as a `TrustedRoot`.
+        """
+        return TrustedRoot(self._inner.trusted_root)
+
+    @property
+    def signing_config(self) -> SigningConfig:
+        """
+        Return the interior root of trust, as a `SigningConfig`.
+        """
+        return SigningConfig(
+            self._inner.signing_config, tlog_version=self.force_tlog_version
+        )

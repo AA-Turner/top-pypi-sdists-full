@@ -3,23 +3,22 @@ import logging
 import os
 import shutil
 import tarfile
+import tempfile
+import uuid
 import zipfile
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
-import tempfile
-import uuid
-import orjson as json
-
-from httpx import AsyncClient, RequestError, Response, TimeoutException, ConnectError, HTTPError, Timeout, ReadTimeout
 import httpcore
+import orjson as json
+from httpx import AsyncClient, ConnectError, HTTPError, ReadTimeout, RequestError, Response, Timeout, TimeoutException
 from stamina import retry
 from tqdm import tqdm
 
-from edgar.core import text_extensions, get_edgar_data_directory
-from edgar.httpclient import http_client, async_http_client
+from edgar.core import get_edgar_data_directory, text_extensions
+from edgar.httpclient import async_http_client, http_client
 
 """
 This module provides functions to handle HTTP requests with retry logic, throttling, and identity management.
@@ -157,7 +156,7 @@ def get_with_retry(url, identity=None, identity_callable=None, **kwargs):
             return get_with_retry(url=response.headers["Location"], identity=identity, identity_callable=identity_callable, **kwargs)
         return response
 
-      
+
 @retry(
     on=RETRYABLE_EXCEPTIONS,
     attempts=QUICK_RETRY_ATTEMPTS,
@@ -522,17 +521,17 @@ async def stream_file(
                             # For large files, update progress less frequently to reduce overhead
                             update_threshold = 1.0 if total_size > 500 * 1024 * 1024 else 0.1  # MB
                             accumulated_mb = 0.0
-                            
+
                             async for chunk in response.aiter_bytes(chunk_size=chunk_size):
                                 f.write(chunk)
                                 chunk_mb = len(chunk) / (1024 * 1024)
                                 accumulated_mb += chunk_mb
-                                
+
                                 # Update progress bar only when threshold is reached
                                 if accumulated_mb >= update_threshold:
                                     progress_bar.update(accumulated_mb)
                                     accumulated_mb = 0.0
-                            
+
                             # Update any remaining progress
                             if accumulated_mb > 0:
                                 progress_bar.update(accumulated_mb)
@@ -563,7 +562,7 @@ async def stream_file(
         try:
             shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception as e:
-            logger.warning(f"Failed to clean up temporary directory {temp_dir}: {e}")
+            logger.warning("Failed to clean up temporary directory %s: %s", temp_dir, e)
 
 
 def download_json(data_url: str) -> dict:
@@ -683,7 +682,7 @@ async def download_bulk_data(
         try:
             await stream_file(url, client=client, path=download_path)
         except Exception as e:
-            raise IOError(f"Failed to download file: {e}")
+            raise IOError(f"Failed to download file: {e}") from e
 
         # Extract based on file extension
         try:
@@ -725,7 +724,7 @@ async def download_bulk_data(
                 raise ValueError(f"Unsupported file format: {filename}")
 
         except (zipfile.BadZipFile, tarfile.TarError) as e:
-            raise type(e)(f"Failed to extract archive {filename}: {e}")
+            raise type(e)(f"Failed to extract archive {filename}: {e}") from e
 
         finally:
             # Always try to clean up the archive file, but don't fail if we can't
@@ -733,7 +732,7 @@ async def download_bulk_data(
                 if download_filename.exists():
                     download_filename.unlink()
             except Exception as e:
-                logger.warning(f"Failed to delete archive file {download_filename}: {e}")
+                logger.warning("Failed to delete archive file %s: %s", download_filename, e)
 
         return download_path
 
@@ -743,7 +742,7 @@ async def download_bulk_data(
             if download_path.exists():
                 shutil.rmtree(download_path)
         except Exception as cleanup_error:
-            logger.error(f"Failed to clean up after error: {cleanup_error}")
+            logger.error("Failed to clean up after error: %s", cleanup_error)
         raise
 
 

@@ -355,6 +355,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         gdsdir: PathType | None = None,
         save_options: kdb.SaveLayoutOptions | None = None,
         with_metadata: bool = True,
+        exclude_layers: Sequence[LayerSpec] | None = None,
     ) -> pathlib.Path:
         """Write component to GDS and returns gdspath.
 
@@ -363,7 +364,10 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
             gdsdir: directory for the GDS file. Defaults to /tmp/randomFile/gdsfactory.
             save_options: klayout save options.
             with_metadata: if True, writes metadata (ports, settings) to the GDS file.
+            exlude_layers: list of layers to exclude from the GDS file.
         """
+        from gdsfactory.pdk import get_layer
+
         if gdspath and gdsdir:
             warnings.warn(
                 "gdspath and gdsdir have both been specified. "
@@ -381,6 +385,16 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
 
         if save_options is None:
             save_options = save_layout_options()
+
+        exclude_layers = exclude_layers or CONF.exclude_layers
+
+        if exclude_layers:
+            save_options.deselect_all_layers()
+            selected_layers = set(self.kcl.layer_indexes()) - {
+                get_layer(drop_layer) for drop_layer in exclude_layers
+            }
+            for layer in selected_layers:
+                save_options.add_layer(layer, kf.kdb.LayerInfo())
 
         if not with_metadata:
             save_options.write_context_info = False
@@ -571,6 +585,9 @@ class Component(ComponentBase, kf.DKCell):
             raise ValueError(
                 f"Use Component.add_ref_off_grid() for all angle {cell.name!r}"
             )
+
+        if not isinstance(cell, kf.ProtoTKCell):
+            raise ValueError(f"Expected a Component, got {type(cell)}")
         return self.create_inst(cell)
 
     def add_ref(
@@ -597,6 +614,8 @@ class Component(ComponentBase, kf.DKCell):
             raise ValueError(
                 f"Use Component.add_ref_off_grid() for all angle {component.name!r}"
             )
+        elif not isinstance(component, kf.ProtoTKCell):
+            raise ValueError(f"Expected a Component, got {type(component)}")
 
         if self.locked:
             raise LockedError(self)
@@ -817,29 +836,40 @@ class Component(ComponentBase, kf.DKCell):
         self,
         layers: LayerSpecs,
         recursive: bool = True,
+        unlock: bool = False,
     ) -> Self:
         """Removes a list of layers and returns the same Component.
 
         Args:
             layers: list of layers to remove.
             recursive: if True, removes layers recursively.
+            unlock: if True, unlocks the component before removing layers. Be careful with this option as it modifies the component and can have unintended side effects.
         """
         from gdsfactory import get_layer
+
+        if unlock:
+            self.locked = False
 
         if self.locked:
             raise LockedError(self)
 
-        layers = [get_layer(layer) for layer in layers]
+        layer_indexes = self.kcl.layer_indexes()
+        layer_indexes_to_remove = [get_layer(layer) for layer in layers]
+        layers = [layer for layer in layer_indexes_to_remove if layer in layer_indexes]
+
         for layer_index in layers:
             assert isinstance(layer_index, int)
             self.kdb_cell.shapes(layer_index).clear()
             if recursive:
-                [
-                    self.kcl[ci].kdb_cell.shapes(layer).clear()
-                    for ci in self.kdb_cell.called_cells()
-                    for layer in layers
-                    if isinstance(layer, int)
-                ]
+                for ci in self.kdb_cell.called_cells():
+                    for layer_idx in layers:
+                        assert isinstance(layer_idx, int)
+                        was_locked = self.kcl[ci].locked
+                        if unlock:
+                            self.kcl[ci].locked = False
+                        self.kcl[ci].kdb_cell.shapes(layer_idx).clear()
+                        if unlock and was_locked:
+                            self.kcl[ci].locked = True
         return self
 
     def remap_layers(
@@ -914,6 +944,7 @@ class Component(ComponentBase, kf.DKCell):
         layer_index = get_layer(layer)
         region = kdb.Region(self.kdb_cell.begin_shapes_rec(layer_index))
         region.size(+distance_dbu).size(-distance_dbu)
+
         if remove_old_layer:
             self.remove_layers([layer])
         self.kdb_cell.shapes(layer_index).insert(region)

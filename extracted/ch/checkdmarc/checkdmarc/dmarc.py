@@ -224,7 +224,7 @@ dmarc_tags = OrderedDict(
     ),
     p=OrderedDict(
         name="Requested Mail Receiver Policy",
-        reqired=True,
+        required=True,
         description="Specifies the policy to "
         "be enacted by the "
         "Receiver at the "
@@ -378,7 +378,7 @@ dmarc_tags = OrderedDict(
     ),
     v=OrderedDict(
         name="Version",
-        reqired=True,
+        required=True,
         description="Identifies the record "
         "retrieved as a DMARC "
         "record. It MUST have the "
@@ -431,7 +431,7 @@ def _query_dmarc_record(
                 dmarc_records.append(record)
             elif record.strip().startswith(txt_prefix):
                 raise DMARCRecordStartsWithWhitespace(
-                    "Found a DMARC record that starts with whitespace. "
+                    f"Found a DMARC record at {target} that starts with whitespace. "
                     "Please remove the whitespace, as some implementations "
                     "may not process it correctly."
                 )

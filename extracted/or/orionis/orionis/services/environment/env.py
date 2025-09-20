@@ -92,3 +92,42 @@ class Env(IEnv):
 
         # Return all environment variables as a dictionary
         return dotenv.all()
+
+    @staticmethod
+    def isVirtual() -> bool:
+        """
+        Determine if the current Python interpreter is running inside a virtual environment.
+
+        Returns
+        -------
+        bool
+            True if running inside a virtual environment, False otherwise.
+
+        Notes
+        -----
+        This method checks for the presence of common virtual environment indicators:
+        - The 'VIRTUAL_ENV' environment variable.
+        - The presence of 'pyvenv.cfg' in the parent directories of the Python executable.
+        - Differences between sys.prefix and sys.base_prefix (for venv and virtualenv).
+
+        This approach works for most virtual environment tools, including venv and virtualenv.
+        """
+        import sys
+        import os
+        from pathlib import Path
+
+        # Check for 'VIRTUAL_ENV' environment variable (set by virtualenv)
+        if 'VIRTUAL_ENV' in os.environ:
+            return True
+
+        # Check for 'pyvenv.cfg' in the executable's parent directories (set by venv)
+        executable = Path(sys.executable).resolve()
+        for parent in executable.parents:
+            if (parent / 'pyvenv.cfg').exists():
+                return True
+
+        # Compare sys.prefix and sys.base_prefix (works for venv and virtualenv)
+        if hasattr(sys, 'base_prefix') and sys.prefix != sys.base_prefix:
+            return True
+
+        return False

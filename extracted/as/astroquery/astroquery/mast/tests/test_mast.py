@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import warnings
 from shutil import copyfile
 from unittest.mock import patch
 
@@ -15,10 +16,11 @@ from astropy.io import fits
 import astropy.units as u
 from requests import HTTPError, Response
 
+from astropy.utils.exceptions import AstropyDeprecationWarning
 from astroquery.mast.services import _json_to_table
 from astroquery.utils.mocks import MockResponse
 from astroquery.exceptions import (InvalidQueryError, InputWarning, MaxResultsWarning, NoResultsWarning,
-                                   RemoteServiceError)
+                                   RemoteServiceError, ResolverError)
 
 from astroquery import mast
 
@@ -141,7 +143,7 @@ def service_mockreturn(self, method="POST", url=None, data=None, params=None, ti
 def request_mockreturn(url, params={}):
     if 'column_list' in url:
         filename = data_path(DATA_FILES['mission_columns'])
-    elif 'Mast.Name.Lookup' in params:
+    elif 'mastresolver' in url:
         filename = data_path(DATA_FILES["Mast.Name.Lookup"])
     elif 'panstarrs' in url:
         filename = data_path(DATA_FILES['panstarrs_columns'])
@@ -227,8 +229,10 @@ def test_missions_query_object(patch_post):
 
 def test_missions_query_region(patch_post):
     result = mast.MastMissions.query_region(regionCoords,
+                                            sci_instrume=['ACS', 'WFPC'],
                                             radius=0.002 * u.deg,
-                                            select_cols=['sci_pep_id'])
+                                            select_cols=['sci_pep_id'],
+                                            sort_by=['sci_pep_id'])
     assert isinstance(result, Table)
     assert len(result) > 0
 
@@ -263,11 +267,13 @@ def test_missions_query_criteria(patch_post):
     result = mast.MastMissions.query_criteria(
         coordinates=regionCoords,
         radius=3,
-        sci_pep_id=12556,
+        sci_pep_id=[12556, 8794],
         sci_obs_type='SPECTRUM',
         sci_instrume='stis,acs,wfc3,cos,fos,foc,nicmos,ghrs',
         sci_aec='S',
-        select_cols=['sci_pep_id', 'sci_instrume']
+        select_cols=['sci_pep_id', 'sci_instrume'],
+        sort_by='sci_pep_id',
+        sort_desc=True
     )
     assert isinstance(result, Table)
     assert len(result) > 0
@@ -353,7 +359,7 @@ def test_missions_get_product_list(patch_post):
 def test_missions_get_unique_product_list(patch_post, caplog):
     unique_products = mast.MastMissions.get_unique_product_list('Z14Z0104T')
     assert isinstance(unique_products, Table)
-    assert (unique_products == unique(unique_products, keys='filename')).all()
+    assert (len(unique_products) == len(unique(unique_products, keys='filename')))
     # No INFO messages should be logged
     with caplog.at_level('INFO', logger='astroquery'):
         assert caplog.text == ''
@@ -362,15 +368,85 @@ def test_missions_get_unique_product_list(patch_post, caplog):
 def test_missions_filter_products(patch_post):
     # Filter products list by column
     products = mast.MastMissions.get_product_list('Z14Z0104T')
-    filtered = mast.MastMissions.filter_products(products,
-                                                 category='CALIBRATED')
+    filtered = mast.MastMissions.filter_products(products, category='CALIBRATED')
     assert isinstance(filtered, Table)
     assert all(filtered['category'] == 'CALIBRATED')
 
-    # Filter by non-existing column
-    with pytest.warns(InputWarning):
-        mast.MastMissions.filter_products(products,
-                                          invalid=True)
+    # Filter by extension
+    filtered = mast.MastMissions.filter_products(products, extension='fits')
+    assert len(filtered) > 0
+
+    # -------- Numeric filtering tests --------
+    # Single integer value
+    filtered = mast.MastMissions.filter_products(products, size=11520)
+    assert all(filtered['size'] == 11520)
+
+    # Single string value
+    filtered = mast.MastMissions.filter_products(products, size='11520')
+    assert all(filtered['size'] == 11520)
+
+    # Comparison operators
+    filtered = mast.MastMissions.filter_products(products, size='<15000')
+    assert all(filtered['size'] < 15000)
+
+    filtered = mast.MastMissions.filter_products(products, size='>15000')
+    assert all(filtered['size'] > 15000)
+
+    filtered = mast.MastMissions.filter_products(products, size='>=14400')
+    assert all(filtered['size'] >= 14400)
+
+    filtered = mast.MastMissions.filter_products(products, size='<=14400')
+    assert all(filtered['size'] <= 14400)
+
+    # Range operator
+    filtered = mast.MastMissions.filter_products(products, size='14400..17280')
+    assert all((filtered['size'] >= 14400) & (filtered['size'] <= 17280))
+
+    # List of expressions
+    filtered = mast.MastMissions.filter_products(products, size=[14400, '>20000'])
+    assert all((filtered['size'] == 14400) | (filtered['size'] > 20000))
+
+    # -------- Negative operator tests --------
+    # Negate a single numeric value
+    filtered = mast.MastMissions.filter_products(products, size='!11520')
+    assert all(filtered['size'] != 11520)
+
+    # Negate a comparison
+    filtered = mast.MastMissions.filter_products(products, size='!<15000')
+    assert all(filtered['size'] >= 15000)
+
+    # Negate one element in a list with one other condition
+    filtered = mast.MastMissions.filter_products(products, size=['!14400', '>20000'])
+    assert all((filtered['size'] != 14400) & (filtered['size'] > 20000))
+
+    # Negate one element in a list with two other conditions
+    filtered = mast.MastMissions.filter_products(products, size=['!14400', '<20000', '>30000'])
+    assert all((filtered['size'] != 14400) & (filtered['size'] < 20000) | (filtered['size'] > 30000))
+
+    # Negate a range
+    filtered = mast.MastMissions.filter_products(products, size='!14400..17280')
+    assert all(~((filtered['size'] >= 14400) & (filtered['size'] <= 17280)))
+
+    # Negate a string match
+    filtered = mast.MastMissions.filter_products(products, category='!CALIBRATED')
+    assert all(filtered['category'] != 'CALIBRATED')
+
+    # Negate one string in a list
+    filtered = mast.MastMissions.filter_products(products, category=['!CALIBRATED', 'UNCALIBRATED'])
+    assert all((filtered['category'] != 'CALIBRATED') & (filtered['category'] == 'UNCALIBRATED'))
+
+    # Negate two strings in a list
+    filtered = mast.MastMissions.filter_products(products, category=['!CALIBRATED', '!UNCALIBRATED'])
+    assert all((filtered['category'] != 'CALIBRATED') & (filtered['category'] != 'UNCALIBRATED'))
+    # ------------------------------------------
+
+    with pytest.raises(InvalidQueryError, match="Could not parse numeric filter 'invalid' for column 'size'"):
+        # Invalid filter value
+        mast.MastMissions.filter_products(products, size='invalid')
+
+    # Error when filtering by non-existing column
+    with pytest.raises(InvalidQueryError, match="Column 'non_existing' not found in product table."):
+        mast.MastMissions.filter_products(products, non_existing='value')
 
 
 def test_missions_download_products(patch_post, tmp_path):
@@ -491,9 +567,89 @@ def test_mast_query(patch_post):
     assert "Please provide at least one filter." in str(invalid_query.value)
 
 
-def test_resolve_object(patch_post):
-    m103_loc = mast.Mast.resolve_object("M103")
-    assert round(m103_loc.separation(SkyCoord("23.34086 60.658", unit='deg')).value, 10) == 0
+def test_resolve_object_single(patch_post):
+    obj = "TIC 307210830"
+    tic_coord = SkyCoord(124.531756290083, -68.3129998725044, unit="deg")
+    simbad_coord = SkyCoord(124.5317560026638, -68.3130014904408, unit="deg")
+
+    # Resolve without a specific resolver
+    obj_loc = mast.Mast.resolve_object(obj)
+    assert isinstance(obj_loc, SkyCoord)
+    assert round(obj_loc.separation(tic_coord).value, 10) == 0
+
+    # Resolve using a specific resolver and an object that belongs to a MAST catalog
+    obj_loc_simbad = mast.Mast.resolve_object(obj, resolver="SIMBAD")
+    assert round(obj_loc_simbad.separation(simbad_coord).value, 10) == 0
+
+    # Resolve using a specific resolver and an object that does not belong to a MAST catalog
+    m1_coord = SkyCoord(83.6324, 22.0174, unit="deg")
+    obj_loc_simbad = mast.Mast.resolve_object("M1", resolver="SIMBAD")
+    assert isinstance(obj_loc_simbad, SkyCoord)
+    assert round(obj_loc_simbad.separation(m1_coord).value, 10) == 0
+
+    # Resolve using all resolvers
+    obj_loc_dict = mast.Mast.resolve_object(obj, resolve_all=True)
+    assert isinstance(obj_loc_dict, dict)
+    assert round(obj_loc_dict["SIMBAD"].separation(simbad_coord).value, 10) == 0
+    assert round(obj_loc_dict["TIC"].separation(tic_coord).value, 10) == 0
+
+    # Error with invalid resolver
+    with pytest.raises(ResolverError, match="Invalid resolver"):
+        mast.Mast.resolve_object(obj, resolver="invalid")
+
+    # Error if single object cannot be resolved
+    with pytest.raises(ResolverError, match='Could not resolve "nonexisting" to a sky position.'):
+        mast.Mast.resolve_object("nonexisting")
+
+    # Error if single object cannot be resolved with given resolver
+    with pytest.raises(ResolverError, match='Could not resolve "Barnard\'s Star" to a sky position using '
+                       'resolver "NED".'):
+        mast.Mast.resolve_object("Barnard's Star", resolver="NED")
+
+    # Warn if specifying both resolver and resolve_all
+    with pytest.warns(InputWarning, match="The resolver parameter is ignored when resolve_all is True"):
+        loc = mast.Mast.resolve_object(obj, resolver="NED", resolve_all=True)
+        assert isinstance(loc, dict)
+
+
+def test_resolve_object_multi(patch_post):
+    objects = ["TIC 307210830", "M1", "Barnard's Star"]
+
+    # No resolver specified
+    coord_dict = mast.Mast.resolve_object(objects)
+    assert isinstance(coord_dict, dict)
+    for obj in objects:
+        assert obj in coord_dict
+        assert isinstance(coord_dict[obj], SkyCoord)
+
+    # Warn if one of the objects cannot be resolved
+    with pytest.warns(InputWarning, match='Could not resolve "nonexisting" to a sky position.'):
+        coord_dict = mast.Mast.resolve_object(["M1", "nonexisting"])
+
+    # Resolver specified
+    coord_dict = mast.Mast.resolve_object(objects, resolver="SIMBAD")
+    assert isinstance(coord_dict, dict)
+    for obj in objects:
+        assert obj in coord_dict
+        assert isinstance(coord_dict[obj], SkyCoord)
+
+    # Warn if one of the objects can't be resolved with given resolver
+    with pytest.warns(InputWarning, match='Could not resolve "TIC 307210830" to a sky position using resolver "NED"'):
+        mast.Mast.resolve_object(objects[:2], resolver="NED")
+
+    # Resolve all
+    coord_dict = mast.Mast.resolve_object(objects, resolve_all=True)
+    assert isinstance(coord_dict, dict)
+    for obj in objects:
+        assert obj in coord_dict
+        obj_dict = coord_dict[obj]
+        assert isinstance(obj_dict, dict)
+        assert isinstance(obj_dict["SIMBAD"], SkyCoord)
+
+    # Error if none of the objects can be resolved
+    warnings.simplefilter("ignore", category=InputWarning)  # ignore warnings
+    with pytest.raises(ResolverError, match='Could not resolve any of the given object names to sky positions.'):
+        mast.Mast.resolve_object(["nonexisting1", "nonexisting2"])
 
 
 def test_login_logout(patch_post):
@@ -641,11 +797,31 @@ def test_observations_get_product_list(patch_post):
 
 def test_observations_filter_products(patch_post):
     products = mast.Observations.get_product_list('2003738726')
-    result = mast.Observations.filter_products(products,
-                                               productType=["SCIENCE"],
-                                               mrp_only=False)
-    assert isinstance(result, Table)
-    assert len(result) == 7
+    filtered = mast.Observations.filter_products(products,
+                                                 productType=["SCIENCE"],
+                                                 mrp_only=False)
+    assert isinstance(filtered, Table)
+    assert len(filtered) == 7
+
+    # Filter for minimum recommended products
+    filtered = mast.Observations.filter_products(products, mrp_only=True)
+    assert all(filtered['productGroupDescription'] == 'Minimum Recommended Products')
+
+    # Filter by extension
+    filtered = mast.Observations.filter_products(products, extension='fits')
+    assert len(filtered) > 0
+
+    # Numeric filtering
+    filtered = mast.Observations.filter_products(products, size='<50000')
+    assert all(filtered['size'] < 50000)
+
+    # Numeric filter that cannot be parsed
+    with pytest.raises(InvalidQueryError, match="Could not parse numeric filter 'invalid' for column 'size'"):
+        filtered = mast.Observations.filter_products(products, size='invalid')
+
+    # Filter by non-existing column
+    with pytest.raises(InvalidQueryError, match="Column 'invalid' not found in product table."):
+        mast.Observations.filter_products(products, invalid=True)
 
 
 def test_observations_download_products(patch_post, tmpdir):
@@ -673,8 +849,7 @@ def test_observations_download_products(patch_post, tmpdir):
 
     # passing row product
     products = mast.Observations.get_product_list('2003738726')
-    result1 = mast.Observations.download_products(products[0],
-                                                  download_dir=str(tmpdir))
+    result1 = mast.Observations.download_products(products[0], download_dir=str(tmpdir))
     assert isinstance(result1, Table)
 
 
@@ -744,6 +919,12 @@ def test_observations_get_cloud_uris(mock_client, patch_post):
     assert isinstance(uris, list)
     assert len(uris) == 1
     assert uris[0] == expected
+
+    # Return a map of URIs
+    uri_map = mast.Observations.get_cloud_uris([mast_uri], return_uri_map=True)
+    assert isinstance(uri_map, dict)
+    assert len(uri_map) == 1
+    assert uri_map[mast_uri] == expected
 
     # Warn if attempting to filter with list input
     with pytest.warns(InputWarning, match='Filtering is not supported'):
@@ -977,7 +1158,8 @@ def test_tesscut_get_sector(patch_post):
 
     # Exercising the search by moving target
     sector_table = mast.Tesscut.get_sectors(objectname="Ceres",
-                                            moving_target=True)
+                                            moving_target=True,
+                                            mt_type='small_body')
     assert isinstance(sector_table, Table)
     assert len(sector_table) == 1
     assert sector_table['sectorName'][0] == "tess-s0001-1-3"
@@ -985,26 +1167,31 @@ def test_tesscut_get_sector(patch_post):
     assert sector_table['camera'][0] == 1
     assert sector_table['ccd'][0] == 3
 
+    # Invalid queries
     # Testing catch for multiple designators'
     error_str = ("Only one of moving_target and coordinates may be specified. "
                  "Please remove coordinates if using moving_target and objectname.")
-
     with pytest.raises(InvalidQueryError) as invalid_query:
         mast.Tesscut.get_sectors(objectname='Ceres', moving_target=True, coordinates=coord)
     assert error_str in str(invalid_query.value)
 
-    # Testing invalid queries
-    with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.get_sectors(objectname="M101", product="spooc")
-    assert "Input product must either be SPOC or TICA." in str(invalid_query.value)
+    # Error when no object name with moving target
+    with pytest.raises(InvalidQueryError, match='Please specify the object name or ID'):
+        mast.Tesscut.get_sectors(moving_target=True)
 
+    # Error when both object name and coordinates are specified
+    with pytest.raises(InvalidQueryError, match='Please remove objectname if using coordinates'):
+        mast.Tesscut.get_sectors(objectname='Ceres', coordinates=coord)
+
+    # Testing invalid queries
+    # Invalid product type
     with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.get_sectors(objectname="M101", product="TICA", moving_target=True)
-    assert "Only SPOC is available for moving targets queries." in str(invalid_query.value)
+        with pytest.warns(AstropyDeprecationWarning, match="Tesscut no longer supports"):
+            mast.Tesscut.get_sectors(objectname="M101", product="spooc")
+    assert "Input product must be SPOC." in str(invalid_query.value)
 
 
 def test_tesscut_download_cutouts(patch_post, tmpdir):
-
     coord = SkyCoord(107.27, -70.0, unit="deg")
 
     # Testing with inflate
@@ -1032,6 +1219,8 @@ def test_tesscut_download_cutouts(patch_post, tmpdir):
     # Exercising the search by moving target
     manifest = mast.Tesscut.download_cutouts(objectname="Eleonora",
                                              moving_target=True,
+                                             mt_type='small_body',
+                                             sector=1,
                                              size=5,
                                              path=str(tmpdir))
     assert isinstance(manifest, Table)
@@ -1053,16 +1242,12 @@ def test_tesscut_download_cutouts(patch_post, tmpdir):
 
     # Testing invalid queries
     with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.download_cutouts(objectname="M101", product="spooc")
-    assert "Input product must either be SPOC or TICA." in str(invalid_query.value)
-
-    with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.download_cutouts(objectname="M101", product="TICA", moving_target=True)
-    assert "Only SPOC is available for moving targets queries." in str(invalid_query.value)
+        with pytest.warns(AstropyDeprecationWarning, match="Tesscut no longer supports"):
+            mast.Tesscut.download_cutouts(objectname="M101", product="spooc")
+    assert "Input product must be SPOC." in str(invalid_query.value)
 
 
 def test_tesscut_get_cutouts(patch_post, tmpdir):
-
     coord = SkyCoord(107.27, -70.0, unit="deg")
     cutout_hdus_list = mast.Tesscut.get_cutouts(coordinates=coord, size=5)
     assert isinstance(cutout_hdus_list, list)
@@ -1078,6 +1263,8 @@ def test_tesscut_get_cutouts(patch_post, tmpdir):
     # Exercising the search by object name
     cutout_hdus_list = mast.Tesscut.get_cutouts(objectname='Eleonora',
                                                 moving_target=True,
+                                                mt_type='small_body',
+                                                sector=1,
                                                 size=5)
     assert isinstance(cutout_hdus_list, list)
     assert len(cutout_hdus_list) == 1
@@ -1096,12 +1283,9 @@ def test_tesscut_get_cutouts(patch_post, tmpdir):
 
     # Testing invalid queries
     with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.get_cutouts(objectname="M101", product="spooc")
-    assert "Input product must either be SPOC or TICA." in str(invalid_query.value)
-
-    with pytest.raises(InvalidQueryError) as invalid_query:
-        mast.Tesscut.get_cutouts(objectname="M101", product="TICA", moving_target=True)
-    assert "Only SPOC is available for moving targets queries." in str(invalid_query.value)
+        with pytest.warns(AstropyDeprecationWarning, match="Tesscut no longer supports"):
+            mast.Tesscut.get_cutouts(objectname="M101", product="spooc")
+    assert "Input product must be SPOC." in str(invalid_query.value)
 
 
 ######################
@@ -1162,3 +1346,37 @@ def test_zcut_get_cutouts(patch_post, tmpdir):
     assert isinstance(cutout_list, list)
     assert len(cutout_list) == 1
     assert isinstance(cutout_list[0], fits.HDUList)
+
+
+################
+# Utils tests #
+################
+
+
+def test_parse_input_location(patch_post):
+    # Test with coordinates
+    coord = SkyCoord(23.34086, 60.658, unit="deg")
+    loc = mast.utils.parse_input_location(coordinates=coord)
+    assert isinstance(loc, SkyCoord)
+    assert loc.ra == coord.ra
+    assert loc.dec == coord.dec
+
+    # Test with object name
+    obj_coord = SkyCoord(124.531756290083, -68.3129998725044, unit="deg")
+    loc = mast.utils.parse_input_location(objectname="TIC 307210830")
+    assert isinstance(loc, SkyCoord)
+    assert loc.ra == obj_coord.ra
+    assert loc.dec == obj_coord.dec
+
+    # Error if both coordinates and object name are provided
+    with pytest.raises(InvalidQueryError, match="Only one of objectname and coordinates may be specified"):
+        mast.utils.parse_input_location(coordinates=coord, objectname="M101")
+
+    # Error if neither coordinates nor object name is provided
+    with pytest.raises(InvalidQueryError, match="One of objectname and coordinates must be specified"):
+        mast.utils.parse_input_location()
+
+    # Warn if resolver is specified without an object name
+    with pytest.warns(InputWarning, match="Resolver is only used when resolving object names"):
+        loc = mast.utils.parse_input_location(coordinates=coord, resolver="SIMBAD")
+        assert isinstance(loc, SkyCoord)

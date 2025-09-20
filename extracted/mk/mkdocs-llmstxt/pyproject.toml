@@ -41,7 +41,7 @@ dependencies = [
     "mdformat>=0.7.21",
     "mdformat-tables>=1.0",
 ]
-version = "0.3.1"
+version = "0.3.2"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/mkdocs-llmstxt"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ag-ui-langgraph
-Version: 0.0.11
+Version: 0.0.13
 Summary: Implementation of the AG-UI protocol for LangGraph.
 Author: Ran Shem Tov
 Author-email: ran@copilotkit.ai
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: fastapi
-Requires-Dist: ag-ui-protocol (==0.1.7)
+Requires-Dist: ag-ui-protocol (==0.1.9)
 Requires-Dist: fastapi (>=0.115.12,<0.116.0) ; extra == "fastapi"
 Requires-Dist: langchain (>=0.3.0)
 Requires-Dist: langchain-core (>=0.3.0)

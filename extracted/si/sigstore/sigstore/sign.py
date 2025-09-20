@@ -43,17 +43,12 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Optional
 
 import cryptography.x509 as x509
-import rekor_types
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import (
-    HashOutput,
-    MessageSignature,
-)
+from sigstore_models.common.v1 import HashOutput, MessageSignature
 
 from sigstore import dsse
 from sigstore import hashes as sigstore_hashes
@@ -61,12 +56,12 @@ from sigstore._internal.fulcio import (
     ExpiredCertificate,
     FulcioClient,
 )
-from sigstore._internal.rekor.client import RekorClient
+from sigstore._internal.rekor import EntryRequestBody, RekorLogSubmitter
 from sigstore._internal.sct import verify_sct
 from sigstore._internal.timestamp import TimestampAuthorityClient, TimestampError
-from sigstore._internal.trust import ClientTrustConfig, KeyringPurpose, TrustedRoot
+from sigstore._internal.trust import KeyringPurpose
 from sigstore._utils import sha256_digest
-from sigstore.models import Bundle
+from sigstore.models import Bundle, ClientTrustConfig, TrustedRoot
 from sigstore.oidc import ExpiredIdentity, IdentityToken
 
 _logger = logging.getLogger(__name__)
@@ -98,8 +93,8 @@ class Signer:
         """
         self._identity_token = identity_token
         self._signing_ctx: SigningContext = signing_ctx
-        self.__cached_private_key: Optional[ec.EllipticCurvePrivateKey] = None
-        self.__cached_signing_certificate: Optional[x509.Certificate] = None
+        self.__cached_private_key: ec.EllipticCurvePrivateKey | None = None
+        self.__cached_signing_certificate: x509.Certificate | None = None
         if cache:
             _logger.debug("Generating ephemeral keys...")
             self.__cached_private_key = ec.generate_private_key(ec.SECP256R1())
@@ -176,16 +171,11 @@ class Signer:
         self,
         cert: x509.Certificate,
         content: MessageSignature | dsse.Envelope,
-        proposed_entry: rekor_types.Hashedrekord | rekor_types.Dsse,
+        proposed_entry: EntryRequestBody,
     ) -> Bundle:
         """
         Perform the common "finalizing" steps in a Sigstore signing flow.
         """
-        # Submit the proposed entry to the transparency log
-        entry = self._signing_ctx._rekor.log.entries.post(proposed_entry)
-
-        _logger.debug(f"Transparency log entry created with index: {entry.log_index}")
-
         # If the user provided TSA urls, timestamps the response
         signed_timestamp = []
         for tsa_client in self._signing_ctx._tsa_clients:
@@ -195,6 +185,12 @@ class Signer:
                 _logger.warning(
                     f"Unable to use {tsa_client.url} to timestamp the bundle. Failed with {e}"
                 )
+
+        # Submit the proposed entry to the transparency log
+        entry = self._signing_ctx._rekor.create_entry(proposed_entry)
+        _logger.debug(
+            f"Transparency log entry created with index: {entry._inner.log_index}"
+        )
 
         return Bundle._from_parts(cert, content, entry, signed_timestamp)
 
@@ -211,26 +207,12 @@ class Signer:
         """
         cert = self._signing_cert()
 
-        # Prepare inputs
-        b64_cert = base64.b64encode(
-            cert.public_bytes(encoding=serialization.Encoding.PEM)
-        )
-
         # Sign the statement, producing a DSSE envelope
         content = dsse._sign(self._private_key, input_)
 
         # Create the proposed DSSE log entry
-        proposed_entry = rekor_types.Dsse(
-            spec=rekor_types.dsse.DsseSchema(
-                # NOTE: mypy can't see that this kwarg is correct due to two interacting
-                # behaviors/bugs (one pydantic, one datamodel-codegen):
-                # See: <https://github.com/pydantic/pydantic/discussions/7418#discussioncomment-9024927>
-                # See: <https://github.com/koxudaxi/datamodel-code-generator/issues/1903>
-                proposed_content=rekor_types.dsse.ProposedContent(  # type: ignore[call-arg]
-                    envelope=content.to_json(),
-                    verifiers=[b64_cert.decode()],
-                ),
-            ),
+        proposed_entry = self._signing_ctx._rekor._build_dsse_request(
+            envelope=content, certificate=cert
         )
 
         return self._finalize_sign(cert, content, proposed_entry)
@@ -255,11 +237,6 @@ class Signer:
 
         cert = self._signing_cert()
 
-        # Prepare inputs
-        b64_cert = base64.b64encode(
-            cert.public_bytes(encoding=serialization.Encoding.PEM)
-        )
-
         # Sign artifact
         hashed_input = sha256_digest(input_)
 
@@ -270,27 +247,14 @@ class Signer:
         content = MessageSignature(
             message_digest=HashOutput(
                 algorithm=hashed_input.algorithm,
-                digest=hashed_input.digest,
+                digest=base64.b64encode(hashed_input.digest),
             ),
-            signature=artifact_signature,
+            signature=base64.b64encode(artifact_signature),
         )
 
         # Create the proposed hashedrekord entry
-        proposed_entry = rekor_types.Hashedrekord(
-            spec=rekor_types.hashedrekord.HashedrekordV001Schema(
-                signature=rekor_types.hashedrekord.Signature(
-                    content=base64.b64encode(artifact_signature).decode(),
-                    public_key=rekor_types.hashedrekord.PublicKey(
-                        content=b64_cert.decode()
-                    ),
-                ),
-                data=rekor_types.hashedrekord.Data(
-                    hash=rekor_types.hashedrekord.Hash(
-                        algorithm=hashed_input._as_hashedrekord_algorithm(),
-                        value=hashed_input.digest.hex(),
-                    )
-                ),
-            ),
+        proposed_entry = self._signing_ctx._rekor._build_hashed_rekord_request(
+            hashed_input=hashed_input, signature=artifact_signature, certificate=cert
         )
 
         return self._finalize_sign(cert, content, proposed_entry)
@@ -305,7 +269,7 @@ class SigningContext:
         self,
         *,
         fulcio: FulcioClient,
-        rekor: RekorClient,
+        rekor: RekorLogSubmitter,
         trusted_root: TrustedRoot,
         tsa_clients: list[TimestampAuthorityClient] | None = None,
     ):
@@ -324,42 +288,18 @@ class SigningContext:
         self._tsa_clients = tsa_clients or []
 
     @classmethod
-    def production(cls) -> SigningContext:
-        """
-        Return a `SigningContext` instance configured against Sigstore's production-level services.
-        """
-        return cls(
-            fulcio=FulcioClient.production(),
-            rekor=RekorClient.production(),
-            trusted_root=TrustedRoot.production(),
-        )
-
-    @classmethod
-    def staging(cls) -> SigningContext:
-        """
-        Return a `SignerContext` instance configured against Sigstore's staging-level services.
-        """
-        return cls(
-            fulcio=FulcioClient.staging(),
-            rekor=RekorClient.staging(),
-            trusted_root=TrustedRoot.staging(),
-        )
-
-    @classmethod
-    def _from_trust_config(cls, trust_config: ClientTrustConfig) -> SigningContext:
+    def from_trust_config(cls, trust_config: ClientTrustConfig) -> SigningContext:
         """
         Create a `SigningContext` from the given `ClientTrustConfig`.
 
         @api private
         """
+        signing_config = trust_config.signing_config
         return cls(
-            fulcio=FulcioClient(trust_config._inner.signing_config.ca_url),
-            rekor=RekorClient(trust_config._inner.signing_config.tlog_urls[0]),
+            fulcio=signing_config.get_fulcio(),
+            rekor=signing_config.get_tlogs()[0],
             trusted_root=trust_config.trusted_root,
-            tsa_clients=[
-                TimestampAuthorityClient(tsa_url)
-                for tsa_url in trust_config._inner.signing_config.tsa_urls
-            ],
+            tsa_clients=signing_config.get_tsas(),
         )
 
     @contextmanager

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-archon
-Version: 0.0.6
+Version: 0.0.7
 Summary: Rule your architecture like a real developer
 Author-email: Arjan Molenaar <gaphor@gmail.com>, Joachim Bargsten <jw@bargsten.org>
 License: Apache Software License
@@ -20,12 +20,12 @@ License-File: LICENSE
 Requires-Dist: pytest>=7.2
 Provides-Extra: dev
 Requires-Dist: coverage; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: check-manifest; extra == "dev"
 Requires-Dist: check-wheel-contents; extra == "dev"
 Requires-Dist: pyroma; extra == "dev"
+Dynamic: license-file
 
 # pytest-archon
 
@@ -153,3 +153,4 @@ The blog post [How to tame your Python codebase](https://bargsten.org/wissen/how
 - [pytestarch](https://pypi.org/project/pytestarch/) (Python)
 - [Maintain A Clean Architecture With Dependency Rules - sourcery.ai](https://sourcery.ai/blog/dependency-rules/)
   (Python)
+- [GitHub - zyskarch/pytestarch: Test framework for software architecture based on imports between modules.](https://github.com/zyskarch/pytestarch) (Python)

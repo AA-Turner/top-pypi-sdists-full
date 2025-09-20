@@ -20,13 +20,13 @@
 #include <cassert>
 
 #include "tensorstore/index.h"
-#include "tensorstore/internal/gdb_scripting.h"
+#include "tensorstore/internal/lldb_scripting.h"
 #include "tensorstore/internal/meta/meta.h"
 #include "tensorstore/internal/meta/type_traits.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/span.h"
 
-TENSORSTORE_GDB_AUTO_SCRIPT("multi_vector_gdb.py")
+TENSORSTORE_LLDB_AUTO_SCRIPT("multi_vector.py")
 
 namespace tensorstore {
 namespace internal {

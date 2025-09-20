@@ -39,7 +39,7 @@ namespace {
 
 using ::nlohmann::json;
 using ::tensorstore::DimensionIndex;
-using ::tensorstore::dtype_v;
+using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::MatchesStatus;
 using ::tensorstore::Spec;
@@ -317,7 +317,7 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
-               {"file_io_memmap", {"file_io_memmap"}},
+               {"file_io_mode", {"file_io_mode"}},
            }},
           {"schema",
            {{"dtype", "uint8"},
@@ -331,8 +331,8 @@ TEST(SpecTest, SetContextAndKvstoreIncludeDefaults) {
                {"cache_pool", {{"total_bytes_limit", 0}}},
                {"file_io_concurrency#a", {{"limit", 5}}},
                {"file_io_locking", ::nlohmann::json::object_t()},
-               {"file_io_memmap", false},
                {"file_io_sync", true},
+               {"file_io_mode", ::nlohmann::json::object_t()},
            }},
       })));
 }
@@ -367,7 +367,7 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_concurrency", {"file_io_concurrency#a"}},
                {"file_io_sync", {"file_io_sync"}},
                {"file_io_locking", {"file_io_locking"}},
-               {"file_io_memmap", {"file_io_memmap"}},
+               {"file_io_mode", {"file_io_mode"}},
            }},
           {"dtype", "uint8"},
           {"cache_pool", {"cache_pool"}},
@@ -383,21 +383,77 @@ TEST(SpecTest, SetContextAndKvstore) {
                {"file_io_concurrency#a", {{"limit", 5}}},
                {"file_io_locking", ::nlohmann::json::object_t()},
                {"file_io_sync", true},
-               {"file_io_memmap", false},
+               {"file_io_mode", ::nlohmann::json::object_t()},
            }},
       })));
 }
 
+TEST(SpecTest, FromUrlErrors) {
+  EXPECT_THAT(Spec::FromUrl(""),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*URL must be non-empty.*"));
+
+  EXPECT_THAT(Spec::FromUrl("memory://|"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*unsupported URL scheme.*"));
+}
+
+TEST(SpecTest, FromUrl) {
+  EXPECT_THAT(Spec::FromUrl("file:///C:/tmp/|zarr"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*unsupported URL scheme: .zarr.*"));
+  // This relies on zarr2 being linked in.  If it is not linked in, then the
+  // driver will not be found and the call will fail.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   Spec::FromUrl("file:///C:/tmp/|zarr2"));
+
+  EXPECT_THAT(spec.ToJson(),  //
+              ::testing::Optional(MatchesJson({
+                  {"driver", "zarr"},
+                  {"kvstore",
+                   {
+                       {"driver", "file"},
+                       {"path", "C:/tmp/"},
+                   }},
+              })));
+
+  EXPECT_THAT(spec.ToUrl(),
+              IsOkAndHolds(::testing::StrEq("file:///C:/tmp/|zarr2:")));
+}
+
+TEST(SpecTest, FromJsonString) {
+  EXPECT_THAT(Spec::FromJson("file:///C:/tmp/|zarr"),
+              MatchesStatus(absl::StatusCode::kInvalidArgument,
+                            ".*unsupported URL scheme: .zarr.*"));
+  // This relies on zarr2 being linked in.  If it is not linked in, then the
+  // driver will not be found and the call will fail.
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto spec,
+                                   Spec::FromJson("file:///C:/tmp/|zarr2"));
+
+  EXPECT_THAT(spec.ToJson(),  //
+              ::testing::Optional(MatchesJson({
+                  {"driver", "zarr"},
+                  {"kvstore",
+                   {
+                       {"driver", "file"},
+                       {"path", "C:/tmp/"},
+                   }},
+              })));
+
+  EXPECT_THAT(spec.ToUrl(),
+              IsOkAndHolds(::testing::StrEq("file:///C:/tmp/|zarr2:")));
+}
+
 TEST(SpecSerializationTest, Invalid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto invalid_spec,
-                                   SerializationRoundTrip(tensorstore::Spec()));
+                                   SerializationRoundTrip(Spec()));
   EXPECT_FALSE(invalid_spec.valid());
 }
 
 TEST(SpecSerializationTest, Valid) {
   TENSORSTORE_ASSERT_OK_AND_ASSIGN(
       auto spec,
-      tensorstore::Spec::FromJson(
+      Spec::FromJson(
           {{"driver", "array"}, {"array", {1, 2, 3}}, {"dtype", "int32"}}));
   TestSerializationRoundTrip(spec);
 }

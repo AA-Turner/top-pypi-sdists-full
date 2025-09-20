@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_conversation_profile`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_conversation_profile`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile).
+Refer to the Terraform Registry for docs: [`google_dialogflow_conversation_profile`](https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowConversationProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowConversationProfile.DialogflowConversationProfile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile google_dialogflow_conversation_profile}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile google_dialogflow_conversation_profile}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class DialogflowConversationProfile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile google_dialogflow_conversation_profile} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile google_dialogflow_conversation_profile} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Required. Human readable name for this profile. Max length 1024 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
-        :param location: desc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
-        :param automated_agent_config: automated_agent_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
-        :param human_agent_assistant_config: human_agent_assistant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
-        :param human_agent_handoff_config: human_agent_handoff_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: Language code for the conversation profile. This should be a BCP-47 language tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
-        :param new_message_event_notification_config: new_message_event_notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.
-        :param security_settings: Name of the CX SecuritySettings reference for the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
-        :param stt_config: stt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
-        :param time_zone: The time zone of this conversational profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
-        :param tts_config: tts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
+        :param display_name: Required. Human readable name for this profile. Max length 1024 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
+        :param location: desc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
+        :param automated_agent_config: automated_agent_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
+        :param human_agent_assistant_config: human_agent_assistant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
+        :param human_agent_handoff_config: human_agent_handoff_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: Language code for the conversation profile. This should be a BCP-47 language tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
+        :param new_message_event_notification_config: new_message_event_notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.
+        :param security_settings: Name of the CX SecuritySettings reference for the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
+        :param stt_config: stt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
+        :param time_zone: The time zone of this conversational profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
+        :param tts_config: tts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class DialogflowConversationProfile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowConversationProfile to import.
-        :param import_from_id: The id of the existing DialogflowConversationProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowConversationProfile that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowConversationProfile to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class DialogflowConversationProfile(
         session_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param agent: ID of the Dialogflow agent environment to use. Expects the format "projects//locations//agent/environments/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param session_ttl: Configure lifetime of the Dialogflow session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
+        :param agent: ID of the Dialogflow agent environment to use. Expects the format "projects//locations//agent/environments/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param session_ttl: Configure lifetime of the Dialogflow session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
         '''
         value = DialogflowConversationProfileAutomatedAgentConfig(
             agent=agent, session_ttl=session_ttl
@@ -186,10 +186,10 @@ class DialogflowConversationProfile(
         notification_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param end_user_suggestion_config: end_user_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
-        :param human_agent_suggestion_config: human_agent_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
-        :param message_analysis_config: message_analysis_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        :param end_user_suggestion_config: end_user_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
+        :param human_agent_suggestion_config: human_agent_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
+        :param message_analysis_config: message_analysis_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfig(
             end_user_suggestion_config=end_user_suggestion_config,
@@ -207,7 +207,7 @@ class DialogflowConversationProfile(
         live_person_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param live_person_config: live_person_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
+        :param live_person_config: live_person_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
         '''
         value = DialogflowConversationProfileHumanAgentHandoffConfig(
             live_person_config=live_person_config
@@ -222,7 +222,7 @@ class DialogflowConversationProfile(
         enable_stackdriver_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_stackdriver_logging: Whether to log conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
+        :param enable_stackdriver_logging: Whether to log conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
         '''
         value = DialogflowConversationProfileLoggingConfig(
             enable_stackdriver_logging=enable_stackdriver_logging
@@ -238,8 +238,8 @@ class DialogflowConversationProfile(
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         value = DialogflowConversationProfileNewMessageEventNotificationConfig(
             message_format=message_format, topic=topic
@@ -255,8 +255,8 @@ class DialogflowConversationProfile(
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         value = DialogflowConversationProfileNotificationConfig(
             message_format=message_format, topic=topic
@@ -277,13 +277,13 @@ class DialogflowConversationProfile(
         use_timeout_based_endpointing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audio_encoding: Audio encoding of the audio content to process. Possible values: ["AUDIO_ENCODING_UNSPECIFIED", "AUDIO_ENCODING_LINEAR_16", "AUDIO_ENCODING_FLAC", "AUDIO_ENCODING_MULAW", "AUDIO_ENCODING_AMR", "AUDIO_ENCODING_AMR_WB", "AUDIO_ENCODING_OGG_OPUS", "AUDIOENCODING_SPEEX_WITH_HEADER_BYTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
-        :param enable_word_info: If true, Dialogflow returns SpeechWordInfo in StreamingRecognitionResult with information about the recognized speech words. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
-        :param language_code: The language of the supplied audio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
-        :param model: Which Speech model to select. Leave this field unspecified to use Agent Speech settings for model selection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
-        :param sample_rate_hertz: Sample rate (in Hertz) of the audio content sent in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
-        :param speech_model_variant: The speech model used in speech to text. Possible values: ["SPEECH_MODEL_VARIANT_UNSPECIFIED", "USE_BEST_AVAILABLE", "USE_STANDARD", "USE_ENHANCED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
-        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivy as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
+        :param audio_encoding: Audio encoding of the audio content to process. Possible values: ["AUDIO_ENCODING_UNSPECIFIED", "AUDIO_ENCODING_LINEAR_16", "AUDIO_ENCODING_FLAC", "AUDIO_ENCODING_MULAW", "AUDIO_ENCODING_AMR", "AUDIO_ENCODING_AMR_WB", "AUDIO_ENCODING_OGG_OPUS", "AUDIOENCODING_SPEEX_WITH_HEADER_BYTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
+        :param enable_word_info: If true, Dialogflow returns SpeechWordInfo in StreamingRecognitionResult with information about the recognized speech words. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
+        :param language_code: The language of the supplied audio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        :param model: Which Speech model to select. Leave this field unspecified to use Agent Speech settings for model selection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param sample_rate_hertz: Sample rate (in Hertz) of the audio content sent in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
+        :param speech_model_variant: The speech model used in speech to text. Possible values: ["SPEECH_MODEL_VARIANT_UNSPECIFIED", "USE_BEST_AVAILABLE", "USE_STANDARD", "USE_ENHANCED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
+        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivy as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
         '''
         value = DialogflowConversationProfileSttConfig(
             audio_encoding=audio_encoding,
@@ -306,9 +306,9 @@ class DialogflowConversationProfile(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.
         '''
         value = DialogflowConversationProfileTimeouts(
             create=create, delete=delete, update=update
@@ -327,11 +327,11 @@ class DialogflowConversationProfile(
         volume_gain_db: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param effects_profile_id: An identifier which selects 'audio effects' profiles that are applied on (post synthesized) text to speech. Effects are applied on top of each other in the order they are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
-        :param pitch: Speaking pitch, in the range [-20.0, 20.0]. 20 means increase 20 semitones from the original pitch. -20 means decrease 20 semitones from the original pitch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
-        :param speaking_rate: Speaking rate/speed, in the range [0.25, 4.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
-        :param voice: voice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
-        :param volume_gain_db: Volume gain (in dB) of the normal native volume supported by the specific voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
+        :param effects_profile_id: An identifier which selects 'audio effects' profiles that are applied on (post synthesized) text to speech. Effects are applied on top of each other in the order they are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
+        :param pitch: Speaking pitch, in the range [-20.0, 20.0]. 20 means increase 20 semitones from the original pitch. -20 means decrease 20 semitones from the original pitch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
+        :param speaking_rate: Speaking rate/speed, in the range [0.25, 4.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
+        :param voice: voice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
+        :param volume_gain_db: Volume gain (in dB) of the normal native volume supported by the specific voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
         '''
         value = DialogflowConversationProfileTtsConfig(
             effects_profile_id=effects_profile_id,
@@ -670,8 +670,8 @@ class DialogflowConversationProfileAutomatedAgentConfig:
         session_ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param agent: ID of the Dialogflow agent environment to use. Expects the format "projects//locations//agent/environments/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param session_ttl: Configure lifetime of the Dialogflow session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
+        :param agent: ID of the Dialogflow agent environment to use. Expects the format "projects//locations//agent/environments/". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param session_ttl: Configure lifetime of the Dialogflow session. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b401d5d43fb62253f6cf2a61b8e8af9c09d816a07383ac16dd592746897e11c5)
@@ -687,7 +687,7 @@ class DialogflowConversationProfileAutomatedAgentConfig:
     def agent(self) -> builtins.str:
         '''ID of the Dialogflow agent environment to use. Expects the format "projects//locations//agent/environments/".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         result = self._values.get("agent")
         assert result is not None, "Required property 'agent' is missing"
@@ -697,7 +697,7 @@ class DialogflowConversationProfileAutomatedAgentConfig:
     def session_ttl(self) -> typing.Optional[builtins.str]:
         '''Configure lifetime of the Dialogflow session.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#session_ttl DialogflowConversationProfile#session_ttl}
         '''
         result = self._values.get("session_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -855,22 +855,22 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Required. Human readable name for this profile. Max length 1024 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
-        :param location: desc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
-        :param automated_agent_config: automated_agent_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
-        :param human_agent_assistant_config: human_agent_assistant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
-        :param human_agent_handoff_config: human_agent_handoff_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param language_code: Language code for the conversation profile. This should be a BCP-47 language tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
-        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
-        :param new_message_event_notification_config: new_message_event_notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.
-        :param security_settings: Name of the CX SecuritySettings reference for the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
-        :param stt_config: stt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
-        :param time_zone: The time zone of this conversational profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
-        :param tts_config: tts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
+        :param display_name: Required. Human readable name for this profile. Max length 1024 bytes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
+        :param location: desc. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
+        :param automated_agent_config: automated_agent_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
+        :param human_agent_assistant_config: human_agent_assistant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
+        :param human_agent_handoff_config: human_agent_handoff_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param language_code: Language code for the conversation profile. This should be a BCP-47 language tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        :param logging_config: logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
+        :param new_message_event_notification_config: new_message_event_notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.
+        :param security_settings: Name of the CX SecuritySettings reference for the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
+        :param stt_config: stt_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
+        :param time_zone: The time zone of this conversational profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
+        :param tts_config: tts_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1032,7 +1032,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def display_name(self) -> builtins.str:
         '''Required. Human readable name for this profile. Max length 1024 bytes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#display_name DialogflowConversationProfile#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1042,7 +1042,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def location(self) -> builtins.str:
         '''desc.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#location DialogflowConversationProfile#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1054,7 +1054,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[DialogflowConversationProfileAutomatedAgentConfig]:
         '''automated_agent_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#automated_agent_config DialogflowConversationProfile#automated_agent_config}
         '''
         result = self._values.get("automated_agent_config")
         return typing.cast(typing.Optional[DialogflowConversationProfileAutomatedAgentConfig], result)
@@ -1065,7 +1065,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfig"]:
         '''human_agent_assistant_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_assistant_config DialogflowConversationProfile#human_agent_assistant_config}
         '''
         result = self._values.get("human_agent_assistant_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfig"], result)
@@ -1076,14 +1076,14 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentHandoffConfig"]:
         '''human_agent_handoff_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_handoff_config DialogflowConversationProfile#human_agent_handoff_config}
         '''
         result = self._values.get("human_agent_handoff_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentHandoffConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#id DialogflowConversationProfile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1095,7 +1095,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def language_code(self) -> typing.Optional[builtins.str]:
         '''Language code for the conversation profile. This should be a BCP-47 language tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1106,7 +1106,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["DialogflowConversationProfileLoggingConfig"]:
         '''logging_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#logging_config DialogflowConversationProfile#logging_config}
         '''
         result = self._values.get("logging_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileLoggingConfig"], result)
@@ -1117,7 +1117,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["DialogflowConversationProfileNewMessageEventNotificationConfig"]:
         '''new_message_event_notification_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#new_message_event_notification_config DialogflowConversationProfile#new_message_event_notification_config}
         '''
         result = self._values.get("new_message_event_notification_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileNewMessageEventNotificationConfig"], result)
@@ -1128,14 +1128,14 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["DialogflowConversationProfileNotificationConfig"]:
         '''notification_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
         '''
         result = self._values.get("notification_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileNotificationConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#project DialogflowConversationProfile#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1143,7 +1143,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def security_settings(self) -> typing.Optional[builtins.str]:
         '''Name of the CX SecuritySettings reference for the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#security_settings DialogflowConversationProfile#security_settings}
         '''
         result = self._values.get("security_settings")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1152,7 +1152,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def stt_config(self) -> typing.Optional["DialogflowConversationProfileSttConfig"]:
         '''stt_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#stt_config DialogflowConversationProfile#stt_config}
         '''
         result = self._values.get("stt_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileSttConfig"], result)
@@ -1161,7 +1161,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["DialogflowConversationProfileTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#timeouts DialogflowConversationProfile#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowConversationProfileTimeouts"], result)
@@ -1170,7 +1170,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def time_zone(self) -> typing.Optional[builtins.str]:
         '''The time zone of this conversational profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#time_zone DialogflowConversationProfile#time_zone}
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1179,7 +1179,7 @@ class DialogflowConversationProfileConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def tts_config(self) -> typing.Optional["DialogflowConversationProfileTtsConfig"]:
         '''tts_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#tts_config DialogflowConversationProfile#tts_config}
         '''
         result = self._values.get("tts_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileTtsConfig"], result)
@@ -1216,10 +1216,10 @@ class DialogflowConversationProfileHumanAgentAssistantConfig:
         notification_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param end_user_suggestion_config: end_user_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
-        :param human_agent_suggestion_config: human_agent_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
-        :param message_analysis_config: message_analysis_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        :param end_user_suggestion_config: end_user_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
+        :param human_agent_suggestion_config: human_agent_suggestion_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
+        :param message_analysis_config: message_analysis_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
         '''
         if isinstance(end_user_suggestion_config, dict):
             end_user_suggestion_config = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfig(**end_user_suggestion_config)
@@ -1251,7 +1251,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfig:
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfig"]:
         '''end_user_suggestion_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#end_user_suggestion_config DialogflowConversationProfile#end_user_suggestion_config}
         '''
         result = self._values.get("end_user_suggestion_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfig"], result)
@@ -1262,7 +1262,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfig:
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfig"]:
         '''human_agent_suggestion_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_suggestion_config DialogflowConversationProfile#human_agent_suggestion_config}
         '''
         result = self._values.get("human_agent_suggestion_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfig"], result)
@@ -1273,7 +1273,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfig:
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfig"]:
         '''message_analysis_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_analysis_config DialogflowConversationProfile#message_analysis_config}
         '''
         result = self._values.get("message_analysis_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfig"], result)
@@ -1284,7 +1284,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfig:
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig"]:
         '''notification_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#notification_config DialogflowConversationProfile#notification_config}
         '''
         result = self._values.get("notification_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig"], result)
@@ -1321,10 +1321,10 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         group_suggestion_responses: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
-        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
-        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
-        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1bed750542ab379233e26e631ee8a85400019330c95b4de92f47ceefe9a3cde)
@@ -1350,7 +1350,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
         '''
         result = self._values.get("disable_high_latency_features_sync_delivery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1361,7 +1361,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigs"]]]:
         '''feature_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
         '''
         result = self._values.get("feature_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigs"]]], result)
@@ -1370,7 +1370,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def generators(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of various generator resource names used in the conversation profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
         '''
         result = self._values.get("generators")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1385,7 +1385,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         result = self._values.get("group_suggestion_responses")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1434,16 +1434,16 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         suggestion_trigger_settings: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionTriggerSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conversation_model_config: conversation_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
-        :param conversation_process_config: conversation_process_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
-        :param disable_agent_query_logging: Disable the logging of search queries sent by human agents. It can prevent those queries from being stored at answer records. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
-        :param enable_conversation_augmented_query: Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
-        :param enable_event_based_suggestion: Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
-        :param enable_query_suggestion_only: Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
-        :param enable_query_suggestion_when_no_answer: Enable query suggestion even if we can't find its answer. By default, queries are suggested only if we find its answer. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
-        :param query_config: query_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
-        :param suggestion_feature: suggestion_feature block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
-        :param suggestion_trigger_settings: suggestion_trigger_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
+        :param conversation_model_config: conversation_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
+        :param conversation_process_config: conversation_process_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
+        :param disable_agent_query_logging: Disable the logging of search queries sent by human agents. It can prevent those queries from being stored at answer records. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
+        :param enable_conversation_augmented_query: Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
+        :param enable_event_based_suggestion: Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
+        :param enable_query_suggestion_only: Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
+        :param enable_query_suggestion_when_no_answer: Enable query suggestion even if we can't find its answer. By default, queries are suggested only if we find its answer. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
+        :param query_config: query_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
+        :param suggestion_feature: suggestion_feature block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
+        :param suggestion_trigger_settings: suggestion_trigger_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
         '''
         if isinstance(conversation_model_config, dict):
             conversation_model_config = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationModelConfig(**conversation_model_config)
@@ -1495,7 +1495,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationModelConfig"]:
         '''conversation_model_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
         '''
         result = self._values.get("conversation_model_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationModelConfig"], result)
@@ -1506,7 +1506,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationProcessConfig"]:
         '''conversation_process_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
         '''
         result = self._values.get("conversation_process_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationProcessConfig"], result)
@@ -1520,7 +1520,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         It can prevent those queries from being stored at answer records.
         This feature is only supported for types: KNOWLEDGE_SEARCH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
         '''
         result = self._values.get("disable_agent_query_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1531,7 +1531,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
         '''
         result = self._values.get("enable_conversation_augmented_query")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1542,7 +1542,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
         '''
         result = self._values.get("enable_event_based_suggestion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1553,7 +1553,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
         '''
         result = self._values.get("enable_query_suggestion_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1567,7 +1567,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         By default, queries are suggested only if we find its answer.
         This feature is only supported for types: KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
         '''
         result = self._values.get("enable_query_suggestion_when_no_answer")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1578,7 +1578,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfig"]:
         '''query_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
         '''
         result = self._values.get("query_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfig"], result)
@@ -1589,7 +1589,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionFeature"]:
         '''suggestion_feature block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
         '''
         result = self._values.get("suggestion_feature")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionFeature"], result)
@@ -1600,7 +1600,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionTriggerSettings"]:
         '''suggestion_trigger_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
         '''
         result = self._values.get("suggestion_trigger_settings")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionTriggerSettings"], result)
@@ -1630,8 +1630,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         model: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
-        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6c77ce9c3e63c24097c9b3991b029d4e6e98573c505cdada7b67a276f6f48ed)
@@ -1649,7 +1649,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
         '''
         result = self._values.get("baseline_model_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1658,7 +1658,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def model(self) -> typing.Optional[builtins.str]:
         '''Conversation model resource name. Format: projects//conversationModels/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1767,7 +1767,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         recent_sentences_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56665caf4ef4b602d60be5b4093727fd4bf00a2e39e89ec03fde803a02ad2b33)
@@ -1780,7 +1780,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def recent_sentences_count(self) -> typing.Optional[jsii.Number]:
         '''Number of recent non-small-talk sentences to use as context for article and FAQ suggestion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         result = self._values.get("recent_sentences_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1983,8 +1983,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         model: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
-        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationModelConfig(
             baseline_model_version=baseline_model_version, model=model
@@ -1999,7 +1999,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         recent_sentences_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsConversationProcessConfig(
             recent_sentences_count=recent_sentences_count
@@ -2020,13 +2020,13 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         sections: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigSections", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
-        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
-        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
-        :param document_query_source: document_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
-        :param knowledge_base_query_source: knowledge_base_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
-        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
-        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        :param document_query_source: document_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
+        :param knowledge_base_query_source: knowledge_base_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
+        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfig(
             confidence_threshold=confidence_threshold,
@@ -2047,7 +2047,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionFeature(
             type=type
@@ -2063,8 +2063,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         only_end_user: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
-        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionTriggerSettings(
             no_small_talk=no_small_talk, only_end_user=only_end_user
@@ -2346,13 +2346,13 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         sections: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigSections", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
-        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
-        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
-        :param document_query_source: document_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
-        :param knowledge_base_query_source: knowledge_base_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
-        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
-        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        :param document_query_source: document_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
+        :param knowledge_base_query_source: knowledge_base_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
+        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         if isinstance(context_filter_settings, dict):
             context_filter_settings = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings(**context_filter_settings)
@@ -2393,7 +2393,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def confidence_threshold(self) -> typing.Optional[jsii.Number]:
         '''Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
         '''
         result = self._values.get("confidence_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2404,7 +2404,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings"]:
         '''context_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
         '''
         result = self._values.get("context_filter_settings")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings"], result)
@@ -2415,7 +2415,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource"]:
         '''dialogflow_query_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
         '''
         result = self._values.get("dialogflow_query_source")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource"], result)
@@ -2426,7 +2426,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDocumentQuerySource"]:
         '''document_query_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#document_query_source DialogflowConversationProfile#document_query_source}
         '''
         result = self._values.get("document_query_source")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDocumentQuerySource"], result)
@@ -2437,7 +2437,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigKnowledgeBaseQuerySource"]:
         '''knowledge_base_query_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_base_query_source DialogflowConversationProfile#knowledge_base_query_source}
         '''
         result = self._values.get("knowledge_base_query_source")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigKnowledgeBaseQuerySource"], result)
@@ -2446,7 +2446,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def max_results(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of results to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
         '''
         result = self._values.get("max_results")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2457,7 +2457,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigSections"]:
         '''sections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         result = self._values.get("sections")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigSections"], result)
@@ -2492,9 +2492,9 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         drop_virtual_agent_messages: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
-        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
-        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__35a4461efb86cf6729738f3bc71e36a8128e87f6ff3dd50c48a17f7caf379774)
@@ -2515,7 +2515,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
         '''
         result = self._values.get("drop_handoff_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2526,7 +2526,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, all messages from ivr stage are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
         '''
         result = self._values.get("drop_ivr_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2537,7 +2537,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, all messages from virtual agent are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         result = self._values.get("drop_virtual_agent_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2689,8 +2689,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         human_agent_side_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         if isinstance(human_agent_side_config, dict):
             human_agent_side_config = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig(**human_agent_side_config)
@@ -2710,7 +2710,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         Format: projects//locations//agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         result = self._values.get("agent")
         assert result is not None, "Required property 'agent' is missing"
@@ -2722,7 +2722,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig"]:
         '''human_agent_side_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         result = self._values.get("human_agent_side_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig"], result)
@@ -2747,7 +2747,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig:
     def __init__(self, *, agent: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a03215840345ec042c0da820858e14178cf34ce4a5b2ebef1996d6ce36010966)
@@ -2762,7 +2762,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         Format: projects//locations//agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         result = self._values.get("agent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2865,7 +2865,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         agent: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig(
             agent=agent
@@ -2934,7 +2934,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDocumentQuerySource:
     def __init__(self, *, documents: typing.Sequence[builtins.str]) -> None:
         '''
-        :param documents: Knowledge documents to query from. Format: projects//locations//knowledgeBases//documents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
+        :param documents: Knowledge documents to query from. Format: projects//locations//knowledgeBases//documents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5916f2d67777551e985d3f61aa7566505f8da261e9bef6a166a25f20d8c46806)
@@ -2947,7 +2947,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def documents(self) -> typing.List[builtins.str]:
         '''Knowledge documents to query from. Format: projects//locations//knowledgeBases//documents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
         '''
         result = self._values.get("documents")
         assert result is not None, "Required property 'documents' is missing"
@@ -3028,7 +3028,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigKnowledgeBaseQuerySource:
     def __init__(self, *, knowledge_bases: typing.Sequence[builtins.str]) -> None:
         '''
-        :param knowledge_bases: Knowledge bases to query. Format: projects//locations//knowledgeBases/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
+        :param knowledge_bases: Knowledge bases to query. Format: projects//locations//knowledgeBases/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecda5c89511d1cf6e9bbd291a615db98d915e130ebb1afa29d1acbfd71a9f41e)
@@ -3041,7 +3041,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def knowledge_bases(self) -> typing.List[builtins.str]:
         '''Knowledge bases to query. Format: projects//locations//knowledgeBases/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
         '''
         result = self._values.get("knowledge_bases")
         assert result is not None, "Required property 'knowledge_bases' is missing"
@@ -3143,9 +3143,9 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         drop_virtual_agent_messages: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
-        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
-        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings(
             drop_handoff_messages=drop_handoff_messages,
@@ -3163,8 +3163,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         human_agent_side_config: typing.Optional[typing.Union[DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource(
             agent=agent, human_agent_side_config=human_agent_side_config
@@ -3179,7 +3179,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         documents: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param documents: Knowledge documents to query from. Format: projects//locations//knowledgeBases//documents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
+        :param documents: Knowledge documents to query from. Format: projects//locations//knowledgeBases//documents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#documents DialogflowConversationProfile#documents}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigDocumentQuerySource(
             documents=documents
@@ -3194,7 +3194,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         knowledge_bases: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param knowledge_bases: Knowledge bases to query. Format: projects//locations//knowledgeBases/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
+        :param knowledge_bases: Knowledge bases to query. Format: projects//locations//knowledgeBases/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#knowledge_bases DialogflowConversationProfile#knowledge_bases}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigKnowledgeBaseQuerySource(
             knowledge_bases=knowledge_bases
@@ -3209,7 +3209,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         section_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsQueryConfigSections(
             section_types=section_types
@@ -3379,7 +3379,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         section_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9cca18a6634a88fd1a514a3d862b2c69736a1bd17b24c81e2c9ebfdf6a85b52)
@@ -3394,7 +3394,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 
         Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         result = self._values.get("section_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3478,7 +3478,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
 class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfigFeatureConfigsSuggestionFeature:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29128bf19a5da111e2e6fd4388ed0cd616f8aa2936b6ba37f3bccc952a6e8525)
@@ -3491,7 +3491,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of Human Agent Assistant API feature to request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3580,8 +3580,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
         only_end_user: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
-        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd5d9ab02b1449755adff26b4085efc8477bf20dfed413a31b0f18556b43e0bb)
@@ -3599,7 +3599,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Do not trigger if last utterance is small talk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
         '''
         result = self._values.get("no_small_talk")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3610,7 +3610,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionCon
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only trigger suggestion if participant role of last utterance is END_USER.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         result = self._values.get("only_end_user")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3883,10 +3883,10 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         group_suggestion_responses: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
-        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
-        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
-        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a3c71bb3f79a2f2dfb7c8982d5626c62cd838a7f2248a3e82a35bd0a3714127)
@@ -3912,7 +3912,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
         '''
         result = self._values.get("disable_high_latency_features_sync_delivery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3923,7 +3923,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigs"]]]:
         '''feature_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
         '''
         result = self._values.get("feature_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigs"]]], result)
@@ -3932,7 +3932,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def generators(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of various generator resource names used in the conversation profile.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
         '''
         result = self._values.get("generators")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3947,7 +3947,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         result = self._values.get("group_suggestion_responses")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3996,16 +3996,16 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         suggestion_trigger_settings: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionTriggerSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param conversation_model_config: conversation_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
-        :param conversation_process_config: conversation_process_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
-        :param disable_agent_query_logging: Disable the logging of search queries sent by human agents. It can prevent those queries from being stored at answer records. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
-        :param enable_conversation_augmented_query: Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
-        :param enable_event_based_suggestion: Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
-        :param enable_query_suggestion_only: Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
-        :param enable_query_suggestion_when_no_answer: Enable query suggestion even if we can't find its answer. By default, queries are suggested only if we find its answer. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
-        :param query_config: query_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
-        :param suggestion_feature: suggestion_feature block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
-        :param suggestion_trigger_settings: suggestion_trigger_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
+        :param conversation_model_config: conversation_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
+        :param conversation_process_config: conversation_process_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
+        :param disable_agent_query_logging: Disable the logging of search queries sent by human agents. It can prevent those queries from being stored at answer records. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
+        :param enable_conversation_augmented_query: Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
+        :param enable_event_based_suggestion: Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
+        :param enable_query_suggestion_only: Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
+        :param enable_query_suggestion_when_no_answer: Enable query suggestion even if we can't find its answer. By default, queries are suggested only if we find its answer. This feature is only supported for types: KNOWLEDGE_ASSIST. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
+        :param query_config: query_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
+        :param suggestion_feature: suggestion_feature block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
+        :param suggestion_trigger_settings: suggestion_trigger_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
         '''
         if isinstance(conversation_model_config, dict):
             conversation_model_config = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationModelConfig(**conversation_model_config)
@@ -4057,7 +4057,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationModelConfig"]:
         '''conversation_model_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_model_config DialogflowConversationProfile#conversation_model_config}
         '''
         result = self._values.get("conversation_model_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationModelConfig"], result)
@@ -4068,7 +4068,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationProcessConfig"]:
         '''conversation_process_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#conversation_process_config DialogflowConversationProfile#conversation_process_config}
         '''
         result = self._values.get("conversation_process_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationProcessConfig"], result)
@@ -4082,7 +4082,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         It can prevent those queries from being stored at answer records.
         This feature is only supported for types: KNOWLEDGE_SEARCH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_agent_query_logging DialogflowConversationProfile#disable_agent_query_logging}
         '''
         result = self._values.get("disable_agent_query_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4093,7 +4093,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable including conversation context during query answer generation. This feature is only supported for types: KNOWLEDGE_SEARCH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_conversation_augmented_query DialogflowConversationProfile#enable_conversation_augmented_query}
         '''
         result = self._values.get("enable_conversation_augmented_query")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4104,7 +4104,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically iterates all participants and tries to compile suggestions. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, DIALOGFLOW_ASSIST, KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_event_based_suggestion DialogflowConversationProfile#enable_event_based_suggestion}
         '''
         result = self._values.get("enable_event_based_suggestion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4115,7 +4115,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable query suggestion only. This feature is only supported for types: KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_only DialogflowConversationProfile#enable_query_suggestion_only}
         '''
         result = self._values.get("enable_query_suggestion_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4129,7 +4129,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         By default, queries are suggested only if we find its answer.
         This feature is only supported for types: KNOWLEDGE_ASSIST.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_query_suggestion_when_no_answer DialogflowConversationProfile#enable_query_suggestion_when_no_answer}
         '''
         result = self._values.get("enable_query_suggestion_when_no_answer")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4140,7 +4140,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfig"]:
         '''query_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#query_config DialogflowConversationProfile#query_config}
         '''
         result = self._values.get("query_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfig"], result)
@@ -4151,7 +4151,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionFeature"]:
         '''suggestion_feature block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_feature DialogflowConversationProfile#suggestion_feature}
         '''
         result = self._values.get("suggestion_feature")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionFeature"], result)
@@ -4162,7 +4162,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionTriggerSettings"]:
         '''suggestion_trigger_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#suggestion_trigger_settings DialogflowConversationProfile#suggestion_trigger_settings}
         '''
         result = self._values.get("suggestion_trigger_settings")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionTriggerSettings"], result)
@@ -4192,8 +4192,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         model: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
-        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04808a52e4bb73404fbdd5fba2dc38161f9403f27859c1eb6036c669527f1a28)
@@ -4211,7 +4211,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
         '''
         result = self._values.get("baseline_model_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4220,7 +4220,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def model(self) -> typing.Optional[builtins.str]:
         '''Conversation model resource name. Format: projects//conversationModels/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4329,7 +4329,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         recent_sentences_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__575323893bb94b554e377420102aa75e9eab5c5595163fe2cf9da95053e1b1a1)
@@ -4342,7 +4342,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def recent_sentences_count(self) -> typing.Optional[jsii.Number]:
         '''Number of recent non-small-talk sentences to use as context for article and FAQ suggestion.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         result = self._values.get("recent_sentences_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4545,8 +4545,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         model: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
-        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param baseline_model_version: Version of current baseline model. It will be ignored if model is set. Valid versions are: Article Suggestion baseline model: - 0.9 - 1.0 (default) Summarization baseline model: - 1.0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#baseline_model_version DialogflowConversationProfile#baseline_model_version}
+        :param model: Conversation model resource name. Format: projects//conversationModels/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationModelConfig(
             baseline_model_version=baseline_model_version, model=model
@@ -4561,7 +4561,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         recent_sentences_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
+        :param recent_sentences_count: Number of recent non-small-talk sentences to use as context for article and FAQ suggestion. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#recent_sentences_count DialogflowConversationProfile#recent_sentences_count}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsConversationProcessConfig(
             recent_sentences_count=recent_sentences_count
@@ -4580,11 +4580,11 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         sections: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigSections", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
-        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
-        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
-        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
-        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfig(
             confidence_threshold=confidence_threshold,
@@ -4603,7 +4603,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionFeature(
             type=type
@@ -4619,8 +4619,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         only_end_user: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
-        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionTriggerSettings(
             no_small_talk=no_small_talk, only_end_user=only_end_user
@@ -4898,11 +4898,11 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         sections: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigSections", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
-        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
-        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
-        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
-        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        :param confidence_threshold: Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        :param context_filter_settings: context_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        :param dialogflow_query_source: dialogflow_query_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        :param max_results: Maximum number of results to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        :param sections: sections block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         if isinstance(context_filter_settings, dict):
             context_filter_settings = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings(**context_filter_settings)
@@ -4933,7 +4933,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def confidence_threshold(self) -> typing.Optional[jsii.Number]:
         '''Confidence threshold of query result. This feature is only supported for types: ARTICLE_SUGGESTION, FAQ, SMART_REPLY, SMART_COMPOSE, KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST, ENTITY_EXTRACTION.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#confidence_threshold DialogflowConversationProfile#confidence_threshold}
         '''
         result = self._values.get("confidence_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4944,7 +4944,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings"]:
         '''context_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#context_filter_settings DialogflowConversationProfile#context_filter_settings}
         '''
         result = self._values.get("context_filter_settings")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings"], result)
@@ -4955,7 +4955,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource"]:
         '''dialogflow_query_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#dialogflow_query_source DialogflowConversationProfile#dialogflow_query_source}
         '''
         result = self._values.get("dialogflow_query_source")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource"], result)
@@ -4964,7 +4964,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def max_results(self) -> typing.Optional[jsii.Number]:
         '''Maximum number of results to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#max_results DialogflowConversationProfile#max_results}
         '''
         result = self._values.get("max_results")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4975,7 +4975,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigSections"]:
         '''sections block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sections DialogflowConversationProfile#sections}
         '''
         result = self._values.get("sections")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigSections"], result)
@@ -5010,9 +5010,9 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         drop_virtual_agent_messages: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
-        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
-        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__685fa8c94180db89bff05f6d0baba2e8ae67c96b903638289d0c4d6b3d97ea3e)
@@ -5033,7 +5033,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
         '''
         result = self._values.get("drop_handoff_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5044,7 +5044,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, all messages from ivr stage are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
         '''
         result = self._values.get("drop_ivr_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5055,7 +5055,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, all messages from virtual agent are dropped.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         result = self._values.get("drop_virtual_agent_messages")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5207,8 +5207,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         human_agent_side_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         if isinstance(human_agent_side_config, dict):
             human_agent_side_config = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig(**human_agent_side_config)
@@ -5228,7 +5228,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         Format: projects//locations//agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         result = self._values.get("agent")
         assert result is not None, "Required property 'agent' is missing"
@@ -5240,7 +5240,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig"]:
         '''human_agent_side_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         result = self._values.get("human_agent_side_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig"], result)
@@ -5265,7 +5265,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig:
     def __init__(self, *, agent: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__448cb69feb94d1a7ff8211e1790bf2b8338a5a4bd6a8b7db6a3f263a68038bbd)
@@ -5280,7 +5280,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         Format: projects//locations//agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         result = self._values.get("agent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5383,7 +5383,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         agent: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param agent: The name of a dialogflow virtual agent used for intent detection and suggestion triggered by human agent. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig(
             agent=agent
@@ -5473,9 +5473,9 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         drop_virtual_agent_messages: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
-        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
-        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
+        :param drop_handoff_messages: If set to true, the last message from virtual agent (hand off message) and the message before it (trigger message of hand off) are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_handoff_messages DialogflowConversationProfile#drop_handoff_messages}
+        :param drop_ivr_messages: If set to true, all messages from ivr stage are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_ivr_messages DialogflowConversationProfile#drop_ivr_messages}
+        :param drop_virtual_agent_messages: If set to true, all messages from virtual agent are dropped. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#drop_virtual_agent_messages DialogflowConversationProfile#drop_virtual_agent_messages}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigContextFilterSettings(
             drop_handoff_messages=drop_handoff_messages,
@@ -5493,8 +5493,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         human_agent_side_config: typing.Optional[typing.Union[DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySourceHumanAgentSideConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
-        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
+        :param agent: he name of a Dialogflow virtual agent used for end user side intent detection and suggestion. Format: projects//locations//agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#agent DialogflowConversationProfile#agent}
+        :param human_agent_side_config: human_agent_side_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#human_agent_side_config DialogflowConversationProfile#human_agent_side_config}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigDialogflowQuerySource(
             agent=agent, human_agent_side_config=human_agent_side_config
@@ -5509,7 +5509,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         section_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsQueryConfigSections(
             section_types=section_types
@@ -5643,7 +5643,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         section_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        :param section_types: The selected sections chosen to return when requesting a summary of a conversation If not provided the default selection will be "{SITUATION, ACTION, RESULT}". Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69a657bb6dbe582fe73d8146ff800cb3cca2262847118288660e8e4e467df401)
@@ -5658,7 +5658,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 
         Possible values: ["SECTION_TYPE_UNSPECIFIED", "SITUATION", "ACTION", "RESOLUTION", "REASON_FOR_CANCELLATION", "CUSTOMER_SATISFACTION", "ENTITIES"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#section_types DialogflowConversationProfile#section_types}
         '''
         result = self._values.get("section_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5742,7 +5742,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
 class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfigFeatureConfigsSuggestionFeature:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        :param type: Type of Human Agent Assistant API feature to request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__672d5129f4cfc70fe1c7a8fd9f03d80ceb5cac7b2ede6180acec017bb45f419e)
@@ -5755,7 +5755,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     def type(self) -> typing.Optional[builtins.str]:
         '''Type of Human Agent Assistant API feature to request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#type DialogflowConversationProfile#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5844,8 +5844,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
         only_end_user: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
-        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        :param no_small_talk: Do not trigger if last utterance is small talk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        :param only_end_user: Only trigger suggestion if participant role of last utterance is END_USER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c2df082c67c60f29f6f0dc741633d93d6148412e1e261df65dde8205fd7e0e3)
@@ -5863,7 +5863,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Do not trigger if last utterance is small talk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#no_small_talk DialogflowConversationProfile#no_small_talk}
         '''
         result = self._values.get("no_small_talk")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5874,7 +5874,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestion
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only trigger suggestion if participant role of last utterance is END_USER.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#only_end_user DialogflowConversationProfile#only_end_user}
         '''
         result = self._values.get("only_end_user")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6143,8 +6143,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfi
         enable_sentiment_analysis: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_entity_extraction: Enable entity extraction in conversation messages on agent assist stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
-        :param enable_sentiment_analysis: Enable sentiment analysis in conversation messages on agent assist stage. Sentiment analysis inspects user input and identifies the prevailing subjective opinion, especially to determine a user's attitude as positive, negative, or neutral. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
+        :param enable_entity_extraction: Enable entity extraction in conversation messages on agent assist stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
+        :param enable_sentiment_analysis: Enable sentiment analysis in conversation messages on agent assist stage. Sentiment analysis inspects user input and identifies the prevailing subjective opinion, especially to determine a user's attitude as positive, negative, or neutral. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fe83ce3d3c33b6c87595f27a2515f0c44ab6c927adc78c4d486a53e13f9bd72)
@@ -6162,7 +6162,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfi
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable entity extraction in conversation messages on agent assist stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
         '''
         result = self._values.get("enable_entity_extraction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6175,7 +6175,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfi
 
         Sentiment analysis inspects user input and identifies the prevailing subjective opinion, especially to determine a user's attitude as positive, negative, or neutral.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
         '''
         result = self._values.get("enable_sentiment_analysis")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6299,8 +6299,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig:
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__763cf6b26cc1f09d4c3adbf3824bc8cf5416899079db93159d51ea3b3e31493c)
@@ -6316,7 +6316,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig:
     def message_format(self) -> typing.Optional[builtins.str]:
         '''Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
         '''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6325,7 +6325,7 @@ class DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig:
     def topic(self) -> typing.Optional[builtins.str]:
         '''Name of the Pub/Sub topic to publish conversation events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6452,10 +6452,10 @@ class DialogflowConversationProfileHumanAgentAssistantConfigOutputReference(
         group_suggestion_responses: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
-        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
-        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
-        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigEndUserSuggestionConfig(
             disable_high_latency_features_sync_delivery=disable_high_latency_features_sync_delivery,
@@ -6476,10 +6476,10 @@ class DialogflowConversationProfileHumanAgentAssistantConfigOutputReference(
         group_suggestion_responses: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
-        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
-        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
-        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
+        :param disable_high_latency_features_sync_delivery: When disableHighLatencyFeaturesSyncDelivery is true and using the AnalyzeContent API, we will not deliver the responses from high latency features in the API response. The humanAgentAssistantConfig.notification_config must be configured and enableEventBasedSuggestion must be set to true to receive the responses from high latency features in Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#disable_high_latency_features_sync_delivery DialogflowConversationProfile#disable_high_latency_features_sync_delivery}
+        :param feature_configs: feature_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#feature_configs DialogflowConversationProfile#feature_configs}
+        :param generators: List of various generator resource names used in the conversation profile. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#generators DialogflowConversationProfile#generators}
+        :param group_suggestion_responses: If groupSuggestionResponses is false, and there are multiple featureConfigs in event based suggestion or StreamingAnalyzeContent, we will try to deliver suggestions to customers as soon as we get new suggestion. Different type of suggestions based on the same context will be in separate Pub/Sub event or StreamingAnalyzeContentResponse. If groupSuggestionResponses set to true. All the suggestions to the same participant based on the same context will be grouped into a single Pub/Sub event or StreamingAnalyzeContentResponse. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#group_suggestion_responses DialogflowConversationProfile#group_suggestion_responses}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigHumanAgentSuggestionConfig(
             disable_high_latency_features_sync_delivery=disable_high_latency_features_sync_delivery,
@@ -6498,8 +6498,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigOutputReference(
         enable_sentiment_analysis: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_entity_extraction: Enable entity extraction in conversation messages on agent assist stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
-        :param enable_sentiment_analysis: Enable sentiment analysis in conversation messages on agent assist stage. Sentiment analysis inspects user input and identifies the prevailing subjective opinion, especially to determine a user's attitude as positive, negative, or neutral. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
+        :param enable_entity_extraction: Enable entity extraction in conversation messages on agent assist stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_entity_extraction DialogflowConversationProfile#enable_entity_extraction}
+        :param enable_sentiment_analysis: Enable sentiment analysis in conversation messages on agent assist stage. Sentiment analysis inspects user input and identifies the prevailing subjective opinion, especially to determine a user's attitude as positive, negative, or neutral. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_sentiment_analysis DialogflowConversationProfile#enable_sentiment_analysis}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigMessageAnalysisConfig(
             enable_entity_extraction=enable_entity_extraction,
@@ -6516,8 +6516,8 @@ class DialogflowConversationProfileHumanAgentAssistantConfigOutputReference(
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         value = DialogflowConversationProfileHumanAgentAssistantConfigNotificationConfig(
             message_format=message_format, topic=topic
@@ -6627,7 +6627,7 @@ class DialogflowConversationProfileHumanAgentHandoffConfig:
         live_person_config: typing.Optional[typing.Union["DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param live_person_config: live_person_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
+        :param live_person_config: live_person_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
         '''
         if isinstance(live_person_config, dict):
             live_person_config = DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig(**live_person_config)
@@ -6644,7 +6644,7 @@ class DialogflowConversationProfileHumanAgentHandoffConfig:
     ) -> typing.Optional["DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig"]:
         '''live_person_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#live_person_config DialogflowConversationProfile#live_person_config}
         '''
         result = self._values.get("live_person_config")
         return typing.cast(typing.Optional["DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig"], result)
@@ -6669,7 +6669,7 @@ class DialogflowConversationProfileHumanAgentHandoffConfig:
 class DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig:
     def __init__(self, *, account_number: builtins.str) -> None:
         '''
-        :param account_number: Account number of the LivePerson account to connect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
+        :param account_number: Account number of the LivePerson account to connect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__599ab865f51960f1a47595f149cde9e8ca29b1f67e45c2c1169fa67f25d4c528)
@@ -6682,7 +6682,7 @@ class DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig:
     def account_number(self) -> builtins.str:
         '''Account number of the LivePerson account to connect.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
         '''
         result = self._values.get("account_number")
         assert result is not None, "Required property 'account_number' is missing"
@@ -6778,7 +6778,7 @@ class DialogflowConversationProfileHumanAgentHandoffConfigOutputReference(
     @jsii.member(jsii_name="putLivePersonConfig")
     def put_live_person_config(self, *, account_number: builtins.str) -> None:
         '''
-        :param account_number: Account number of the LivePerson account to connect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
+        :param account_number: Account number of the LivePerson account to connect. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#account_number DialogflowConversationProfile#account_number}
         '''
         value = DialogflowConversationProfileHumanAgentHandoffConfigLivePersonConfig(
             account_number=account_number
@@ -6834,7 +6834,7 @@ class DialogflowConversationProfileLoggingConfig:
         enable_stackdriver_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_stackdriver_logging: Whether to log conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
+        :param enable_stackdriver_logging: Whether to log conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a582142a5689c0d07833ac9313df508e76bdf5ace685b3cf4f1bbb5ed66f19fb)
@@ -6849,7 +6849,7 @@ class DialogflowConversationProfileLoggingConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to log conversation events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_stackdriver_logging DialogflowConversationProfile#enable_stackdriver_logging}
         '''
         result = self._values.get("enable_stackdriver_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6945,8 +6945,8 @@ class DialogflowConversationProfileNewMessageEventNotificationConfig:
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64ed90dd7ffd8a247c438b40f61040c92e56f130f44469a967082a36d946ee98)
@@ -6962,7 +6962,7 @@ class DialogflowConversationProfileNewMessageEventNotificationConfig:
     def message_format(self) -> typing.Optional[builtins.str]:
         '''Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
         '''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6971,7 +6971,7 @@ class DialogflowConversationProfileNewMessageEventNotificationConfig:
     def topic(self) -> typing.Optional[builtins.str]:
         '''Name of the Pub/Sub topic to publish conversation events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7081,8 +7081,8 @@ class DialogflowConversationProfileNotificationConfig:
         topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
-        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        :param message_format: Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        :param topic: Name of the Pub/Sub topic to publish conversation events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__000f258ac2daa600b135933b614262c19f4e525864b43f5dbabb915a8cfa8c3c)
@@ -7098,7 +7098,7 @@ class DialogflowConversationProfileNotificationConfig:
     def message_format(self) -> typing.Optional[builtins.str]:
         '''Format of the message Possible values: ["MESSAGE_FORMAT_UNSPECIFIED", "PROTO", "JSON"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#message_format DialogflowConversationProfile#message_format}
         '''
         result = self._values.get("message_format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7107,7 +7107,7 @@ class DialogflowConversationProfileNotificationConfig:
     def topic(self) -> typing.Optional[builtins.str]:
         '''Name of the Pub/Sub topic to publish conversation events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#topic DialogflowConversationProfile#topic}
         '''
         result = self._values.get("topic")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7230,13 +7230,13 @@ class DialogflowConversationProfileSttConfig:
         use_timeout_based_endpointing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param audio_encoding: Audio encoding of the audio content to process. Possible values: ["AUDIO_ENCODING_UNSPECIFIED", "AUDIO_ENCODING_LINEAR_16", "AUDIO_ENCODING_FLAC", "AUDIO_ENCODING_MULAW", "AUDIO_ENCODING_AMR", "AUDIO_ENCODING_AMR_WB", "AUDIO_ENCODING_OGG_OPUS", "AUDIOENCODING_SPEEX_WITH_HEADER_BYTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
-        :param enable_word_info: If true, Dialogflow returns SpeechWordInfo in StreamingRecognitionResult with information about the recognized speech words. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
-        :param language_code: The language of the supplied audio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
-        :param model: Which Speech model to select. Leave this field unspecified to use Agent Speech settings for model selection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
-        :param sample_rate_hertz: Sample rate (in Hertz) of the audio content sent in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
-        :param speech_model_variant: The speech model used in speech to text. Possible values: ["SPEECH_MODEL_VARIANT_UNSPECIFIED", "USE_BEST_AVAILABLE", "USE_STANDARD", "USE_ENHANCED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
-        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivy as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
+        :param audio_encoding: Audio encoding of the audio content to process. Possible values: ["AUDIO_ENCODING_UNSPECIFIED", "AUDIO_ENCODING_LINEAR_16", "AUDIO_ENCODING_FLAC", "AUDIO_ENCODING_MULAW", "AUDIO_ENCODING_AMR", "AUDIO_ENCODING_AMR_WB", "AUDIO_ENCODING_OGG_OPUS", "AUDIOENCODING_SPEEX_WITH_HEADER_BYTE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
+        :param enable_word_info: If true, Dialogflow returns SpeechWordInfo in StreamingRecognitionResult with information about the recognized speech words. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
+        :param language_code: The language of the supplied audio. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        :param model: Which Speech model to select. Leave this field unspecified to use Agent Speech settings for model selection. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        :param sample_rate_hertz: Sample rate (in Hertz) of the audio content sent in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
+        :param speech_model_variant: The speech model used in speech to text. Possible values: ["SPEECH_MODEL_VARIANT_UNSPECIFIED", "USE_BEST_AVAILABLE", "USE_STANDARD", "USE_ENHANCED"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
+        :param use_timeout_based_endpointing: Use timeout based endpointing, interpreting endpointer sensitivy as seconds of timeout value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d92564e6830d40dc3576e0b4d04825ac6f699a457e4cce727d2918feeec2571)
@@ -7267,7 +7267,7 @@ class DialogflowConversationProfileSttConfig:
     def audio_encoding(self) -> typing.Optional[builtins.str]:
         '''Audio encoding of the audio content to process. Possible values: ["AUDIO_ENCODING_UNSPECIFIED", "AUDIO_ENCODING_LINEAR_16", "AUDIO_ENCODING_FLAC", "AUDIO_ENCODING_MULAW", "AUDIO_ENCODING_AMR", "AUDIO_ENCODING_AMR_WB", "AUDIO_ENCODING_OGG_OPUS", "AUDIOENCODING_SPEEX_WITH_HEADER_BYTE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#audio_encoding DialogflowConversationProfile#audio_encoding}
         '''
         result = self._values.get("audio_encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7278,7 +7278,7 @@ class DialogflowConversationProfileSttConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, Dialogflow returns SpeechWordInfo in StreamingRecognitionResult with information about the recognized speech words.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#enable_word_info DialogflowConversationProfile#enable_word_info}
         '''
         result = self._values.get("enable_word_info")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7287,7 +7287,7 @@ class DialogflowConversationProfileSttConfig:
     def language_code(self) -> typing.Optional[builtins.str]:
         '''The language of the supplied audio.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#language_code DialogflowConversationProfile#language_code}
         '''
         result = self._values.get("language_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7296,7 +7296,7 @@ class DialogflowConversationProfileSttConfig:
     def model(self) -> typing.Optional[builtins.str]:
         '''Which Speech model to select. Leave this field unspecified to use Agent Speech settings for model selection.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#model DialogflowConversationProfile#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7305,7 +7305,7 @@ class DialogflowConversationProfileSttConfig:
     def sample_rate_hertz(self) -> typing.Optional[jsii.Number]:
         '''Sample rate (in Hertz) of the audio content sent in the query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#sample_rate_hertz DialogflowConversationProfile#sample_rate_hertz}
         '''
         result = self._values.get("sample_rate_hertz")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7314,7 +7314,7 @@ class DialogflowConversationProfileSttConfig:
     def speech_model_variant(self) -> typing.Optional[builtins.str]:
         '''The speech model used in speech to text. Possible values: ["SPEECH_MODEL_VARIANT_UNSPECIFIED", "USE_BEST_AVAILABLE", "USE_STANDARD", "USE_ENHANCED"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speech_model_variant DialogflowConversationProfile#speech_model_variant}
         '''
         result = self._values.get("speech_model_variant")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7325,7 +7325,7 @@ class DialogflowConversationProfileSttConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use timeout based endpointing, interpreting endpointer sensitivy as seconds of timeout value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#use_timeout_based_endpointing DialogflowConversationProfile#use_timeout_based_endpointing}
         '''
         result = self._values.get("use_timeout_based_endpointing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -7553,9 +7553,9 @@ class DialogflowConversationProfileTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8270acb762b737898d7a33aea14870824c7bd52b19690dc06fef52f5e373c177)
@@ -7572,19 +7572,19 @@ class DialogflowConversationProfileTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#create DialogflowConversationProfile#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#delete DialogflowConversationProfile#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#update DialogflowConversationProfile#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7723,11 +7723,11 @@ class DialogflowConversationProfileTtsConfig:
         volume_gain_db: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param effects_profile_id: An identifier which selects 'audio effects' profiles that are applied on (post synthesized) text to speech. Effects are applied on top of each other in the order they are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
-        :param pitch: Speaking pitch, in the range [-20.0, 20.0]. 20 means increase 20 semitones from the original pitch. -20 means decrease 20 semitones from the original pitch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
-        :param speaking_rate: Speaking rate/speed, in the range [0.25, 4.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
-        :param voice: voice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
-        :param volume_gain_db: Volume gain (in dB) of the normal native volume supported by the specific voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
+        :param effects_profile_id: An identifier which selects 'audio effects' profiles that are applied on (post synthesized) text to speech. Effects are applied on top of each other in the order they are given. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
+        :param pitch: Speaking pitch, in the range [-20.0, 20.0]. 20 means increase 20 semitones from the original pitch. -20 means decrease 20 semitones from the original pitch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
+        :param speaking_rate: Speaking rate/speed, in the range [0.25, 4.0]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
+        :param voice: voice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
+        :param volume_gain_db: Volume gain (in dB) of the normal native volume supported by the specific voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
         '''
         if isinstance(voice, dict):
             voice = DialogflowConversationProfileTtsConfigVoice(**voice)
@@ -7756,7 +7756,7 @@ class DialogflowConversationProfileTtsConfig:
 
         Effects are applied on top of each other in the order they are given.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#effects_profile_id DialogflowConversationProfile#effects_profile_id}
         '''
         result = self._values.get("effects_profile_id")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -7765,7 +7765,7 @@ class DialogflowConversationProfileTtsConfig:
     def pitch(self) -> typing.Optional[jsii.Number]:
         '''Speaking pitch, in the range [-20.0, 20.0]. 20 means increase 20 semitones from the original pitch. -20 means decrease 20 semitones from the original pitch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#pitch DialogflowConversationProfile#pitch}
         '''
         result = self._values.get("pitch")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7774,7 +7774,7 @@ class DialogflowConversationProfileTtsConfig:
     def speaking_rate(self) -> typing.Optional[jsii.Number]:
         '''Speaking rate/speed, in the range [0.25, 4.0].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#speaking_rate DialogflowConversationProfile#speaking_rate}
         '''
         result = self._values.get("speaking_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7783,7 +7783,7 @@ class DialogflowConversationProfileTtsConfig:
     def voice(self) -> typing.Optional["DialogflowConversationProfileTtsConfigVoice"]:
         '''voice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#voice DialogflowConversationProfile#voice}
         '''
         result = self._values.get("voice")
         return typing.cast(typing.Optional["DialogflowConversationProfileTtsConfigVoice"], result)
@@ -7792,7 +7792,7 @@ class DialogflowConversationProfileTtsConfig:
     def volume_gain_db(self) -> typing.Optional[jsii.Number]:
         '''Volume gain (in dB) of the normal native volume supported by the specific voice.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#volume_gain_db DialogflowConversationProfile#volume_gain_db}
         '''
         result = self._values.get("volume_gain_db")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -7837,8 +7837,8 @@ class DialogflowConversationProfileTtsConfigOutputReference(
         ssml_gender: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
-        :param ssml_gender: The preferred gender of the voice. Possible values: ["SSML_VOICE_GENDER_UNSPECIFIED", "SSML_VOICE_GENDER_MALE", "SSML_VOICE_GENDER_FEMALE", "SSML_VOICE_GENDER_NEUTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
+        :param name: The name of the voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
+        :param ssml_gender: The preferred gender of the voice. Possible values: ["SSML_VOICE_GENDER_UNSPECIFIED", "SSML_VOICE_GENDER_MALE", "SSML_VOICE_GENDER_FEMALE", "SSML_VOICE_GENDER_NEUTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
         '''
         value = DialogflowConversationProfileTtsConfigVoice(
             name=name, ssml_gender=ssml_gender
@@ -7975,8 +7975,8 @@ class DialogflowConversationProfileTtsConfigVoice:
         ssml_gender: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
-        :param ssml_gender: The preferred gender of the voice. Possible values: ["SSML_VOICE_GENDER_UNSPECIFIED", "SSML_VOICE_GENDER_MALE", "SSML_VOICE_GENDER_FEMALE", "SSML_VOICE_GENDER_NEUTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
+        :param name: The name of the voice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
+        :param ssml_gender: The preferred gender of the voice. Possible values: ["SSML_VOICE_GENDER_UNSPECIFIED", "SSML_VOICE_GENDER_MALE", "SSML_VOICE_GENDER_FEMALE", "SSML_VOICE_GENDER_NEUTRAL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18ae1ded32ab41cb5e11802cbfa39ea8095cd2f9704462efa266e561ba79120f)
@@ -7992,7 +7992,7 @@ class DialogflowConversationProfileTtsConfigVoice:
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the voice.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#name DialogflowConversationProfile#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8001,7 +8001,7 @@ class DialogflowConversationProfileTtsConfigVoice:
     def ssml_gender(self) -> typing.Optional[builtins.str]:
         '''The preferred gender of the voice. Possible values: ["SSML_VOICE_GENDER_UNSPECIFIED", "SSML_VOICE_GENDER_MALE", "SSML_VOICE_GENDER_FEMALE", "SSML_VOICE_GENDER_NEUTRAL"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dialogflow_conversation_profile#ssml_gender DialogflowConversationProfile#ssml_gender}
         '''
         result = self._values.get("ssml_gender")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -21,13 +21,14 @@
 ///
 /// See `transaction.h` for the public API.
 
-// IWYU pragma: private, include "third_party/tensorstore/transaction.h"
+// IWYU pragma: private, include "tensorstore/transaction.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include <atomic>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -731,7 +732,7 @@ class TransactionState {
   /// \param error The error to abort with, if one has not already been set.
   /// \param lock Must be a lock on `mutex_`.
   void RequestAbort(const absl::Status& error,
-                    UniqueWriterLock<absl::Mutex> lock);
+                    std::unique_lock<absl::Mutex> lock);
 
   /// Begins the asynchronous abort process.
   ///

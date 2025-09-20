@@ -29,7 +29,7 @@ class FailResult(BaseModel):
     FailResult
     """ # noqa: E501
     outcome: Optional[str]
-    error_message: Optional[str] = Field(alias="errorMessage")
+    error_message: str = Field(alias="errorMessage")
     fix_value: Optional[object] = Field(default=None, alias="fixValue")
     error_spans: Optional[List[ErrorSpan]] = Field(default=None, alias="errorSpans")
     metadata: Optional[Dict[str, Any]] = None
@@ -96,8 +96,8 @@ class FailResult(BaseModel):
 			"error_message": obj.get("errorMessage"),
 			"fix_value": obj.get("fixValue"),
 			"error_spans": [ErrorSpan.from_dict(es) for es in obj.get("errorSpans", [])],
-			"metadata": obj.get("metadata"),
             "outcome": obj.get("outcome"),
+            "metadata": obj.get("metadata"),
             "validated_chunk": obj.get("validatedChunk")
         })
         return _obj

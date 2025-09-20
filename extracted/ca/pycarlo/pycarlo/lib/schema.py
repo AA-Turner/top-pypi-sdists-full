@@ -342,12 +342,13 @@ class AlertAccessRequestStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `EXPIRED`None
+    * `NOTIFIED`None
     * `PENDING`None
     * `RESOLVED`None
     """
 
     __schema__ = schema
-    __choices__ = ("EXPIRED", "PENDING", "RESOLVED")
+    __choices__ = ("EXPIRED", "NOTIFIED", "PENDING", "RESOLVED")
 
 
 class AlertGroupBy(sgqlc.types.Enum):
@@ -646,9 +647,12 @@ class AssetFilterType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ACTIVITY_READ`None
+    * `ACTIVITY_READ_IS_NULL`None
     * `ACTIVITY_READ_WRITE`None
+    * `ACTIVITY_READ_WRITE_IS_NULL`None
     * `ACTIVITY_VOLUME_CHANGE`None
     * `ACTIVITY_WRITE`None
+    * `ACTIVITY_WRITE_IS_NULL`None
     * `TABLE_NAME`None
     * `TABLE_TAG`None
     * `TABLE_TYPE`None
@@ -657,9 +661,12 @@ class AssetFilterType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ACTIVITY_READ",
+        "ACTIVITY_READ_IS_NULL",
         "ACTIVITY_READ_WRITE",
+        "ACTIVITY_READ_WRITE_IS_NULL",
         "ACTIVITY_VOLUME_CHANGE",
         "ACTIVITY_WRITE",
+        "ACTIVITY_WRITE_IS_NULL",
         "TABLE_NAME",
         "TABLE_TAG",
         "TABLE_TYPE",
@@ -3698,6 +3705,7 @@ class MonitoredTableRuleType(sgqlc.types.Enum):
     * `exact_match`None
     * `gt`None
     * `in`None
+    * `is_null`None
     * `lte`None
     * `prefix`None
     * `substring`None
@@ -3711,6 +3719,7 @@ class MonitoredTableRuleType(sgqlc.types.Enum):
         "exact_match",
         "gt",
         "in",
+        "is_null",
         "lte",
         "prefix",
         "substring",
@@ -4780,6 +4789,19 @@ class StatementOption(sgqlc.types.Enum):
     __choices__ = ("ALL_ACCOUNT_OWNERS", "SPECIFIC_ADDRESSES")
 
 
+class Status(sgqlc.types.Enum):
+    """Access Request status
+
+    Enumeration Choices:
+
+    * `NOTIFIED`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NOTIFIED", "PENDING")
+
+
 class StorageTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4833,6 +4855,7 @@ String = sgqlc.types.String
 class TableAnomalyModelReason(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT`: Agent Anomaly
     * `COMPARISON_RULE`: Comparison Rule Anomaly
     * `CUSTOM_RULE`: Custom Rule Anomaly
     * `DIST`: Distribution Anomaly
@@ -4849,6 +4872,7 @@ class TableAnomalyModelReason(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT",
         "COMPARISON_RULE",
         "CUSTOM_RULE",
         "DIST",
@@ -5868,6 +5892,9 @@ class AssetFilterUnionInput(sgqlc.types.Input):
         "write_days",
         "read_write_days",
         "volume_change_days",
+        "read_activity_is_null",
+        "write_activity_is_null",
+        "read_write_activity_is_null",
         "type",
         "negated",
     )
@@ -5894,6 +5921,12 @@ class AssetFilterUnionInput(sgqlc.types.Input):
     read_write_days = sgqlc.types.Field(Int, graphql_name="readWriteDays")
 
     volume_change_days = sgqlc.types.Field(Int, graphql_name="volumeChangeDays")
+
+    read_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="readActivityIsNull")
+
+    write_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="writeActivityIsNull")
+
+    read_write_activity_is_null = sgqlc.types.Field(Boolean, graphql_name="readWriteActivityIsNull")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(AssetFilterType), graphql_name="type")
 
@@ -10937,6 +10970,59 @@ class AIMessageOutput(sgqlc.types.Type):
 
     status = sgqlc.types.Field(String, graphql_name="status")
     """When streaming the results, it returns the status of the request"""
+
+
+class AccessRequest(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "user_id",
+        "status",
+        "target_permission",
+        "target_id",
+        "reason",
+        "created_time",
+        "updated_time",
+        "notified_admins",
+    )
+    id = sgqlc.types.Field(Int, graphql_name="id")
+    """Unique identifier for the access request"""
+
+    user_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="userId")
+    """User who requested access"""
+
+    status = sgqlc.types.Field(Status, graphql_name="status")
+    """Current status of the access request"""
+
+    target_permission = sgqlc.types.Field(
+        sgqlc.types.non_null(Permission), graphql_name="targetPermission"
+    )
+    """Permission requested"""
+
+    target_id = sgqlc.types.Field(String, graphql_name="targetId")
+    """Object ID access was requested for"""
+
+    reason = sgqlc.types.Field(String, graphql_name="reason")
+    """Reason for requesting access"""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the request was created"""
+
+    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
+    """When the request was last updated"""
+
+    notified_admins = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="notifiedAdmins")
+    """List of admin emails that were notified about this request"""
+
+
+class AccessRequestOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success", "access_request")
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the operation was successful"""
+
+    access_request = sgqlc.types.Field(AccessRequest, graphql_name="accessRequest")
+    """The access request object"""
 
 
 class AccessToken(sgqlc.types.Type):
@@ -25120,6 +25206,7 @@ class Mutation(sgqlc.types.Type):
         "delete_authorization_group",
         "update_user_authorization_group_membership",
         "create_or_update_auth_provisioning",
+        "request_access",
         "create_or_update_resource",
         "match_and_create_bi_warehouse_sources",
         "toggle_disable_sampling",
@@ -36862,6 +36949,33 @@ class Mutation(sgqlc.types.Type):
     * `uuid` (`UUID`): For updating an auth provisioning config.
     """
 
+    request_access = sgqlc.types.Field(
+        AccessRequestOutput,
+        graphql_name="requestAccess",
+        args=sgqlc.types.ArgDict(
+            (
+                ("reason", sgqlc.types.Arg(String, graphql_name="reason", default=None)),
+                ("target_id", sgqlc.types.Arg(String, graphql_name="targetId", default=None)),
+                (
+                    "target_permission",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Permission),
+                        graphql_name="targetPermission",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Request permissions that the user is missing
+
+    Arguments:
+
+    * `reason` (`String`): Reason for requesting access
+    * `target_id` (`String`): Object ID access was requested for
+    * `target_permission` (`Permission!`): Permission requested
+    """
+
     create_or_update_resource = sgqlc.types.Field(
         CreateOrUpdateResource,
         graphql_name="createOrUpdateResource",
@@ -43644,6 +43758,7 @@ class Query(sgqlc.types.Type):
         "get_authorization_groups",
         "get_user_authorization",
         "get_authorization_provisioning",
+        "get_access_request",
         "search",
         "search_tables_for_dynamic_schedule",
         "get_object",
@@ -49780,6 +49895,26 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "transforms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(TransformInput)),
+                        graphql_name="transforms",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput)),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -49789,6 +49924,12 @@ class Query(sgqlc.types.Type):
 
     * `mcon` (`String!`): MCON to evaluate
     * `connection_id` (`UUID`): Connection UUID
+    * `transforms` (`[TransformInput!]`): Transforms to apply to the
+      data source
+    * `filters` (`FilterGroupInput`): Structured SQL filtering
+      conditions to apply to query
+    * `agent_span_filters` (`[AgentSpanFilterInput!]`): Filter by
+      agent span fields (agent, workflow, task, span_name)
     """
 
     get_job_execution_history_logs = sgqlc.types.Field(
@@ -55580,6 +55721,34 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get the authorization provisioning config for this
     account.
+    """
+
+    get_access_request = sgqlc.types.Field(
+        AccessRequest,
+        graphql_name="getAccessRequest",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "target_permission",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Permission),
+                        graphql_name="targetPermission",
+                        default=None,
+                    ),
+                ),
+                ("target_id", sgqlc.types.Arg(String, graphql_name="targetId", default=None)),
+                ("reason", sgqlc.types.Arg(String, graphql_name="reason", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get the status of an alert access request for the
+    current user
+
+    Arguments:
+
+    * `target_permission` (`Permission!`): Permission requested
+    * `target_id` (`String`): Object ID access was requested for
+    * `reason` (`String`): Reason for requesting access
     """
 
     search = sgqlc.types.Field(
@@ -65556,6 +65725,7 @@ class TransformFunction(sgqlc.types.Type):
         "output_type",
         "supports_field_range",
         "supported_output_types",
+        "icon",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -65595,6 +65765,8 @@ class TransformFunction(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="supportedOutputTypes",
     )
+
+    icon = sgqlc.types.Field(String, graphql_name="icon")
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
@@ -67212,6 +67384,7 @@ class Warehouse(sgqlc.types.Type):
         "supports_activity_filters",
         "mcon",
         "metadata_connection",
+        "metadata_schedule",
         "create_alerts_in_datasource",
         "custom_monitor_count",
         "total_monitor_count",
@@ -67520,6 +67693,9 @@ class Warehouse(sgqlc.types.Type):
 
     metadata_connection = sgqlc.types.Field(Connection, graphql_name="metadataConnection")
     """The connection used for metadata collection of the warehouse"""
+
+    metadata_schedule = sgqlc.types.Field(ScheduleConfigOutput, graphql_name="metadataSchedule")
+    """The schedule used for default metadata collection"""
 
     create_alerts_in_datasource = sgqlc.types.Field(
         Boolean, graphql_name="createAlertsInDatasource"
@@ -68546,10 +68722,26 @@ class AssetFilterActivityRead(sgqlc.types.Type, AssetFilterInterface):
     read_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readDays")
 
 
+class AssetFilterActivityReadIsNull(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("read_activity_is_null",)
+    read_activity_is_null = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="readActivityIsNull"
+    )
+
+
 class AssetFilterActivityReadWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("read_write_days",)
     read_write_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="readWriteDays")
+
+
+class AssetFilterActivityReadWriteIsNull(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("read_write_activity_is_null",)
+    read_write_activity_is_null = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="readWriteActivityIsNull"
+    )
 
 
 class AssetFilterActivityVolumeChange(sgqlc.types.Type, AssetFilterInterface):
@@ -68564,6 +68756,14 @@ class AssetFilterActivityWrite(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("write_days",)
     write_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="writeDays")
+
+
+class AssetFilterActivityWriteIsNull(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("write_activity_is_null",)
+    write_activity_is_null = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="writeActivityIsNull"
+    )
 
 
 class AssetFilterTableName(sgqlc.types.Type, AssetFilterInterface):
@@ -72557,6 +72757,7 @@ class Event(sgqlc.types.Type, Node):
         "table_stats",
         "mc_sql",
         "source_sql",
+        "custom_sql",
         "is_merged",
         "description",
     )
@@ -72685,6 +72886,9 @@ class Event(sgqlc.types.Type, Node):
 
     source_sql = sgqlc.types.Field(String, graphql_name="sourceSql")
     """Data source SQL for monitors using a custom SQL source."""
+
+    custom_sql = sgqlc.types.Field(String, graphql_name="customSql")
+    """Custom SQL for custom SQL monitors"""
 
     is_merged = sgqlc.types.Field(Boolean, graphql_name="isMerged")
     """Whether the event originally belonged to another alert which was

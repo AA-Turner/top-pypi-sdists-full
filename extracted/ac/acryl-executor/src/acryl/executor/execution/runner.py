@@ -21,6 +21,11 @@ import anyio.streams.text
 import pydantic
 from loguru import logger
 
+from acryl.executor.cloud_utils.env_utils import (
+    get_bundled_venv_path,
+    get_dependency_resolution_enabled,
+)
+
 _DEFAULT_MAX_LOG_LINES = 2000
 _DEFAULT_MAX_BYTES_PER_LINE = 2**12  # 4kb
 # Kafka has a 1mb limit on the size of a data packet.
@@ -422,9 +427,7 @@ async def setup_venv(
     # New: Handle bundled startup venvs
     if venv_config.version == VENV_VERSION_BUNDLED:
         if bundled_venv_path is None:
-            bundled_venv_path = pathlib.Path(
-                os.environ.get("DATAHUB_BUNDLED_VENV_PATH", "/opt/datahub/venvs")
-            )
+            bundled_venv_path = pathlib.Path(get_bundled_venv_path())
 
         if venv_config.main_plugin is None:
             raise ValueError(
@@ -513,10 +516,7 @@ def validate_dependency_resolution_enabled(version: str) -> None:
     Raises:
         ValueError: If version is incompatible with dependency resolution settings.
     """
-    dependency_resolution_enabled = (
-        os.environ.get("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "true").lower()
-        == "true"
-    )
+    dependency_resolution_enabled = get_dependency_resolution_enabled()
 
     if not dependency_resolution_enabled and version != VENV_VERSION_BUNDLED:
         raise ValueError(

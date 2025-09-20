@@ -494,7 +494,7 @@ class SnapshotEvaluator:
         with self.concurrent_context():
             # Only migrate snapshots for which there's an existing data object
             concurrent_apply_to_snapshots(
-                snapshots_by_name.values(),
+                target_snapshots,
                 lambda s: self._migrate_snapshot(
                     s,
                     snapshots_by_name,
@@ -763,7 +763,7 @@ class SnapshotEvaluator:
                         snapshots=snapshots,
                         deployability_index=deployability_index,
                         render_kwargs=create_render_kwargs,
-                        rendered_physical_properties=rendered_physical_properties,
+                        rendered_physical_properties=rendered_physical_properties.copy(),
                         allow_destructive_snapshots=allow_destructive_snapshots,
                         allow_additive_snapshots=allow_additive_snapshots,
                     )
@@ -776,7 +776,7 @@ class SnapshotEvaluator:
                         is_table_deployable=is_snapshot_deployable,
                         deployability_index=deployability_index,
                         create_render_kwargs=create_render_kwargs,
-                        rendered_physical_properties=rendered_physical_properties,
+                        rendered_physical_properties=rendered_physical_properties.copy(),
                         dry_run=False,
                         run_pre_post_statements=False,
                     )

@@ -14,14 +14,20 @@
 
 #include <stdint.h>
 
+#include <string>
+#include <string_view>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/data_type.h"
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
+#include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/kvstore.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/open.h"
@@ -44,6 +50,12 @@ auto MakeInitial(const Context &context) {
                            context, tensorstore::dtype_v<int32_t>,
                            tensorstore::Schema::Shape({10, 20}),
                            tensorstore::OpenMode::create);
+}
+
+template <typename... Args>
+std::string AsFileUri(std::string_view path, Args... args) {
+  return absl::StrCat("file://", tensorstore::internal::OsPathToUriPath(path),
+                      std::forward<Args>(args)...);
 }
 
 TEST(AutoTest, ExplicitDriver) {
@@ -116,7 +128,7 @@ TEST(AutoTest, UnbindContextSimple) {
                 {"cache_pool", {{"total_bytes_limit", 1000}}},
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
-                {"file_io_memmap", false},
+                {"file_io_mode", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));
@@ -153,7 +165,7 @@ TEST(AutoTest, UnbindContext1) {
                 {"cache_pool", {{"total_bytes_limit", 1000}}},
                 {"file_io_concurrency", ::nlohmann::json::object_t()},
                 {"file_io_locking", ::nlohmann::json::object_t()},
-                {"file_io_memmap", false},
+                {"file_io_mode", ::nlohmann::json::object_t()},
                 {"file_io_sync", true},
                 {"ocdbt_coordinator", ::nlohmann::json::object_t()},
             }}})));
@@ -185,12 +197,12 @@ TEST(AutoTest, MemoryOcdbtZarr3) {
 
 TEST(AutoTest, FileZarr3) {
   ScopedTemporaryDirectory tempdir;
-  TENSORSTORE_ASSERT_OK(tensorstore::Open("file://" + tempdir.path() + "|zarr3",
+  TENSORSTORE_ASSERT_OK(tensorstore::Open(AsFileUri(tempdir.path(), "|zarr3"),
                                           tensorstore::dtype_v<int32_t>,
                                           tensorstore::Schema::Shape({5}),
                                           tensorstore::OpenMode::create)
                             .result());
-  TENSORSTORE_ASSERT_OK(tensorstore::Open("file://" + tempdir.path()).result());
+  TENSORSTORE_ASSERT_OK(tensorstore::Open(AsFileUri(tempdir.path())).result());
 }
 
 TEST(AutoTest, MemoryZarr3Transaction) {

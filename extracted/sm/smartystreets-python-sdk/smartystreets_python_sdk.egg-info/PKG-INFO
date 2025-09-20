@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: smartystreets-python-sdk
-Version: 4.20.0
+Version: 4.20.1
 Summary: An official library to help Python developers easily access the SmartyStreets APIs
 Home-page: https://github.com/smartystreets/smartystreets-python-sdk
-Download-URL: https://github.com/smartystreets/smartystreets-python-sdk/tarball/4.20.0
+Download-URL: https://github.com/smartystreets/smartystreets-python-sdk/tarball/4.20.1
 Author: SmartyStreets SDK Team
 Author-email: support@smartystreets.com
 License: Apache 2

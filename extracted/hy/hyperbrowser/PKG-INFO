@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: hyperbrowser
-Version: 0.56.0
+Version: 0.57.0
 Summary: Python SDK for hyperbrowser
 License: MIT
+License-File: LICENSE
 Author: Nikhil Shahi
 Author-email: nshahi1998@gmail.com
 Requires-Python: >=3.8,<4.0
@@ -14,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpx (>=0.23.0,<1)
 Requires-Dist: jsonref (>=1.1.0)
 Requires-Dist: pydantic (>=2.0,<3)

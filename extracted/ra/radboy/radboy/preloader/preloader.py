@@ -151,6 +151,11 @@ Here:
 						'exec':lambda: sudokuCandidates(),
 					},
 					f'{uuid1()}':{
+						'cmds':[i for i in generate_cmds(startcmd=['sudoku',],endCmd=['candidates auto','cda'])],
+						'desc':f'obtain candidates for sudoku cell for the whole grid',
+						'exec':lambda: candidates(),
+					},
+					f'{uuid1()}':{
 						'cmds':['herons formula','hrns fmla'],
 						'desc':f'''
 Heron's formula calculates the area of any 

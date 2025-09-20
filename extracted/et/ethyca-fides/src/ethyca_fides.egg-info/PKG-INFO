@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethyca_fides
-Version: 2.70.0
+Version: 2.70.3
 Summary: Open-source ecosystem for data privacy as code.
 Home-page: https://github.com/ethyca/fides
 Author: Ethyca, Inc.
@@ -65,7 +65,7 @@ Requires-Dist: pydantic-settings==2.3.3
 Requires-Dist: pydash==6.0.2
 Requires-Dist: pygtrie==2.5.0
 Requires-Dist: PyJWT==2.4.0
-Requires-Dist: pymongo==4.7.3
+Requires-Dist: pymongo[srv]==4.7.3
 Requires-Dist: PyMySQL==1.1.1
 Requires-Dist: python-jose[cryptography]==3.3.0
 Requires-Dist: pyyaml==6.0.1

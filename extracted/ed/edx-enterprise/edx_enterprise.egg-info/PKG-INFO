@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-enterprise
-Version: 6.4.2
+Version: 6.4.3
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -108,6 +108,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.4.3]
+--------
+* fix: changes enterprise customer user dropdown to raw id to not break admin page
 
 [6.4.2]
 --------

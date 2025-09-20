@@ -239,7 +239,7 @@ class RemotePregel(BaseRemotePregel):
                         tuple(task["path"]) if task.get("path") else tuple(),
                         # TODO: figure out how to properly deserialise errors
                         task.get("error"),
-                        tuple(interrupts),
+                        tuple(interrupts),  # type: ignore[arg-type]
                         state,
                         task.get("result"),
                     )

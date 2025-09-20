@@ -760,19 +760,19 @@ class Trainee(BaseTrainee):
         auto_ablation_enabled: bool = False,
         *,
         ablated_cases_distribution_batch_size: int = 100,
-        abs_threshold_map: AblationThresholdMap = None,
+        abs_threshold_map: t.Optional[AblationThresholdMap] = None,
         auto_ablation_influence_weight_entropy_threshold: float = 0.15,
         auto_ablation_weight_feature: str = ".case_weight",
         batch_size: int = 2_000,
         conviction_lower_threshold: t.Optional[float] = None,
         conviction_upper_threshold: t.Optional[float] = None,
-        delta_threshold_map: AblationThresholdMap = None,
+        delta_threshold_map: t.Optional[AblationThresholdMap] = None,
         exact_prediction_features: t.Optional[Collection[str]] = None,
         influence_weight_entropy_sample_size: int = 2_000,
         min_num_cases: int = 10_000,
         max_num_cases: int = 200_000,
         reduce_data_influence_weight_entropy_threshold: float = 0.6,
-        rel_threshold_map: AblationThresholdMap = None,
+        rel_threshold_map: t.Optional[AblationThresholdMap] = None,
         relative_prediction_threshold_map: t.Optional[Mapping[str, float]] = None,
         residual_prediction_features: t.Optional[Collection[str]] = None,
         tolerance_prediction_threshold_map: t.Optional[Mapping[str, tuple[float, float]]] = None,
@@ -1233,6 +1233,7 @@ class Trainee(BaseTrainee):
         input_is_substituted: bool = False,
         into_series_store: t.Optional[str] = None,
         leave_case_out: bool = False,
+        new_case_min_distance_ratio: t.Optional[float] = None,
         new_case_threshold: NewCaseThreshold = "min",
         num_cases_to_generate: int = 1,
         ordered_by_specified_features: bool = False,
@@ -1607,6 +1608,10 @@ class Trainee(BaseTrainee):
                 Uses only the context features of the reacted case to determine that area.
                 Uses full calculations, which uses leave-one-out context features for
                 computations.
+            - relevant_values : bool or list of strings, optional
+                When true outputs a map of each context feature name to a list of relevant values for that
+                feature given the context. If a list of feature names, will only output relevant values for
+                each feature specified.
             - selected_prediction_stats : list[Prediction_Stats], optional.
                 List of stats to output. When unspecified, returns all except the confusion matrix. Allowed values:
 
@@ -1736,6 +1741,14 @@ class Trainee(BaseTrainee):
             When True and specified along with ``case_indices``, each individual
             react will respectively ignore the corresponding case specified
             by ``case_indices`` by leaving it out.
+        new_case_min_distance_ratio : float, optional
+            Parameter that adjusts the required distance ratio for a newly
+            generated case to be considered private. When unspecified, defaults
+            to 1.0 and generated cases with a ratio of 1.0 or greater are
+            considered private. Larger values will increase strictness of
+            privacy check. Smaller values will loosen the privacy check. Must
+            be a positive number, since 0 would function same as
+            `generate_new_cases='no'`.
         new_case_threshold : {"max", "min", "most_similar"}, default "min"
             Distance to determine the privacy cutoff.
 
@@ -1817,6 +1830,7 @@ class Trainee(BaseTrainee):
             input_is_substituted=input_is_substituted,
             into_series_store=into_series_store,
             leave_case_out=leave_case_out,
+            new_case_min_distance_ratio=new_case_min_distance_ratio,
             new_case_threshold=new_case_threshold,
             num_cases_to_generate=num_cases_to_generate,
             ordered_by_specified_features=ordered_by_specified_features,
@@ -1855,6 +1869,7 @@ class Trainee(BaseTrainee):
         input_is_substituted: bool = False,
         leave_series_out: bool = False,
         max_series_lengths: t.Optional[list[int]] = None,
+        new_case_min_distance_ratio: t.Optional[float] = None,
         new_case_threshold: NewCaseThreshold = "min",
         num_series_to_generate: int = 1,
         ordered_by_specified_features: bool = False,
@@ -1988,6 +2003,14 @@ class Trainee(BaseTrainee):
             with ``continue_series``, this defines the maximum length of the
             forecast. Must provide either one for all series, or exactly
             one per series.
+        new_case_min_distance_ratio : float, optional
+            Parameter that adjusts the required distance ratio for a newly
+            generated case to be considered private. When unspecified, defaults
+            to 1.0 and generated cases with a ratio of 1.0 or greater are
+            considered private. Larger values will increase strictness of
+            privacy check. Smaller values will loosen the privacy check. Must
+            be a positive number, since 0 would function same as
+            `generate_new_cases='no'`.
         new_case_threshold : str, optional
             See parameter ``new_case_threshold`` in :meth:`react`.
         num_series_to_generate : int, default 1
@@ -2092,6 +2115,7 @@ class Trainee(BaseTrainee):
                 initial_batch_size=initial_batch_size,
                 input_is_substituted=input_is_substituted,
                 max_series_lengths=max_series_lengths,
+                new_case_min_distance_ratio=new_case_min_distance_ratio,
                 new_case_threshold=new_case_threshold,
                 num_series_to_generate=num_series_to_generate,
                 ordered_by_specified_features=ordered_by_specified_features,
@@ -3612,6 +3636,10 @@ class Trainee(BaseTrainee):
                 "selected_prediction_stats" parameter in the `details` parameter.
                 Uses full calculations, which uses leave-one-out for features for
                 computations.
+            - relevant_values : bool or list of strings, optional
+                When true outputs a map of each context feature name to a list of relevant values for that
+                feature given the context. If a list of feature names, will only output relevant values for
+                each feature specified.
             - selected_prediction_stats : list, optional
                 List of stats to output. When unspecified, returns all except the confusion matrix. Allowed values:
 

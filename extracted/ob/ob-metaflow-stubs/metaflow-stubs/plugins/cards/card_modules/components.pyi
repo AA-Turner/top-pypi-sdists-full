@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
-# Generated on 2025-09-16T23:23:08.695091                                                            #
+# MF version: 2.18.7.5+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-19T21:56:58.693816                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.plugins.cards.card_modules.card
-    import metaflow.plugins.cards.card_modules.components
     import typing
+    import metaflow.plugins.cards.card_modules.components
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent
@@ -317,6 +317,86 @@ class ProgressBar(UserComponent, metaclass=type):
     def __init__(self, max: int = 100, label: typing.Optional[str] = None, value: int = 0, unit: typing.Optional[str] = None, metadata: typing.Optional[str] = None):
         ...
     def update(self, new_value: int, metadata: typing.Optional[str] = None):
+        ...
+    def render(self, *args, **kwargs):
+        ...
+    ...
+
+class ValueBox(UserComponent, metaclass=type):
+    """
+    A Value Box component for displaying key metrics with styling and change indicators.
+    
+    Inspired by Shiny's value box component, this displays a primary value with optional
+    title, subtitle, theme, and change indicators.
+    
+    Example:
+    ```
+    # Basic value box
+    value_box = ValueBox(
+        title="Revenue",
+        value="$1.2M",
+        subtitle="Monthly Revenue",
+        change_indicator="Up 15% from last month"
+    )
+    current.card.append(value_box)
+    
+    # Themed value box
+    value_box = ValueBox(
+        title="Total Savings",
+        value=50000,
+        theme="success",
+        change_indicator="Up 30% from last month"
+    )
+    current.card.append(value_box)
+    
+    # Updatable value box for real-time metrics
+    metrics_box = ValueBox(
+        title="Processing Progress",
+        value=0,
+        subtitle="Items processed"
+    )
+    current.card.append(metrics_box)
+    
+    for i in range(1000):
+        metrics_box.update(value=i, change_indicator=f"Rate: {i*2}/sec")
+    ```
+    
+    Parameters
+    ----------
+    title : str, optional
+        The title/label for the value box (usually displayed above the value).
+        Must be 200 characters or less.
+    value : Union[str, int, float]
+        The main value to display prominently. Required parameter.
+    subtitle : str, optional
+        Additional descriptive text displayed below the title.
+        Must be 300 characters or less.
+    theme : str, optional
+        CSS class name for styling the value box. Supported themes: 'default', 'success',
+        'warning', 'danger', 'bg-gradient-indigo-purple'. Custom themes must be valid CSS class names.
+    change_indicator : str, optional
+        Text indicating change or additional context (e.g., "Up 30% VS PREVIOUS 30 DAYS").
+        Must be 200 characters or less.
+    """
+    def __init__(self, title: typing.Optional[str] = None, value: typing.Union[str, int, float] = '', subtitle: typing.Optional[str] = None, theme: typing.Optional[str] = None, change_indicator: typing.Optional[str] = None):
+        ...
+    def update(self, title: typing.Optional[str] = None, value: typing.Union[str, int, float, None] = None, subtitle: typing.Optional[str] = None, theme: typing.Optional[str] = None, change_indicator: typing.Optional[str] = None):
+        """
+        Update the value box with new data.
+        
+        Parameters
+        ----------
+        title : str, optional
+            New title for the value box.
+        value : Union[str, int, float], optional
+            New value to display.
+        subtitle : str, optional
+            New subtitle text.
+        theme : str, optional
+            New theme/styling class.
+        change_indicator : str, optional
+            New change indicator text.
+        """
         ...
     def render(self, *args, **kwargs):
         ...

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -446,13 +447,13 @@ void NodeCommitOperation::ApplyMutations(NodeCommitOperation::Ptr commit_op,
 }
 
 void NodeCommitOperation::Done() {
-  UniqueWriterLock lock{mutation_requests->mutex};
+  std::unique_lock lock{mutation_requests->mutex};
   mutation_requests->commit_in_progress = false;
   MaybeCommit(*server, std::move(mutation_requests), std::move(lock));
 }
 
 void NodeCommitOperation::StagePending() {
-  absl::MutexLock lock(&mutation_requests->mutex);
+  absl::MutexLock lock(mutation_requests->mutex);
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server->listening_port_
       << "] StagePending: initial staged=" << staged.requests.size()
@@ -847,7 +848,7 @@ void NodeCommitOperation::RetryCommit(NodeCommitOperation::Ptr commit_op) {
 // Starts a commit operation if one is not already in progress.
 void MaybeCommit(Cooperator& server,
                  internal::IntrusivePtr<NodeMutationRequests> mutation_requests,
-                 UniqueWriterLock<absl::Mutex>&& lock) {
+                 std::unique_lock<absl::Mutex>&& lock) {
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "[Port=" << server.listening_port_ << "] MaybeCommit: node_identifier="
       << mutation_requests->lease_node->node_identifier
@@ -855,13 +856,13 @@ void MaybeCommit(Cooperator& server,
   while (mutation_requests->pending.requests.empty()) {
     // Attempt to remove.
     lock.unlock();
-    absl::MutexLock server_lock(&server.mutex_);
+    absl::MutexLock server_lock(server.mutex_);
     if (mutation_requests->use_count() == 2) {
       // Remove from map.
       server.node_mutation_map_.erase(mutation_requests->node_key());
       return;
     }
-    lock = UniqueWriterLock{mutation_requests->mutex};
+    lock = std::unique_lock{mutation_requests->mutex};
   }
   if (mutation_requests->commit_in_progress) return;
   mutation_requests->commit_in_progress = true;

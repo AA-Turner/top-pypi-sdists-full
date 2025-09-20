@@ -55,9 +55,9 @@ def test_parser(tmp_package, package, version) -> None:
         tmp_package.install(f"{package}=={version}")
 
     # first run, count the files
-    tmp_package.freeze(
-        "cxfreeze --script test.py --excludes=tkinter,unittest --silent"
-    )
+    command = "cxfreeze --script test.py --silent"
+    command += " --excludes=tkinter,unittest --include-msvcr"
+    tmp_package.freeze(command)
 
     file_created = tmp_package.executable("test")
     assert file_created.is_file(), f"file not found: {file_created}"
@@ -111,8 +111,7 @@ def test_verify_patchelf_older(tmp_package) -> None:
     tmp_package.create(SOURCE)
     tmp_package.install("patchelf<0.14")
 
-    tmp_bin = tmp_package.prefix / "bin"
-
+    tmp_bin = tmp_package.venv_prefix / "bin"
     tmp_package.monkeypatch.setattr("shutil.which", lambda cmd: tmp_bin / cmd)
     msg = r"patchelf\s+(\d+(.\d+)?)\s+found."
     with pytest.raises(ValueError, match=msg):

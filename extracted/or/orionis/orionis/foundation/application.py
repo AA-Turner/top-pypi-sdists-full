@@ -23,6 +23,7 @@ from orionis.foundation.config.startup import Configuration
 from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.foundation.contracts.application import IApplication
 from orionis.foundation.exceptions import OrionisTypeError, OrionisRuntimeError, OrionisValueError
+from orionis.services.environment.env import Env
 from orionis.services.log.contracts.log_service import ILogger
 from orionis.support.wrapper.dataclass import DataClass
 
@@ -111,6 +112,12 @@ class Application(Container, IApplication):
         data structures for providers and configurators, and sets the application
         boot status to False until explicitly booted via the create() method.
         """
+
+        # Check if the virtual environment is activated.
+        if not Env.isVirtual():
+            raise RuntimeError(
+                "You must activate the virtual environment to use the Orionis Framework correctly."
+            )
 
         # Initialize base container with application paths
         super().__init__()

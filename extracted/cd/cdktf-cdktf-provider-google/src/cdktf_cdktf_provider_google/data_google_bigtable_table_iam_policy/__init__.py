@@ -1,7 +1,7 @@
 r'''
 # `data_google_bigtable_table_iam_policy`
 
-Refer to the Terraform Registry for docs: [`data_google_bigtable_table_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy).
+Refer to the Terraform Registry for docs: [`data_google_bigtable_table_iam_policy`](https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,16 +44,17 @@ class DataGoogleBigtableTableIamPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleBigtableTableIamPolicy.DataGoogleBigtableTableIamPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy google_bigtable_table_iam_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy google_bigtable_table_iam_policy}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        instance: builtins.str,
         table: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        instance: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -63,14 +64,15 @@ class DataGoogleBigtableTableIamPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy google_bigtable_table_iam_policy} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy google_bigtable_table_iam_policy} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.
-        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.
+        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance_name DataGoogleBigtableTableIamPolicy#instance_name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,9 +86,10 @@ class DataGoogleBigtableTableIamPolicy(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = DataGoogleBigtableTableIamPolicyConfig(
-            instance=instance,
             table=table,
             id=id,
+            instance=instance,
+            instance_name=instance_name,
             project=project,
             connection=connection,
             count=count,
@@ -112,7 +115,7 @@ class DataGoogleBigtableTableIamPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleBigtableTableIamPolicy to import.
-        :param import_from_id: The id of the existing DataGoogleBigtableTableIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleBigtableTableIamPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleBigtableTableIamPolicy to import is found.
         '''
         if __debug__:
@@ -126,6 +129,14 @@ class DataGoogleBigtableTableIamPolicy(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetInstance")
+    def reset_instance(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstance", []))
+
+    @jsii.member(jsii_name="resetInstanceName")
+    def reset_instance_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstanceName", []))
 
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
@@ -165,6 +176,11 @@ class DataGoogleBigtableTableIamPolicy(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="instanceNameInput")
+    def instance_name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceNameInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="projectInput")
     def project_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectInput"))
@@ -197,6 +213,18 @@ class DataGoogleBigtableTableIamPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__5a92a7c41518ccd886350bd9d17f22170326891f69b454410c4e854ba863e895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceName")
+    def instance_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "instanceName"))
+
+    @instance_name.setter
+    def instance_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9576d8fb1745e55c5fca822186202fd39b3dee3d4fbb8ea006fba2ea640f910)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="project")
@@ -234,9 +262,10 @@ class DataGoogleBigtableTableIamPolicy(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "instance": "instance",
         "table": "table",
         "id": "id",
+        "instance": "instance",
+        "instance_name": "instanceName",
         "project": "project",
     },
 )
@@ -251,9 +280,10 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        instance: builtins.str,
         table: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        instance: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -264,10 +294,11 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.
-        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.
+        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance_name DataGoogleBigtableTableIamPolicy#instance_name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -280,12 +311,12 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
+            check_type(argname="argument instance_name", value=instance_name, expected_type=type_hints["instance_name"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance": instance,
             "table": table,
         }
         if connection is not None:
@@ -304,6 +335,10 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if instance is not None:
+            self._values["instance"] = instance
+        if instance_name is not None:
+            self._values["instance_name"] = instance_name
         if project is not None:
             self._values["project"] = project
 
@@ -372,22 +407,15 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def instance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.'''
-        result = self._values.get("instance")
-        assert result is not None, "Required property 'instance' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def table(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#table DataGoogleBigtableTableIamPolicy#table}.'''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#id DataGoogleBigtableTableIamPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -396,8 +424,20 @@ class DataGoogleBigtableTableIamPolicyConfig(_cdktf_9a9027ec.TerraformMetaArgume
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def instance(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance DataGoogleBigtableTableIamPolicy#instance}.'''
+        result = self._values.get("instance")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#instance_name DataGoogleBigtableTableIamPolicy#instance_name}.'''
+        result = self._values.get("instance_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/data-sources/bigtable_table_iam_policy#project DataGoogleBigtableTableIamPolicy#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -424,9 +464,10 @@ def _typecheckingstub__42c2307e3bfb06cdd71c9ed4ce27c223073aed3f2fc1293ed0ba9f6b8
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    instance: builtins.str,
     table: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    instance: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -460,6 +501,12 @@ def _typecheckingstub__5a92a7c41518ccd886350bd9d17f22170326891f69b454410c4e854ba
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a9576d8fb1745e55c5fca822186202fd39b3dee3d4fbb8ea006fba2ea640f910(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9692fa668f93e7138860b4118c75286ba515387eb90963caaccdd4ca5ad43cd0(
     value: builtins.str,
 ) -> None:
@@ -481,9 +528,10 @@ def _typecheckingstub__4afa98781ff240d571fe61dd60bdc8e2cf46261cadba97cd6301a4b99
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    instance: builtins.str,
     table: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    instance: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: ably
-Version: 2.0.13
+Version: 2.1.0
 Summary: Python REST and Realtime client library SDK for Ably realtime messaging service
-Home-page: https://ably.com
 License: Apache-2.0
 Author: Ably
 Author-email: support@ably.com
@@ -23,18 +22,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: crypto
 Provides-Extra: oldcrypto
+Provides-Extra: vcdiff
 Requires-Dist: h2 (>=4.1.0,<5.0.0)
-Requires-Dist: httpx (>=0.24.1,<0.25.0) ; python_version >= "3.7" and python_version < "3.8"
+Requires-Dist: httpx (>=0.24.1,<0.25.0) ; python_version == "3.7"
 Requires-Dist: httpx (>=0.25.0,<1.0) ; python_version >= "3.8" and python_version < "4.0"
 Requires-Dist: methoddispatch (>=3.0.2,<4.0.0)
 Requires-Dist: msgpack (>=1.0.0,<2.0.0)
 Requires-Dist: pycrypto (>=2.6.1,<3.0.0) ; extra == "oldcrypto"
 Requires-Dist: pycryptodome ; extra == "crypto"
 Requires-Dist: pyee (>=11.1.0,<13.0.0) ; python_version >= "3.8" and python_version < "4.0"
-Requires-Dist: pyee (>=9.0.4,<10.0.0) ; python_version >= "3.7" and python_version < "3.8"
-Requires-Dist: websockets (>=10.0,<12.0) ; python_version >= "3.7" and python_version < "3.8"
-Requires-Dist: websockets (>=12.0,<15.0) ; python_version >= "3.8" and python_version < "3.9"
+Requires-Dist: pyee (>=9.0.4,<10.0.0) ; python_version == "3.7"
+Requires-Dist: vcdiff-decoder (>=0.1.0,<0.2.0) ; extra == "vcdiff"
+Requires-Dist: websockets (>=10.0,<12.0) ; python_version == "3.7"
+Requires-Dist: websockets (>=12.0,<15.0) ; python_version == "3.8"
 Requires-Dist: websockets (>=15.0,<16.0) ; python_version >= "3.9"
+Project-URL: Homepage, https://ably.com
 Project-URL: Repository, https://github.com/ably/ably-python
 Description-Content-Type: text/x-rst
 

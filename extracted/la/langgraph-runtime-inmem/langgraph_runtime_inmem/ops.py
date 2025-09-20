@@ -62,9 +62,9 @@ if typing.TYPE_CHECKING:
         ThreadUpdateResponse,
     )
     from langgraph_api.schema import Interrupt as InterruptSchema
-    from langgraph_api.serde import Fragment
     from langgraph_api.utils import AsyncConnectionProto
 
+StreamHandler = ContextQueue
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -2400,68 +2400,6 @@ class Runs(Authenticated):
         return _yield_deleted()
 
     @staticmethod
-    async def join(
-        run_id: UUID,
-        *,
-        thread_id: UUID,
-        ctx: Auth.types.BaseAuthContext | None = None,
-    ) -> Fragment:
-        """Wait for a run to complete. If already done, return immediately.
-
-        Returns:
-            the final state of the run.
-        """
-        from langgraph_api.serde import Fragment
-        from langgraph_api.utils import fetchone
-
-        async with connect() as conn:
-            # Validate ownership
-            thread_iter = await Threads.get(conn, thread_id, ctx=ctx)
-            await fetchone(thread_iter)
-        last_chunk: bytes | None = None
-        # wait for the run to complete
-        # Rely on this join's auth
-        async with await Runs.Stream.subscribe(run_id, thread_id) as sub:
-            async for mode, chunk, _ in Runs.Stream.join(
-                run_id,
-                thread_id=thread_id,
-                ctx=ctx,
-                ignore_404=True,
-                stream_channel=sub,
-                stream_mode=["values", "updates", "error"],
-            ):
-                if mode == b"values":
-                    last_chunk = chunk
-                elif mode == b"updates" and b"__interrupt__" in chunk:
-                    last_chunk = chunk
-                elif mode == b"error":
-                    last_chunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-        # if we received a final chunk, return it
-        if last_chunk is not None:
-            # ie. if the run completed while we were waiting for it
-            return Fragment(last_chunk)
-        else:
-            # otherwise, the run had already finished, so fetch the state from thread
-            async with connect() as conn:
-                thread_iter = await Threads.get(conn, thread_id, ctx=ctx)
-                thread = await fetchone(thread_iter)
-                if thread["status"] == "error":
-                    return Fragment(
-                        orjson.dumps({"__error__": orjson.Fragment(thread["error"])})
-                    )
-                if thread["status"] == "interrupted":
-                    # Get an interrupt for the thread. There is the case where there are multiple interrupts for the same run and we may not show the same
-                    # interrupt, but we'll always show one. Long term we should show all of them.
-                    try:
-                        interrupt_map = thread["interrupts"]
-                        interrupt = [next(iter(interrupt_map.values()))[0]]
-                        return Fragment(orjson.dumps({"__interrupt__": interrupt}))
-                    except Exception:
-                        # No interrupt, but status is interrupted from a before/after block. Default back to values.
-                        pass
-                return thread["values"]
-
-    @staticmethod
     async def cancel(
         conn: InMemConnectionProto | AsyncConnectionProto,
         run_ids: Sequence[UUID | str] | None = None,
@@ -2720,26 +2658,15 @@ class Runs(Authenticated):
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the run output."""
             from langgraph_api.asyncio import create_task
-            from langgraph_api.serde import json_loads
+            from langgraph_api.serde import json_dumpb, json_loads
 
             queue = stream_channel
             try:
                 async with connect() as conn:
-                    filters = await Runs.handle_event(
-                        ctx,
-                        "read",
-                        Auth.types.ThreadsRead(thread_id=thread_id),
-                    )
-                    if filters:
-                        thread = await Threads._get_with_filters(
-                            cast(InMemConnectionProto, conn), thread_id, filters
-                        )
-                        if not thread:
-                            raise WrappedHTTPException(
-                                HTTPException(
-                                    status_code=404, detail="Thread not found"
-                                )
-                            )
+                    try:
+                        await Runs.Stream.check_run_stream_auth(run_id, thread_id, ctx)
+                    except HTTPException as e:
+                        raise WrappedHTTPException(e) from None
                     run = await Runs.get(conn, run_id, thread_id=thread_id, ctx=ctx)
 
                     for message in get_stream_manager().restore_messages(
@@ -2818,8 +2745,10 @@ class Runs(Authenticated):
                             elif run is None:
                                 yield (
                                     b"error",
-                                    HTTPException(
-                                        status_code=404, detail="Run not found"
+                                    json_dumpb(
+                                        HTTPException(
+                                            status_code=404, detail="Run not found"
+                                        )
                                     ),
                                     None,
                                 )
@@ -2835,6 +2764,25 @@ class Runs(Authenticated):
             finally:
                 stream_manager = get_stream_manager()
                 await stream_manager.remove_queue(run_id, thread_id, queue)
+
+        @staticmethod
+        async def check_run_stream_auth(
+            run_id: UUID,
+            thread_id: UUID,
+            ctx: Auth.types.BaseAuthContext | None = None,
+        ) -> None:
+            async with connect() as conn:
+                filters = await Runs.handle_event(
+                    ctx,
+                    "read",
+                    Auth.types.ThreadsRead(thread_id=thread_id),
+                )
+                if filters:
+                    thread = await Threads._get_with_filters(
+                        cast(InMemConnectionProto, conn), thread_id, filters
+                    )
+                    if not thread:
+                        raise HTTPException(status_code=404, detail="Thread not found")
 
         @staticmethod
         async def publish(
@@ -3037,6 +2985,7 @@ async def _empty_generator():
 
 
 __all__ = [
+    "StreamHandler",
     "Assistants",
     "Crons",
     "Runs",

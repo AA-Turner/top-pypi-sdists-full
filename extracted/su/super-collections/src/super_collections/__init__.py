@@ -12,7 +12,8 @@ of lists and dictionaries.
 import datetime
 import json
 import inspect
-from typing import Any
+from typing import Any, Union
+from abc import ABC, abstractmethod
 
 
 import hjson
@@ -20,7 +21,7 @@ import hjson
 # -------------------------------------
 # Low-level fixtures
 # -------------------------------------
-from collections import UserDict
+from collections import UserDict, deque
 
 DICT_TYPES = dict, UserDict
 
@@ -98,60 +99,13 @@ def yaml_support():
 
 
 
+
+
+
+
 # -------------------------------------
 # Collections
 # -------------------------------------
-
-def get_dict(obj: object) -> dict[str, object]:
-    """
-    Extract a dictionary from various object types using introspection only.
-
-    NOTE: We do not do __dict__, because it's too general and it might take
-          a subclass of list.
-    """
-
-    # 1. Custom .asdict() method
-    if hasattr(obj, "asdict") and callable(getattr(obj, "asdict")):
-        try:
-            result = obj.asdict()
-            if isinstance(result, dict):
-                return result
-        except Exception:
-            pass
-
-    # 2. .dict() method (e.g. Pydantic)
-    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
-        try:
-            result = obj.dict()
-            if isinstance(result, dict):
-                return result
-        except Exception:
-            pass
-
-    # 3. .dump() method (e.g. Marshmallow)
-    if hasattr(obj, "dump") and callable(getattr(obj, "dump")):
-        try:
-            result = obj.dump()
-            if isinstance(result, dict):
-                return result
-        except Exception:
-            pass
-
-    # 5. Dataclass fallback
-    try:
-        from dataclasses import is_dataclass, asdict
-        if is_dataclass(obj):
-            return asdict(obj)
-    except ImportError:
-        pass
-    except Exception:
-        pass
-
-
-    # 6. No solution: raise an error
-    raise TypeError(f"Cannot convert of type {obj.__class__.__name__}")
-
-
 
 class SuperDict(dict):
     """
@@ -358,3 +312,150 @@ class SuperList(list):
         return("\n".join(r))     
 
 SUPER_TYPES = SuperDict, SuperList
+
+# -------------------------------------
+# Factory function
+# -------------------------------------
+
+from collections.abc import Sequence
+
+
+LIST_TYPES = 'ndarray', 'Series'
+
+def get_list(obj:Any) -> list:
+    """
+    Get list from various objects.
+
+    It is the default choice.
+    It will raise a TypeError if a dict would be probably better suited.
+    """
+    if isinstance(obj, Sequence):
+        # this includes lists proper
+        return list(obj)
+    elif isinstance(obj, (set, deque)):
+        # Non-sequence standard types that also work
+        return list(obj)    
+    elif type(obj).__name__ in LIST_TYPES:
+        # We name check those ones
+        return list(obj)
+    else:
+        raise TypeError(f"Objects of type '{type(obj).__name__}' are not lists")
+
+
+def get_dict(obj: Any) -> dict[str, object]:
+    """
+    Extract a dictionary from various object types using introspection only.
+
+    NOTE: We do not do __dict__, because it's too general and it might take
+          a subclass of list.
+    """
+
+    try:
+        return dict(obj)
+    except TypeError:
+        pass
+
+    # 1. Custom .asdict() method
+    if hasattr(obj, "asdict") and callable(getattr(obj, "asdict")):
+        try:
+            result = obj.asdict()
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+
+    # 2. .dict() method (e.g. Pydantic)
+    if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+        try:
+            result = obj.dict()
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+
+    # 3. .dump() method (e.g. Marshmallow)
+    if hasattr(obj, "dump") and callable(getattr(obj, "dump")):
+        try:
+            result = obj.dump()
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+
+    # 5. Dataclass fallback
+    try:
+        from dataclasses import is_dataclass, asdict
+        if is_dataclass(obj):
+            return asdict(obj)
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    # 6. No solution: raise an error
+    raise TypeError(f"Cannot convert of type {obj.__class__.__name__}")
+
+
+
+
+def super_collect(obj:Any) -> Union[SuperDict, SuperList]:
+    """
+    Factory function:
+    Read an object and dispatch it into either a SuperDict or a SuperList
+    """
+    if isinstance(obj, (str, bytes, bytearray)):
+        raise TypeError(f"Objects of type '{type(obj).__name__}' "
+                        "are not accepted (elementary types)")
+    try:
+        list_obj = get_list(obj)
+        return SuperList(list_obj)
+    except TypeError:
+        pass
+    try:
+        dict_obj = get_dict(obj)
+        return SuperDict(dict_obj)
+    except TypeError:
+        raise TypeError(f"Cannot convert this object of type '{type(obj).__name__}'")
+
+# -------------------------------------
+# Super Collection
+# -------------------------------------
+class SuperCollection(ABC):
+    """
+    The super collection abstract class
+    """
+
+    @staticmethod
+    def collect(obj) -> Union[SuperDict, SuperList]:
+        "The factory function"
+        return super_collect(obj)
+    
+    @abstractmethod
+    def __post_init__(self):
+        "Recursively transform collection"
+    
+
+    def to_json(self):
+        """
+        Convert to json.
+
+        It does not have any claim of fitness for any
+        particular purpose, except showing what's in structure,
+        for string output.
+
+        CAUTION: It must be reliable, so well tested.
+        """
+        pass
+
+    @abstractmethod
+    def __str__(self):
+        "Print the object (current convention is hjson, no json)"
+        pass
+    
+    @abstractmethod
+    def __rich__(self):
+        "Print to the rich format"
+        pass
+
+SuperCollection.register(SuperList)
+SuperCollection.register(SuperDict)

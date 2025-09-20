@@ -1,7 +1,7 @@
 r'''
 # `google_dataplex_datascan`
 
-Refer to the Terraform Registry for docs: [`google_dataplex_datascan`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan).
+Refer to the Terraform Registry for docs: [`google_dataplex_datascan`](https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataplexDatascan(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataplexDatascan.DataplexDatascan",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan google_dataplex_datascan}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan google_dataplex_datascan}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class DataplexDatascan(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan google_dataplex_datascan} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan google_dataplex_datascan} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data DataplexDatascan#data}
-        :param data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
-        :param execution_spec: execution_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
-        :param location: The location where the data scan should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
-        :param data_discovery_spec: data_discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
-        :param data_profile_spec: data_profile_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
-        :param data_quality_spec: data_quality_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
-        :param description: Description of the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#description DataplexDatascan#description}
-        :param display_name: User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#id DataplexDatascan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the scan. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
+        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data DataplexDatascan#data}
+        :param data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
+        :param execution_spec: execution_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
+        :param location: The location where the data scan should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        :param data_discovery_spec: data_discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
+        :param data_profile_spec: data_profile_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
+        :param data_quality_spec: data_quality_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
+        :param description: Description of the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#description DataplexDatascan#description}
+        :param display_name: User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#id DataplexDatascan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the scan. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class DataplexDatascan(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataplexDatascan to import.
-        :param import_from_id: The id of the existing DataplexDatascan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataplexDatascan that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataplexDatascan to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class DataplexDatascan(
         resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity: The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
-        :param resource: The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be: Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
+        :param entity: The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
+        :param resource: The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be: Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
         '''
         value = DataplexDatascanData(entity=entity, resource=resource)
 
@@ -173,8 +173,8 @@ class DataplexDatascan(
         storage_config: typing.Optional[typing.Union["DataplexDatascanDataDiscoverySpecStorageConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_publishing_config: bigquery_publishing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
+        :param bigquery_publishing_config: bigquery_publishing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
         '''
         value = DataplexDatascanDataDiscoverySpec(
             bigquery_publishing_config=bigquery_publishing_config,
@@ -194,11 +194,11 @@ class DataplexDatascan(
         sampling_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exclude_fields: exclude_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
-        :param include_fields: include_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
-        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
-        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
-        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        :param exclude_fields: exclude_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
+        :param include_fields: include_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
+        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         value = DataplexDatascanDataProfileSpec(
             exclude_fields=exclude_fields,
@@ -221,11 +221,11 @@ class DataplexDatascan(
         sampling_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param catalog_publishing_enabled: If set, the latest DataScan job result will be published to Dataplex Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
-        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
-        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
-        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        :param catalog_publishing_enabled: If set, the latest DataScan job result will be published to Dataplex Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
+        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
+        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         value = DataplexDatascanDataQualitySpec(
             catalog_publishing_enabled=catalog_publishing_enabled,
@@ -245,8 +245,8 @@ class DataplexDatascan(
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
-        :param field: The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field DataplexDatascan#field}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
+        :param field: The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field DataplexDatascan#field}
         '''
         value = DataplexDatascanExecutionSpec(trigger=trigger, field=field)
 
@@ -261,9 +261,9 @@ class DataplexDatascan(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#create DataplexDatascan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#update DataplexDatascan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#create DataplexDatascan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#update DataplexDatascan#update}.
         '''
         value = DataplexDatascanTimeouts(create=create, delete=delete, update=update)
 
@@ -612,19 +612,19 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data DataplexDatascan#data}
-        :param data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
-        :param execution_spec: execution_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
-        :param location: The location where the data scan should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
-        :param data_discovery_spec: data_discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
-        :param data_profile_spec: data_profile_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
-        :param data_quality_spec: data_quality_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
-        :param description: Description of the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#description DataplexDatascan#description}
-        :param display_name: User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#id DataplexDatascan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: User-defined labels for the scan. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
+        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data DataplexDatascan#data}
+        :param data_scan_id: DataScan identifier. Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
+        :param execution_spec: execution_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
+        :param location: The location where the data scan should reside. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        :param data_discovery_spec: data_discovery_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
+        :param data_profile_spec: data_profile_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
+        :param data_quality_spec: data_quality_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
+        :param description: Description of the scan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#description DataplexDatascan#description}
+        :param display_name: User friendly display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#id DataplexDatascan#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: User-defined labels for the scan. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -769,7 +769,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data(self) -> "DataplexDatascanData":
         '''data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data DataplexDatascan#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data DataplexDatascan#data}
         '''
         result = self._values.get("data")
         assert result is not None, "Required property 'data' is missing"
@@ -781,7 +781,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must contain only lowercase letters, numbers and hyphens. Must start with a letter. Must end with a number or a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_scan_id DataplexDatascan#data_scan_id}
         '''
         result = self._values.get("data_scan_id")
         assert result is not None, "Required property 'data_scan_id' is missing"
@@ -791,7 +791,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def execution_spec(self) -> "DataplexDatascanExecutionSpec":
         '''execution_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#execution_spec DataplexDatascan#execution_spec}
         '''
         result = self._values.get("execution_spec")
         assert result is not None, "Required property 'execution_spec' is missing"
@@ -801,7 +801,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location where the data scan should reside.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -813,7 +813,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataplexDatascanDataDiscoverySpec"]:
         '''data_discovery_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_discovery_spec DataplexDatascan#data_discovery_spec}
         '''
         result = self._values.get("data_discovery_spec")
         return typing.cast(typing.Optional["DataplexDatascanDataDiscoverySpec"], result)
@@ -822,7 +822,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_profile_spec(self) -> typing.Optional["DataplexDatascanDataProfileSpec"]:
         '''data_profile_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_profile_spec DataplexDatascan#data_profile_spec}
         '''
         result = self._values.get("data_profile_spec")
         return typing.cast(typing.Optional["DataplexDatascanDataProfileSpec"], result)
@@ -831,7 +831,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_quality_spec(self) -> typing.Optional["DataplexDatascanDataQualitySpec"]:
         '''data_quality_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#data_quality_spec DataplexDatascan#data_quality_spec}
         '''
         result = self._values.get("data_quality_spec")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpec"], result)
@@ -840,7 +840,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the scan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#description DataplexDatascan#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#description DataplexDatascan#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -849,14 +849,14 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''User friendly display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#display_name DataplexDatascan#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#id DataplexDatascan#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#id DataplexDatascan#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -871,14 +871,14 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#labels DataplexDatascan#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -886,7 +886,7 @@ class DataplexDatascanConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataplexDatascanTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#timeouts DataplexDatascan#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataplexDatascanTimeouts"], result)
@@ -916,8 +916,8 @@ class DataplexDatascanData:
         resource: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param entity: The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
-        :param resource: The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be: Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
+        :param entity: The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
+        :param resource: The service-qualified full resource name of the cloud resource for a DataScan job to scan against. The field could be: Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__887b51eb9dc74c5797b8b0d833c1f65c3c1c65e4e91004ea510fa663bde76d5d)
@@ -933,7 +933,7 @@ class DataplexDatascanData:
     def entity(self) -> typing.Optional[builtins.str]:
         '''The Dataplex entity that represents the data source(e.g. BigQuery table) for Datascan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#entity DataplexDatascan#entity}
         '''
         result = self._values.get("entity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -945,7 +945,7 @@ class DataplexDatascanData:
         The field could be:
         Cloud Storage bucket (//storage.googleapis.com/projects/PROJECT_ID/buckets/BUCKET_ID) for DataDiscoveryScan OR BigQuery table of type "TABLE" (/bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID) for DataProfileScan/DataQualityScan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#resource DataplexDatascan#resource}
         '''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -978,8 +978,8 @@ class DataplexDatascanDataDiscoverySpec:
         storage_config: typing.Optional[typing.Union["DataplexDatascanDataDiscoverySpecStorageConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_publishing_config: bigquery_publishing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
-        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
+        :param bigquery_publishing_config: bigquery_publishing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
+        :param storage_config: storage_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
         '''
         if isinstance(bigquery_publishing_config, dict):
             bigquery_publishing_config = DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig(**bigquery_publishing_config)
@@ -1001,7 +1001,7 @@ class DataplexDatascanDataDiscoverySpec:
     ) -> typing.Optional["DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig"]:
         '''bigquery_publishing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_publishing_config DataplexDatascan#bigquery_publishing_config}
         '''
         result = self._values.get("bigquery_publishing_config")
         return typing.cast(typing.Optional["DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig"], result)
@@ -1012,7 +1012,7 @@ class DataplexDatascanDataDiscoverySpec:
     ) -> typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfig"]:
         '''storage_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#storage_config DataplexDatascan#storage_config}
         '''
         result = self._values.get("storage_config")
         return typing.cast(typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfig"], result)
@@ -1049,10 +1049,10 @@ class DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig:
         table_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection: The BigQuery connection used to create BigLake tables. Must be in the form 'projects/{projectId}/locations/{locationId}/connections/{connection_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
-        :param location: The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
-        :param project: The project of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}
-        :param table_type: Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables. Possible values: ["TABLE_TYPE_UNSPECIFIED", "EXTERNAL", "BIGLAKE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
+        :param connection: The BigQuery connection used to create BigLake tables. Must be in the form 'projects/{projectId}/locations/{locationId}/connections/{connection_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
+        :param location: The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        :param project: The project of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}
+        :param table_type: Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables. Possible values: ["TABLE_TYPE_UNSPECIFIED", "EXTERNAL", "BIGLAKE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__536b9cfd09a6268ad88ae10e29aaf044d866cd2e80160e1588a8bb1ab33e728f)
@@ -1074,7 +1074,7 @@ class DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig:
     def connection(self) -> typing.Optional[builtins.str]:
         '''The BigQuery connection used to create BigLake tables. Must be in the form 'projects/{projectId}/locations/{locationId}/connections/{connection_id}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
         '''
         result = self._values.get("connection")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1083,7 +1083,7 @@ class DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig:
     def location(self) -> typing.Optional[builtins.str]:
         '''The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1094,7 +1094,7 @@ class DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig:
 
         If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1103,7 +1103,7 @@ class DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig:
     def table_type(self) -> typing.Optional[builtins.str]:
         '''Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables. Possible values: ["TABLE_TYPE_UNSPECIFIED", "EXTERNAL", "BIGLAKE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
         '''
         result = self._values.get("table_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1272,10 +1272,10 @@ class DataplexDatascanDataDiscoverySpecOutputReference(
         table_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param connection: The BigQuery connection used to create BigLake tables. Must be in the form 'projects/{projectId}/locations/{locationId}/connections/{connection_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
-        :param location: The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#location DataplexDatascan#location}
-        :param project: The project of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#project DataplexDatascan#project}
-        :param table_type: Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables. Possible values: ["TABLE_TYPE_UNSPECIFIED", "EXTERNAL", "BIGLAKE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
+        :param connection: The BigQuery connection used to create BigLake tables. Must be in the form 'projects/{projectId}/locations/{locationId}/connections/{connection_id}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#connection DataplexDatascan#connection}
+        :param location: The location of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#location DataplexDatascan#location}
+        :param project: The project of the BigQuery dataset to publish BigLake external or non-BigLake external tables to. If not specified, the project of the Cloud Storage bucket will be used. The format is "projects/{project_id_or_number}". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#project DataplexDatascan#project}
+        :param table_type: Determines whether to publish discovered tables as BigLake external tables or non-BigLake external tables. Possible values: ["TABLE_TYPE_UNSPECIFIED", "EXTERNAL", "BIGLAKE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#table_type DataplexDatascan#table_type}
         '''
         value = DataplexDatascanDataDiscoverySpecBigqueryPublishingConfig(
             connection=connection,
@@ -1296,10 +1296,10 @@ class DataplexDatascanDataDiscoverySpecOutputReference(
         json_options: typing.Optional[typing.Union["DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
-        :param exclude_patterns: Defines the data to exclude during discovery. Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
-        :param include_patterns: Defines the data to include during discovery when only a subset of the data should be considered. Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
+        :param exclude_patterns: Defines the data to exclude during discovery. Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
+        :param include_patterns: Defines the data to include during discovery when only a subset of the data should be considered. Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
         '''
         value = DataplexDatascanDataDiscoverySpecStorageConfig(
             csv_options=csv_options,
@@ -1382,10 +1382,10 @@ class DataplexDatascanDataDiscoverySpecStorageConfig:
         json_options: typing.Optional[typing.Union["DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
-        :param exclude_patterns: Defines the data to exclude during discovery. Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
-        :param include_patterns: Defines the data to include during discovery when only a subset of the data should be considered. Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
-        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
+        :param csv_options: csv_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
+        :param exclude_patterns: Defines the data to exclude during discovery. Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
+        :param include_patterns: Defines the data to include during discovery when only a subset of the data should be considered. Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
+        :param json_options: json_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
         '''
         if isinstance(csv_options, dict):
             csv_options = DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions(**csv_options)
@@ -1413,7 +1413,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfig:
     ) -> typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions"]:
         '''csv_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#csv_options DataplexDatascan#csv_options}
         '''
         result = self._values.get("csv_options")
         return typing.cast(typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions"], result)
@@ -1424,7 +1424,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfig:
 
         Provide a list of patterns that identify the data to exclude. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_patterns DataplexDatascan#exclude_patterns}
         '''
         result = self._values.get("exclude_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1435,7 +1435,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfig:
 
         Provide a list of patterns that identify the data to include. For Cloud Storage bucket assets, these patterns are interpreted as glob patterns used to match object names. For BigQuery dataset assets, these patterns are interpreted as patterns to match table names.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_patterns DataplexDatascan#include_patterns}
         '''
         result = self._values.get("include_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1446,7 +1446,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfig:
     ) -> typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions"]:
         '''json_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#json_options DataplexDatascan#json_options}
         '''
         result = self._values.get("json_options")
         return typing.cast(typing.Optional["DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions"], result)
@@ -1485,11 +1485,11 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
         type_inference_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param delimiter: The delimiter that is used to separate values. The default is ',' (comma). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
-        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
-        :param header_rows: The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
-        :param quote: The character used to quote column values. Accepts '"' (double quotation mark) or ``` (single quotation mark). If unspecified, defaults to '"' (double quotation mark). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
-        :param type_inference_disabled: Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        :param delimiter: The delimiter that is used to separate values. The default is ',' (comma). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
+        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        :param header_rows: The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
+        :param quote: The character used to quote column values. Accepts '"' (double quotation mark) or ``` (single quotation mark). If unspecified, defaults to '"' (double quotation mark). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
+        :param type_inference_disabled: Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca2718cb44b7122d0b4191c453c2cfc2d7f47e1d4f1eb2472307e703cee78c79)
@@ -1514,7 +1514,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
     def delimiter(self) -> typing.Optional[builtins.str]:
         '''The delimiter that is used to separate values. The default is ',' (comma).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
         '''
         result = self._values.get("delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1523,7 +1523,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1532,7 +1532,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
     def header_rows(self) -> typing.Optional[jsii.Number]:
         '''The number of rows to interpret as header rows that should be skipped when reading data rows.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
         '''
         result = self._values.get("header_rows")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1543,7 +1543,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
 
         Accepts '"' (double quotation mark) or ``` (single quotation mark). If unspecified, defaults to '"' (double quotation mark).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
         '''
         result = self._values.get("quote")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1554,7 +1554,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         result = self._values.get("type_inference_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1737,8 +1737,8 @@ class DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions:
         type_inference_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
-        :param type_inference_disabled: Whether to disable the inference of data types for JSON data. If true, all columns are registered as their primitive types (strings, number, or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        :param type_inference_disabled: Whether to disable the inference of data types for JSON data. If true, all columns are registered as their primitive types (strings, number, or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd6d83a25a17a2a2bc50d5c5aa6696013f9f6c2cb474e72eec88c4be20f75ee9)
@@ -1754,7 +1754,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions:
     def encoding(self) -> typing.Optional[builtins.str]:
         '''The character encoding of the data. The default is UTF-8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1767,7 +1767,7 @@ class DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions:
 
         If true, all columns are registered as their primitive types (strings, number, or boolean).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         result = self._values.get("type_inference_disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1902,11 +1902,11 @@ class DataplexDatascanDataDiscoverySpecStorageConfigOutputReference(
         type_inference_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param delimiter: The delimiter that is used to separate values. The default is ',' (comma). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
-        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
-        :param header_rows: The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
-        :param quote: The character used to quote column values. Accepts '"' (double quotation mark) or ``` (single quotation mark). If unspecified, defaults to '"' (double quotation mark). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
-        :param type_inference_disabled: Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        :param delimiter: The delimiter that is used to separate values. The default is ',' (comma). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delimiter DataplexDatascan#delimiter}
+        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        :param header_rows: The number of rows to interpret as header rows that should be skipped when reading data rows. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#header_rows DataplexDatascan#header_rows}
+        :param quote: The character used to quote column values. Accepts '"' (double quotation mark) or ``` (single quotation mark). If unspecified, defaults to '"' (double quotation mark). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#quote DataplexDatascan#quote}
+        :param type_inference_disabled: Whether to disable the inference of data types for CSV data. If true, all columns are registered as strings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         value = DataplexDatascanDataDiscoverySpecStorageConfigCsvOptions(
             delimiter=delimiter,
@@ -1926,8 +1926,8 @@ class DataplexDatascanDataDiscoverySpecStorageConfigOutputReference(
         type_inference_disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
-        :param type_inference_disabled: Whether to disable the inference of data types for JSON data. If true, all columns are registered as their primitive types (strings, number, or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
+        :param encoding: The character encoding of the data. The default is UTF-8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#encoding DataplexDatascan#encoding}
+        :param type_inference_disabled: Whether to disable the inference of data types for JSON data. If true, all columns are registered as their primitive types (strings, number, or boolean). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#type_inference_disabled DataplexDatascan#type_inference_disabled}
         '''
         value = DataplexDatascanDataDiscoverySpecStorageConfigJsonOptions(
             encoding=encoding, type_inference_disabled=type_inference_disabled
@@ -2128,11 +2128,11 @@ class DataplexDatascanDataProfileSpec:
         sampling_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param exclude_fields: exclude_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
-        :param include_fields: include_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
-        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
-        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
-        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        :param exclude_fields: exclude_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
+        :param include_fields: include_fields block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
+        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         if isinstance(exclude_fields, dict):
             exclude_fields = DataplexDatascanDataProfileSpecExcludeFields(**exclude_fields)
@@ -2165,7 +2165,7 @@ class DataplexDatascanDataProfileSpec:
     ) -> typing.Optional["DataplexDatascanDataProfileSpecExcludeFields"]:
         '''exclude_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#exclude_fields DataplexDatascan#exclude_fields}
         '''
         result = self._values.get("exclude_fields")
         return typing.cast(typing.Optional["DataplexDatascanDataProfileSpecExcludeFields"], result)
@@ -2176,7 +2176,7 @@ class DataplexDatascanDataProfileSpec:
     ) -> typing.Optional["DataplexDatascanDataProfileSpecIncludeFields"]:
         '''include_fields block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#include_fields DataplexDatascan#include_fields}
         '''
         result = self._values.get("include_fields")
         return typing.cast(typing.Optional["DataplexDatascanDataProfileSpecIncludeFields"], result)
@@ -2187,7 +2187,7 @@ class DataplexDatascanDataProfileSpec:
     ) -> typing.Optional["DataplexDatascanDataProfileSpecPostScanActions"]:
         '''post_scan_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
         '''
         result = self._values.get("post_scan_actions")
         return typing.cast(typing.Optional["DataplexDatascanDataProfileSpecPostScanActions"], result)
@@ -2198,7 +2198,7 @@ class DataplexDatascanDataProfileSpec:
 
         The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
         '''
         result = self._values.get("row_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2210,7 +2210,7 @@ class DataplexDatascanDataProfileSpec:
         Value can range between 0.0 and 100.0 with up to 3 significant decimal digits.
         Sampling is not applied if 'sampling_percent' is not specified, 0 or 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         result = self._values.get("sampling_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2239,7 +2239,7 @@ class DataplexDatascanDataProfileSpecExcludeFields:
         field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__317b91e781a70d6fad6013a374886068dda8ff121929bec9c8d0657b1c3d5c9d)
@@ -2255,7 +2255,7 @@ class DataplexDatascanDataProfileSpecExcludeFields:
         Only top-level field names for nested fields are supported.
         For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         result = self._values.get("field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2343,7 +2343,7 @@ class DataplexDatascanDataProfileSpecIncludeFields:
         field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12cc9d674cdfa8f3c1724cafe1f5a3fb480acc9c68cd6b5ddd424cfed9fa399f)
@@ -2359,7 +2359,7 @@ class DataplexDatascanDataProfileSpecIncludeFields:
         Only top-level field names for nested fields are supported.
         For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         result = self._values.get("field_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2462,7 +2462,7 @@ class DataplexDatascanDataProfileSpecOutputReference(
         field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         value = DataplexDatascanDataProfileSpecExcludeFields(field_names=field_names)
 
@@ -2475,7 +2475,7 @@ class DataplexDatascanDataProfileSpecOutputReference(
         field_names: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
+        :param field_names: Expected input is a list of fully qualified names of fields as in the schema. Only top-level field names for nested fields are supported. For instance, if 'x' is of nested field type, listing 'x' is supported but 'x.y.z' is not supported. Here 'y' and 'y.z' are nested fields of 'x'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field_names DataplexDatascan#field_names}
         '''
         value = DataplexDatascanDataProfileSpecIncludeFields(field_names=field_names)
 
@@ -2488,7 +2488,7 @@ class DataplexDatascanDataProfileSpecOutputReference(
         bigquery_export: typing.Optional[typing.Union["DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
         '''
         value = DataplexDatascanDataProfileSpecPostScanActions(
             bigquery_export=bigquery_export
@@ -2620,7 +2620,7 @@ class DataplexDatascanDataProfileSpecPostScanActions:
         bigquery_export: typing.Optional[typing.Union["DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
         '''
         if isinstance(bigquery_export, dict):
             bigquery_export = DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport(**bigquery_export)
@@ -2637,7 +2637,7 @@ class DataplexDatascanDataProfileSpecPostScanActions:
     ) -> typing.Optional["DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport"]:
         '''bigquery_export block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
         '''
         result = self._values.get("bigquery_export")
         return typing.cast(typing.Optional["DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport"], result)
@@ -2662,7 +2662,7 @@ class DataplexDatascanDataProfileSpecPostScanActions:
 class DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport:
     def __init__(self, *, results_table: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param results_table: The BigQuery table to export DataProfileScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        :param results_table: The BigQuery table to export DataProfileScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0ff25a7f34bc05f1c2964df3baba773c1bd7f5fd73c27abde8ff1d63ca483a1)
@@ -2675,7 +2675,7 @@ class DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport:
     def results_table(self) -> typing.Optional[builtins.str]:
         '''The BigQuery table to export DataProfileScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         result = self._values.get("results_table")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2778,7 +2778,7 @@ class DataplexDatascanDataProfileSpecPostScanActionsOutputReference(
         results_table: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param results_table: The BigQuery table to export DataProfileScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        :param results_table: The BigQuery table to export DataProfileScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         value = DataplexDatascanDataProfileSpecPostScanActionsBigqueryExport(
             results_table=results_table
@@ -2844,11 +2844,11 @@ class DataplexDatascanDataQualitySpec:
         sampling_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param catalog_publishing_enabled: If set, the latest DataScan job result will be published to Dataplex Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
-        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
-        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
-        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        :param catalog_publishing_enabled: If set, the latest DataScan job result will be published to Dataplex Catalog. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
+        :param post_scan_actions: post_scan_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        :param row_filter: A filter applied to all rows in a single DataScan job. The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
+        :param sampling_percent: The percentage of the records to be selected from the dataset for DataScan. Value can range between 0.0 and 100.0 with up to 3 significant decimal digits. Sampling is not applied if 'sampling_percent' is not specified, 0 or 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         if isinstance(post_scan_actions, dict):
             post_scan_actions = DataplexDatascanDataQualitySpecPostScanActions(**post_scan_actions)
@@ -2877,7 +2877,7 @@ class DataplexDatascanDataQualitySpec:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set, the latest DataScan job result will be published to Dataplex Catalog.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#catalog_publishing_enabled DataplexDatascan#catalog_publishing_enabled}
         '''
         result = self._values.get("catalog_publishing_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2888,7 +2888,7 @@ class DataplexDatascanDataQualitySpec:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActions"]:
         '''post_scan_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#post_scan_actions DataplexDatascan#post_scan_actions}
         '''
         result = self._values.get("post_scan_actions")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActions"], result)
@@ -2899,7 +2899,7 @@ class DataplexDatascanDataQualitySpec:
 
         The filter needs to be a valid SQL expression for a WHERE clause in BigQuery standard SQL syntax. Example: col1 >= 0 AND col2 < 10
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_filter DataplexDatascan#row_filter}
         '''
         result = self._values.get("row_filter")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2910,7 +2910,7 @@ class DataplexDatascanDataQualitySpec:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataplexDatascanDataQualitySpecRules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#rules DataplexDatascan#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DataplexDatascanDataQualitySpecRules"]]], result)
@@ -2922,7 +2922,7 @@ class DataplexDatascanDataQualitySpec:
         Value can range between 0.0 and 100.0 with up to 3 significant decimal digits.
         Sampling is not applied if 'sampling_percent' is not specified, 0 or 100.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sampling_percent DataplexDatascan#sampling_percent}
         '''
         result = self._values.get("sampling_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2967,8 +2967,8 @@ class DataplexDatascanDataQualitySpecOutputReference(
         notification_report: typing.Optional[typing.Union["DataplexDatascanDataQualitySpecPostScanActionsNotificationReport", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
-        :param notification_report: notification_report block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
+        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        :param notification_report: notification_report block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
         '''
         value = DataplexDatascanDataQualitySpecPostScanActions(
             bigquery_export=bigquery_export, notification_report=notification_report
@@ -3125,8 +3125,8 @@ class DataplexDatascanDataQualitySpecPostScanActions:
         notification_report: typing.Optional[typing.Union["DataplexDatascanDataQualitySpecPostScanActionsNotificationReport", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
-        :param notification_report: notification_report block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
+        :param bigquery_export: bigquery_export block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        :param notification_report: notification_report block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
         '''
         if isinstance(bigquery_export, dict):
             bigquery_export = DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport(**bigquery_export)
@@ -3148,7 +3148,7 @@ class DataplexDatascanDataQualitySpecPostScanActions:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport"]:
         '''bigquery_export block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#bigquery_export DataplexDatascan#bigquery_export}
         '''
         result = self._values.get("bigquery_export")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport"], result)
@@ -3159,7 +3159,7 @@ class DataplexDatascanDataQualitySpecPostScanActions:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReport"]:
         '''notification_report block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#notification_report DataplexDatascan#notification_report}
         '''
         result = self._values.get("notification_report")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReport"], result)
@@ -3184,7 +3184,7 @@ class DataplexDatascanDataQualitySpecPostScanActions:
 class DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport:
     def __init__(self, *, results_table: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param results_table: The BigQuery table to export DataQualityScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        :param results_table: The BigQuery table to export DataQualityScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1e32e88c2d9c7cd520d7abd11db51ab1b32ff1f7b952820017f0d4daff9d350)
@@ -3197,7 +3197,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport:
     def results_table(self) -> typing.Optional[builtins.str]:
         '''The BigQuery table to export DataQualityScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         result = self._values.get("results_table")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3293,10 +3293,10 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReport:
         score_threshold_trigger: typing.Optional[typing.Union["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recipients: recipients block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
-        :param job_end_trigger: job_end_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
-        :param job_failure_trigger: job_failure_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
-        :param score_threshold_trigger: score_threshold_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
+        :param recipients: recipients block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
+        :param job_end_trigger: job_end_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
+        :param job_failure_trigger: job_failure_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
+        :param score_threshold_trigger: score_threshold_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
         '''
         if isinstance(recipients, dict):
             recipients = DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients(**recipients)
@@ -3328,7 +3328,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReport:
     ) -> "DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients":
         '''recipients block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
         '''
         result = self._values.get("recipients")
         assert result is not None, "Required property 'recipients' is missing"
@@ -3340,7 +3340,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReport:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportJobEndTrigger"]:
         '''job_end_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
         '''
         result = self._values.get("job_end_trigger")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportJobEndTrigger"], result)
@@ -3351,7 +3351,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReport:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportJobFailureTrigger"]:
         '''job_failure_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
         '''
         result = self._values.get("job_failure_trigger")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportJobFailureTrigger"], result)
@@ -3362,7 +3362,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReport:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger"]:
         '''score_threshold_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
         '''
         result = self._values.get("score_threshold_trigger")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger"], result)
@@ -3536,7 +3536,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportOutputRefe
         emails: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param emails: The email recipients who will receive the DataQualityScan results report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
+        :param emails: The email recipients who will receive the DataQualityScan results report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
         '''
         value = DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients(
             emails=emails
@@ -3551,7 +3551,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportOutputRefe
         score_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param score_threshold: The score range is in [0,100]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
+        :param score_threshold: The score range is in [0,100]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
         '''
         value = DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger(
             score_threshold=score_threshold
@@ -3657,7 +3657,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients
         emails: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param emails: The email recipients who will receive the DataQualityScan results report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
+        :param emails: The email recipients who will receive the DataQualityScan results report. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43833aa201b55640cf07cbb2668906b439ba410e6ec3ac4d141924ee3f501034)
@@ -3670,7 +3670,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients
     def emails(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The email recipients who will receive the DataQualityScan results report.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#emails DataplexDatascan#emails}
         '''
         result = self._values.get("emails")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3754,7 +3754,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportRecipients
 class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger:
     def __init__(self, *, score_threshold: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param score_threshold: The score range is in [0,100]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
+        :param score_threshold: The score range is in [0,100]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca71821db343b5f0d7a8116366f12948e50a962cd5a67cd1de2aa8b6a74e1e70)
@@ -3767,7 +3767,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThres
     def score_threshold(self) -> typing.Optional[jsii.Number]:
         '''The score range is in [0,100].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold DataplexDatascan#score_threshold}
         '''
         result = self._values.get("score_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3870,7 +3870,7 @@ class DataplexDatascanDataQualitySpecPostScanActionsOutputReference(
         results_table: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param results_table: The BigQuery table to export DataQualityScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
+        :param results_table: The BigQuery table to export DataQualityScan results to. Format://bigquery.googleapis.com/projects/PROJECT_ID/datasets/DATASET_ID/tables/TABLE_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#results_table DataplexDatascan#results_table}
         '''
         value = DataplexDatascanDataQualitySpecPostScanActionsBigqueryExport(
             results_table=results_table
@@ -3888,10 +3888,10 @@ class DataplexDatascanDataQualitySpecPostScanActionsOutputReference(
         score_threshold_trigger: typing.Optional[typing.Union[DataplexDatascanDataQualitySpecPostScanActionsNotificationReportScoreThresholdTrigger, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param recipients: recipients block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
-        :param job_end_trigger: job_end_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
-        :param job_failure_trigger: job_failure_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
-        :param score_threshold_trigger: score_threshold_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
+        :param recipients: recipients block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#recipients DataplexDatascan#recipients}
+        :param job_end_trigger: job_end_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_end_trigger DataplexDatascan#job_end_trigger}
+        :param job_failure_trigger: job_failure_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#job_failure_trigger DataplexDatascan#job_failure_trigger}
+        :param score_threshold_trigger: score_threshold_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#score_threshold_trigger DataplexDatascan#score_threshold_trigger}
         '''
         value = DataplexDatascanDataQualitySpecPostScanActionsNotificationReport(
             recipients=recipients,
@@ -4000,22 +4000,22 @@ class DataplexDatascanDataQualitySpecRules:
         uniqueness_expectation: typing.Optional[typing.Union["DataplexDatascanDataQualitySpecRulesUniquenessExpectation", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dimension: The dimension name a rule belongs to. Custom dimension name is supported with all uppercase letters and maximum length of 30 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#dimension DataplexDatascan#dimension}
-        :param column: The unnested column which this rule is evaluated against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#column DataplexDatascan#column}
-        :param description: Description of the rule. The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#description DataplexDatascan#description}
-        :param ignore_null: Rows with null values will automatically fail a rule, unless ignoreNull is true. In that case, such null rows are trivially considered passing. Only applicable to ColumnMap rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#ignore_null DataplexDatascan#ignore_null}
-        :param name: A mutable name for the rule. The name must contain only letters (a-z, A-Z), numbers (0-9), or hyphens (-). The maximum length is 63 characters. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#name DataplexDatascan#name}
-        :param non_null_expectation: non_null_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#non_null_expectation DataplexDatascan#non_null_expectation}
-        :param range_expectation: range_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#range_expectation DataplexDatascan#range_expectation}
-        :param regex_expectation: regex_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#regex_expectation DataplexDatascan#regex_expectation}
-        :param row_condition_expectation: row_condition_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_condition_expectation DataplexDatascan#row_condition_expectation}
-        :param set_expectation: set_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#set_expectation DataplexDatascan#set_expectation}
-        :param sql_assertion: sql_assertion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_assertion DataplexDatascan#sql_assertion}
-        :param statistic_range_expectation: statistic_range_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#statistic_range_expectation DataplexDatascan#statistic_range_expectation}
-        :param suspended: Whether the Rule is active or suspended. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#suspended DataplexDatascan#suspended}
-        :param table_condition_expectation: table_condition_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#table_condition_expectation DataplexDatascan#table_condition_expectation}
-        :param threshold: The minimum ratio of passing_rows / total_rows required to pass this rule, with a range of [0.0, 1.0]. 0 indicates default value (i.e. 1.0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#threshold DataplexDatascan#threshold}
-        :param uniqueness_expectation: uniqueness_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#uniqueness_expectation DataplexDatascan#uniqueness_expectation}
+        :param dimension: The dimension name a rule belongs to. Custom dimension name is supported with all uppercase letters and maximum length of 30 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#dimension DataplexDatascan#dimension}
+        :param column: The unnested column which this rule is evaluated against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#column DataplexDatascan#column}
+        :param description: Description of the rule. The maximum length is 1,024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#description DataplexDatascan#description}
+        :param ignore_null: Rows with null values will automatically fail a rule, unless ignoreNull is true. In that case, such null rows are trivially considered passing. Only applicable to ColumnMap rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#ignore_null DataplexDatascan#ignore_null}
+        :param name: A mutable name for the rule. The name must contain only letters (a-z, A-Z), numbers (0-9), or hyphens (-). The maximum length is 63 characters. Must start with a letter. Must end with a number or a letter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#name DataplexDatascan#name}
+        :param non_null_expectation: non_null_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#non_null_expectation DataplexDatascan#non_null_expectation}
+        :param range_expectation: range_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#range_expectation DataplexDatascan#range_expectation}
+        :param regex_expectation: regex_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#regex_expectation DataplexDatascan#regex_expectation}
+        :param row_condition_expectation: row_condition_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_condition_expectation DataplexDatascan#row_condition_expectation}
+        :param set_expectation: set_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#set_expectation DataplexDatascan#set_expectation}
+        :param sql_assertion: sql_assertion block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_assertion DataplexDatascan#sql_assertion}
+        :param statistic_range_expectation: statistic_range_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#statistic_range_expectation DataplexDatascan#statistic_range_expectation}
+        :param suspended: Whether the Rule is active or suspended. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#suspended DataplexDatascan#suspended}
+        :param table_condition_expectation: table_condition_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#table_condition_expectation DataplexDatascan#table_condition_expectation}
+        :param threshold: The minimum ratio of passing_rows / total_rows required to pass this rule, with a range of [0.0, 1.0]. 0 indicates default value (i.e. 1.0). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#threshold DataplexDatascan#threshold}
+        :param uniqueness_expectation: uniqueness_expectation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#uniqueness_expectation DataplexDatascan#uniqueness_expectation}
         '''
         if isinstance(non_null_expectation, dict):
             non_null_expectation = DataplexDatascanDataQualitySpecRulesNonNullExpectation(**non_null_expectation)
@@ -4093,7 +4093,7 @@ class DataplexDatascanDataQualitySpecRules:
 
         Custom dimension name is supported with all uppercase letters and maximum length of 30 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#dimension DataplexDatascan#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#dimension DataplexDatascan#dimension}
         '''
         result = self._values.get("dimension")
         assert result is not None, "Required property 'dimension' is missing"
@@ -4103,7 +4103,7 @@ class DataplexDatascanDataQualitySpecRules:
     def column(self) -> typing.Optional[builtins.str]:
         '''The unnested column which this rule is evaluated against.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#column DataplexDatascan#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#column DataplexDatascan#column}
         '''
         result = self._values.get("column")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4112,7 +4112,7 @@ class DataplexDatascanDataQualitySpecRules:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the rule. The maximum length is 1,024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#description DataplexDatascan#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#description DataplexDatascan#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4125,7 +4125,7 @@ class DataplexDatascanDataQualitySpecRules:
 
         In that case, such null rows are trivially considered passing. Only applicable to ColumnMap rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#ignore_null DataplexDatascan#ignore_null}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#ignore_null DataplexDatascan#ignore_null}
         '''
         result = self._values.get("ignore_null")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4139,7 +4139,7 @@ class DataplexDatascanDataQualitySpecRules:
         Must start with a letter.
         Must end with a number or a letter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#name DataplexDatascan#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#name DataplexDatascan#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4150,7 +4150,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesNonNullExpectation"]:
         '''non_null_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#non_null_expectation DataplexDatascan#non_null_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#non_null_expectation DataplexDatascan#non_null_expectation}
         '''
         result = self._values.get("non_null_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesNonNullExpectation"], result)
@@ -4161,7 +4161,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesRangeExpectation"]:
         '''range_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#range_expectation DataplexDatascan#range_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#range_expectation DataplexDatascan#range_expectation}
         '''
         result = self._values.get("range_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesRangeExpectation"], result)
@@ -4172,7 +4172,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesRegexExpectation"]:
         '''regex_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#regex_expectation DataplexDatascan#regex_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#regex_expectation DataplexDatascan#regex_expectation}
         '''
         result = self._values.get("regex_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesRegexExpectation"], result)
@@ -4183,7 +4183,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesRowConditionExpectation"]:
         '''row_condition_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#row_condition_expectation DataplexDatascan#row_condition_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#row_condition_expectation DataplexDatascan#row_condition_expectation}
         '''
         result = self._values.get("row_condition_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesRowConditionExpectation"], result)
@@ -4194,7 +4194,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesSetExpectation"]:
         '''set_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#set_expectation DataplexDatascan#set_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#set_expectation DataplexDatascan#set_expectation}
         '''
         result = self._values.get("set_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesSetExpectation"], result)
@@ -4205,7 +4205,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesSqlAssertion"]:
         '''sql_assertion block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_assertion DataplexDatascan#sql_assertion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_assertion DataplexDatascan#sql_assertion}
         '''
         result = self._values.get("sql_assertion")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesSqlAssertion"], result)
@@ -4216,7 +4216,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation"]:
         '''statistic_range_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#statistic_range_expectation DataplexDatascan#statistic_range_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#statistic_range_expectation DataplexDatascan#statistic_range_expectation}
         '''
         result = self._values.get("statistic_range_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation"], result)
@@ -4227,7 +4227,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the Rule is active or suspended. Default = false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#suspended DataplexDatascan#suspended}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#suspended DataplexDatascan#suspended}
         '''
         result = self._values.get("suspended")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4238,7 +4238,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesTableConditionExpectation"]:
         '''table_condition_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#table_condition_expectation DataplexDatascan#table_condition_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#table_condition_expectation DataplexDatascan#table_condition_expectation}
         '''
         result = self._values.get("table_condition_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesTableConditionExpectation"], result)
@@ -4247,7 +4247,7 @@ class DataplexDatascanDataQualitySpecRules:
     def threshold(self) -> typing.Optional[jsii.Number]:
         '''The minimum ratio of passing_rows / total_rows required to pass this rule, with a range of [0.0, 1.0]. 0 indicates default value (i.e. 1.0).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#threshold DataplexDatascan#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#threshold DataplexDatascan#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4258,7 +4258,7 @@ class DataplexDatascanDataQualitySpecRules:
     ) -> typing.Optional["DataplexDatascanDataQualitySpecRulesUniquenessExpectation"]:
         '''uniqueness_expectation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#uniqueness_expectation DataplexDatascan#uniqueness_expectation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#uniqueness_expectation DataplexDatascan#uniqueness_expectation}
         '''
         result = self._values.get("uniqueness_expectation")
         return typing.cast(typing.Optional["DataplexDatascanDataQualitySpecRulesUniquenessExpectation"], result)
@@ -4469,10 +4469,10 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
         strict_min_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param max_value: The maximum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
-        :param min_value: The minimum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
-        :param strict_max_enabled: Whether each value needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
-        :param strict_min_enabled: Whether each value needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        :param max_value: The maximum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        :param min_value: The minimum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        :param strict_max_enabled: Whether each value needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        :param strict_min_enabled: Whether each value needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         value = DataplexDatascanDataQualitySpecRulesRangeExpectation(
             max_value=max_value,
@@ -4486,7 +4486,7 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
     @jsii.member(jsii_name="putRegexExpectation")
     def put_regex_expectation(self, *, regex: builtins.str) -> None:
         '''
-        :param regex: A regular expression the column value is expected to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
+        :param regex: A regular expression the column value is expected to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
         '''
         value = DataplexDatascanDataQualitySpecRulesRegexExpectation(regex=regex)
 
@@ -4495,7 +4495,7 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
     @jsii.member(jsii_name="putRowConditionExpectation")
     def put_row_condition_expectation(self, *, sql_expression: builtins.str) -> None:
         '''
-        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         value = DataplexDatascanDataQualitySpecRulesRowConditionExpectation(
             sql_expression=sql_expression
@@ -4506,7 +4506,7 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
     @jsii.member(jsii_name="putSetExpectation")
     def put_set_expectation(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Expected values for the column value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#values DataplexDatascan#values}
+        :param values: Expected values for the column value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#values DataplexDatascan#values}
         '''
         value = DataplexDatascanDataQualitySpecRulesSetExpectation(values=values)
 
@@ -4515,7 +4515,7 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
     @jsii.member(jsii_name="putSqlAssertion")
     def put_sql_assertion(self, *, sql_statement: builtins.str) -> None:
         '''
-        :param sql_statement: The SQL statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
+        :param sql_statement: The SQL statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
         '''
         value = DataplexDatascanDataQualitySpecRulesSqlAssertion(
             sql_statement=sql_statement
@@ -4534,11 +4534,11 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
         strict_min_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param statistic: column statistics. Possible values: ["STATISTIC_UNDEFINED", "MEAN", "MIN", "MAX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
-        :param max_value: The maximum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
-        :param min_value: The minimum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
-        :param strict_max_enabled: Whether column statistic needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
-        :param strict_min_enabled: Whether column statistic needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        :param statistic: column statistics. Possible values: ["STATISTIC_UNDEFINED", "MEAN", "MIN", "MAX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
+        :param max_value: The maximum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        :param min_value: The minimum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        :param strict_max_enabled: Whether column statistic needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        :param strict_min_enabled: Whether column statistic needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         value = DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation(
             statistic=statistic,
@@ -4553,7 +4553,7 @@ class DataplexDatascanDataQualitySpecRulesOutputReference(
     @jsii.member(jsii_name="putTableConditionExpectation")
     def put_table_condition_expectation(self, *, sql_expression: builtins.str) -> None:
         '''
-        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         value = DataplexDatascanDataQualitySpecRulesTableConditionExpectation(
             sql_expression=sql_expression
@@ -4920,10 +4920,10 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectation:
         strict_min_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param max_value: The maximum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
-        :param min_value: The minimum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
-        :param strict_max_enabled: Whether each value needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
-        :param strict_min_enabled: Whether each value needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        :param max_value: The maximum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        :param min_value: The minimum column value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        :param strict_max_enabled: Whether each value needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        :param strict_min_enabled: Whether each value needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f6bc64dcf4f7f09f45fe73068b2c630074f63d470317245ba2a680d12c56c1d)
@@ -4947,7 +4947,7 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectation:
 
         At least one of minValue and maxValue need to be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
         '''
         result = self._values.get("max_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4958,7 +4958,7 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectation:
 
         At least one of minValue and maxValue need to be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
         '''
         result = self._values.get("min_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4971,7 +4971,7 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectation:
 
         Only relevant if a maxValue has been defined. Default = false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
         '''
         result = self._values.get("strict_max_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4984,7 +4984,7 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectation:
 
         Only relevant if a minValue has been defined. Default = false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         result = self._values.get("strict_min_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5145,7 +5145,7 @@ class DataplexDatascanDataQualitySpecRulesRangeExpectationOutputReference(
 class DataplexDatascanDataQualitySpecRulesRegexExpectation:
     def __init__(self, *, regex: builtins.str) -> None:
         '''
-        :param regex: A regular expression the column value is expected to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
+        :param regex: A regular expression the column value is expected to match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02d572b0255331e03ccc7577a2e8133353b531f411231808b1ded5ae16b165b4)
@@ -5158,7 +5158,7 @@ class DataplexDatascanDataQualitySpecRulesRegexExpectation:
     def regex(self) -> builtins.str:
         '''A regular expression the column value is expected to match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#regex DataplexDatascan#regex}
         '''
         result = self._values.get("regex")
         assert result is not None, "Required property 'regex' is missing"
@@ -5239,7 +5239,7 @@ class DataplexDatascanDataQualitySpecRulesRegexExpectationOutputReference(
 class DataplexDatascanDataQualitySpecRulesRowConditionExpectation:
     def __init__(self, *, sql_expression: builtins.str) -> None:
         '''
-        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94ad4aba19ee0e8a72b9600566e5aaab50eea58d6fee6f1451b2210ceb858889)
@@ -5252,7 +5252,7 @@ class DataplexDatascanDataQualitySpecRulesRowConditionExpectation:
     def sql_expression(self) -> builtins.str:
         '''The SQL expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         result = self._values.get("sql_expression")
         assert result is not None, "Required property 'sql_expression' is missing"
@@ -5333,7 +5333,7 @@ class DataplexDatascanDataQualitySpecRulesRowConditionExpectationOutputReference
 class DataplexDatascanDataQualitySpecRulesSetExpectation:
     def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
         '''
-        :param values: Expected values for the column value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#values DataplexDatascan#values}
+        :param values: Expected values for the column value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#values DataplexDatascan#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c87bedf5b64085ec94bb7706f878c3c3db008d4c783a265f2009ba8315299b5)
@@ -5346,7 +5346,7 @@ class DataplexDatascanDataQualitySpecRulesSetExpectation:
     def values(self) -> typing.List[builtins.str]:
         '''Expected values for the column value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#values DataplexDatascan#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#values DataplexDatascan#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -5427,7 +5427,7 @@ class DataplexDatascanDataQualitySpecRulesSetExpectationOutputReference(
 class DataplexDatascanDataQualitySpecRulesSqlAssertion:
     def __init__(self, *, sql_statement: builtins.str) -> None:
         '''
-        :param sql_statement: The SQL statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
+        :param sql_statement: The SQL statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04bd6f171a68226cd104b0d34ba5b2d66637becdf96cfe795b206c7be325ff85)
@@ -5440,7 +5440,7 @@ class DataplexDatascanDataQualitySpecRulesSqlAssertion:
     def sql_statement(self) -> builtins.str:
         '''The SQL statement.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_statement DataplexDatascan#sql_statement}
         '''
         result = self._values.get("sql_statement")
         assert result is not None, "Required property 'sql_statement' is missing"
@@ -5535,11 +5535,11 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
         strict_min_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param statistic: column statistics. Possible values: ["STATISTIC_UNDEFINED", "MEAN", "MIN", "MAX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
-        :param max_value: The maximum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
-        :param min_value: The minimum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
-        :param strict_max_enabled: Whether column statistic needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
-        :param strict_min_enabled: Whether column statistic needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        :param statistic: column statistics. Possible values: ["STATISTIC_UNDEFINED", "MEAN", "MIN", "MAX"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
+        :param max_value: The maximum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        :param min_value: The minimum column statistic value allowed for a row to pass this validation. At least one of minValue and maxValue need to be provided. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        :param strict_max_enabled: Whether column statistic needs to be strictly lesser than ('<') the maximum, or if equality is allowed. Only relevant if a maxValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        :param strict_min_enabled: Whether column statistic needs to be strictly greater than ('>') the minimum, or if equality is allowed. Only relevant if a minValue has been defined. Default = false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b0a5aa73adb2ee9583a2361bd732522f3b3dc6d97169e30893463bb70d70b15)
@@ -5564,7 +5564,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
     def statistic(self) -> builtins.str:
         '''column statistics. Possible values: ["STATISTIC_UNDEFINED", "MEAN", "MIN", "MAX"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#statistic DataplexDatascan#statistic}
         '''
         result = self._values.get("statistic")
         assert result is not None, "Required property 'statistic' is missing"
@@ -5576,7 +5576,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
 
         At least one of minValue and maxValue need to be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#max_value DataplexDatascan#max_value}
         '''
         result = self._values.get("max_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5587,7 +5587,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
 
         At least one of minValue and maxValue need to be provided.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#min_value DataplexDatascan#min_value}
         '''
         result = self._values.get("min_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5600,7 +5600,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
 
         Only relevant if a maxValue has been defined. Default = false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_max_enabled DataplexDatascan#strict_max_enabled}
         '''
         result = self._values.get("strict_max_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5613,7 +5613,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectation:
 
         Only relevant if a minValue has been defined. Default = false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#strict_min_enabled DataplexDatascan#strict_min_enabled}
         '''
         result = self._values.get("strict_min_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5791,7 +5791,7 @@ class DataplexDatascanDataQualitySpecRulesStatisticRangeExpectationOutputReferen
 class DataplexDatascanDataQualitySpecRulesTableConditionExpectation:
     def __init__(self, *, sql_expression: builtins.str) -> None:
         '''
-        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        :param sql_expression: The SQL expression. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46ef359ae5fae4724bfb144183e476594f79a5dae9d5269f2e5521757e32582a)
@@ -5804,7 +5804,7 @@ class DataplexDatascanDataQualitySpecRulesTableConditionExpectation:
     def sql_expression(self) -> builtins.str:
         '''The SQL expression.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#sql_expression DataplexDatascan#sql_expression}
         '''
         result = self._values.get("sql_expression")
         assert result is not None, "Required property 'sql_expression' is missing"
@@ -5949,8 +5949,8 @@ class DataplexDatascanExecutionSpec:
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
-        :param field: The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field DataplexDatascan#field}
+        :param trigger: trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
+        :param field: The unnested field (of type Date or Timestamp) that contains values which monotonically increase over time. If not specified, a data scan will run for all data in the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field DataplexDatascan#field}
         '''
         if isinstance(trigger, dict):
             trigger = DataplexDatascanExecutionSpecTrigger(**trigger)
@@ -5968,7 +5968,7 @@ class DataplexDatascanExecutionSpec:
     def trigger(self) -> "DataplexDatascanExecutionSpecTrigger":
         '''trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#trigger DataplexDatascan#trigger}
         '''
         result = self._values.get("trigger")
         assert result is not None, "Required property 'trigger' is missing"
@@ -5980,7 +5980,7 @@ class DataplexDatascanExecutionSpec:
 
         If not specified, a data scan will run for all data in the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#field DataplexDatascan#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#field DataplexDatascan#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6025,8 +6025,8 @@ class DataplexDatascanExecutionSpecOutputReference(
         schedule: typing.Optional[typing.Union["DataplexDatascanExecutionSpecTriggerSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_demand: on_demand block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
+        :param on_demand: on_demand block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
         '''
         value = DataplexDatascanExecutionSpecTrigger(
             on_demand=on_demand, schedule=schedule
@@ -6094,8 +6094,8 @@ class DataplexDatascanExecutionSpecTrigger:
         schedule: typing.Optional[typing.Union["DataplexDatascanExecutionSpecTriggerSchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_demand: on_demand block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
+        :param on_demand: on_demand block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
         '''
         if isinstance(on_demand, dict):
             on_demand = DataplexDatascanExecutionSpecTriggerOnDemand(**on_demand)
@@ -6117,7 +6117,7 @@ class DataplexDatascanExecutionSpecTrigger:
     ) -> typing.Optional["DataplexDatascanExecutionSpecTriggerOnDemand"]:
         '''on_demand block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#on_demand DataplexDatascan#on_demand}
         '''
         result = self._values.get("on_demand")
         return typing.cast(typing.Optional["DataplexDatascanExecutionSpecTriggerOnDemand"], result)
@@ -6128,7 +6128,7 @@ class DataplexDatascanExecutionSpecTrigger:
     ) -> typing.Optional["DataplexDatascanExecutionSpecTriggerSchedule"]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#schedule DataplexDatascan#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional["DataplexDatascanExecutionSpecTriggerSchedule"], result)
@@ -6233,7 +6233,7 @@ class DataplexDatascanExecutionSpecTriggerOutputReference(
     @jsii.member(jsii_name="putSchedule")
     def put_schedule(self, *, cron: builtins.str) -> None:
         '''
-        :param cron: Cron schedule for running scans periodically. This field is required for Schedule scans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
+        :param cron: Cron schedule for running scans periodically. This field is required for Schedule scans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
         '''
         value = DataplexDatascanExecutionSpecTriggerSchedule(cron=cron)
 
@@ -6295,7 +6295,7 @@ class DataplexDatascanExecutionSpecTriggerOutputReference(
 class DataplexDatascanExecutionSpecTriggerSchedule:
     def __init__(self, *, cron: builtins.str) -> None:
         '''
-        :param cron: Cron schedule for running scans periodically. This field is required for Schedule scans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
+        :param cron: Cron schedule for running scans periodically. This field is required for Schedule scans. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d67af15409251f4fe8b14154bb5d82fdb50d31d9078d511db381dcf238b8fa15)
@@ -6308,7 +6308,7 @@ class DataplexDatascanExecutionSpecTriggerSchedule:
     def cron(self) -> builtins.str:
         '''Cron schedule for running scans periodically. This field is required for Schedule scans.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#cron DataplexDatascan#cron}
         '''
         result = self._values.get("cron")
         assert result is not None, "Required property 'cron' is missing"
@@ -6544,9 +6544,9 @@ class DataplexDatascanTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#create DataplexDatascan#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#update DataplexDatascan#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#create DataplexDatascan#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#update DataplexDatascan#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b9e767d17707360c1f5acec92641a1b9725c17bdddb5bfad21942bfaa7be421)
@@ -6563,19 +6563,19 @@ class DataplexDatascanTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#create DataplexDatascan#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#create DataplexDatascan#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#delete DataplexDatascan#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dataplex_datascan#update DataplexDatascan#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/dataplex_datascan#update DataplexDatascan#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

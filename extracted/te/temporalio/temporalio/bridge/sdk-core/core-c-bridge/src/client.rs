@@ -4,12 +4,15 @@ use crate::{
 
 use futures_util::FutureExt;
 use prost::bytes::Bytes;
-use std::cell::OnceCell;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::{
+    cell::OnceCell,
+    str::FromStr,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 use temporal_client::{
     ClientKeepAliveConfig, ClientOptions as CoreClientOptions, ClientOptionsBuilder,
     ClientTlsConfig, CloudService, ConfiguredClient, HealthService, HttpConnectProxyOptions,
@@ -240,7 +243,7 @@ pub extern "C" fn temporal_core_client_update_metadata(
     metadata: ByteArrayRef,
 ) {
     let client = unsafe { &*client };
-    client
+    let _result = client
         .core
         .get_client()
         .set_headers(metadata.to_string_map_on_newlines());

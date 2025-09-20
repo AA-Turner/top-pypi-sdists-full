@@ -147,6 +147,30 @@ class RateLimiter(Generic[RequestType, ResponseType]):
         if self.config.max_batch_size is None:
             self.config.max_batch_size = self.config.requests_per_window
 
+    @staticmethod
+    def is_rate_limit_error(e: Exception) -> bool:
+        """Check if the error is a rate limit error."""
+        # Simple check for basic HTTP 429 errors
+        is_rate_limit_error = (
+            isinstance(e, httpx.HTTPStatusError)
+            and e.response.status_code == httpx.codes.TOO_MANY_REQUESTS
+        )
+        if is_rate_limit_error:
+            return is_rate_limit_error
+
+        # Check for response text for rate limit keywords if it's an HTTPStatusError
+        # This is a fallback for cases where the response is not a 429 but contains rate limit keywords
+        if isinstance(e, httpx.HTTPStatusError) and not is_rate_limit_error:
+            try:
+                response_text = e.response.text.lower()
+                is_rate_limit_error = any(
+                    keyword in response_text for keyword in STATIC_RATE_LIMIT_DICTIONARY
+                )
+            except Exception:
+                pass
+
+        return is_rate_limit_error
+
     def _update_request_times(self) -> None:
         """Update the list of request times, removing expired ones."""
         current_time = time.time()
@@ -301,13 +325,9 @@ class RateLimiter(Generic[RequestType, ResponseType]):
 
                     except Exception as e:
                         # Handle rate limit errors
-                        error_str = str(e).lower()
-                        if any(
-                            keyword in error_str for keyword in STATIC_RATE_LIMIT_DICTIONARY
-                        ) or (
-                            isinstance(e, httpx.HTTPStatusError)
-                            and e.response.status_code == httpx.codes.TOO_MANY_REQUESTS
-                        ):
+                        is_rate_limit_error = RateLimiter.is_rate_limit_error(e)
+
+                        if is_rate_limit_error:
                             self._handle_rate_limit_exceeded()
                             self.debug_log(
                                 f"Rate limit exceeded; current delay: {self.current_delay}"

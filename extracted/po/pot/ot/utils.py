@@ -17,25 +17,25 @@ import warnings
 from inspect import signature
 from .backend import get_backend, Backend, NumpyBackend, JaxBackend
 
-__time_tic_toc = time.time()
+__time_tic_toc = time.perf_counter()
 
 
 def tic():
     r"""Python implementation of Matlab tic() function"""
     global __time_tic_toc
-    __time_tic_toc = time.time()
+    __time_tic_toc = time.perf_counter()
 
 
 def toc(message="Elapsed time : {} s"):
     r"""Python implementation of Matlab toc() function"""
-    t = time.time()
+    t = time.perf_counter()
     print(message.format(t - __time_tic_toc))
     return t - __time_tic_toc
 
 
 def toq():
     r"""Python implementation of Julia toc() function"""
-    t = time.time()
+    t = time.perf_counter()
     return t - __time_tic_toc
 
 
@@ -140,24 +140,29 @@ def projection_sparse_simplex(V, max_nz, z=1, axis=None, nx=None):
     r"""Projection of :math:`\mathbf{V}` onto the simplex with cardinality constraint (maximum number of non-zero elements) and then scaled by `z`.
 
     .. math::
-        P\left(\mathbf{V}, max_nz, z\right) = \mathop{\arg \min}_{\substack{\mathbf{y} >= 0 \\ \sum_i \mathbf{y}_i = z} \\ ||p||_0 \le \text{max_nz}} \quad \|\mathbf{y} - \mathbf{V}\|^2
+        P\left(\mathbf{V}, \text{max_nz}, z\right) = \mathop{\arg \min}_{\substack{\mathbf{y} >= 0 \\ \sum_i \mathbf{y}_i = z} \\ ||p||_0 \le \text{max_nz}} \quad \|\mathbf{y} - \mathbf{V}\|^2
 
     Parameters
     ----------
     V: 1-dim or 2-dim ndarray
+    max_nz: int
+        Maximum number of non-zero elements in the projection.
+        If `max_nz` is larger than the number of elements in `V`, then
+        the projection is equivalent to `proj_simplex(V, z)`.
     z: float or array
         If array, len(z) must be compatible with :math:`\mathbf{V}`
     axis: None or int
-        - axis=None: project :math:`\mathbf{V}` by :math:`P(\mathbf{V}.\mathrm{ravel}(), max_nz, z)`
-        - axis=1: project each :math:`\mathbf{V}_i` by :math:`P(\mathbf{V}_i, max_nz, z_i)`
-        - axis=0: project each :math:`\mathbf{V}_{:, j}` by :math:`P(\mathbf{V}_{:, j}, max_nz, z_j)`
+        - axis=None: project :math:`\mathbf{V}` by :math:`P(\mathbf{V}.\mathrm{ravel}(), \text{max_nz}, z)`
+        - axis=1: project each :math:`\mathbf{V}_i` by :math:`P(\mathbf{V}_i, \text{max_nz}, z_i)`
+        - axis=0: project each :math:`\mathbf{V}_{:, j}` by :math:`P(\mathbf{V}_{:, j}, \text{max_nz}, z_j)`
 
     Returns
     -------
     projection: ndarray, shape :math:`\mathbf{V}`.shape
 
-    References:
-        Sparse projections onto the simplex
+    References
+    ----------
+    .. [1] Sparse projections onto the simplex
         Anastasios Kyrillidis, Stephen Becker, Volkan Cevher and, Christoph Koch
         ICML 2013
         https://arxiv.org/abs/1206.1529
@@ -228,12 +233,12 @@ def unif(n, type_as=None):
     ----------
     n : int
         number of bins in the histogram
-    type_as : array_like
+    type_as : array-like
         array of the same type of the expected output (numpy/pytorch/jax)
 
     Returns
     -------
-    h : array_like (`n`,)
+    h : array-like, shape (n,)
         histogram of length `n` such that :math:`\forall i, \mathbf{h}_i = \frac{1}{n}`
     """
     if type_as is None:
@@ -251,7 +256,7 @@ def clean_zeros(a, b, M):
     return a2, b2, M2
 
 
-def euclidean_distances(X, Y, squared=False):
+def euclidean_distances(X, Y, squared=False, nx=None):
     r"""
     Considering the rows of :math:`\mathbf{X}` (and :math:`\mathbf{Y} = \mathbf{X}`) as vectors, compute the
     distance matrix between each pair of vectors.
@@ -270,13 +275,13 @@ def euclidean_distances(X, Y, squared=False):
     -------
     distances : array-like, shape (`n_samples_1`, `n_samples_2`)
     """
-
-    nx = get_backend(X, Y)
+    if nx is None:
+        nx = get_backend(X, Y)
 
     a2 = nx.einsum("ij,ij->i", X, X)
     b2 = nx.einsum("ij,ij->i", Y, Y)
 
-    c = -2 * nx.dot(X, Y.T)
+    c = -2 * nx.dot(X, nx.transpose(Y))
     c += a2[:, None]
     c += b2[None, :]
 
@@ -291,11 +296,21 @@ def euclidean_distances(X, Y, squared=False):
     return c
 
 
-def dist(x1, x2=None, metric="sqeuclidean", p=2, w=None):
+def dist(
+    x1,
+    x2=None,
+    metric="sqeuclidean",
+    p=2,
+    w=None,
+    backend="auto",
+    nx=None,
+    use_tensor=False,
+):
     r"""Compute distance between samples in :math:`\mathbf{x_1}` and :math:`\mathbf{x_2}`
 
     .. note:: This function is backend-compatible and will work on arrays
-        from all compatible backends.
+        from all compatible backends for the following metrics:
+        'sqeuclidean', 'euclidean', 'cityblock', 'minkowski', 'cosine', 'correlation'.
 
     Parameters
     ----------
@@ -315,7 +330,17 @@ def dist(x1, x2=None, metric="sqeuclidean", p=2, w=None):
         p-norm for the Minkowski and the Weighted Minkowski metrics. Default value is 2.
     w : array-like, rank 1
         Weights for the weighted metrics.
-
+    backend : str, optional
+        Backend to use for the computation. If 'auto', the backend is
+        automatically selected based on the input data. if 'scipy',
+        the ``scipy.spatial.distance.cdist`` function is used (and gradients are
+        detached).
+    use_tensor : bool, optional
+        If true use tensorized computation for the distance matrix which can
+        cause memory issues for large datasets. Default is False and the
+        parameter is used only for the 'cityblock' and 'minkowski' metrics.
+    nx : Backend, optional
+        Backend to perform computations on. If omitted, the backend defaults to that of `x1`.
 
     Returns
     -------
@@ -324,12 +349,69 @@ def dist(x1, x2=None, metric="sqeuclidean", p=2, w=None):
         distance matrix computed with given metric
 
     """
+    if nx is None:
+        nx = get_backend(x1, x2)
     if x2 is None:
         x2 = x1
-    if metric == "sqeuclidean":
-        return euclidean_distances(x1, x2, squared=True)
+    if backend == "scipy":  # force scipy backend with cdist function
+        x1 = nx.to_numpy(x1)
+        x2 = nx.to_numpy(x2)
+        if isinstance(metric, str) and metric.endswith("minkowski"):
+            return nx.from_numpy(cdist(x1, x2, metric=metric, p=p, w=w))
+        if w is not None:
+            return nx.from_numpy(cdist(x1, x2, metric=metric, w=w))
+        return nx.from_numpy(cdist(x1, x2, metric=metric))
+    elif metric == "sqeuclidean":
+        return euclidean_distances(x1, x2, squared=True, nx=nx)
     elif metric == "euclidean":
-        return euclidean_distances(x1, x2, squared=False)
+        return euclidean_distances(x1, x2, squared=False, nx=nx)
+    elif metric == "cityblock":
+        if use_tensor:
+            return nx.sum(nx.abs(x1[:, None, :] - x2[None, :, :]), axis=2)
+        else:
+            M = 0.0
+            for i in range(x1.shape[1]):
+                M += nx.abs(x1[:, i][:, None] - x2[:, i][None, :])
+            return M
+    elif metric == "minkowski":
+        if w is None:
+            if use_tensor:
+                return nx.power(
+                    nx.sum(
+                        nx.power(nx.abs(x1[:, None, :] - x2[None, :, :]), p), axis=2
+                    ),
+                    1 / p,
+                )
+            else:
+                M = 0.0
+                for i in range(x1.shape[1]):
+                    M += nx.abs(x1[:, i][:, None] - x2[:, i][None, :]) ** p
+                return M ** (1 / p)
+        else:
+            if use_tensor:
+                return nx.power(
+                    nx.sum(
+                        w[None, None, :]
+                        * nx.power(nx.abs(x1[:, None, :] - x2[None, :, :]), p),
+                        axis=2,
+                    ),
+                    1 / p,
+                )
+            else:
+                M = 0.0
+                for i in range(x1.shape[1]):
+                    M += w[i] * nx.abs(x1[:, i][:, None] - x2[:, i][None, :]) ** p
+                return M ** (1 / p)
+    elif metric == "cosine":
+        nx1 = nx.sqrt(nx.einsum("ij,ij->i", x1, x1))
+        nx2 = nx.sqrt(nx.einsum("ij,ij->i", x2, x2))
+        return 1.0 - (nx.dot(x1, nx.transpose(x2)) / nx1[:, None] / nx2[None, :])
+    elif metric == "correlation":
+        x1 = x1 - nx.mean(x1, axis=1)[:, None]
+        x2 = x2 - nx.mean(x2, axis=1)[:, None]
+        nx1 = nx.sqrt(nx.einsum("ij,ij->i", x1, x1))
+        nx2 = nx.sqrt(nx.einsum("ij,ij->i", x2, x2))
+        return 1.0 - (nx.dot(x1, nx.transpose(x2)) / nx1[:, None] / nx2[None, :])
     else:
         if not get_backend(x1, x2).__name__ == "numpy":
             raise NotImplementedError()
@@ -517,7 +599,7 @@ def check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "{} cannot be used to seed a numpy.random.RandomState" " instance".format(seed)
+        "{} cannot be used to seed a numpy.random.RandomState instance".format(seed)
     )
 
 
@@ -787,7 +869,7 @@ class deprecated(object):
 def _is_deprecated(func):
     r"""Helper to check if func is wrapped by our deprecated decorator"""
     if sys.version_info < (3, 5):
-        raise NotImplementedError("This is only available for python3.5 " "or above")
+        raise NotImplementedError("This is only available for python3.5 or above")
     closures = getattr(func, "__closure__", [])
     if closures is None:
         closures = []
@@ -1341,3 +1423,98 @@ def proj_SDP(S, nx=None, vmin=0.0):
         Q = nx.einsum("ijk,ik->ijk", P, w)  # Q[i] = P[i] @ diag(w[i])
         # R[i] = Q[i] @ P[i].T
         return nx.einsum("ijk,ikl->ijl", Q, nx.transpose(P, (0, 2, 1)))
+
+
+def exp_bures(Sigma, S, nx=None):
+    r"""
+    Exponential map in Bures-Wasserstein space at Sigma:
+
+    .. math::
+        \exp_\Sigma(S) = (I_d+S)\Sigma(I_d+S).
+
+    Parameters
+    ----------
+    Sigma : array-like (d,d)
+        SPD matrix
+    S : array-like (d,d)
+        Symmetric matrix
+    nx : module, optional
+        The numerical backend module to use. If not provided, the backend will
+        be fetched from the input matrices `Sigma, S`.
+
+    Returns
+    -------
+    P : array-like (d,d)
+        SPD matrix obtained as the exponential map of S at Sigma
+    """
+    if nx is None:
+        nx = get_backend(Sigma, S)
+    d = S.shape[-1]
+    Id = nx.eye(d, type_as=S)
+    C = Id + S
+
+    return nx.einsum("ij,jk,kl -> il", C, Sigma, C)
+
+
+def check_number_threads(numThreads):
+    """Checks whether or not the requested number of threads has a valid value.
+
+    Parameters
+    ----------
+    numThreads : int or str
+        The requested number of threads, should either be a strictly positive integer or "max" or None
+
+    Returns
+    -------
+    numThreads : int
+        Corrected number of threads
+    """
+    if (numThreads is None) or (
+        isinstance(numThreads, str) and numThreads.lower() == "max"
+    ):
+        return -1
+    if (not isinstance(numThreads, int)) or numThreads < 1:
+        raise ValueError(
+            'numThreads should either be "max" or a strictly positive integer'
+        )
+    return numThreads
+
+
+def fun_to_numpy(fun, arr, nx, warn=True):
+    """Convert a function to a numpy function.
+
+    Parameters
+    ----------
+    fun : callable
+        The function to convert.
+    arr : array-like
+        The input to test the function. Can be from any backend.
+    nx : Backend
+        The backend to use for the conversion.
+    warn : bool, optional
+        Whether to raise a warning if the function is not compatible with numpy.
+        Default is True.
+    Returns
+    -------
+    fun_numpy : callable
+        The converted function.
+    """
+    if arr is None:
+        raise ValueError("arr should not be None to test fun")
+
+    nx_arr = get_backend(arr)
+    if nx_arr.__name__ != "numpy":
+        arr = nx.to_numpy(arr)
+    try:
+        fun(arr)
+        return fun
+    except BaseException:
+        if warn:
+            warnings.warn(
+                "The callable function should be able to handle numpy arrays, a compatible function is created and comes with overhead"
+            )
+
+        def fun_numpy(x):
+            return nx.to_numpy(fun(nx.from_numpy(x)))
+
+        return fun_numpy

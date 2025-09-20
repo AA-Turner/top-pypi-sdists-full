@@ -20,8 +20,8 @@ QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T = typing.TypeVar("Qua
 QuantConnect_Data_Consolidators_DataConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_DataConsolidator_TInput")
 QuantConnect_Data_Consolidators_RenkoConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_RenkoConsolidator_TInput")
 QuantConnect_Data_Consolidators_WickedRenkoConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_WickedRenkoConsolidator_T")
-QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T = typing.TypeVar("QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T")
 QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated = typing.TypeVar("QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated")
+QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T = typing.TypeVar("QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T")
 QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput")
 QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T")
 QuantConnect_Data_Consolidators__EventContainer_Callable = typing.TypeVar("QuantConnect_Data_Consolidators__EventContainer_Callable")
@@ -1324,6 +1324,15 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
     """
 
     @property
+    def _working_bar(self) -> QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated:
+        """This field is protected."""
+        ...
+
+    @_working_bar.setter
+    def _working_bar(self, value: QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated) -> None:
+        ...
+
+    @property
     def output_type(self) -> typing.Type:
         """Gets the type produced by this consolidator"""
         ...
@@ -1467,6 +1476,14 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
 
     def reset(self) -> None:
         """Resets the consolidator"""
+        ...
+
+    def reset_working_bar(self) -> None:
+        """
+        Resets the working bar
+        
+        This method is protected.
+        """
         ...
 
     def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:

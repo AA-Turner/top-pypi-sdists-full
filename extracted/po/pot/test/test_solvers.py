@@ -30,8 +30,9 @@ lst_method_params_solve_sample = [
     {"method": "1d", "metric": "euclidean"},
     {"method": "gaussian"},
     {"method": "gaussian", "reg": 1},
-    {"method": "factored", "rank": 10},
-    {"method": "lowrank", "rank": 10},
+    {"method": "factored", "rank": 2},
+    {"method": "lowrank", "rank": 2, "max_iter": 5},
+    {"method": "nystroem", "rank": 2},
 ]
 
 lst_parameters_solve_sample_NotImplemented = [
@@ -48,6 +49,10 @@ lst_parameters_solve_sample_NotImplemented = [
         "method": "lowrank",
         "metric": "euclidean",
     },  # fail lowrank on metric not euclidean
+    {
+        "method": "nystroem",
+        "metric": "euclidean",
+    },  # fail nystroem on metric not euclidean
     {"lazy": True},  # fail lazy for non regularized
     {"lazy": True, "unbalanced": 1},  # fail lazy for non regularized unbalanced
     {
@@ -144,6 +149,91 @@ def test_solve(nx):
 
 
 @pytest.mark.skipif(not torch, reason="torch no installed")
+def test_solve_last_step():
+    n_samples_s = 10
+    n_samples_t = 7
+    n_features = 2
+    rng = np.random.RandomState(0)
+
+    x = rng.randn(n_samples_s, n_features)
+    y = rng.randn(n_samples_t, n_features)
+    a = ot.utils.unif(n_samples_s)
+    b = ot.utils.unif(n_samples_t)
+    M = ot.dist(x, y)
+
+    # Check that last_step and autodiff give the same result and similar gradients
+    a = torch.tensor(a, requires_grad=True)
+    b = torch.tensor(b, requires_grad=True)
+    M = torch.tensor(M, requires_grad=True)
+
+    sol0 = ot.solve(M, a, b, reg=10, grad="autodiff")
+    sol0.value.backward()
+
+    gM0 = M.grad.clone()
+    ga0 = a.grad.clone()
+    gb0 = b.grad.clone()
+
+    a = torch.tensor(a, requires_grad=True)
+    b = torch.tensor(b, requires_grad=True)
+    M = torch.tensor(M, requires_grad=True)
+
+    sol = ot.solve(M, a, b, reg=10, grad="last_step")
+    sol.value.backward()
+
+    gM = M.grad.clone()
+    ga = a.grad.clone()
+    gb = b.grad.clone()
+
+    # Note, gradients are invariant to change in constant so we center them
+    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+    tolerance = 0.96
+    assert cos(gM0.flatten(), gM.flatten()) > tolerance
+    assert cos(ga0 - ga0.mean(), ga - ga.mean()) > tolerance
+    assert cos(gb0 - gb0.mean(), gb - gb.mean()) > tolerance
+
+    assert torch.allclose(sol0.plan, sol.plan)
+    assert torch.allclose(sol0.value, sol.value)
+    assert torch.allclose(sol0.value_linear, sol.value_linear)
+    assert torch.allclose(sol0.potentials[0], sol.potentials[0])
+    assert torch.allclose(sol0.potentials[1], sol.potentials[1])
+
+    with pytest.raises(ValueError):
+        ot.solve(M, a, b, grad="last_step", max_iter=0, reg=10)
+
+
+@pytest.mark.skipif(not torch, reason="torch no installed")
+def test_solve_detach():
+    n_samples_s = 10
+    n_samples_t = 7
+    n_features = 2
+    rng = np.random.RandomState(0)
+
+    x = rng.randn(n_samples_s, n_features)
+    y = rng.randn(n_samples_t, n_features)
+    a = ot.utils.unif(n_samples_s)
+    b = ot.utils.unif(n_samples_t)
+    M = ot.dist(x, y)
+
+    # Check that last_step and autodiff give the same result and similar gradients
+    a = torch.tensor(a, requires_grad=True)
+    b = torch.tensor(b, requires_grad=True)
+    M = torch.tensor(M, requires_grad=True)
+
+    sol0 = ot.solve(M, a, b, reg=10, grad="detach")
+
+    with pytest.raises(RuntimeError):
+        sol0.value.backward()
+
+    sol = ot.solve(M, a, b, reg=10, grad="autodiff")
+
+    assert torch.allclose(sol0.plan, sol.plan)
+    assert torch.allclose(sol0.value, sol.value)
+    assert torch.allclose(sol0.value_linear, sol.value_linear)
+    assert torch.allclose(sol0.potentials[0], sol.potentials[0])
+    assert torch.allclose(sol0.potentials[1], sol.potentials[1])
+
+
+@pytest.mark.skipif(not torch, reason="torch no installed")
 def test_solve_envelope():
     n_samples_s = 10
     n_samples_t = 7
@@ -178,7 +268,7 @@ def test_solve_envelope():
     ga = a.grad.clone()
     gb = b.grad.clone()
 
-    # Note, gradients aer invariant to change in constant so we center them
+    # Note, gradients are invariant to change in constant so we center them
     assert torch.allclose(gM0, gM)
     assert torch.allclose(ga0 - ga0.mean(), ga - ga.mean())
     assert torch.allclose(gb0 - gb0.mean(), gb - gb.mean())
@@ -431,10 +521,12 @@ def test_solve_gromov_not_implemented(nx):
     # detect partial not implemented and error detect in value
     with pytest.raises(ValueError):
         ot.solve_gromov(Ca, Cb, unbalanced_type="partial", unbalanced=1.5)
-    with pytest.raises(NotImplementedError):
-        ot.solve_gromov(Ca, Cb, M, unbalanced_type="partial", unbalanced=0.5)
     with pytest.raises(ValueError):
         ot.solve_gromov(Ca, Cb, reg=1, unbalanced_type="partial", unbalanced=1.5)
+    with pytest.raises(ValueError):
+        ot.solve_gromov(Ca, Cb, M, unbalanced_type="partial", unbalanced=1.5)
+    with pytest.raises(ValueError):
+        ot.solve_gromov(Ca, Cb, M, reg=1, unbalanced_type="partial", unbalanced=1.5)
 
 
 def test_solve_sample(nx):
@@ -577,10 +669,10 @@ def test_solve_sample_geomloss(nx, metric):
 
 @pytest.mark.parametrize("method_params", lst_method_params_solve_sample)
 def test_solve_sample_methods(nx, method_params):
-    n_samples_s = 20
-    n_samples_t = 7
+    n_samples_s = 10
+    n_samples_t = 9
     n_features = 2
-    rng = np.random.RandomState(0)
+    rng = np.random.RandomState(42)
 
     x = rng.randn(n_samples_s, n_features)
     y = rng.randn(n_samples_t, n_features)
@@ -596,8 +688,8 @@ def test_solve_sample_methods(nx, method_params):
     assert_allclose_sol(sol, solb)
 
     sol2 = ot.solve_sample(x, x, **method_params)
-    if method_params["method"] not in ["factored", "lowrank"]:
-        np.testing.assert_allclose(sol2.value, 0)
+    if method_params["method"] not in ["factored", "lowrank", "nystroem"]:
+        np.testing.assert_allclose(sol2.value, 0, atol=1e-10)
 
 
 @pytest.mark.parametrize("method_params", lst_parameters_solve_sample_NotImplemented)

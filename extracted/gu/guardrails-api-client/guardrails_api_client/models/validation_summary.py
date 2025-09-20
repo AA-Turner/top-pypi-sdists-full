@@ -83,9 +83,9 @@ class ValidationSummary(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in error_spans (list)
         _items = []
         if self.error_spans:
-            for _item in self.error_spans:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_error_spans in self.error_spans:
+                if _item_error_spans:
+                    _items.append(_item_error_spans.to_dict())
             _dict['errorSpans'] = _items
         return _dict
 

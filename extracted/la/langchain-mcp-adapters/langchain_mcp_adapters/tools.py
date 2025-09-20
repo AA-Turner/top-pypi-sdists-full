@@ -6,7 +6,12 @@ tools, handle tool execution, and manage tool conversion between the two formats
 
 from typing import Any, cast, get_args
 
-from langchain_core.tools import BaseTool, InjectedToolArg, StructuredTool, ToolException
+from langchain_core.tools import (
+    BaseTool,
+    InjectedToolArg,
+    StructuredTool,
+    ToolException,
+)
 from langchain_core.tools.base import get_all_basemodel_annotations
 from mcp import ClientSession
 from mcp.server.fastmcp.tools import Tool as FastMCPTool
@@ -119,6 +124,7 @@ def convert_mcp_tool_to_langchain_tool(
     async def call_tool(
         **arguments: dict[str, Any],
     ) -> tuple[str | list[str], list[NonTextContent] | None]:
+        call_tool_result = None
         if session is None:
             # If a session is not provided, we will create one on the fly
             async with create_session(connection) as tool_session:
@@ -129,7 +135,21 @@ def convert_mcp_tool_to_langchain_tool(
                 )
         else:
             call_tool_result = await session.call_tool(tool.name, arguments)
+
+        if call_tool_result is None:
+            raise RuntimeError(
+                "Tool call failed: no result returned from the underlying MCP SDK. "
+                "This may indicate that an exception was handled or suppressed "
+                "by the MCP SDK (e.g., client disconnection, network issue, "
+                "or other execution error)."
+            )
+
         return _convert_call_tool_result(call_tool_result)
+
+    meta = tool.meta if hasattr(tool, "meta") else None
+    base = tool.annotations.model_dump() if tool.annotations is not None else {}
+    meta = {"_meta": meta} if meta is not None else {}
+    metadata = {**base, **meta} or None
 
     return StructuredTool(
         name=tool.name,
@@ -137,7 +157,7 @@ def convert_mcp_tool_to_langchain_tool(
         args_schema=tool.inputSchema,
         coroutine=call_tool,
         response_format="content_and_artifact",
-        metadata=tool.annotations.model_dump() if tool.annotations else None,
+        metadata=metadata,
     )
 
 
@@ -172,7 +192,8 @@ async def load_mcp_tools(
         tools = await _list_all_tools(session)
 
     return [
-        convert_mcp_tool_to_langchain_tool(session, tool, connection=connection) for tool in tools
+        convert_mcp_tool_to_langchain_tool(session, tool, connection=connection)
+        for tool in tools
     ]
 
 
@@ -225,7 +246,9 @@ def to_fastmcp(tool: BaseTool) -> FastMCPTool:
         field: (field_info.annotation, field_info)
         for field, field_info in tool.tool_call_schema.model_fields.items()
     }
-    arg_model = create_model(f"{tool.name}Arguments", **field_definitions, __base__=ArgModelBase)
+    arg_model = create_model(
+        f"{tool.name}Arguments", **field_definitions, __base__=ArgModelBase
+    )
     fn_metadata = FuncMetadata(arg_model=arg_model)
 
     # We'll use an Any type for the function return type.

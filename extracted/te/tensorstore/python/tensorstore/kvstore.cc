@@ -334,7 +334,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
-        'file_io_memmap': False,
+        'file_io_mode': {},
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -345,7 +345,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
-        'file_io_memmap': False,
+        'file_io_mode': {},
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -374,7 +374,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
-        'file_io_memmap': False,
+        'file_io_mode': {},
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -385,7 +385,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
-        'file_io_memmap': False,
+        'file_io_mode': {},
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -1174,7 +1174,7 @@ Example:
       'context': {
         'file_io_concurrency': {},
         'file_io_locking': {},
-        'file_io_memmap': False,
+        'file_io_mode': {},
         'file_io_sync': True,
       },
       'driver': 'file',
@@ -1196,7 +1196,7 @@ Example:
     'context': {
       'file_io_concurrency': {},
       'file_io_locking': {},
-      'file_io_memmap': False,
+      'file_io_mode': {},
       'file_io_sync': True,
     },
     'driver': 'file',
@@ -1207,7 +1207,7 @@ Example:
     'context': {
       'file_io_concurrency': {},
       'file_io_locking': {},
-      'file_io_memmap': False,
+      'file_io_mode': {},
       'file_io_sync': True,
     },
     'driver': 'file',
@@ -1392,9 +1392,9 @@ Example of constructing from the :json:schema:`JSON representation<KvStore>`:
 
 Example of constructing from a :json:schema:`URL<KvStoreUrl>`:
 
-    >>> spec = ts.KvStore.Spec('file://tmp/data/')
+    >>> spec = ts.KvStore.Spec('file:///path/to/data/')
     >>> spec
-    KvStore.Spec({'driver': 'file', 'path': 'tmp/data/'})
+    KvStore.Spec({'driver': 'file', 'path': '/path/to/data/'})
 
 )");
 
@@ -1418,7 +1418,7 @@ Example:
    'driver': 'file',
    'file_io_concurrency': 'file_io_concurrency',
    'file_io_locking': 'file_io_locking',
-   'file_io_memmap': 'file_io_memmap',
+   'file_io_mode': 'file_io_mode',
    'file_io_sync': 'file_io_sync',
    'path': 'tmp/dataset/abc/'}
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.94
+Version: 0.14.0
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -48,7 +48,7 @@ Requires-Dist: dataclasses-json==0.6.7
 Requires-Dist: decorator==5.2.1
 Requires-Dist: deprecation==2.1.0
 Requires-Dist: dlt-cratedb==0.0.2
-Requires-Dist: dlt==1.11.0
+Requires-Dist: dlt==1.16.0
 Requires-Dist: dnspython==2.7.0
 Requires-Dist: duckdb-engine==0.17.0
 Requires-Dist: duckdb==1.2.1
@@ -104,7 +104,6 @@ Requires-Dist: jsonpath-ng==1.7.0
 Requires-Dist: leb128==1.0.8
 Requires-Dist: lxml==5.3.1
 Requires-Dist: lz4==4.4.3
-Requires-Dist: makefun==1.15.6
 Requires-Dist: mako==1.3.9
 Requires-Dist: markdown-it-py==3.0.0
 Requires-Dist: markupsafe==3.0.2
@@ -118,7 +117,7 @@ Requires-Dist: mysql-connector-python==9.2.0
 Requires-Dist: numpy==2.2.3
 Requires-Dist: oauthlib==3.2.2
 Requires-Dist: openpyxl==3.1.5
-Requires-Dist: orjson==3.10.15
+Requires-Dist: orjson==3.11.3
 Requires-Dist: packaging==24.2
 Requires-Dist: pandas==2.2.3
 Requires-Dist: paramiko==3.5.1
@@ -161,7 +160,7 @@ Requires-Dist: reactivex==4.0.4
 Requires-Dist: requests-file==2.1.0
 Requires-Dist: requests-oauthlib==1.3.1
 Requires-Dist: requests-toolbelt==1.0.0
-Requires-Dist: requests==2.32.3
+Requires-Dist: requests==2.32.5
 Requires-Dist: requirements-parser==0.11.0
 Requires-Dist: rich-argparse==1.7.0
 Requires-Dist: rich==13.9.4
@@ -195,6 +194,7 @@ Requires-Dist: thrift==0.16.0
 Requires-Dist: time-machine==2.16.0
 Requires-Dist: tomlkit==0.13.2
 Requires-Dist: tqdm==4.67.1
+Requires-Dist: trino==0.336.0
 Requires-Dist: typer==0.13.1
 Requires-Dist: types-requests==2.32.0.20240907
 Requires-Dist: types-setuptools==75.8.2.20250305
@@ -333,7 +333,7 @@ Pull requests are welcome. However, please open an issue first to discuss what y
     <tr>
         <td>Elasticsearch</td>
         <td>✅</td>
-        <td>-</td>
+        <td>✅</td>
     </tr>
      <tr>
         <td>GCP Spanner</td>
@@ -353,7 +353,7 @@ Pull requests are welcome. However, please open an issue first to discuss what y
     <tr>
         <td>MongoDB</td>
         <td>✅</td>
-        <td>❌</td>
+        <td>✅</td>
     </tr>
     <tr>
         <td>MotherDuck</td>
@@ -394,6 +394,11 @@ Pull requests are welcome. However, please open an issue first to discuss what y
         <td>SQLite</td>
         <td>✅</td>
         <td>❌</td>
+    </tr>
+    <tr>
+        <td>Trino</td>
+        <td>✅</td>
+        <td>✅</td>
     </tr>
     <tr>
         <td colspan="3" style='text-align:center;'><strong>Platforms</strong></td>

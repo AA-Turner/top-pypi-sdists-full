@@ -1573,6 +1573,12 @@ class _Strategy:
         try:
             positions = self.get_positions()
             self.logger.debug(f"Number of positions: {len(positions)}")
+            # DEBUG: Log position details
+            for pos in positions:
+                self.logger.warning(f"[DEBUG] Position: {pos.symbol}, qty: {pos.quantity}, has_price: {hasattr(pos, 'current_price')}")
+                if hasattr(pos, '__dict__'):
+                    attrs = {k: v for k, v in pos.__dict__.items() if not k.startswith('_')}
+                    self.logger.warning(f"[DEBUG] Position attrs for {pos.symbol}: {list(attrs.keys())}")
         except Exception as e:
             self.logger.error(f"Failed to get positions: {e}")
             self.logger.error(traceback.format_exc())
@@ -1595,11 +1601,13 @@ class _Strategy:
         }
 
         # Create the data to send to the cloud
+        positions_data = [position.to_dict() for position in positions]
+
         data = {
             "data_type": "portfolio_event",
             "portfolio_value": portfolio_value,
             "cash": cash,
-            "positions": [position.to_dict() for position in positions],
+            "positions": positions_data,
             "orders": [order.to_dict() for order in orders],
             "strategy_name": self._name,
             "broker_name": self.broker.name,

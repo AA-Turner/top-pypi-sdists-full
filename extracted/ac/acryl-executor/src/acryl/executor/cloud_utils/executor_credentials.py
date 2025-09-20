@@ -13,10 +13,11 @@
 # limitations under the License.
 
 import logging
-import os
 from typing import Any, Optional
 
-import requests
+from datahub.ingestion.graph.client import DataHubGraph
+
+from acryl.executor.cloud_utils.env_utils import get_executor_pool_id
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,8 @@ LIST_EXECUTOR_CONFIGS_QUERY = """query listExecutorConfigs {
 
 
 class ExecutorCredentials:
-    def __init__(self, gms_url: str, gms_token: str):
-        self.gms_url = gms_url
-        self.gms_token = gms_token
+    def __init__(self, graph: DataHubGraph):
+        self.graph = graph
 
     def _parse_executor_configs_response(
         self, response_data: dict[str, Any], executor_pool_id: str
@@ -54,14 +54,9 @@ class ExecutorCredentials:
         Returns:
             Dictionary containing AWS credentials if found, None otherwise
         """
-        if "errors" in response_data:
-            logger.error(f"GraphQL errors: {response_data['errors']}")
-            return None
 
-        executor_configs = (
-            response_data.get("data", {})
-            .get("listExecutorConfigs", {})
-            .get("executorConfigs", [])
+        executor_configs = response_data.get("listExecutorConfigs", {}).get(
+            "executorConfigs", []
         )
 
         # Find the matching executor config
@@ -79,32 +74,25 @@ class ExecutorCredentials:
         logger.warning(f"No credentials found for executor pool {executor_pool_id}")
         return None
 
-    def get_executor_credentials(
-        self, executor_pool_id: str
-    ) -> Optional[dict[str, Any]]:
+    def get_executor_credentials(self) -> Optional[dict[str, Any]]:
         """
         Fetch executor credentials from DataHub GraphQL API.
 
         Args:
-            executor_pool_id: The executor pool ID to fetch credentials for
 
         Returns:
             Dictionary containing AWS credentials if found, None otherwise
         """
+        executor_pool_id = get_executor_pool_id()
+        if not executor_pool_id:
+            return None
+
+        logger.debug(f"Fetching executor credentials for pool {executor_pool_id}")
         try:
-            request_json = {"query": LIST_EXECUTOR_CONFIGS_QUERY, "variables": {}}
-
-            headers = {
-                "Authorization": f"Bearer {self.gms_token}",
-                "Content-Type": "application/json",
-            }
-
-            response = requests.post(
-                f"{self.gms_url}/api/graphql", json=request_json, headers=headers
+            res_data = self.graph.execute_graphql(
+                query=LIST_EXECUTOR_CONFIGS_QUERY, variables={}
             )
-            response.raise_for_status()
 
-            res_data = response.json()
             return self._parse_executor_configs_response(res_data, executor_pool_id)
 
         except Exception as e:
@@ -112,22 +100,3 @@ class ExecutorCredentials:
                 f"Failed to fetch executor credentials for pool {executor_pool_id}: {e}"
             )
             return None
-
-    @classmethod
-    def from_environment(cls) -> Optional["ExecutorCredentials"]:
-        """
-        Create ExecutorCredentials instance from environment variables.
-
-        Returns:
-            ExecutorCredentials instance if environment variables are present, None otherwise
-        """
-        gms_url = os.environ.get("DATAHUB_GMS_URL")
-        gms_token = os.environ.get("DATAHUB_GMS_TOKEN")
-
-        if not gms_url or not gms_token:
-            logger.debug(
-                "DATAHUB_GMS_URL or DATAHUB_GMS_TOKEN not found in environment"
-            )
-            return None
-
-        return cls(gms_url, gms_token)

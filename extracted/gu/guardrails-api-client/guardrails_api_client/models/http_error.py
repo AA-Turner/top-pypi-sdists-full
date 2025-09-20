@@ -87,6 +87,7 @@ class HttpError(BaseModel):
             "status": obj.get("status"),
             "message": obj.get("message"),
             "cause": obj.get("cause"),
+            "fields": obj.get("fields"),
             "context": obj.get("context")
         })
         return _obj

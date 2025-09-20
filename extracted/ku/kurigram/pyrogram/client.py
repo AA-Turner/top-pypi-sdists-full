@@ -257,6 +257,7 @@ class Client(Methods):
 
     INVITE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$")
     UPGRADED_GIFT_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:nft/|\+))([\w-]+)$")
+    CHANNEL_MESSAGE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
     WORKERS = min(32, (os.cpu_count() or 0) + 4)  # os.cpu_count() can be None
     WORKDIR = PARENT_DIR
 
@@ -1153,49 +1154,7 @@ class Client(Methods):
             dc_id = file_id.dc_id
 
             try:
-                session = self.media_sessions.get(dc_id)
-                if not session:
-                    dc_option = await self.get_dc_option(dc_id, is_media=True, ipv6=self.ipv6)
-
-                    session = self.media_sessions[dc_id] = Session(
-                        self,
-                        dc_id,
-                        dc_option.ip_address,
-                        dc_option.port,
-                        await Auth(
-                            self,
-                            dc_id,
-                            dc_option.ip_address,
-                            dc_option.port,
-                            await self.storage.test_mode()
-                        ).create() if dc_id != await self.storage.dc_id()
-                        else await self.storage.auth_key(),
-                        await self.storage.test_mode(),
-                        is_media=True
-                    )
-                    await session.start()
-
-                    if dc_id != await self.storage.dc_id():
-                        for _ in range(3):
-                            exported_auth = await self.invoke(
-                                raw.functions.auth.ExportAuthorization(
-                                    dc_id=dc_id
-                                )
-                            )
-
-                            try:
-                                await session.invoke(
-                                    raw.functions.auth.ImportAuthorization(
-                                        id=exported_auth.id,
-                                        bytes=exported_auth.bytes
-                                    )
-                                )
-                            except AuthBytesInvalid:
-                                continue
-                            else:
-                                break
-                        else:
-                            raise AuthBytesInvalid
+                session = await self.get_session(dc_id, is_media=True)
 
                 r = await session.invoke(
                     raw.functions.upload.GetFile(
@@ -1243,28 +1202,10 @@ class Client(Methods):
                         )
 
                 elif isinstance(r, raw.types.upload.FileCdnRedirect):
-                    dc_option = await self.get_dc_option(dc_id, is_cdn=True, ipv6=self.ipv6)
 
-                    cdn_session = Session(
-                        self,
-                        r.dc_id,
-                        dc_option.ip_address,
-                        dc_option.port,
-                        await Auth(
-                            self,
-                            r.dc_id,
-                            dc_option.ip_address,
-                            dc_option.port,
-                            await self.storage.test_mode()
-                        ).create(),
-                        await self.storage.test_mode(),
-                        is_media=True,
-                        is_cdn=True
-                    )
+                    cdn_session = await self.get_session(dc_id, is_cdn=True, temporary=True)
 
                     try:
-                        await cdn_session.start()
-
                         while True:
                             r2 = await cdn_session.invoke(
                                 raw.functions.upload.GetCdnFile(
@@ -1290,13 +1231,12 @@ class Client(Methods):
                             chunk = r2.bytes
 
                             # https://core.telegram.org/cdn#decrypting-files
-                            decrypted_chunk = aes.ctr256_decrypt(
+                            decrypted_chunk = await self.loop.run_in_executor(
+                                self.executor,
+                                aes.ctr256_decrypt,
                                 chunk,
                                 r.encryption_key,
-                                bytearray(
-                                    r.encryption_iv[:-4]
-                                    + (offset_bytes // 16).to_bytes(4, "big")
-                                )
+                                bytearray(r.encryption_iv[:-4] + (offset_bytes // 16).to_bytes(4, "big"))
                             )
 
                             hashes = await session.invoke(
@@ -1307,12 +1247,15 @@ class Client(Methods):
                             )
 
                             # https://core.telegram.org/cdn#verifying-files
-                            for i, h in enumerate(hashes):
-                                cdn_chunk = decrypted_chunk[h.limit * i: h.limit * (i + 1)]
-                                CDNFileHashMismatch.check(
-                                    h.hash == sha256(cdn_chunk).digest(),
-                                    "h.hash == sha256(cdn_chunk).digest()"
-                                )
+                            def _check_all_hashes():
+                                for i, h in enumerate(hashes):
+                                    cdn_chunk = decrypted_chunk[h.limit * i: h.limit * (i + 1)]
+                                    CDNFileHashMismatch.check(
+                                        h.hash == sha256(cdn_chunk).digest(),
+                                        "h.hash == sha256(cdn_chunk).digest()"
+                                    )
+
+                            await self.loop.run_in_executor(self.executor, _check_all_hashes)
 
                             yield decrypted_chunk
 
@@ -1347,20 +1290,29 @@ class Client(Methods):
 
     async def get_session(
         self,
-        dc_id: int,
+        dc_id: Optional[int] = None,
         is_media: Optional[bool] = False,
+        is_cdn: Optional[bool] = False,
+        business_connection_id: Optional[str] = None,
         export_authorization: Optional[bool] = True,
         server_address: Optional[str] = None,
-        port: Optional[int] = None
+        port: Optional[int] = None,
+        temporary: Optional[bool] = False
     ) -> "Session":
         """Get existing session or create a new one.
 
         Parameters:
-            dc_id (``int``):
+            dc_id (``int``, *optional*):
                 Datacenter identifier.
 
             is_media (``bool``, *optional*):
                 Pass True to get or create a media session.
+
+            is_cdn (``bool``, *optional*):
+                Pass True to get or create a cdn session.
+
+            business_connection_id (``str``, *optional*):
+                Business connection identifier.
 
             export_authorization (``bool``, *optional*):
                 Pass True to export authorization after creating the session.
@@ -1373,59 +1325,95 @@ class Client(Methods):
             port (``int``, *optional*):
                 Custom port to connect to.
                 Used only when creating a new session.
+
+            temporary (``bool``, *optional*):
+                Create temporary session instead of getting from storage.
+                Used only when uploading/downloading and don't forget to stop it.
         """
-        if dc_id == await self.storage.dc_id() and not is_media:
+        if not dc_id:
+            dc_id = await self.storage.dc_id()
+
+        if business_connection_id:
+            dc_id = self.business_connections.get(business_connection_id)
+
+            if dc_id is None:
+                connection = await self.session.invoke(
+                    raw.functions.account.GetBotBusinessConnection(
+                        connection_id=business_connection_id
+                    )
+                )
+
+                dc_id = self.business_connections[business_connection_id] = connection.updates[0].connection.dc_id
+
+        is_current_dc = await self.storage.dc_id() == dc_id
+
+        if not temporary and is_current_dc and not is_media:
             return self.session
 
         sessions = self.media_sessions if is_media else self.sessions
 
-        async with self.sessions_lock:
-            if sessions.get(dc_id):
-                return sessions[dc_id]
+        if not temporary and sessions.get(dc_id):
+            return sessions[dc_id]
 
-            dc_option = await self.get_dc_option(dc_id, is_media=is_media, ipv6=self.ipv6)
+        if not server_address or not port:
+            dc_option = await self.get_dc_option(dc_id, is_media=is_media, ipv6=self.ipv6, is_cdn=is_cdn)
 
-            session = self.media_sessions[dc_id] = Session(
-                self,
-                dc_id,
-                server_address or dc_option.ip_address,
-                port or dc_option.port,
-                await Auth(
+            server_address = server_address or dc_option.ip_address
+            port = port or dc_option.port
+
+        if is_media:
+            auth_key = (await self.get_session(dc_id)).auth_key
+        else:
+            if not is_current_dc:
+                auth_key = await Auth(
                     self,
                     dc_id,
-                    server_address or dc_option.ip_address,
-                    port or dc_option.port,
+                    server_address,
+                    port,
                     await self.storage.test_mode()
-                ).create(),
-                await self.storage.test_mode(), is_media=is_media
-            )
+                ).create()
+            else:
+                auth_key = await self.storage.auth_key()
 
-            await session.start()
+        session = Session(
+            self,
+            dc_id,
+            server_address,
+            port,
+            auth_key,
+            await self.storage.test_mode(),
+            is_media=is_media
+        )
 
-            if export_authorization:
-                for _ in range(3):
-                    exported_auth = await self.invoke(
-                        raw.functions.auth.ExportAuthorization(
-                            dc_id=dc_id
+        if not temporary:
+            sessions[dc_id] = session
+
+        await session.start()
+
+        if not is_current_dc and export_authorization:
+            for _ in range(3):
+                exported_auth = await self.invoke(
+                    raw.functions.auth.ExportAuthorization(
+                        dc_id=dc_id
+                    )
+                )
+
+                try:
+                    await session.invoke(
+                        raw.functions.auth.ImportAuthorization(
+                            id=exported_auth.id,
+                            bytes=exported_auth.bytes
                         )
                     )
-
-                    try:
-                        await session.invoke(
-                            raw.functions.auth.ImportAuthorization(
-                                id=exported_auth.id,
-                                bytes=exported_auth.bytes
-                            )
-                        )
-                    except AuthBytesInvalid:
-                        continue
-                    else:
-                        break
+                except AuthBytesInvalid:
+                    continue
                 else:
-                    await session.stop()
-                    raise AuthBytesInvalid
+                    break
+            else:
+                await session.stop()
+                raise AuthBytesInvalid
 
-            return session
+        return session
 
     async def get_dc_option(
         self,
@@ -1452,7 +1440,7 @@ class Client(Methods):
                 return cdn_options[0]
 
             log.debug(
-                "No CDN datacenter found for DC%s, falling back to prod DC",
+                "No CDN datacenter found for DC%s, falling back to media DC",
                 dc_id
             )
 
@@ -1531,6 +1519,7 @@ class Client(Methods):
 
         self._last_sync_time = msg_id / float(2**32)
         self._last_monotonic = time.monotonic()
+        self._is_server_time_synced = True
         log.info(f"Time synced: {utils.timestamp_to_datetime(self._last_sync_time)}")
 
     def guess_mime_type(self, filename: Union[str, BytesIO]) -> Optional[str]:

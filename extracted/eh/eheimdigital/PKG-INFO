@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: eheimdigital
-Version: 1.3.0
+Version: 1.3.2
 Summary: Offers a Python API for the EHEIM Digital smart aquarium devices.
-Project-URL: Homepage, https://github.com/autinerd/eheimdigital
+Project-URL: Homepage, https://codeberg.org/autinerd/eheimdigital
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Programming Language :: Python :: 3

@@ -1853,7 +1853,7 @@ class ConnectClient(BaseClient):
         self, **kwargs: Unpack[GetContactMetricsRequestTypeDef]
     ) -> GetContactMetricsResponseTypeDef:
         """
-        Gets the real-time metrics of the specified contact.
+        Retrieves the position of the contact in the queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_contact_metrics.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_contact_metrics)

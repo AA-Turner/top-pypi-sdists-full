@@ -80,9 +80,9 @@ class ValidationOutcome(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in validation_summaries (list)
         _items = []
         if self.validation_summaries:
-            for _item in self.validation_summaries:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_validation_summaries in self.validation_summaries:
+                if _item_validation_summaries:
+                    _items.append(_item_validation_summaries.to_dict())
             _dict['validationSummaries'] = _items
         # override the default output from pydantic by calling `to_dict()` of validated_output
         if self.validated_output:

@@ -732,6 +732,7 @@ class FeaturesEnricher(TransformerMixin):
 
             result = self.transform(
                 X,
+                y,
                 exclude_features_sources=exclude_features_sources,
                 keep_input=keep_input,
                 trace_id=trace_id,
@@ -2558,7 +2559,7 @@ if response.status_code == 200:
                             if self.__is_registered
                             else "transform_usage_warning_demo"
                         )
-                        msg = self.bundle.get(bundle_msg).format(len(X), rest_rows)
+                        msg = self.bundle.get(bundle_msg).format(rest_rows, len(X))
                         self.logger.warning(msg)
                         print(msg)
                         show_request_quote_button(is_registered=self.__is_registered)
@@ -2786,7 +2787,7 @@ if response.status_code == 200:
             df_without_features = df.drop(columns=features_not_to_pass, errors="ignore")
 
             df_without_features, full_duplicates_warning = clean_full_duplicates(
-                df_without_features, self.logger, bundle=self.bundle
+                df_without_features, is_transform=True, logger=self.logger, bundle=self.bundle
             )
             if not silent_mode and full_duplicates_warning:
                 self.__log_warning(full_duplicates_warning)
@@ -4470,7 +4471,6 @@ if response.status_code == 200:
             is_client_feature = original_name in clients_features_df.columns and not is_generated_feature
 
             if selected_features is not None and feature_meta.name not in selected_features:
-                self.logger.info(f"Feature {feature_meta.name} is not selected before and skipped")
                 continue
 
             selected_features_meta.append(feature_meta)

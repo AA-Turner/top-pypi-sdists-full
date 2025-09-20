@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: ariadne-codegen
-Version: 0.15.2
+Version: 0.15.3
 Summary: Generate fully typed GraphQL client from schema, queries and mutations!
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne-codegen
 Project-URL: Bug Tracker, https://github.com/mirumee/ariadne-codegen/issues
 Project-URL: Community, https://github.com/mirumee/ariadne/discussions
 Project-URL: Twitter, https://twitter.com/AriadneGraphQL
-Author-email: Mirumee Software <hello@mirumee.com>
+Author-email: Mirumee Software <ariadne@mirumee.com>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -522,4 +522,4 @@ For guidance and instructions, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 Also make sure you follow [@AriadneGraphQL](https://twitter.com/AriadneGraphQL) on Twitter for latest updates, news and random musings!
 
 
-## **Crafted with ❤️ by [Mirumee Software](http://mirumee.com)** hello@mirumee.com
+## **Crafted with ❤️ by [Mirumee Software](http://mirumee.com)** ariadne@mirumee.com

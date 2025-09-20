@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vonage-video
-Version: 1.4.0
+Version: 1.5.0
 Summary: Vonage video package
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk

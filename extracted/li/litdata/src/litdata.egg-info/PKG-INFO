@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litdata
-Version: 0.2.54
+Version: 0.2.55
 Summary: The Deep Learning framework to train, deploy, and ship AI products Lightning fast.
 Home-page: https://github.com/Lightning-AI/litdata
 Download-URL: https://github.com/Lightning-AI/litdata

@@ -1574,6 +1574,15 @@ class SecurityCache(System.Object):
     """Base class caching spot for security data and any other temporary properties."""
 
     @property
+    def session(self) -> QuantConnect.Data.Market.Session:
+        """Gets the trading session information"""
+        ...
+
+    @session.setter
+    def session(self, value: QuantConnect.Data.Market.Session) -> None:
+        ...
+
+    @property
     def price(self) -> float:
         """Gets the most recent price submitted to this cache"""
         ...
@@ -1643,7 +1652,7 @@ class SecurityCache(System.Object):
         """
         ...
 
-    def add_data_list(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+    def add_data_list(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None, is_internal_config: bool = False) -> None:
         """Add a list of market data points to the local security cache for the current market price."""
         ...
 
@@ -1683,6 +1692,15 @@ class SecurityCache(System.Object):
 
     def reset(self) -> None:
         """Reset cache storage and free memory"""
+        ...
+
+    def set_local_time_keeper(self, local_time_keeper: QuantConnect.LocalTimeKeeper) -> None:
+        """
+        Sets the LocalTimeKeeper to be used for this SecurityCache.
+        This is the source of this instance's time.
+        
+        :param local_time_keeper: The source of this Security's time.
+        """
         ...
 
     @staticmethod
@@ -2231,6 +2249,11 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         ...
 
     @property
+    def session(self) -> QuantConnect.Data.Market.Session:
+        """Gets the current session of this security"""
+        ...
+
+    @property
     def hold_stock(self) -> bool:
         """Read only property that checks if we currently own stock in the company."""
         ...
@@ -2657,14 +2680,15 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         """This is a DynamicObject override. Not meant for external use."""
         ...
 
-    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None, is_internal_config: bool = False) -> None:
         """
         Updates all of the security properties, such as price/OHLCV/bid/ask based
         on the data provided. Data is also stored into the security's data cache
         
         :param data: The security update data
         :param data_type: The data type
-        :param contains_fill_forward_data: Flag indicating whether  contains any fill forward bar or not
+        :param contains_fill_forward_data: Flag indicating whether True if this update data corresponds to an internal subscription such as currency or security benchmark contains any fill forward bar or not
+        :param is_internal_config: True if this update data corresponds to an internal subscription such as currency or security benchmark
         """
         ...
 

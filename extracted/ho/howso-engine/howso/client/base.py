@@ -1595,6 +1595,7 @@ class AbstractHowsoClient(ABC):
         input_is_substituted: bool = False,
         into_series_store: t.Optional[str] = None,
         leave_case_out: bool = False,
+        new_case_min_distance_ratio: t.Optional[float] = None,
         new_case_threshold: NewCaseThreshold = "min",
         num_cases_to_generate: int = 1,
         ordered_by_specified_features: bool = False,
@@ -1978,6 +1979,10 @@ class AbstractHowsoClient(ABC):
                 Uses only the context features of the reacted case to determine that area.
                 Uses full calculations, which uses leave-one-out context features for
                 computations.
+            - relevant_values : bool or list of strings, optional
+                When true outputs a map of each context feature name to a list of relevant values for that
+                feature given the context. If a list of feature names, will only output relevant values for
+                each feature specified.
             - selected_prediction_stats : list, optional.
                 List of stats to output. When unspecified, returns all except the confusion matrix. Allowed values:
 
@@ -2161,6 +2166,14 @@ class AbstractHowsoClient(ABC):
             batched call to react and at the end of reacting. The method is
             given a ProgressTimer containing metrics on the progress and timing
             of the react operation, and the batch result.
+        new_case_min_distance_ratio : float, optional
+            Parameter that adjusts the required distance ratio for a newly
+            generated case to be considered private. When unspecified, defaults
+            to 1.0 and generated cases with a ratio of 1.0 or greater are
+            considered private. Larger values will increase strictness of
+            privacy check. Smaller values will loosen the privacy check. Must
+            be a positive number, since 0 would function same as
+            `generate_new_cases='no'`.
         new_case_threshold : str, optional
             Distance to determine the privacy cutoff. If None,
             will default to "min".
@@ -2272,15 +2285,6 @@ class AbstractHowsoClient(ABC):
                 " following values - ['min', 'max', 'most_similar',]"
             )
 
-        if details is not None and 'robust_computation' in details:
-            details = dict(details)
-            details['robust_influences'] = details['robust_computation']
-            details['robust_residuals'] = details['robust_computation']
-            del details['robust_computation']
-            warnings.warn(
-                'The detail "robust_computation" is deprecated and will be '
-                'removed in a future release. Please use "robust_residuals" '
-                'and/or "robust_influences" instead.', DeprecationWarning)
 
         if details is not None and 'local_case_feature_residual_conviction_robust' in details:
             details = dict(details)
@@ -2337,9 +2341,10 @@ class AbstractHowsoClient(ABC):
                 "use_case_weights": use_case_weights,
                 "leave_case_out": leave_case_out,
                 "preserve_feature_values": preserve_feature_values,
+                "new_case_min_distance_ratio": new_case_min_distance_ratio,
                 "new_case_threshold": new_case_threshold,
                 "details": details,
-                "return_context_values": return_context_values
+                "return_context_values": return_context_values,
             }
         else:
             if (
@@ -2381,6 +2386,7 @@ class AbstractHowsoClient(ABC):
                 "goal_features_map": goal_features_map,
                 "ordered_by_specified_features": ordered_by_specified_features,
                 "preserve_feature_values": preserve_feature_values,
+                "new_case_min_distance_ratio": new_case_min_distance_ratio,
                 "new_case_threshold": new_case_threshold,
                 "into_series_store": into_series_store,
                 "input_is_substituted": input_is_substituted,
@@ -2666,7 +2672,7 @@ class AbstractHowsoClient(ABC):
                     target_context_values = context_values[i]
 
             if context_features and (
-                not target_context_values or
+                target_context_values is None or
                 not isinstance(target_context_values, Sized) or
                 len(target_context_values) != len(context_features)
             ):
@@ -2700,6 +2706,7 @@ class AbstractHowsoClient(ABC):
         input_is_substituted: bool = False,
         leave_series_out: bool = False,
         max_series_lengths: t.Optional[list[int]] = None,
+        new_case_min_distance_ratio: t.Optional[float] = None,
         new_case_threshold: NewCaseThreshold = "min",
         num_series_to_generate: int = 1,
         ordered_by_specified_features: bool = False,
@@ -2907,6 +2914,14 @@ class AbstractHowsoClient(ABC):
             See parameter ``use_case_weights`` in :meth:`AbstractHowsoClient.react`.
         preserve_feature_values : iterable of str
             See parameter ``preserve_feature_values`` in :meth:`AbstractHowsoClient.react`.
+        new_case_min_distance_ratio : float, optional
+            Parameter that adjusts the required distance ratio for a newly
+            generated case to be considered private. When unspecified, defaults
+            to 1.0 and generated cases with a ratio of 1.0 or greater are
+            considered private. Larger values will increase strictness of
+            privacy check. Smaller values will loosen the privacy check. Must
+            be a positive number, since 0 would function same as
+            `generate_new_cases='no'`.
         new_case_threshold : str
             See parameter ``new_case_threshold`` in :meth:`AbstractHowsoClient.react`.
         use_differential_privacy : bool
@@ -3026,6 +3041,7 @@ class AbstractHowsoClient(ABC):
                 "goal_features_map": goal_features_map,
                 "leave_series_out": leave_series_out,
                 "preserve_feature_values": preserve_feature_values,
+                "new_case_min_distance_ratio": new_case_min_distance_ratio,
                 "new_case_threshold": new_case_threshold,
                 "input_is_substituted": input_is_substituted,
                 "substitute_output": substitute_output,
@@ -3089,6 +3105,7 @@ class AbstractHowsoClient(ABC):
                 "weight_feature": weight_feature,
                 "use_case_weights": use_case_weights,
                 "preserve_feature_values": preserve_feature_values,
+                "new_case_min_distance_ratio": new_case_min_distance_ratio,
                 "new_case_threshold": new_case_threshold,
                 "details": details,
                 "series_id_tracking": series_id_tracking,
@@ -3643,6 +3660,10 @@ class AbstractHowsoClient(ABC):
                 Compute accuracy contributions by scrambling each feature and
                 using the robust (power set/permutations) set of remaining
                 context features for each prediction.
+            - relevant_values : bool or list of strings, optional
+                When true outputs a map of each context feature name to a list of relevant values for that
+                feature given the context. If a list of feature names, will only output relevant values for
+                each feature specified.
             - action_condition : map of str -> any, optional
                 A condition map to select the action set, which is the collection of cases
                 reacted to while computing the requested metrics.
@@ -4653,19 +4674,19 @@ class AbstractHowsoClient(ABC):
         auto_ablation_enabled: bool = False,
         *,
         ablated_cases_distribution_batch_size: int = 100,
-        abs_threshold_map: AblationThresholdMap = None,
+        abs_threshold_map: t.Optional[AblationThresholdMap] = None,
         auto_ablation_influence_weight_entropy_threshold: float = 0.15,
         auto_ablation_weight_feature: str = ".case_weight",
         batch_size: int = 2_000,
         conviction_lower_threshold: t.Optional[float] = None,
         conviction_upper_threshold: t.Optional[float] = None,
-        delta_threshold_map: AblationThresholdMap = None,
+        delta_threshold_map: t.Optional[AblationThresholdMap] = None,
         exact_prediction_features: t.Optional[Collection[str]] = None,
         influence_weight_entropy_sample_size: int = 2_000,
         min_num_cases: int = 10_000,
         max_num_cases: int = 200_000,
         reduce_data_influence_weight_entropy_threshold: float = 0.6,
-        rel_threshold_map: AblationThresholdMap = None,
+        rel_threshold_map: t.Optional[AblationThresholdMap] = None,
         relative_prediction_threshold_map: t.Optional[Mapping[str, float]] = None,
         residual_prediction_features: t.Optional[Collection[str]] = None,
         tolerance_prediction_threshold_map: t.Optional[Mapping[str, tuple[float, float]]] = None,

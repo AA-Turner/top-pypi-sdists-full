@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_table_iam_binding`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_table_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding).
+Refer to the Terraform Registry for docs: [`google_bigtable_table_iam_binding`](https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,19 +44,20 @@ class BigtableTableIamBinding(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableTableIamBinding.BigtableTableIamBinding",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding google_bigtable_table_iam_binding}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding google_bigtable_table_iam_binding}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        instance: builtins.str,
         members: typing.Sequence[builtins.str],
         role: builtins.str,
         table: builtins.str,
         condition: typing.Optional[typing.Union["BigtableTableIamBindingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        instance: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -66,17 +67,18 @@ class BigtableTableIamBinding(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding google_bigtable_table_iam_binding} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding google_bigtable_table_iam_binding} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.
-        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.
+        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance_name BigtableTableIamBinding#instance_name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,12 +92,13 @@ class BigtableTableIamBinding(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = BigtableTableIamBindingConfig(
-            instance=instance,
             members=members,
             role=role,
             table=table,
             condition=condition,
             id=id,
+            instance=instance,
+            instance_name=instance_name,
             project=project,
             connection=connection,
             count=count,
@@ -121,7 +124,7 @@ class BigtableTableIamBinding(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableTableIamBinding to import.
-        :param import_from_id: The id of the existing BigtableTableIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableTableIamBinding that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableTableIamBinding to import is found.
         '''
         if __debug__:
@@ -141,9 +144,9 @@ class BigtableTableIamBinding(
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.
         '''
         value = BigtableTableIamBindingCondition(
             expression=expression, title=title, description=description
@@ -158,6 +161,14 @@ class BigtableTableIamBinding(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetInstance")
+    def reset_instance(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstance", []))
+
+    @jsii.member(jsii_name="resetInstanceName")
+    def reset_instance_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstanceName", []))
 
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
@@ -202,6 +213,11 @@ class BigtableTableIamBinding(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="instanceNameInput")
+    def instance_name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceNameInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="membersInput")
     def members_input(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "membersInput"))
@@ -244,6 +260,18 @@ class BigtableTableIamBinding(
             type_hints = typing.get_type_hints(_typecheckingstub__c19e4a10aac8a2f003b339389d21bc3f6097b2997ee431b16aad2be2ab55fa8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceName")
+    def instance_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "instanceName"))
+
+    @instance_name.setter
+    def instance_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a69bb8748b92490be9dc6c65091102852487be2cedb7df7d01f02b42f4ad2821)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="members")
@@ -312,9 +340,9 @@ class BigtableTableIamBindingCondition:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fbc15520d048fca906cd6f80ca2f269ffa749d0de4bdb669fc63dc33f6fb6e08)
@@ -330,21 +358,21 @@ class BigtableTableIamBindingCondition:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#expression BigtableTableIamBinding#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def title(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#title BigtableTableIamBinding#title}.'''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#description BigtableTableIamBinding#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -462,12 +490,13 @@ class BigtableTableIamBindingConditionOutputReference(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "instance": "instance",
         "members": "members",
         "role": "role",
         "table": "table",
         "condition": "condition",
         "id": "id",
+        "instance": "instance",
+        "instance_name": "instanceName",
         "project": "project",
     },
 )
@@ -482,12 +511,13 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        instance: builtins.str,
         members: typing.Sequence[builtins.str],
         role: builtins.str,
         table: builtins.str,
         condition: typing.Optional[typing.Union[BigtableTableIamBindingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
         id: typing.Optional[builtins.str] = None,
+        instance: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -498,13 +528,14 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.
-        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.
+        :param table: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.
+        :param instance_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance_name BigtableTableIamBinding#instance_name}.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -519,15 +550,15 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
             check_type(argname="argument members", value=members, expected_type=type_hints["members"])
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument instance", value=instance, expected_type=type_hints["instance"])
+            check_type(argname="argument instance_name", value=instance_name, expected_type=type_hints["instance_name"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance": instance,
             "members": members,
             "role": role,
             "table": table,
@@ -550,6 +581,10 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["condition"] = condition
         if id is not None:
             self._values["id"] = id
+        if instance is not None:
+            self._values["instance"] = instance
+        if instance_name is not None:
+            self._values["instance_name"] = instance_name
         if project is not None:
             self._values["project"] = project
 
@@ -618,29 +653,22 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def instance(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.'''
-        result = self._values.get("instance")
-        assert result is not None, "Required property 'instance' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def members(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#members BigtableTableIamBinding#members}.'''
         result = self._values.get("members")
         assert result is not None, "Required property 'members' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#role BigtableTableIamBinding#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#table BigtableTableIamBinding#table}.'''
         result = self._values.get("table")
         assert result is not None, "Required property 'table' is missing"
         return typing.cast(builtins.str, result)
@@ -649,14 +677,14 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> typing.Optional[BigtableTableIamBindingCondition]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#condition BigtableTableIamBinding#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[BigtableTableIamBindingCondition], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#id BigtableTableIamBinding#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -665,8 +693,20 @@ class BigtableTableIamBindingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def instance(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance BigtableTableIamBinding#instance}.'''
+        result = self._values.get("instance")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#instance_name BigtableTableIamBinding#instance_name}.'''
+        result = self._values.get("instance_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.50.0/docs/resources/bigtable_table_iam_binding#project BigtableTableIamBinding#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -695,12 +735,13 @@ def _typecheckingstub__1f38c6f55c08ad300d7e61217968db75f75a18818a08ba135eb6f7093
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    instance: builtins.str,
     members: typing.Sequence[builtins.str],
     role: builtins.str,
     table: builtins.str,
     condition: typing.Optional[typing.Union[BigtableTableIamBindingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    instance: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -729,6 +770,12 @@ def _typecheckingstub__498d6eee89075446abbb6752f03493247aff62d86a1eb3bbb579270e7
     pass
 
 def _typecheckingstub__c19e4a10aac8a2f003b339389d21bc3f6097b2997ee431b16aad2be2ab55fa8b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a69bb8748b92490be9dc6c65091102852487be2cedb7df7d01f02b42f4ad2821(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -807,12 +854,13 @@ def _typecheckingstub__2dc864dd57f0569cc59aaa6886b1bf84ddea10c0ea9da09dc840dd0a3
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    instance: builtins.str,
     members: typing.Sequence[builtins.str],
     role: builtins.str,
     table: builtins.str,
     condition: typing.Optional[typing.Union[BigtableTableIamBindingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
     id: typing.Optional[builtins.str] = None,
+    instance: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

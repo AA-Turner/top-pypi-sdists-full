@@ -9,9 +9,9 @@ from vellum.client.types.array_chat_message_content import ArrayChatMessageConte
 from vellum.client.types.array_chat_message_content_item import ArrayChatMessageContentItem
 from vellum.client.types.function_call_chat_message_content import FunctionCallChatMessageContent
 from vellum.client.types.function_call_chat_message_content_value import FunctionCallChatMessageContentValue
-from vellum.client.types.function_definition import FunctionDefinition
 from vellum.client.types.prompt_output import PromptOutput
 from vellum.client.types.prompt_parameters import PromptParameters
+from vellum.client.types.prompt_settings import PromptSettings
 from vellum.client.types.string_chat_message_content import StringChatMessageContent
 from vellum.client.types.variable_prompt_block import VariablePromptBlock
 from vellum.workflows.descriptors.base import BaseDescriptor
@@ -31,7 +31,13 @@ from vellum.workflows.ports.port import Port
 from vellum.workflows.state import BaseState
 from vellum.workflows.state.encoder import DefaultStateEncoder
 from vellum.workflows.types.core import EntityInputsInterface, MergeBehavior, Tool, ToolBase
-from vellum.workflows.types.definition import ComposioToolDefinition, DeploymentDefinition, MCPServer, MCPToolDefinition
+from vellum.workflows.types.definition import (
+    ComposioToolDefinition,
+    DeploymentDefinition,
+    MCPServer,
+    MCPToolDefinition,
+    VellumIntegrationToolDefinition,
+)
 from vellum.workflows.types.generics import is_workflow_class
 from vellum.workflows.utils.functions import compile_mcp_tool_definition, get_mcp_tool_name
 
@@ -274,36 +280,6 @@ class ElseNode(BaseNode[ToolCallingState]):
         return self.Outputs()
 
 
-def _hydrate_composio_tool_definition(tool_def: ComposioToolDefinition) -> FunctionDefinition:
-    """Hydrate a ComposioToolDefinition with detailed information from the Composio API.
-
-    Args:
-        tool_def: The basic ComposioToolDefinition to enhance
-
-    Returns:
-        FunctionDefinition with detailed parameters and description
-    """
-    try:
-        composio_service = ComposioService()
-        tool_details = composio_service.get_tool_by_slug(tool_def.action)
-
-        # Create a FunctionDefinition directly with proper field extraction
-        return FunctionDefinition(
-            name=tool_def.name,
-            description=tool_details.get("description", tool_def.description),
-            parameters=tool_details.get("input_parameters", {}),
-        )
-
-    except Exception as e:
-        # If hydration fails (including no API key), log and return basic function definition
-        logger.warning(f"Failed to enhance Composio tool '{tool_def.action}': {e}")
-        return FunctionDefinition(
-            name=tool_def.name,
-            description=tool_def.description,
-            parameters={},
-        )
-
-
 def create_tool_prompt_node(
     ml_model: str,
     blocks: List[Union[PromptBlock, Dict[str, Any]]],
@@ -313,17 +289,10 @@ def create_tool_prompt_node(
     max_prompt_iterations: Optional[int] = None,
     process_parameters_method: Optional[Callable] = None,
     process_blocks_method: Optional[Callable] = None,
+    settings: Optional[Union[PromptSettings, Dict[str, Any]]] = None,
 ) -> Type[ToolPromptNode]:
     if functions and len(functions) > 0:
-        prompt_functions: List[Union[Tool, FunctionDefinition]] = []
-
-        for function in functions:
-            if isinstance(function, ComposioToolDefinition):
-                # Get Composio tool details and hydrate the function definition
-                enhanced_function = _hydrate_composio_tool_definition(function)
-                prompt_functions.append(enhanced_function)
-            else:
-                prompt_functions.append(function)
+        prompt_functions: List[Tool] = functions
     else:
         prompt_functions = []
 
@@ -359,6 +328,13 @@ def create_tool_prompt_node(
         ),
     }
 
+    # Normalize settings to PromptSettings if provided as a dict
+    normalized_settings: Optional[PromptSettings]
+    if isinstance(settings, dict):
+        normalized_settings = PromptSettings.model_validate(settings)
+    else:
+        normalized_settings = settings
+
     node = cast(
         Type[ToolPromptNode],
         type(
@@ -371,6 +347,7 @@ def create_tool_prompt_node(
                 "prompt_inputs": node_prompt_inputs,
                 "parameters": parameters,
                 "max_prompt_iterations": max_prompt_iterations,
+                "settings": normalized_settings,
                 **({"process_parameters": process_parameters_method} if process_parameters_method is not None else {}),
                 **({"process_blocks": process_blocks_method} if process_blocks_method is not None else {}),
                 "__module__": __name__,
@@ -406,6 +383,10 @@ def create_router_node(
 
         for function in functions:
             if isinstance(function, ComposioToolDefinition):
+                function_name = get_function_name(function)
+                port = create_port_condition(function_name)
+                setattr(Ports, function_name, port)
+            elif isinstance(function, VellumIntegrationToolDefinition):
                 function_name = get_function_name(function)
                 port = create_port_condition(function_name)
                 setattr(Ports, function_name, port)
@@ -483,6 +464,12 @@ def create_function_node(
             },
         )
         return node
+    elif isinstance(function, VellumIntegrationToolDefinition):
+        # TODO: Implement VellumIntegrationNode
+        raise NotImplementedError(
+            "VellumIntegrationToolDefinition support coming soon. "
+            "This will be implemented when the VellumIntegrationService is created."
+        )
     elif is_workflow_class(function):
         function.is_dynamic = True
         node = type(
@@ -572,5 +559,7 @@ def get_function_name(function: ToolBase) -> str:
     elif isinstance(function, ComposioToolDefinition):
         # model post init sets the name to the action if it's not set
         return function.name  # type: ignore[return-value]
+    elif isinstance(function, VellumIntegrationToolDefinition):
+        return function.name
     else:
         return snake_case(function.__name__)

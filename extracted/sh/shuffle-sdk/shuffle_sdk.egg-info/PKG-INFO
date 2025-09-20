@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shuffle_sdk
-Version: 0.0.28
+Version: 0.0.30
 Summary: The SDK used for Shuffle
 Home-page: https://github.com/shuffle/shuffle
 Author: Fredrik Saito Odegaardstuen
@@ -20,7 +20,7 @@ Requires-Dist: flask[async]==3.1.0
 Requires-Dist: waitress==3.0.2
 Requires-Dist: python-dateutil==2.9.0.post0
 Requires-Dist: PyJWT==2.10.1
-Requires-Dist: shufflepy==0.1.7
+Requires-Dist: shufflepy==0.1.8
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -68,6 +68,13 @@ if __name__ == "__main__":
 With the above function as an example
 ```bash
 python3 app.py --standalone --action=sample_function paramname=World
+```
+
+**NOT REQUIRED: These are reserved parameters, allowing you to set variables for testing such as local backends to upload into Shuffle during tests:**
+```
+--shuffle_url="http://custom_backend_url"
+--shuffle_authorization="auth"
+--shuffle_executionid="execution_id"
 ```
 
 Example wit [Shuffle Tools+Liquid](https://github.com/Shuffle/python-apps/tree/master/shuffle-tools/1.2.0/src) and the [Shuffle Tools app and the "repeat back to me" function](https://github.com/Shuffle/python-apps/blob/678187d1198f5e8fd2072e475dbbbf858728dde8/shuffle-tools/1.2.0/src/app.py#L235)

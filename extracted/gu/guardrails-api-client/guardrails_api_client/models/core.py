@@ -111,7 +111,9 @@ class Core(BaseModel):
             "$ref": obj.get("$ref"),
             "$dynamicRef": obj.get("$dynamicRef"),
             "$dynamicAnchor": obj.get("$dynamicAnchor"),
+            "$vocabulary": obj.get("$vocabulary"),
             "$comment": obj.get("$comment"),
+            "$defs": obj.get("$defs")
         })
         return _obj
 

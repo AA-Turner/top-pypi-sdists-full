@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: django-ace
-Version: 1.42.0
+Version: 1.43.3
 Summary: django-ace provides of ACE editor with Django
 Author-email: Bradley Ayers <bradley.ayers@gmail.com>, Julien Palard <julien@palard.fr>
-License: Simplified BSD
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/django-ace/django-ace
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Framework :: Django
@@ -120,6 +119,12 @@ Then browser to ``http://localhost:8000``.
 
 Change log
 ==========
+
+v1.43.3
+-------
+
+- Update ACE editor to version v1.43.3.
+
 
 v1.42.0
 -------

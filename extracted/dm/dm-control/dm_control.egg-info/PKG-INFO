@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: dm_control
-Version: 1.0.31
+Version: 1.0.34
 Summary: Continuous control environments and MuJoCo Python bindings.
 Home-page: https://github.com/google-deepmind/dm_control
 Author: DeepMind
 Author-email: mujoco@deepmind.com
-License: Apache License 2.0
+License: Apache-2.0
 Keywords: machine learning control physics MuJoCo AI
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -18,7 +17,7 @@ Requires-Dist: dm-tree!=0.1.2
 Requires-Dist: glfw
 Requires-Dist: labmaze
 Requires-Dist: lxml
-Requires-Dist: mujoco>=3.3.3
+Requires-Dist: mujoco>=3.3.6
 Requires-Dist: numpy>=1.9.0
 Requires-Dist: protobuf>=3.19.4
 Requires-Dist: pyopengl>=3.1.4
@@ -31,7 +30,6 @@ Provides-Extra: hdf5
 Requires-Dist: h5py; extra == "hdf5"
 Dynamic: author
 Dynamic: author-email
-Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

@@ -169,6 +169,7 @@ __all__ = (
     "H265ColorMetadataType",
     "H265DeblockingType",
     "H265FlickerAqType",
+    "H265GopBReferenceType",
     "H265GopSizeUnitsType",
     "H265LevelType",
     "H265LookAheadRateControlType",
@@ -178,6 +179,7 @@ __all__ = (
     "H265RateControlModeType",
     "H265ScanTypeType",
     "H265SceneChangeDetectType",
+    "H265SubGopLengthType",
     "H265TierType",
     "H265TilePaddingType",
     "H265TimecodeInsertionBehaviorType",
@@ -718,6 +720,7 @@ H265AlternativeTransferFunctionType = Literal["INSERT", "OMIT"]
 H265ColorMetadataType = Literal["IGNORE", "INSERT"]
 H265DeblockingType = Literal["DISABLED", "ENABLED"]
 H265FlickerAqType = Literal["DISABLED", "ENABLED"]
+H265GopBReferenceType = Literal["DISABLED", "ENABLED"]
 H265GopSizeUnitsType = Literal["FRAMES", "SECONDS"]
 H265LevelType = Literal[
     "H265_LEVEL_1",
@@ -742,6 +745,7 @@ H265ProfileType = Literal["MAIN", "MAIN_10BIT"]
 H265RateControlModeType = Literal["CBR", "MULTIPLEX", "QVBR"]
 H265ScanTypeType = Literal["INTERLACED", "PROGRESSIVE"]
 H265SceneChangeDetectType = Literal["DISABLED", "ENABLED"]
+H265SubGopLengthType = Literal["DYNAMIC", "FIXED"]
 H265TierType = Literal["HIGH", "MAIN"]
 H265TilePaddingType = Literal["NONE", "PADDED"]
 H265TimecodeInsertionBehaviorType = Literal["DISABLED", "PIC_TIMING_SEI"]

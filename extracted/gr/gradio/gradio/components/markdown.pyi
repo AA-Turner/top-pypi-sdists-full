@@ -20,8 +20,9 @@ from gradio.events import Dependency
 @document()
 class Markdown(Component):
     """
-    Used to render arbitrary Markdown output. Can also render latex enclosed by dollar signs. As this component does not accept user input,
-    it is rarely used as an input component.
+    Used to render arbitrary Markdown output. Can also render latex enclosed by dollar signs as well as code blocks with syntax highlighting.
+    Supported languages are bash, c, cpp, go, java, javascript, json, php, python, rust, sql, and yaml.
+    As this component does not accept user input, it is rarely used as an input component.
 
     Demos: blocks_hello, blocks_kinematics
     Guides: key-features

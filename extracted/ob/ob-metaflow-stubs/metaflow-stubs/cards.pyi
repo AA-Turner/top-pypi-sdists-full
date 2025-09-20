@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
-# Generated on 2025-09-16T23:23:08.660132                                                            #
+# MF version: 2.18.7.5+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-19T21:56:58.642792                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from .plugins.cards.card_modules.components import Error as Error
 from .plugins.cards.card_modules.components import Markdown as Markdown
 from .plugins.cards.card_modules.components import VegaChart as VegaChart
 from .plugins.cards.card_modules.components import ProgressBar as ProgressBar
+from .plugins.cards.card_modules.components import ValueBox as ValueBox
 from .plugins.cards.card_modules.components import PythonCode as PythonCode
 from .plugins.cards.card_modules.basic import DefaultCard as DefaultCard
 from .plugins.cards.card_modules.basic import PageComponent as PageComponent

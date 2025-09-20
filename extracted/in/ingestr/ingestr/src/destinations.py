@@ -19,8 +19,10 @@ from dlt.destinations.impl.clickhouse.configuration import (
     ClickHouseCredentials,
 )
 
+from ingestr.src.elasticsearch.helpers import elasticsearch_insert
 from ingestr.src.errors import MissingValueError
 from ingestr.src.loader import load_dlt_file
+from ingestr.src.mongodb.helpers import mongodb_insert
 
 
 class GenericSqlDestination:
@@ -587,6 +589,76 @@ class MySqlDestination(GenericSqlDestination):
         }
 
 
+class TrinoTypeMapper:
+    """Custom type mapper for Trino to handle unsupported types."""
+
+    @staticmethod
+    def create_type_mapper():
+        """Create a custom type mapper for Trino."""
+        from dlt.destinations.impl.sqlalchemy.type_mapper import SqlalchemyTypeMapper
+        from sqlalchemy import BigInteger, Text
+        from sqlalchemy.sql import sqltypes
+
+        class CustomTrinoTypeMapper(SqlalchemyTypeMapper):
+            """Custom type mapper that converts unsupported Trino types."""
+
+            def to_destination_type(self, column, table=None):
+                # Handle special cases before calling parent
+                data_type = column.get("data_type", "")
+
+                # Convert JSON to VARCHAR for Trino's Iceberg catalog
+                if data_type == "json":
+                    # Use TEXT (unlimited VARCHAR) for JSON data
+                    return Text()
+
+                # Convert BINARY to VARCHAR
+                if data_type == "binary":
+                    return Text()
+
+                # Handle integer types - always use BIGINT for Trino
+                # Note: dlt uses "bigint" internally, not "integer"
+                if data_type in ["bigint", "integer", "int"]:
+                    return BigInteger()
+
+                # For other types, try parent mapper
+                try:
+                    type_ = super().to_destination_type(column, table)
+                except Exception:
+                    # If parent can't handle it, default to TEXT
+                    return Text()
+
+                # Convert any INTEGER type to BIGINT
+                if isinstance(type_, sqltypes.Integer) and not isinstance(
+                    type_, sqltypes.BigInteger
+                ):
+                    return BigInteger()
+
+                # Ensure VARCHAR types don't have constraints that Trino doesn't support
+                if isinstance(type_, sqltypes.String):
+                    # Return TEXT for unlimited string
+                    return Text()
+
+                return type_
+
+        return CustomTrinoTypeMapper
+
+
+class TrinoDestination(GenericSqlDestination):
+    def dlt_dest(self, uri: str, **kwargs):
+        # Import required modules
+        from dlt.destinations.impl.sqlalchemy.factory import (
+            sqlalchemy as sqlalchemy_factory,
+        )
+
+        # Create the destination with custom type mapper
+        # We need to use the factory to properly configure the type mapper
+        dest = sqlalchemy_factory(
+            credentials=uri, type_mapper=TrinoTypeMapper.create_type_mapper(), **kwargs
+        )
+
+        return dest
+
+
 class BlobStorageDestination(abc.ABC):
     @abc.abstractmethod
     def credentials(self, params: dict) -> FileSystemCredentials:
@@ -703,3 +775,73 @@ class GCSDestination(BlobStorageDestination):
             credentials = json.loads(base64.b64decode(credentials_base64[0]).decode())  # type: ignore
 
         return credentials
+
+
+class ElasticsearchDestination:
+    def dlt_dest(self, uri: str, **kwargs):
+        from urllib.parse import urlparse
+
+        parsed_uri = urlparse(uri)
+
+        # Extract connection details from URI
+        scheme = parsed_uri.scheme or "http"
+        host = parsed_uri.hostname or "localhost"
+        port = parsed_uri.port or 9200
+        username = parsed_uri.username
+        password = parsed_uri.password
+
+        # Build connection string
+        if username and password:
+            connection_string = f"{scheme}://{username}:{password}@{host}:{port}"
+        else:
+            connection_string = f"{scheme}://{host}:{port}"
+
+        # Add query parameters if any
+        if parsed_uri.query:
+            connection_string += f"?{parsed_uri.query}"
+
+        return elasticsearch_insert(connection_string=connection_string)
+
+    def dlt_run_params(self, uri: str, table: str, **kwargs) -> dict:
+        return {
+            "table_name": table,
+        }
+
+    def post_load(self):
+        pass
+
+
+class MongoDBDestination:
+    def dlt_dest(self, uri: str, **kwargs):
+        from urllib.parse import urlparse
+
+        parsed_uri = urlparse(uri)
+
+        # Extract connection details from URI
+        host = parsed_uri.hostname or "localhost"
+        port = parsed_uri.port or 27017
+        username = parsed_uri.username
+        password = parsed_uri.password
+        database = (
+            parsed_uri.path.lstrip("/") if parsed_uri.path.lstrip("/") else "ingestr_db"
+        )
+
+        # Build connection string
+        if username and password:
+            connection_string = f"mongodb://{username}:{password}@{host}:{port}"
+        else:
+            connection_string = f"mongodb://{host}:{port}"
+
+        # Add query parameters if any
+        if parsed_uri.query:
+            connection_string += f"?{parsed_uri.query}"
+
+        return mongodb_insert(connection_string, database)
+
+    def dlt_run_params(self, uri: str, table: str, **kwargs) -> dict:
+        return {
+            "table_name": table,
+        }
+
+    def post_load(self):
+        pass

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RESTinstance"
-version = "1.5.2"
+version = "1.5.3"
 description = "Robot Framework library for RESTful JSON APIs"
 authors = [{ name = "Anssi Syrjäsalo", email = "opensource@syrjasalo.com" }]
 dependencies = [
@@ -19,6 +19,7 @@ dependencies = [
     "requests",
     "robotframework",
     "tzlocal",
+    "setuptools<80",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
@@ -54,7 +55,6 @@ test = [
     "pytest-clarity",
     "pytest-instafail",
     "pytest-spec",
-    "setuptools",
 ]
 
 [tool.pdm.scripts]

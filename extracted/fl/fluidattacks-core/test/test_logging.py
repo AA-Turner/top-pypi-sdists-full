@@ -5,6 +5,7 @@ import pytest
 import simplejson as json  # type: ignore[import-untyped]
 
 from fluidattacks_core.logging import PRODUCT_LOGGING
+from fluidattacks_core.logging.utils import set_telemetry_metadata
 
 
 def _production_setup(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,6 +90,26 @@ def test_json_formatter_adds_keys_with_extra_fields(
     logger = logging.getLogger("product")
 
     logger.info("A info message", extra={"trace_id": "111", "span_id": "222", "other.tag": "val"})
+
+    output = capsys.readouterr()
+    log_entry = json.loads(output.err)
+
+    assert log_entry["trace_id"] == "111"
+    assert log_entry["span_id"] == "222"
+    assert log_entry["other.tag"] == "val"
+
+
+def test_json_formatter_adds_telemetry_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _production_setup(monkeypatch)
+
+    logging.config.dictConfig(PRODUCT_LOGGING)
+    logger = logging.getLogger("product")
+    set_telemetry_metadata({"trace_id": "111", "span_id": "222", "other.tag": "val"})
+
+    logger.info("A info message")
 
     output = capsys.readouterr()
     log_entry = json.loads(output.err)

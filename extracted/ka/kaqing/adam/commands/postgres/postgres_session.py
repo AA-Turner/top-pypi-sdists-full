@@ -169,6 +169,7 @@ class PostgresSession:
             except:
                 try:
                     # try with the ops pod
+                    pod_name = Config().get('pod.name', 'ops')
                     real_pod_name = Pods.get_with_selector(ns, label_selector = Config().get('pod.label-selector', 'run=ops')).metadata.name
                 except:
                     log2(f"Could not locate {pod_name} pod.")

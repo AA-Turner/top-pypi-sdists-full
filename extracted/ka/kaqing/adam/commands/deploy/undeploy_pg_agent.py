@@ -1,4 +1,5 @@
 from adam.commands.command import Command
+from adam.commands.deploy.deploy_utils import deleting
 from adam.commands.postgres.postgres_session import PostgresSession
 from adam.config import Config
 from adam.repl_state import ReplState, RequiredState
@@ -29,7 +30,7 @@ class UndeployPgAgent(Command):
         if not self.validate_state(state):
             return state
 
-        PostgresSession.undeploy_pg_agent(Config().get('pg.agent.name', 'ops-pg-agent'), state.namespace)
+        deleting('pod', lambda: PostgresSession.undeploy_pg_agent(Config().get('pg.agent.name', 'ops-pg-agent'), state.namespace))
 
         return state
 

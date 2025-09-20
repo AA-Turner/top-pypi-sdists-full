@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: firebolt_sdk
-Version: 1.14.0
+Version: 1.15.0
 Summary: Python SDK for Firebolt
 Home-page: https://github.com/firebolt-db/firebolt-sdk
 Author: Firebolt
@@ -19,7 +19,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiorwlock==1.1.0
-Requires-Dist: anyio<4.5.0,>=3.7.1
+Requires-Dist: anyio>=3.7.1
 Requires-Dist: appdirs>=1.4.4
 Requires-Dist: appdirs-stubs>=0.1.0
 Requires-Dist: async-generator>=1.10

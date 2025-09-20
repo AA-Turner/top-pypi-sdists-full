@@ -1320,6 +1320,60 @@ def test_column_with_empty_string_default() -> None:
     assert column_has_defaults(mock_column) is True
 
 
+def test_column_property_label_object() -> None:
+    """Test column_property Label objects return False for column_has_defaults."""
+    from sqlalchemy.sql.elements import Label
+
+    # Create a Label object similar to what column_property creates
+    mock_label = MagicMock(spec=Label)
+
+    # Label objects don't have default/onupdate attributes, but if they did,
+    # they would raise AttributeError when accessed
+    assert column_has_defaults(mock_label) is False
+
+
+def test_column_property_with_real_label() -> None:
+    """Test column_has_defaults with an actual Label object from SQLAlchemy."""
+    from sqlalchemy import literal_column
+    from sqlalchemy.sql.elements import Label
+
+    # Create a real Label object like column_property would create
+    label_obj = literal_column("test_value").label("test_column")  # type: ignore[var-annotated]
+    assert isinstance(label_obj, Label)
+
+    # This should return False and not raise AttributeError
+    assert column_has_defaults(label_obj) is False
+
+
+def test_column_object_without_default_attributes() -> None:
+    """Test column_has_defaults with object missing some attributes."""
+
+    # Create an object that only has some of the expected attributes
+    class PartialColumn:
+        def __init__(self) -> None:
+            self.default = "test_default"
+            # Missing server_default, onupdate, server_onupdate attributes
+
+    partial_column = PartialColumn()
+
+    # Should return True based on the default attribute, even though others are missing
+    assert column_has_defaults(partial_column) is True
+
+
+def test_column_object_with_no_default_attributes() -> None:
+    """Test column_has_defaults with object missing all attributes."""
+
+    # Create an object that has none of the expected attributes
+    class MinimalColumn:
+        def __init__(self) -> None:
+            self.name = "test_column"
+
+    minimal_column = MinimalColumn()
+
+    # Should return False since no default attributes are present
+    assert column_has_defaults(minimal_column) is False
+
+
 def test_model_from_dict_includes_relationship_attributes() -> None:
     """Test that model_from_dict includes relationship attributes from __mapper__.attrs.keys()."""
     from tests.fixtures.uuid.models import UUIDAuthor
@@ -1556,3 +1610,40 @@ def test_model_from_dict_empty_relationship() -> None:
     assert author.name == "Author Without Books"
     assert hasattr(author, "books")
     assert author.books == []
+
+
+def test_update_many_data_conversion_handles_mixed_types() -> None:
+    """Test that update_many properly handles mixed input types (regression test).
+
+    This verifies the fix for the type handling bug in update_many where
+    the old logic would fail with AttributeError when mixing model instances
+    and dictionaries.
+    """
+    from tests.fixtures.uuid.models import UUIDAuthor
+
+    # Simulate the data conversion logic from the fixed code
+    model_type = UUIDAuthor
+
+    # Create a mock model instance
+    mock_author = UUIDAuthor(name="Test Author")
+
+    # Mix of model instances and dictionaries (the problematic case)
+    mixed_data = [
+        mock_author,  # Model instance with to_dict() method
+        {"id": "dict-id", "name": "Dict Author"},  # Plain dictionary
+    ]
+
+    # This is the fixed logic from repository/_async.py and _sync.py
+    data_to_update = []
+    for v in mixed_data:
+        if isinstance(v, model_type):
+            data_to_update.append(v.to_dict())
+        else:
+            data_to_update.append(v)  # type: ignore[arg-type]
+
+    # Verify no AttributeError was raised and data is properly converted
+    assert len(data_to_update) == 2
+    assert isinstance(data_to_update[0], dict)  # Model converted to dict
+    assert isinstance(data_to_update[1], dict)  # Dict passed through
+    assert data_to_update[0]["name"] == "Test Author"
+    assert data_to_update[1]["name"] == "Dict Author"

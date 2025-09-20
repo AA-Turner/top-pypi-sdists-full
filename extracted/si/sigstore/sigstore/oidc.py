@@ -34,9 +34,6 @@ from pydantic import BaseModel, StrictStr
 from sigstore._internal import USER_AGENT
 from sigstore.errors import Error, NetworkError
 
-DEFAULT_OAUTH_ISSUER_URL = "https://oauth2.sigstore.dev/auth"
-STAGING_OAUTH_ISSUER_URL = "https://oauth2.sigstage.dev/auth"
-
 # See: https://github.com/sigstore/fulcio/blob/b2186c0/pkg/config/config.go#L182-L201
 _KNOWN_OIDC_ISSUERS = {
     "https://accounts.google.com": "email",
@@ -44,7 +41,8 @@ _KNOWN_OIDC_ISSUERS = {
     "https://oauth2.sigstage.dev/auth": "email",
     "https://token.actions.githubusercontent.com": "sub",
 }
-_DEFAULT_AUDIENCE = "sigstore"
+
+_DEFAULT_CLIENT_ID = "sigstore"
 
 
 class _OpenIDConfiguration(BaseModel):
@@ -69,7 +67,7 @@ class IdentityToken:
     a sensible subject, issuer, and audience for Sigstore purposes.
     """
 
-    def __init__(self, raw_token: str) -> None:
+    def __init__(self, raw_token: str, client_id: str = _DEFAULT_CLIENT_ID) -> None:
         """
         Create a new `IdentityToken` from the given OIDC token.
         """
@@ -93,7 +91,7 @@ class IdentityToken:
                     # See: https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
                     "require": ["aud", "sub", "iat", "exp", "iss"],
                 },
-                audience=_DEFAULT_AUDIENCE,
+                audience=client_id,
                 # NOTE: This leeway shouldn't be strictly necessary, but is
                 # included to preempt any (small) skew between the host
                 # and the originating IdP.
@@ -271,23 +269,9 @@ class Issuer:
         except ValueError as exc:
             raise IssuerError(f"OIDC issuer returned invalid configuration: {exc}")
 
-    @classmethod
-    def production(cls) -> Issuer:
-        """
-        Returns an `Issuer` configured against Sigstore's production-level services.
-        """
-        return cls(DEFAULT_OAUTH_ISSUER_URL)
-
-    @classmethod
-    def staging(cls) -> Issuer:
-        """
-        Returns an `Issuer` configured against Sigstore's staging-level services.
-        """
-        return cls(STAGING_OAUTH_ISSUER_URL)
-
     def identity_token(  # nosec: B107
         self,
-        client_id: str = "sigstore",
+        client_id: str = _DEFAULT_CLIENT_ID,
         client_secret: str = "",
         force_oob: bool = False,
     ) -> IdentityToken:
@@ -367,7 +351,7 @@ class Issuer:
         if token_error is not None:
             raise IdentityError(f"Error response from token endpoint: {token_error}")
 
-        return IdentityToken(token_json["access_token"])
+        return IdentityToken(token_json["access_token"], client_id)
 
 
 class IdentityError(Error):
@@ -419,9 +403,10 @@ class IdentityError(Error):
             """
 
 
-def detect_credential() -> Optional[str]:
+def detect_credential(client_id: str = _DEFAULT_CLIENT_ID) -> str | None:
     """Calls `id.detect_credential`, but wraps exceptions with our own exception type."""
+
     try:
-        return cast(Optional[str], id.detect_credential(_DEFAULT_AUDIENCE))
+        return cast(Optional[str], id.detect_credential(client_id))
     except id.IdentityError as exc:
         IdentityError.raise_from_id(exc)

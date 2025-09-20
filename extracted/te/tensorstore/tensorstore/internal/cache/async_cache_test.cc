@@ -17,6 +17,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -40,9 +41,11 @@
 namespace {
 
 using ::tensorstore::Future;
+using ::tensorstore::IsOk;
+using ::tensorstore::MatchesStatus;
 using ::tensorstore::no_transaction;
+using ::tensorstore::StatusIs;
 using ::tensorstore::Transaction;
-using ::tensorstore::UniqueWriterLock;
 using ::tensorstore::internal::AsyncCache;
 using ::tensorstore::internal::CachePool;
 using ::tensorstore::internal::GetCache;
@@ -908,9 +911,8 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
   // Test implicit transaction error.
   {
     OpenTransactionPtr transaction;
-    EXPECT_THAT(
-        GetTransactionNode(*entry, transaction).status(),
-        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+    EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
+                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 
   // Test explicit transaction error.
@@ -919,9 +921,8 @@ TEST(AsyncCacheTest, DoInitializeTransactionError) {
         auto transaction,
         tensorstore::internal::AcquireOpenTransactionPtrOrError(
             Transaction(tensorstore::isolated)));
-    EXPECT_THAT(
-        GetTransactionNode(*entry, transaction).status(),
-        tensorstore::MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
+    EXPECT_THAT(GetTransactionNode(*entry, transaction).status(),
+                MatchesStatus(absl::StatusCode::kUnknown, "initialize.*"));
   }
 }
 
@@ -1075,7 +1076,7 @@ TEST(AsyncCacheTest, ExplicitTransactionSize) {
     auto entry_a = GetCacheEntry(cache, "a");
     {
       auto node = entry_a->CreateWriteTransaction(open_transaction);
-      UniqueWriterLock lock(*node);
+      std::lock_guard lock(*node);
       node->size = 100000;
       node->MarkSizeUpdated();
     }
@@ -1084,7 +1085,7 @@ TEST(AsyncCacheTest, ExplicitTransactionSize) {
     auto entry_c = GetCacheEntry(cache, "c");
     {
       auto node = entry_c->CreateWriteTransaction(open_transaction);
-      UniqueWriterLock lock(*node);
+      std::lock_guard lock(*node);
       node->size = 500;
       node->MarkSizeUpdated();
     }
@@ -1092,7 +1093,7 @@ TEST(AsyncCacheTest, ExplicitTransactionSize) {
 
     {
       auto node = entry_a->CreateWriteTransaction(open_transaction);
-      UniqueWriterLock lock(*node);
+      std::lock_guard lock(*node);
       node->size = 110000;
       node->MarkSizeUpdated();
     }

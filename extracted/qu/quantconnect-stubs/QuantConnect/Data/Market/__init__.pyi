@@ -9,6 +9,7 @@ import QuantConnect
 import QuantConnect.Data
 import QuantConnect.Data.Market
 import QuantConnect.Data.UniverseSelection
+import QuantConnect.Indicators
 import QuantConnect.Interfaces
 import QuantConnect.Orders
 import QuantConnect.Securities
@@ -288,6 +289,15 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
     TradeBar class for second and minute resolution data:
     An OHLC implementation of the QuantConnect BaseData class with parameters for candles.
     """
+
+    @property
+    def initialized(self) -> int:
+        """This field is protected."""
+        ...
+
+    @initialized.setter
+    def initialized(self, value: int) -> None:
+        ...
 
     @property
     def volume(self) -> float:
@@ -1594,6 +1604,74 @@ class Tick(QuantConnect.Data.BaseData):
         ...
 
 
+class SessionBar(QuantConnect.Data.Market.TradeBar):
+    """Contains OHLCV data for a single session"""
+
+    @property
+    def open_interest(self) -> float:
+        """Open Interest:"""
+        ...
+
+    @open_interest.setter
+    def open_interest(self, value: float) -> None:
+        ...
+
+    @property
+    def open(self) -> float:
+        """Opening price of the bar: Defined as the price at the start of the time period."""
+        ...
+
+    @property
+    def high(self) -> float:
+        """High price of the TradeBar during the time period."""
+        ...
+
+    @property
+    def low(self) -> float:
+        """Low price of the TradeBar during the time period."""
+        ...
+
+    @property
+    def close(self) -> float:
+        """Closing price of the TradeBar. Defined as the price at Start Time + TimeSpan."""
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """The period of this session bar"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of SessionBar with default values"""
+        ...
+
+    @overload
+    def __init__(self, source_tick_type: QuantConnect.TickType) -> None:
+        """Initializes a new instance of SessionBar with a specific tick type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string representation of the session bar with OHLCV and OpenInterest values formatted.
+        Example: "O: 101.00 H: 112.00 L: 95.00 C: 110.00 V: 1005.00 OI: 12"
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.BaseData, consolidated: QuantConnect.Data.IBaseData) -> None:
+        """
+        Updates the session bar with new market data and initializes the first bar if needed
+        
+        :param data: The new data to update the session with
+        :param consolidated: The current consolidated session bar
+        """
+        ...
+
+
 class TradeBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.TradeBar]):
     """Collection of TradeBars to create a data type for generic data handler:"""
 
@@ -2128,6 +2206,87 @@ class SymbolChangedEvents(QuantConnect.Data.Market.DataDictionary[QuantConnect.D
         Initializes a new instance of the SymbolChangedEvent dictionary
         
         :param frontier: The time associated with the data in this dictionary
+        """
+        ...
+
+
+class Session(QuantConnect.Indicators.RollingWindow[QuantConnect.Data.Market.SessionBar], QuantConnect.Data.Market.IBar):
+    """
+    Provides a rolling window of SessionBar with size 2,
+    where [0] contains the current session values in progress (OHLCV + OpenInterest),
+    and [1] contains the fully consolidated data of the previous trading day.
+    """
+
+    @property
+    def open(self) -> float:
+        """Opening price of the session"""
+        ...
+
+    @property
+    def high(self) -> float:
+        """High price of the session"""
+        ...
+
+    @property
+    def low(self) -> float:
+        """Low price of the session"""
+        ...
+
+    @property
+    def close(self) -> float:
+        """Closing price of the session"""
+        ...
+
+    @property
+    def volume(self) -> float:
+        """Volume traded during the session"""
+        ...
+
+    @property
+    def open_interest(self) -> float:
+        """Open Interest of the session"""
+        ...
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """The symbol of the session"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The end time of the session"""
+        ...
+
+    def __init__(self, tick_type: QuantConnect.TickType, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """
+        Initializes a new instance of the Session class
+        
+        :param tick_type: The tick type to use
+        :param exchange_hours: The exchange hours
+        :param symbol: The symbol
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets the session"""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Scans this consolidator to see if it should emit a bar due to time passing"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string representation of current session bar with OHLCV and OpenInterest values formatted.
+        Example: "O: 101.00 H: 112.00 L: 95.00 C: 110.00 V: 1005.00 OI: 12"
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Updates the session with new market data and initializes the consolidator if needed
+        
+        :param data: The new data to update the session with
         """
         ...
 

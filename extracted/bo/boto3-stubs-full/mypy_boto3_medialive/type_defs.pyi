@@ -156,6 +156,7 @@ from .literals import (
     H265ColorMetadataType,
     H265DeblockingType,
     H265FlickerAqType,
+    H265GopBReferenceType,
     H265GopSizeUnitsType,
     H265LevelType,
     H265LookAheadRateControlType,
@@ -165,6 +166,7 @@ from .literals import (
     H265RateControlModeType,
     H265ScanTypeType,
     H265SceneChangeDetectType,
+    H265SubGopLengthType,
     H265TierType,
     H265TilePaddingType,
     H265TimecodeInsertionBehaviorType,
@@ -3832,6 +3834,7 @@ class Av1SettingsOutputTypeDef(TypedDict):
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     Bitrate: NotRequired[int]
     RateControlMode: NotRequired[Av1RateControlModeType]
+    MinBitrate: NotRequired[int]
 
 class Av1SettingsTypeDef(TypedDict):
     FramerateDenominator: int
@@ -3853,6 +3856,7 @@ class Av1SettingsTypeDef(TypedDict):
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     Bitrate: NotRequired[int]
     RateControlMode: NotRequired[Av1RateControlModeType]
+    MinBitrate: NotRequired[int]
 
 class AvailConfigurationTypeDef(TypedDict):
     AvailSettings: NotRequired[AvailSettingsTypeDef]
@@ -4075,6 +4079,7 @@ class H264SettingsOutputTypeDef(TypedDict):
     TimecodeInsertion: NotRequired[H264TimecodeInsertionBehaviorType]
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     MinQp: NotRequired[int]
+    MinBitrate: NotRequired[int]
 
 class H264SettingsTypeDef(TypedDict):
     AdaptiveQuantization: NotRequired[H264AdaptiveQuantizationType]
@@ -4120,6 +4125,7 @@ class H264SettingsTypeDef(TypedDict):
     TimecodeInsertion: NotRequired[H264TimecodeInsertionBehaviorType]
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     MinQp: NotRequired[int]
+    MinBitrate: NotRequired[int]
 
 class H265SettingsOutputTypeDef(TypedDict):
     FramerateDenominator: int
@@ -4160,6 +4166,10 @@ class H265SettingsOutputTypeDef(TypedDict):
     TreeblockSize: NotRequired[H265TreeblockSizeType]
     MinQp: NotRequired[int]
     Deblocking: NotRequired[H265DeblockingType]
+    GopBReference: NotRequired[H265GopBReferenceType]
+    GopNumBFrames: NotRequired[int]
+    MinBitrate: NotRequired[int]
+    SubgopLength: NotRequired[H265SubGopLengthType]
 
 class H265SettingsTypeDef(TypedDict):
     FramerateDenominator: int
@@ -4200,6 +4210,10 @@ class H265SettingsTypeDef(TypedDict):
     TreeblockSize: NotRequired[H265TreeblockSizeType]
     MinQp: NotRequired[int]
     Deblocking: NotRequired[H265DeblockingType]
+    GopBReference: NotRequired[H265GopBReferenceType]
+    GopNumBFrames: NotRequired[int]
+    MinBitrate: NotRequired[int]
+    SubgopLength: NotRequired[H265SubGopLengthType]
 
 class Mpeg2SettingsTypeDef(TypedDict):
     FramerateDenominator: int

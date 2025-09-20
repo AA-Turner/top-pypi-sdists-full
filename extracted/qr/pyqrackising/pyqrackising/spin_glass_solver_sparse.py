@@ -74,18 +74,19 @@ def spin_glass_solver_sparse(G, quality=None, shots=None, best_guess=None):
         nodes = list(range(n_qubits))
         G_m = G
 
-    if n_qubits == 0:
-        return "", 0, ([], []), 0
+    if n_qubits < 3:
+        if n_qubits == 0:
+            return "", 0, ([], []), 0
 
-    if n_qubits == 1:
-        return "0", 0, (nodes, []), 0
+        if n_qubits == 1:
+            return "0", 0, (nodes, []), 0
 
-    if n_qubits == 2:
-        weight = G_m[0, 1]
-        if weight < 0.0:
-            return "00", 0, (nodes, []), weight
+        if n_qubits == 2:
+            weight = G_m[0, 1]
+            if weight < 0.0:
+                return "00", 0, (nodes, []), weight
 
-        return "01", weight, ([nodes[0]], [nodes[1]]), -weight
+            return "01", weight, ([nodes[0]], [nodes[1]]), -weight
 
     bitstring = ""
     if isinstance(best_guess, str):
@@ -97,8 +98,6 @@ def spin_glass_solver_sparse(G, quality=None, shots=None, best_guess=None):
     else:
         bitstring, _, _ = maxcut_tfim_sparse(G_m, quality=quality, shots=shots)
     best_theta = [b == "1" for b in list(bitstring)]
-
-    
 
     min_energy = compute_energy(best_theta, G_m.data, G_m.indptr, G_m.indices)
     improved = True

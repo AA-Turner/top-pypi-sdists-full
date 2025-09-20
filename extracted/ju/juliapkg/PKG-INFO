@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: juliapkg
-Version: 0.1.19
+Version: 0.1.20
 Summary: Julia version manager and package manager
 Project-URL: Homepage, http://github.com/JuliaPy/pyjuliapkg
 Project-URL: Repository, http://github.com/JuliaPy/pyjuliapkg.git
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
 Requires-Dist: filelock<4.0,>=3.16
 Requires-Dist: semver<4.0,>=3.0
+Requires-Dist: tomli<3.0,>=2.0
+Requires-Dist: tomlkit<0.14,>=0.13.3
 Provides-Extra: cli
 Requires-Dist: click<9.0,>=8.0; extra == 'cli'
 Description-Content-Type: text/markdown
@@ -47,8 +49,8 @@ pip install juliapkg
 - `require_julia(version, target=None)` declares that you require the given version of
   Julia. The `version` is a Julia compat specifier, so `1.5` matches any `1.*.*` version at
   least `1.5`.
-- `add(pkg, uuid, dev=False, version=None, path=None, subdir=None, url=None, rev=None, target=None)`
-  adds a required package. Its name and UUID are required.
+- `add(pkg, uuid=None, dev=False, version=None, path=None, subdir=None, url=None, rev=None, target=None)`
+  adds a required package.
 - `rm(pkg, target=None)` remove a package.
 
 Note that these functions edit `juliapkg.json` but do not actually install anything until
@@ -79,7 +81,7 @@ Julia v1.*.* and the Example package v0.5.*:
 You can also use the CLI, some examples:
 ```sh
 python -m juliapkg --help
-python -m juliapkg add Example --uuid=7876af07-990d-54b4-ab0e-23690620f79a --version=0.5
+python -m juliapkg add Example --version=0.5
 python -m juliapkg resolve
 python -m juliapkg status
 python -m juliapkg run -E 'using Example; Example.hello("world")'
@@ -131,6 +133,10 @@ following strategies in order:
 - Otherwise `~/.julia/environments/pyjuliapkg` is used (respects `JULIA_DEPOT`).
 
 More strategies may be added in a future release.
+
+If the project is explicitly specified (with `-X juliapkg-project` or
+`PYTHON_JULIAPKG_PROJECT`) then it is considered "shared" and dependencies will only
+ever be added, not removed.
 
 ### Adding Julia dependencies to Python packages
 

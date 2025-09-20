@@ -256,7 +256,7 @@ def run_server(
             if k in to_patch:
                 logger.debug(f"Skipping loaded env var {k}={v}")
                 continue
-            to_patch[k] = v
+            to_patch[k] = v  # type: ignore[invalid-assignment]
     with patch_environment(
         **to_patch,
     ):

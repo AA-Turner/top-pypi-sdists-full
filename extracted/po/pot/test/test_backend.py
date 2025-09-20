@@ -201,6 +201,8 @@ def test_empty_backend():
     with pytest.raises(NotImplementedError):
         nx.rand()
     with pytest.raises(NotImplementedError):
+        nx.randperm(12)
+    with pytest.raises(NotImplementedError):
         nx.randn()
         nx.coo_matrix(M, M, M)
     with pytest.raises(NotImplementedError):
@@ -215,6 +217,8 @@ def test_empty_backend():
         nx.where(M, M, M)
     with pytest.raises(NotImplementedError):
         nx.copy(M)
+    with pytest.raises(NotImplementedError):
+        nx.pinv(M)
     with pytest.raises(NotImplementedError):
         nx.allclose(M, M)
     with pytest.raises(NotImplementedError):
@@ -271,6 +275,10 @@ def test_empty_backend():
         nx.eigh(M)
     with pytest.raises(NotImplementedError):
         nx.det(M)
+    with pytest.raises(NotImplementedError):
+        nx.slogdet(M)
+    with pytest.raises(NotImplementedError):
+        nx.unsqueeze(M, 0)
 
 
 def test_func_backends(nx):
@@ -595,6 +603,9 @@ def test_func_backends(nx):
         A = nx.squeeze(nx.zeros((3, 1, 4, 1)))
         assert tuple(A.shape) == (3, 4), "Assert fail on: squeeze"
 
+        A = nx.unsqueeze(nx.zeros((3, 1, 4)), -1)
+        assert tuple(A.shape) == (3, 1, 4, 1), "Assert fail on: unsqueeze"
+
         A = nx.bitsize(Mb)
         lst_b.append(float(A))
         lst_name.append("bitsize")
@@ -611,6 +622,10 @@ def test_func_backends(nx):
         A = nx.trace(SquareMb)
         lst_b.append(nx.to_numpy(A))
         lst_name.append("trace")
+
+        A = nx.trace(nx.stack([SquareMb, SquareMb], axis=0))
+        lst_b.append(nx.to_numpy(A))
+        lst_name.append("broadcast trace")
 
         A = nx.inv(SquareMb)
         lst_b.append(nx.to_numpy(A))
@@ -691,6 +706,11 @@ def test_func_backends(nx):
         lst_b.append(nx.to_numpy(d))
         lst_name.append("det")
 
+        s, logabsd = nx.slogdet(M1b)
+        s, logabsd = nx.to_numpy(s), nx.to_numpy(logabsd)
+        lst_b.append(np.array([s, logabsd]))
+        lst_name.append("slogdet")
+
         assert not nx.array_equal(Mb, vb), "array_equal (shape)"
         assert nx.array_equal(Mb, Mb), "array_equal (elements) - expected true"
         assert not nx.array_equal(
@@ -739,6 +759,17 @@ def test_random_backends(nx):
     v1 = nx.randn()
     v2 = nx.randn()
     assert v1 != v2
+
+    nx.seed(0)
+    M1 = nx.to_numpy(nx.randperm(5))
+    nx.seed(0)
+    M2 = nx.to_numpy(nx.randperm(5, type_as=tmp_u))
+    M3 = nx.arange(5)
+    M4 = nx.sort(nx.randperm(5))
+    assert np.allclose(M3, M4)
+
+    with pytest.raises(ValueError, match="size must be"):
+        res = nx.randperm(size=[5, 12])
 
 
 def test_gradients_backends():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sunpy
-Version: 7.0.1
+Version: 7.0.2
 Summary: SunPy core package: Python for Solar Physics
 Author-email: The SunPy Community <sunpy@googlegroups.com>
 License: Copyright (c) 2013-2025 The SunPy developers
@@ -107,6 +107,7 @@ Provides-Extra: tests-only
 Requires-Dist: hvpy>=1.1.0; extra == "tests-only"
 Requires-Dist: jplephem>=2.19; extra == "tests-only"
 Requires-Dist: pytest-astropy>=0.11.0; extra == "tests-only"
+Requires-Dist: pytest-asdf-plugin>=0.1.1; extra == "tests-only"
 Requires-Dist: pytest-mpl>=0.17.0; extra == "tests-only"
 Requires-Dist: pytest>=7.4.0; extra == "tests-only"
 Provides-Extra: tests

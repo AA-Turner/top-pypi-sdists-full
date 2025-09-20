@@ -17,7 +17,13 @@ class MockedResponse:
 
 
 ResponseBodyMap: t.TypeAlias = (
-    t.Mapping[str, t.Mapping[str, MockedResponse] | list[MockedResponse]] | None
+    t.Mapping[
+        str,
+        t.Mapping[str, MockedResponse]
+        | t.Mapping[str, list[MockedResponse]]
+        | list[MockedResponse],
+    ]
+    | None
 )
 # ResponseBodyMap: t.TypeAlias = dict[str, dict[str, MockedResponse]] | None
 RequestHandler: t.TypeAlias = t.Callable[[httpx.Request], httpx.Response]

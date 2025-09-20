@@ -1,21 +1,88 @@
 from __future__ import annotations
+
 import asyncio
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, Any
 from ably.sync.realtime.connection import ConnectionState
-from ably.sync.transport.websockettransport import ProtocolMessageAction
 from ably.sync.rest.channel import ChannelSync, ChannelsSync as RestChannels
+from ably.sync.transport.websockettransport import ProtocolMessageAction
 from ably.sync.types.channelstate import ChannelState, ChannelStateChange
 from ably.sync.types.flags import Flag, has_flag
 from ably.sync.types.message import Message
+from ably.sync.types.mixins import DecodingContext
 from ably.sync.util.eventemitter import EventEmitter
 from ably.sync.util.exceptions import AblyException
 from ably.sync.util.helper import Timer, is_callable_or_coroutine
 
 if TYPE_CHECKING:
     from ably.sync.realtime.realtime import AblyRealtime
+    from ably.sync.util.crypto import CipherParams
 
 log = logging.getLogger(__name__)
+
+
+class ChannelOptions:
+    """Channel options for Ably Realtime channels
+
+    Attributes
+    ----------
+    cipher : CipherParams, optional
+        Requests encryption for this channel when not null, and specifies encryption-related parameters.
+    params : Dict[str, str], optional
+        Channel parameters that configure the behavior of the channel.
+    """
+
+    def __init__(self, cipher: Optional[CipherParams] = None, params: Optional[dict] = None):
+        self.__cipher = cipher
+        self.__params = params
+        # Validate params
+        if self.__params and not isinstance(self.__params, dict):
+            raise AblyException("params must be a dictionary", 40000, 400)
+
+    @property
+    def cipher(self):
+        """Get cipher configuration"""
+        return self.__cipher
+
+    @property
+    def params(self) -> Dict[str, str]:
+        """Get channel parameters"""
+        return self.__params
+
+    def __eq__(self, other):
+        """Check equality with another ChannelOptions instance"""
+        if not isinstance(other, ChannelOptions):
+            return False
+
+        return (self.__cipher == other.__cipher and
+                self.__params == other.__params)
+
+    def __hash__(self):
+        """Make ChannelOptions hashable"""
+        return hash((
+            self.__cipher,
+            tuple(sorted(self.__params.items())) if self.__params else None,
+        ))
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation"""
+        result = {}
+        if self.__cipher is not None:
+            result['cipher'] = self.__cipher
+        if self.__params:
+            result['params'] = self.__params
+        return result
+
+    @classmethod
+    def from_dict(cls, options_dict: Dict[str, Any]) -> 'ChannelOptions':
+        """Create ChannelOptions from dictionary"""
+        if not isinstance(options_dict, dict):
+            raise AblyException("options must be a dictionary", 40000, 400)
+
+        return cls(
+            cipher=options_dict.get('cipher'),
+            params=options_dict.get('params'),
+        )
 
 
 class RealtimeChannel(EventEmitter, ChannelSync):
@@ -43,7 +110,7 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         Unsubscribe to messages from a channel
     """
 
-    def __init__(self, realtime: AblyRealtime, name: str):
+    def __init__(self, realtime: AblyRealtime, name: str, channel_options: Optional[ChannelOptions] = None):
         EventEmitter.__init__(self)
         self.__name = name
         self.__realtime = realtime
@@ -51,15 +118,41 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         self.__message_emitter = EventEmitter()
         self.__state_timer: Optional[Timer] = None
         self.__attach_resume = False
+        self.__attach_serial: Optional[str] = None
         self.__channel_serial: Optional[str] = None
         self.__retry_timer: Optional[Timer] = None
         self.__error_reason: Optional[AblyException] = None
+        self.__channel_options = channel_options or ChannelOptions()
+        self.__params: Optional[Dict[str, str]] = None
+
+        # Delta-specific fields for RTL19/RTL20 compliance
+        vcdiff_decoder = self.__realtime.options.vcdiff_decoder if self.__realtime.options.vcdiff_decoder else None
+        self.__decoding_context = DecodingContext(vcdiff_decoder=vcdiff_decoder)
+        self.__decode_failure_recovery_in_progress = False
 
         # Used to listen to state changes internally, if we use the public event emitter interface then internals
         # will be disrupted if the user called .off() to remove all listeners
         self.__internal_state_emitter = EventEmitter()
 
-        ChannelSync.__init__(self, realtime, name, {})
+        # Pass channel options as dictionary to parent Channel class
+        ChannelSync.__init__(self, realtime, name, self.__channel_options.to_dict())
+
+    def set_options(self, channel_options: ChannelOptions) -> None:
+        """Set channel options"""
+        should_reattach = self.should_reattach_to_set_options(channel_options)
+        self.set_options_without_reattach(channel_options)
+
+        if should_reattach:
+            self._attach_impl()
+            state_change = self.__internal_state_emitter.once_async()
+            if state_change.current in (ChannelState.SUSPENDED, ChannelState.FAILED):
+                raise state_change.reason
+
+    def set_options_without_reattach(self, channel_options: ChannelOptions) -> None:
+        """Internal method"""
+        self.__channel_options = channel_options
+        # Update parent class options
+        self.options = channel_options.to_dict()
 
     # RTL4
     def attach(self) -> None:
@@ -108,6 +201,7 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         # RTL4c
         attach_msg = {
             "action": ProtocolMessageAction.ATTACH,
+            "params": self.__channel_options.params,
             "channel": self.name,
         }
 
@@ -292,8 +386,6 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         action = proto_msg.get('action')
         # RTL4c1
         channel_serial = proto_msg.get('channelSerial')
-        if channel_serial:
-            self.__channel_serial = channel_serial
         # TM2a, TM2c, TM2f
         Message.update_inner_message_fields(proto_msg)
 
@@ -302,6 +394,10 @@ class RealtimeChannel(EventEmitter, ChannelSync):
             error = proto_msg.get("error")
             exception = None
             resumed = False
+
+            self.__attach_serial = channel_serial
+            self.__channel_serial = channel_serial
+            self.__params = proto_msg.get('params')
 
             if error:
                 exception = AblyException.from_dict(error)
@@ -326,7 +422,16 @@ class RealtimeChannel(EventEmitter, ChannelSync):
             else:
                 self._request_state(ChannelState.ATTACHING)
         elif action == ProtocolMessageAction.MESSAGE:
-            messages = Message.from_encoded_array(proto_msg.get('messages'))
+            messages = []
+            try:
+                messages = Message.from_encoded_array(proto_msg.get('messages'), context=self.__decoding_context)
+                self.__decoding_context.last_message_id = messages[-1].id
+                self.__channel_serial = channel_serial
+            except AblyException as e:
+                if e.code == 40018:  # Delta decode failure - start recovery
+                    self._start_decode_failure_recovery(e)
+                else:
+                    log.error(f"Message processing error {e}. Skip messages {proto_msg.get('messages')}")
             for message in messages:
                 self.__message_emitter._emit(message.name, message)
         elif action == ProtocolMessageAction.ERROR:
@@ -367,6 +472,9 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         # RTP5a1
         if state in (ChannelState.DETACHED, ChannelState.SUSPENDED, ChannelState.FAILED):
             self.__channel_serial = None
+
+        if state != ChannelState.ATTACHING:
+            self.__decode_failure_recovery_in_progress = False
 
         state_change = ChannelStateChange(self.__state, state, resumed, reason=reason)
 
@@ -431,6 +539,12 @@ class RealtimeChannel(EventEmitter, ChannelSync):
             log.info("RealtimeChannel retry timer expired, attempting a new attach")
             self._request_state(ChannelState.ATTACHING)
 
+    def should_reattach_to_set_options(self, new_options: ChannelOptions) -> bool:
+        """Internal method"""
+        if self.state != ChannelState.ATTACHING and self.state != ChannelState.ATTACHED:
+            return False
+        return self.__channel_options != new_options
+
     # RTL23
     @property
     def name(self) -> str:
@@ -453,6 +567,29 @@ class RealtimeChannel(EventEmitter, ChannelSync):
         """An AblyException instance describing the last error which occurred on the channel, if any."""
         return self.__error_reason
 
+    @property
+    def params(self) -> Dict[str, str]:
+        """Get channel parameters"""
+        return self.__params
+
+    def _start_decode_failure_recovery(self, error: AblyException) -> None:
+        """Start RTL18 decode failure recovery procedure"""
+
+        if self.__decode_failure_recovery_in_progress:
+            log.info('VCDiff recovery process already started, skipping')
+            return
+
+        self.__decode_failure_recovery_in_progress = True
+
+        # RTL18a: Log error with code 40018
+        log.error(f'VCDiff decode failure: {error}')
+
+        # RTL18b: Message is already discarded by not processing it
+
+        # RTL18c: Send ATTACH with previous channel serial and transition to ATTACHING
+        self._notify_state(ChannelState.ATTACHING, reason=error)
+        self._check_pending_state()
+
 
 class ChannelsSync(RestChannels):
     """Creates and destroys RealtimeChannel objects.
@@ -466,7 +603,7 @@ class ChannelsSync(RestChannels):
     """
 
     # RTS3
-    def get(self, name: str) -> RealtimeChannel:
+    def get(self, name: str, options: Optional[ChannelOptions] = None) -> RealtimeChannel:
         """Creates a new RealtimeChannel object, or returns the existing channel object.
 
         Parameters
@@ -474,11 +611,23 @@ class ChannelsSync(RestChannels):
 
         name: str
             Channel name
+        options: ChannelOptions or dict, optional
+            Channel options for the channel
         """
         if name not in self.__all:
-            channel = self.__all[name] = RealtimeChannel(self.__ably, name)
+            channel = self.__all[name] = RealtimeChannel(self.__ably, name, options)
         else:
             channel = self.__all[name]
+            # Update options if channel is not attached or currently attaching
+            if options and channel.should_reattach_to_set_options(options):
+                raise AblyException(
+                    'Channels.get() cannot be used to set channel options that would cause the channel to '
+                    'reattach. Please, use RealtimeChannel.setOptions() instead.',
+                    400,
+                    40000
+                )
+            elif options:
+                channel.set_options_without_reattach(options)
         return channel
 
     # RTS4

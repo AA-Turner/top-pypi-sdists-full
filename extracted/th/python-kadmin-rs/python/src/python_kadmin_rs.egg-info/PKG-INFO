@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-kadmin-rs
-Version: 0.6.1
+Version: 0.6.2
 Summary: Python interface to the Kerberos administration interface (kadm5)
 Author-email: Marc 'risson' Schmitt <marc.schmitt@risson.space>, authentik community <hello@goauthentik.io>
 License-Expression: MIT

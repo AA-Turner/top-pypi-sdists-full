@@ -57,6 +57,127 @@ class HealthLogUi:
 					session.refresh(hl)
 					print(std_colorize(f"Updated {hl}",0,1))
 
+	def search(self):
+		page=Prompt.__init2__(None,func=FormBuilderMkText,ptext="page?",helpText="page/display one at a time y/n",data="boolean")
+		if page in ['None',]:
+			return None
+		elif page in [True,'d']:
+			page=True
+		with localcontext() as CTX:
+			with Session(ENGINE) as session:
+				fields={
+				i.name:{
+				'default':None,
+				'type':str(i.type).lower()
+				} for i in HealthLog.__table__.columns
+				}
+				fd=FormBuilder(data=fields,passThruText="Your Search Terms `showkeys` and `gotoi` are useful.")
+				if fd is None:
+					return
+				FD={}
+				for i in fd:
+					if fd[i] is not None:
+						FD[i]=fd[i]
+				fd=FD
+				filte=[]
+				for i in fd:
+					if isinstance(fd[i],str):
+						filte.append(getattr(HealthLog,i).icontains(fd[i]))
+					else:
+						filte.append(getattr(HealthLog,i)==fd[i])
+				query=session.query(HealthLog).filter(and_(*filte))
+				ordered=orderQuery(query,HealthLog.DTOE)
+				lo={
+				'limit':{
+				'default':10,
+				'type':'integer',
+				},
+				'offset':{
+				'type':'integer',
+				'default':0,
+				}
+				}
+				lod=FormBuilder(data=lo,passThruText="Limit your results?")
+				if lod is None:
+					return
+
+				loq=limitOffset(query,lod['limit'],lod['offset'])
+				results=loq.all()
+				ct=len(results)
+				if len(results) < 1:
+					print("No Results!")
+					return
+				for num,i in enumerate(results):
+					view=[]
+					for x in i.__table__.columns:
+						if getattr(i,str(x.name)) not in [None]:
+							view.append(f'{Fore.green_3b}{Style.bold}{str(x.name)}{Fore.deep_sky_blue_1}={Fore.sea_green_2}{str(getattr(i,str(x.name)))}{Style.reset}')
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+					if page:
+						n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="next, anything else is goes next, just b/q that diff",data="boolean")
+						if n in ['NaN',None]:
+							return None
+						else:
+							continue
+
+
+	def searchText(self):
+		page=Prompt.__init2__(None,func=FormBuilderMkText,ptext="page?",helpText="page/display one at a time y/n",data="boolean")
+		if page in ['None',]:
+			return None
+		elif page in [True,'d']:
+			page=True
+		filte=[]
+		with localcontext() as CTX:
+			with Session(ENGINE) as session:
+				query=session.query(HealthLog)
+				fields=[i for i in HealthLog.__table__.columns if str(i.type).lower() in ['string','varchar','char','text']]
+				
+				term=Control(func=FormBuilderMkText,ptext="What are you searching?",helpText="just text is searched.",data="string")
+				if term in [None,'NaN','d']:
+					return
+				else:
+					filte=[]
+					for i in fields:
+						filte.append((getattr(HealthLog,i.name).icontains(term)))
+
+				query=session.query(HealthLog).filter(or_(*filte))
+				ordered=orderQuery(query,HealthLog.DTOE)
+				lo={
+				'limit':{
+				'default':10,
+				'type':'integer',
+				},
+				'offset':{
+				'type':'integer',
+				'default':0,
+				}
+				}
+				lod=FormBuilder(data=lo,passThruText="Limit your results?")
+				if lod is None:
+					return
+
+				loq=limitOffset(query,lod['limit'],lod['offset'])
+				results=loq.all()
+				ct=len(results)
+				if len(results) < 1:
+					print("No Results!")
+					return
+				for num,i in enumerate(results):
+					view=[]
+					for x in i.__table__.columns:
+						if getattr(i,str(x.name)) not in [None]:
+							view.append(f'{Fore.green_3b}{Style.bold}{str(x.name)}{Fore.deep_sky_blue_1}={Fore.sea_green_2}{str(getattr(i,str(x.name)))}{Style.reset}')
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+					if page:
+						n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="next, anything else is goes next, just b/q that diff",data="boolean")
+						if n in ['NaN',None]:
+							return None
+						else:
+							continue
+
 	def new_health_log(self):
 		with Session(ENGINE) as session:
 			hl=HealthLog()
@@ -565,13 +686,18 @@ class HealthLogUi:
 						pass
 			print(f"{Fore.light_magenta}Dates on the Graph(s) are in the format of {Fore.orange_red_1}Day/Month/Year{Fore.light_magenta}, whereas Date Input will remain {Fore.light_steel_blue}Month/Day/Year{Style.reset}")
 			n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="next y/n",data="boolean")
-			if n in ['None',]:
+			if n in ['NaN',None]:
 				return None
 			elif n in [True,]:
 				return True
 
 
 	def showAllField(self,fields=[],not_none=[],total_drg=False,total_fd=False):
+		page=Prompt.__init2__(None,func=FormBuilderMkText,ptext="page?",helpText="page/display one at a time y/n",data="boolean")
+		if page in ['None',]:
+			return None
+		elif page in [True,'d']:
+			page=True
 		unit_registry=pint.UnitRegistry()
 		try:
 			useDateRange=Prompt.__init2__(None,func=FormBuilderMkText,ptext="use a date range?",helpText="yes or no",data="boolean")
@@ -682,6 +808,12 @@ class HealthLogUi:
 						view.append(f'{color_date}{Style.bold}{str(x.name)}{Fore.deep_sky_blue_1}={color}{str(getattr(i,str(x.name)))}{Style.reset}')
 					msg=f"{Fore.light_green}{num}{Fore.light_yellow}/{num+1} of {Fore.light_red}{ct} ->{'|'.join(view)}"
 					print(msg)
+					if page:
+						n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="next, anything else is goes next, just b/q that diff",data="boolean")
+						if n in ['NaN',None]:
+							return None
+						else:
+							continue
 				if total_drg or total_fd:
 					print(f"{Fore.orange_red_1}Broken into Totals{Style.reset}")
 					ct=len(dummy)
@@ -699,6 +831,12 @@ class HealthLogUi:
 							view.append(f'{color_date}{Style.bold}{str(x.name)}{Fore.deep_sky_blue_1}={color}{str(getattr(i,str(x.name)))}{Style.reset}')
 						msg=f"{Fore.light_green}{num}{Fore.light_yellow}/{num+1} of {Fore.light_red}{ct} ->{'|'.join(view)}"
 						print(msg)
+						if page:
+							n=Prompt.__init2__(None,func=FormBuilderMkText,ptext="Next?",helpText="next, anything else is goes next, just b/q that diff",data="boolean")
+							if n in ['NaN',None]:
+								return None
+							else:
+								continue
 		except Exception as e:
 			print(e)
 
@@ -917,6 +1055,16 @@ class HealthLogUi:
 			'cmds':['export welsh','xpt welsh'],
 			'desc':'export data for diabete\'s dr.',
 			'exec':lambda self=self:self.export_log_field(fields=['BloodSugar','BloodSugarUnitName','LongActingInsulinName','LongActingInsulinTaken','LongActingInsulinUnitName','ShortActingInsulinName','ShortActingInsulinTaken','ShortActingInsulinUnitName','HeartRate','HeartRateUnitName','DrugConsumed','DrugQtyConsumed','DrugQtyConsumedUnitName','CarboHydrateIntake','CarboHydrateIntakeUnitName','Comments',],not_none=['Comments',])
+			},
+			str(uuid1()):{
+			'cmds':generate_cmds(startcmd=['sch','search'],endCmd=['specific','spec','spcfc','finer']),
+			'desc':'search with formbuilder with just equals/icontains',
+			'exec':lambda self=self:self.search()
+			},
+			str(uuid1()):{
+			'cmds':generate_cmds(startcmd=['sch','search'],endCmd=['text','txt','str','t']),
+			'desc':'search with text only fields by term',
+			'exec':lambda self=self:self.searchText()
 			},
 			str(uuid1()):{
 			'cmds':['ordered and recieved','oar','ordered and rxd','ordered & rxd','ordered & recieved','o&r'],

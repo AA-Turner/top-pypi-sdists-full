@@ -1,5 +1,5 @@
 from functools import cache
-from typing import Any
+from typing import Any, Type
 
 import pyarrow as pa
 from google.protobuf.descriptor import Descriptor, FieldDescriptor, FileDescriptor
@@ -8,6 +8,9 @@ from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
+from chalk.utils.log_with_context import get_logger
+
+_logger = get_logger(__name__)
 
 PROTOBUF_TO_UNIT = {
     pb.TIME_UNIT_SECOND: "s",
@@ -54,6 +57,15 @@ def convert_proto_message_type_to_pyarrow_type(
 ) -> pa.DataType:
     """Converts a Protocol Buffer message class into an equivalent PyArrow struct type."""
 
+    def _should_skip_field(fd: FieldDescriptor) -> bool:
+        if fd.type == FieldDescriptor.TYPE_MESSAGE:
+            return fd.message_type.full_name in [
+                "google.protobuf.Struct",
+                "google.protobuf.Value",
+                "google.protobuf.ListValue",
+            ]
+        return False
+
     def _convert_proto_message_type_to_pyarrow_type(
         proto_message_class: Descriptor, max_depth: int, self_referential_detector: set[Descriptor]
     ) -> pa.DataType:
@@ -66,6 +78,12 @@ def convert_proto_message_type_to_pyarrow_type(
         for fd in proto_message_class.fields:
             if fd.type == FieldDescriptor.TYPE_MESSAGE:
                 new_message_type: Descriptor = fd.message_type
+                if _should_skip_field(fd):
+                    _logger.warning(
+                        f"Ignoring field {fd.full_name} of message type {new_message_type.full_name} because it has a recursive definition."
+                    )
+                    continue
+
                 if new_message_type in self_referential_detector:
                     raise RecursionError(
                         f"Infinitely recursive proto structure detected when converting proto message type to pyarrow - message '{new_message_type.full_name}' has a self-referential definition."
@@ -87,7 +105,7 @@ def convert_proto_message_type_to_pyarrow_type(
     )
 
 
-def create_empty_pyarrow_scalar_from_proto_type(proto_message: Message) -> pa.Scalar:
+def create_empty_pyarrow_scalar_from_proto_type(proto_message: Type[Message]) -> pa.Scalar:
     """Creates a PyArrow scalar with None value but with type structure matching the Protobuf message."""
     pa_type = convert_proto_message_type_to_pyarrow_type(proto_message.DESCRIPTOR)
     return pa.scalar({}, type=pa_type)

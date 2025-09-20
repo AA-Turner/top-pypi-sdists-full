@@ -1,7 +1,12 @@
 import logging
 import os
+from typing import Any, Literal
 
 from fluidattacks_core.logging.types import EnvironmentMetadata, JobMetadata
+
+PipelineType = Literal["gitlab_ci", "circleci", "azure_devops", "jenkins"]
+
+DEFAULT_TELEMETRY_METADATA = {}
 
 
 def is_trunk_branch() -> bool:
@@ -54,3 +59,47 @@ def debug_logs() -> None:
     except KeyError as e:
         root_logger.exception(e)
         logger.exception(e)
+
+
+def get_pipeline_environment() -> PipelineType | None:
+    if os.environ.get("CI_JOB_ID", None):
+        return "gitlab_ci"
+    if os.environ.get("CIRCLECI", None):
+        return "circleci"
+    if os.environ.get("System.JobId", None):  # noqa: SIM112
+        return "azure_devops"
+    if os.environ.get("BUILD_NUMBER", None):
+        return "jenkins"
+    return None
+
+
+def get_pipeline_metadata(pipeline: PipelineType | None) -> dict[str, str]:
+    if pipeline == "gitlab_ci":
+        return {
+            "CI_JOB_ID": os.environ.get("CI_JOB_ID", "unknown"),
+            "CI_JOB_URL": os.environ.get("CI_JOB_URL", "unknown"),
+        }
+    if pipeline == "circleci":
+        return {
+            "CIRCLE_BUILD_NUM": os.environ.get("CIRCLE_BUILD_NUM", "unknown"),
+            "CIRCLE_BUILD_URL": os.environ.get("CIRCLE_BUILD_URL", "unknown"),
+        }
+    if pipeline == "azure_devops":
+        return {
+            "System.JobId": os.environ.get("System.JobId", "unknown"),  # noqa: SIM112
+        }
+    if pipeline == "jenkins":
+        return {
+            "BUILD_NUMBER": os.environ.get("BUILD_NUMBER", "unknown"),
+            "BUILD_ID": os.environ.get("BUILD_ID", "unknown"),
+            "BUILD_URL": os.environ.get("BUILD_URL", "unknown"),
+        }
+    return {}
+
+
+def set_telemetry_metadata(config: dict[str, Any]) -> None:
+    DEFAULT_TELEMETRY_METADATA.update(config)
+
+
+def get_telemetry_metadata() -> dict[str, Any]:
+    return DEFAULT_TELEMETRY_METADATA

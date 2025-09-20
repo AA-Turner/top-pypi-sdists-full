@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypcode
-Version: 3.3.0
+Version: 3.3.1
 Summary: Machine code disassembly and IR translation library
 License: pypcode is a library built around the SLEIGH library.
         

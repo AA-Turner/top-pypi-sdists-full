@@ -1734,6 +1734,7 @@ class UserPhoneConfigTypeDef(TypedDict):
     AutoAccept: NotRequired[bool]
     AfterContactWorkTimeLimit: NotRequired[int]
     DeskPhoneNumber: NotRequired[str]
+    PersistentConnection: NotRequired[bool]
 
 class ViewInputContentTypeDef(TypedDict):
     Template: NotRequired[str]

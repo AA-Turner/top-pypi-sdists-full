@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langchain-mcp-adapters"
-version = "0.1.9"
+version = "0.1.10"
 description = "Make Anthropic Model Context Protocol (MCP) tools compatible with LangChain and LangGraph agents."
 authors = [
     { name = "Vadym Barda", email = "19161700+vbarda@users.noreply.github.com" },
@@ -49,7 +49,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
@@ -57,7 +57,6 @@ select = [
     "ALL",
 ]
 ignore = [
-    "E501",
     "COM812",
 ]
 

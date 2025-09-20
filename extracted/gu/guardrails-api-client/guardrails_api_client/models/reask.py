@@ -79,9 +79,9 @@ class Reask(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in fail_results (list)
         _items = []
         if self.fail_results:
-            for _item in self.fail_results:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_fail_results in self.fail_results:
+                if _item_fail_results:
+                    _items.append(_item_fail_results.to_dict())
             _dict['failResults'] = _items
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:

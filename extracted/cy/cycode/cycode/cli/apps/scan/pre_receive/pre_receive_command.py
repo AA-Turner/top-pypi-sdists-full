@@ -63,6 +63,6 @@ def pre_receive_command(
             )
 
             if scan_utils.is_scan_failed(ctx):
-                console.print(consts.PRE_RECEIVE_REMEDIATION_MESSAGE)
+                console.print(consts.PRE_RECEIVE_AND_PUSH_REMEDIATION_MESSAGE)
     except Exception as e:
         handle_scan_exception(ctx, e)

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.5.1+obcheckpoint(0.2.6);ob(v1)                                                    #
-# Generated on 2025-09-16T23:23:08.705057                                                            #
+# MF version: 2.18.7.5+obcheckpoint(0.2.6);ob(v1)                                                    #
+# Generated on 2025-09-19T21:56:58.704141                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -67,9 +67,50 @@ class TriggerDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
         Trigger
             `Trigger` if triggered by an event
     """
-    def process_event_name(self, event):
+    def process_event(self, event):
+        """
+        Process a single event and return a dictionary if static trigger and a function
+        if deploy-time trigger.
+        
+        Parameters
+        ----------
+        event : Union[str, Dict[str, Any], Callable]
+            Event to process
+        
+        Returns
+        -------
+        Union[Dict[str, Union[str, Callable]], Callable]
+            Processed event
+        
+        Raises
+        ------
+        MetaflowException
+            If the event is not in the correct format
+        """
         ...
-    def process_parameters(self, parameters):
+    def process_parameters(self, parameters, event_name):
+        """
+        Process the parameters for an event and return a dictionary of parameter mappings if
+        parameters was statically defined or a function if deploy-time trigger.
+        
+        Parameters
+        ----------
+        Parameters : Union[Dict[str, str], List[Union[str, Tuple[str, str]]], Callable]
+            Parameters to process
+        
+        event_name : Union[str, callable]
+            Name of the event
+        
+        Returns
+        -------
+        Union[Dict[str, str], Callable]
+            Processed parameters
+        
+        Raises
+        ------
+        MetaflowException
+            If the parameters are not in the correct format
+        """
         ...
     def flow_init(self, flow_name, graph, environment, flow_datastore, metadata, logger, echo, options):
         ...

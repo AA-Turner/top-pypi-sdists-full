@@ -1,7 +1,7 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Literal, cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import orjson
 import structlog
@@ -32,10 +32,114 @@ from langgraph_api.validation import (
 )
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons, Runs, Threads
+from langgraph_runtime.ops import Crons, Runs, StreamHandler, Threads
 from langgraph_runtime.retry import retry_db
 
 logger = structlog.stdlib.get_logger(__name__)
+
+
+_RunResultFallback = Callable[[], Awaitable[bytes]]
+
+
+def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
+    async def fetch_thread_values() -> bytes:
+        async with connect() as conn:
+            thread_iter = await Threads.get(conn, thread_id)
+            try:
+                thread = await anext(thread_iter)
+                if thread["status"] == "error":
+                    return orjson.dumps({"__error__": orjson.Fragment(thread["error"])})
+                if thread["status"] == "interrupted":
+                    # Get an interrupt for the thread. There is the case where there are multiple interrupts for the same run and we may not show the same
+                    # interrupt, but we'll always show one. Long term we should show all of them.
+                    try:
+                        if isinstance(thread["interrupts"], dict):
+                            # Handle in memory format
+                            interrupt_map = thread["interrupts"]
+                        else:
+                            interrupt_map = orjson.loads(thread["interrupts"].buf)
+                        interrupt = [next(iter(interrupt_map.values()))[0]]
+                        return orjson.dumps({"__interrupt__": interrupt})
+                    except Exception:
+                        # No interrupt, but status is interrupted from a before/after block. Default back to values.
+                        pass
+                return cast(bytes, thread["values"])
+            except StopAsyncIteration:
+                await logger.awarning(
+                    f"No checkpoint found for thread {thread_id}",
+                    thread_id=thread_id,
+                )
+                return b"{}"
+
+    return fetch_thread_values
+
+
+def _run_result_body(
+    *,
+    run_id: UUID,
+    thread_id: UUID,
+    sub: StreamHandler,
+    cancel_on_disconnect: bool = False,
+    ignore_404: bool = False,
+    fallback: _RunResultFallback | None = None,
+    cancel_message: str | None = None,
+) -> Callable[[], AsyncIterator[bytes]]:
+    last_chunk = ValueEvent()
+
+    async def consume() -> None:
+        vchunk: bytes | None = None
+        try:
+            async for mode, chunk, _ in Runs.Stream.join(
+                run_id,
+                stream_channel=sub,
+                cancel_on_disconnect=cancel_on_disconnect,
+                thread_id=thread_id,
+                ignore_404=ignore_404,
+            ):
+                if (
+                    mode == b"values"
+                    or mode == b"updates"
+                    and b"__interrupt__" in chunk
+                ):
+                    vchunk = chunk
+                elif mode == b"error":
+                    vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
+            if vchunk is not None:
+                last_chunk.set(vchunk)
+            elif fallback is not None:
+                last_chunk.set(await fallback())
+            else:
+                last_chunk.set(b"{}")
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
+
+    # keep the connection open by sending whitespace every 5 seconds
+    # leading whitespace will be ignored by json parsers
+    async def body() -> AsyncIterator[bytes]:
+        try:
+            stream = asyncio.create_task(consume())
+            while True:
+                try:
+                    if stream.done():
+                        # raise stream exception if any
+                        stream.result()
+                    yield await asyncio.wait_for(last_chunk.wait(), timeout=5)
+                    break
+                except TimeoutError:
+                    yield b"\n"
+                except asyncio.CancelledError:
+                    if cancel_message is not None:
+                        stream.cancel(cancel_message)
+                    else:
+                        stream.cancel()
+                    await stream
+                    raise
+        finally:
+            # Make sure to always clean up the pubsub
+            await sub.__aexit__(None, None, None)
+
+    return body
 
 
 @retry_db
@@ -218,56 +322,13 @@ async def wait_run(request: ApiRequest):
         await sub.__aexit__(None, None, None)
         raise
 
-    last_chunk = ValueEvent()
-
-    async def consume():
-        vchunk: bytes | None = None
-        async for mode, chunk, _ in Runs.Stream.join(
-            run["run_id"],
-            thread_id=run["thread_id"],
-            stream_channel=sub,
-            cancel_on_disconnect=on_disconnect == "cancel",
-        ):
-            if mode == b"values" or mode == b"updates" and b"__interrupt__" in chunk:
-                vchunk = chunk
-            elif mode == b"error":
-                vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-        if vchunk is not None:
-            last_chunk.set(vchunk)
-        else:
-            async with connect() as conn:
-                thread_iter = await Threads.get(conn, thread_id)
-                try:
-                    thread = await anext(thread_iter)
-                    last_chunk.set(thread["values"])
-                except StopAsyncIteration:
-                    await logger.awarning(
-                        f"No checkpoint found for thread {thread_id}",
-                        thread_id=thread_id,
-                    )
-                    last_chunk.set(b"{}")
-
-    # keep the connection open by sending whitespace every 5 seconds
-    # leading whitespace will be ignored by json parsers
-    async def body() -> AsyncIterator[bytes]:
-        try:
-            stream = asyncio.create_task(consume())
-            while True:
-                try:
-                    if stream.done():
-                        # raise stream exception if any
-                        stream.result()
-                    yield await asyncio.wait_for(last_chunk.wait(), timeout=5)
-                    break
-                except TimeoutError:
-                    yield b"\n"
-                except asyncio.CancelledError:
-                    stream.cancel()
-                    await stream
-                    raise
-        finally:
-            # Make sure to always clean up the pubsub
-            await sub.__aexit__(None, None, None)
+    body = _run_result_body(
+        run_id=run["run_id"],
+        thread_id=run["thread_id"],
+        sub=sub,
+        cancel_on_disconnect=on_disconnect == "cancel",
+        fallback=_thread_values_fallback(thread_id),
+    )
 
     return StreamingResponse(
         body(),
@@ -305,53 +366,23 @@ async def wait_run_stateless(request: ApiRequest):
         await sub.__aexit__(None, None, None)
         raise
 
-    last_chunk = ValueEvent()
-
-    async def consume():
-        vchunk: bytes | None = None
-        async for mode, chunk, _ in Runs.Stream.join(
-            run["run_id"],
+    async def stateless_fallback() -> bytes:
+        await logger.awarning(
+            "No checkpoint emitted for stateless run",
+            run_id=run["run_id"],
             thread_id=run["thread_id"],
-            stream_channel=sub,
-            ignore_404=True,
-            cancel_on_disconnect=on_disconnect == "cancel",
-        ):
-            if mode == b"values" or mode == b"updates" and b"__interrupt__" in chunk:
-                vchunk = chunk
-            elif mode == b"error":
-                vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
-        if vchunk is not None:
-            last_chunk.set(vchunk)
-        else:
-            # we can't fetch the thread (it was deleted), so just return empty values
-            await logger.awarning(
-                "No checkpoint emitted for stateless run",
-                run_id=run["run_id"],
-                thread_id=run["thread_id"],
-            )
-            last_chunk.set(b"{}")
+        )
+        return b"{}"
 
-    # keep the connection open by sending whitespace every 5 seconds
-    # leading whitespace will be ignored by json parsers
-    async def body() -> AsyncIterator[bytes]:
-        try:
-            stream = asyncio.create_task(consume())
-            while True:
-                try:
-                    if stream.done():
-                        # raise stream exception if any
-                        stream.result()
-                    yield await asyncio.wait_for(last_chunk.wait(), timeout=5)
-                    break
-                except TimeoutError:
-                    yield b"\n"
-                except asyncio.CancelledError:
-                    stream.cancel("Run stream cancelled")
-                    await stream
-                    raise
-        finally:
-            # Make sure to always clean up the pubsub
-            await sub.__aexit__(None, None, None)
+    body = _run_result_body(
+        run_id=run["run_id"],
+        thread_id=run["thread_id"],
+        sub=sub,
+        cancel_on_disconnect=on_disconnect == "cancel",
+        ignore_404=True,
+        fallback=stateless_fallback,
+        cancel_message="Run stream cancelled",
+    )
 
     return StreamingResponse(
         body(),
@@ -422,11 +453,23 @@ async def join_run(request: ApiRequest):
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     validate_uuid(run_id, "Invalid run ID: must be a UUID")
 
-    return ApiResponse(
-        await Runs.join(
-            run_id,
-            thread_id=thread_id,
-        )
+    # A touch redundant, but to meet the existing signature of join, we need to throw any 404s before we enter the streaming body
+    await Runs.Stream.check_run_stream_auth(run_id, thread_id)
+    sub = await Runs.Stream.subscribe(run_id, thread_id)
+    body = _run_result_body(
+        run_id=run_id,
+        thread_id=thread_id,
+        sub=sub,
+        fallback=_thread_values_fallback(thread_id),
+    )
+
+    return StreamingResponse(
+        body(),
+        media_type="application/json",
+        headers={
+            "Location": f"/threads/{thread_id}/runs/{run_id}/join",
+            "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
+        },
     )
 
 
@@ -456,6 +499,10 @@ async def join_run_stream(request: ApiRequest):
 
     return EventSourceResponse(
         body(),
+        headers={
+            "Location": f"/threads/{thread_id}/runs/{run_id}/stream",
+            "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
+        },
     )
 
 
@@ -476,19 +523,36 @@ async def cancel_run(
         action_str if action_str in {"interrupt", "rollback"} else "interrupt",
     )
 
-    async with connect() as conn:
-        await Runs.cancel(
-            conn,
-            [run_id],
-            action=action,
-            thread_id=thread_id,
-        )
-    if wait:
-        await Runs.join(
-            run_id,
-            thread_id=thread_id,
-        )
-    return Response(status_code=204 if wait else 202)
+    sub = await Runs.Stream.subscribe(run_id, thread_id) if wait else None
+    try:
+        async with connect() as conn:
+            await Runs.cancel(
+                conn,
+                [run_id],
+                action=action,
+                thread_id=thread_id,
+            )
+    except Exception:
+        if sub is not None:
+            await sub.__aexit__(None, None, None)
+        raise
+    if not wait:
+        return Response(status_code=202)
+
+    body = _run_result_body(
+        run_id=run_id,
+        thread_id=thread_id,
+        sub=sub,
+    )
+
+    return StreamingResponse(
+        body(),
+        media_type="application/json",
+        headers={
+            "Location": f"/threads/{thread_id}/runs/{run_id}/join",
+            "Content-Location": f"/threads/{thread_id}/runs/{run_id}",
+        },
+    )
 
 
 @retry_db

@@ -25,7 +25,16 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
 
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+
 from acryl.executor.cloud_utils.cloud_copier import CloudCopier
+from acryl.executor.cloud_utils.cloud_copier_location import CloudCopierLocation
+from acryl.executor.cloud_utils.env_utils import (
+    DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR,
+    DATAHUB_CLOUD_LOG_PATH_ENV_VAR,
+    get_cloud_log_bucket,
+    get_cloud_log_path,
+)
 from acryl.executor.cloud_utils.executor_credentials import ExecutorCredentials
 from acryl.executor.cloud_utils.s3_cloud_copier import S3CloudCopier
 from acryl.executor.common.config import ConfigModel
@@ -48,9 +57,6 @@ logger = logging.getLogger(__name__)
 
 ARTIFACTS_DIR_NAME = "artifacts"
 
-DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR = "DATAHUB_CLOUD_LOG_BUCKET"
-DATAHUB_CLOUD_LOG_PATH_ENV_VAR = "DATAHUB_CLOUD_LOG_PATH"
-
 
 class SubProcessIngestionTaskConfig(ConfigModel):
     tmp_dir: str = "/tmp/datahub/ingest"
@@ -58,8 +64,8 @@ class SubProcessIngestionTaskConfig(ConfigModel):
     heartbeat_time_seconds: int = 2
     max_log_lines: int = SubProcessTaskUtil.MAX_LOG_LINES
     # The following are optional and only used for uploading logs to S3
-    cloud_log_bucket: Optional[str] = os.environ.get(DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR)
-    cloud_log_path: Optional[str] = os.environ.get(DATAHUB_CLOUD_LOG_PATH_ENV_VAR, "")
+    cloud_log_bucket: Optional[str] = get_cloud_log_bucket()
+    cloud_log_path: Optional[str] = get_cloud_log_path()
 
 
 class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
@@ -531,17 +537,67 @@ class SubProcessIngestionTask(Task):
         finally:
             full_log_file.close()
 
-    def _get_executor_credentials(self) -> Optional[dict]:
-        """Get executor credentials from GraphQL API if DATAHUB_EXECUTOR_POOL_ID is present."""
-        executor_pool_id = os.environ.get("DATAHUB_EXECUTOR_POOL_ID")
-        if not executor_pool_id:
-            return None
+    def _should_upload_logs_to_s3(self, graph: DataHubGraph) -> bool:
+        if not self.config.cloud_log_bucket:
+            logger.debug("No S3 bucket configured, skipping log upload")
+            return False
+        return True
 
-        credentials_client = ExecutorCredentials.from_environment()
-        if not credentials_client:
-            return None
+    def _upload_logs_to_s3(
+        self,
+        recipe: dict,
+        ctx: ExecutionContext,
+        artifact_output_dir: str,
+    ) -> None:
+        graph = get_default_graph()
+        if not self._should_upload_logs_to_s3(graph):
+            return
 
-        return credentials_client.get_executor_credentials(executor_pool_id)
+        upload_time = datetime.now()
+        partition = f"year={upload_time.strftime('%Y')}/month={upload_time.strftime('%m')}/day={upload_time.strftime('%d')}"
+        try:
+            path_to_upload = (
+                (self.config.cloud_log_path or "")
+                + "/"
+                + recipe.get("pipeline_name", "unknown_pipeline").replace(
+                    "urn:li:dataHubIngestionSource:", ""
+                )
+                + "/"
+                + partition
+                + "/"
+                + ctx.exec_id
+            )
+            logger.debug(
+                f"Uploading logs to S3 bucket {self.config.cloud_log_bucket} with path {path_to_upload}"
+            )
+
+            # Assert that cloud_log_bucket is not None since we checked at the beginning of the method
+            # Being done for linting purposes
+            assert self.config.cloud_log_bucket is not None
+
+            executor_credentials = ExecutorCredentials(graph).get_executor_credentials()
+            if executor_credentials:
+                cloud_copier = S3CloudCopier(
+                    self.config.cloud_log_bucket,
+                    path_to_upload,
+                    aws_access_key_id=executor_credentials.get("access_key_id"),
+                    aws_secret_access_key=executor_credentials.get("secret_access_key"),
+                    aws_session_token=executor_credentials.get("session_token"),
+                    region_name=executor_credentials.get("region"),
+                )
+            else:
+                cloud_copier = S3CloudCopier(
+                    self.config.cloud_log_bucket,
+                    path_to_upload,
+                )
+            self.create_tar_archives(artifact_output_dir, cloud_copier)
+            CloudCopierLocation().send_location(
+                bucket=self.config.cloud_log_bucket,
+                base_path=path_to_upload,
+                execution_id=ctx.exec_id,
+            )
+        except Exception:
+            logger.exception("Failed to upload logs to S3")
 
     def _handle_subprocess_completion(
         self,
@@ -554,54 +610,17 @@ class SubProcessIngestionTask(Task):
         shared_logs: LogHolder,
     ) -> None:
         """Handle subprocess completion, including report processing and cleanup."""
-        # Get executor credentials if available
-        executor_credentials = self._get_executor_credentials()
 
         if os.path.exists(report_out_file):
             with open(report_out_file) as structured_report_fp:
                 ctx.get_report().set_structured_report(structured_report_fp.read())
 
-        if self.config.cloud_log_bucket:
-            upload_time = datetime.now()
-            partition = f"year={upload_time.strftime('%Y')}/month={upload_time.strftime('%m')}/day={upload_time.strftime('%d')}"
-            try:
-                path_to_upload = (
-                    (self.config.cloud_log_path or "")
-                    + "/"
-                    + recipe.get("pipeline_name", "unknown_pipeline").replace(
-                        "urn:li:dataHubIngestionSource:", ""
-                    )
-                    + "/"
-                    + partition
-                    + "/"
-                    + ctx.exec_id
-                )
-                logger.debug(
-                    f"Uploading logs to S3 bucket {self.config.cloud_log_bucket} with path {path_to_upload}"
-                )
-
-                # Create S3CloudCopier with executor credentials if available
-                if executor_credentials:
-                    cloud_copier = S3CloudCopier(
-                        self.config.cloud_log_bucket,
-                        path_to_upload,
-                        aws_access_key_id=executor_credentials.get("access_key_id"),
-                        aws_secret_access_key=executor_credentials.get(
-                            "secret_access_key"
-                        ),
-                        aws_session_token=executor_credentials.get("session_token"),
-                        region_name=executor_credentials.get("region"),
-                    )
-                else:
-                    cloud_copier = S3CloudCopier(
-                        self.config.cloud_log_bucket,
-                        path_to_upload,
-                    )
-                self.create_tar_archives(artifact_output_dir, cloud_copier)
-            except Exception:
-                logging.exception("Failed to upload logs to S3")
-        else:
-            logger.debug("No S3 bucket configured, skipping log upload")
+        try:
+            self._upload_logs_to_s3(recipe, ctx, artifact_output_dir)
+        except Exception:
+            # So that we don't fail on older server versions
+            # that don't have the endpoints
+            logger.exception("Failed to upload logs to S3")
 
         ctx.get_report().set_logs(
             SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())

@@ -21,6 +21,9 @@ ICRS_COORDS_M42 = SkyCoord("05h35m17.3s -05d23m28s", frame='icrs')
 ICRS_COORDS_SgrB2 = SkyCoord(266.835*u.deg, -28.38528*u.deg, frame='icrs')
 multicoords = SkyCoord([ICRS_COORDS_SgrB2, ICRS_COORDS_SgrB2])
 
+# The MAXREC related overflow message is different in pyvo 1.7+, remove workaround when we have it as a minimum
+overflow_message = r"Partial result set. Potential causes MAXREC|Result set limited by user- or server-supplied MAXREC"
+
 
 @pytest.mark.remote_data()
 class TestSimbad:
@@ -156,7 +159,7 @@ class TestSimbad:
                   "      c       3")
         assert expect == str(result)
         # Test query_tap raised errors
-        with pytest.warns(DALOverflowWarning, match="Partial result set *"):
+        with pytest.warns(DALOverflowWarning, match=overflow_message):
             truncated_result = Simbad.query_tap("SELECT * from basic", maxrec=2)
             assert len(truncated_result) == 2
         with pytest.raises(ValueError, match="The maximum number of records cannot exceed 2000000."):
@@ -167,6 +170,12 @@ class TestSimbad:
         assert _cached_query_tap.cache_info().currsize != 0
         Simbad.clear_cache()
         assert _cached_query_tap.cache_info().currsize == 0
+
+    def test_async_query(self):
+        adql = "select top 1 main_id from basic"
+        sync_job = Simbad.query_tap(adql)
+        async_job = Simbad.query_tap(adql, async_job=True)
+        assert sync_job["main_id"] == async_job["main_id"]
 
     def test_empty_response_warns(self):
         with pytest.warns(NoResultsWarning, match="The request executed correctly, but *"):

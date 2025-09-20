@@ -46,6 +46,7 @@ pyproject.toml
     target_name = "test_uac_uiaccess"
 
     [tool.cxfreeze.build_exe]
+    include_msvcr = true
     excludes = ["tkinter", "unittest"]
     silent = true
 simple.manifest
@@ -77,11 +78,11 @@ def test_manifest(tmp_package) -> None:
 LIEF_VERSIONS = []
 if IS_WINDOWS:
     if IS_ARM_64:
-        LIEF_VERSIONS += ["0.16.6"]
+        LIEF_VERSIONS += ["0.16.6", "0.17.0"]
     elif IS_CONDA:
         LIEF_VERSIONS += ["installed"]
     else:
-        LIEF_VERSIONS += ["0.15.1", "0.16.6"]
+        LIEF_VERSIONS += ["0.15.1", "0.16.6", "0.17.0"]
 elif IS_MINGW:
     LIEF_VERSIONS += ["installed"]
 
@@ -133,7 +134,7 @@ def test_uac_admin(tmp_package, lief_version) -> None:
     tmp_package.freeze()
     executable = tmp_package.executable("test_uac_admin")
     assert executable.is_file()
-    with pytest.raises(OSError, match="[WinError 740]"):
+    with pytest.raises(OSError, match=r"[WinError 740]"):
         tmp_package.run(executable, timeout=10)
 
 
@@ -149,5 +150,5 @@ def test_uac_uiaccess(tmp_package, lief_version) -> None:
     tmp_package.freeze()
     executable = tmp_package.executable("test_uac_uiaccess")
     assert executable.is_file()
-    with pytest.raises(OSError, match="[WinError 740]"):
+    with pytest.raises(OSError, match=r"[WinError 740]"):
         tmp_package.run(executable, timeout=10)

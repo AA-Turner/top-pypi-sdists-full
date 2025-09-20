@@ -1,23 +1,22 @@
-from datetime import datetime
-from functools import lru_cache, partial
-from typing import Dict, List, Optional
 import re
+from datetime import datetime
+from functools import cached_property, lru_cache, partial
+from typing import Dict, List, Optional
 
-from rich import box
-from rich import print
+from rich import box, print
 from rich.console import Group, Text
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 
-from edgar._filings import Attachments, Attachment
+from edgar._filings import Attachment, Attachments
 from edgar._markdown import MarkdownContent
-from edgar.formatting import datefmt
 from edgar.files.html import Document
 from edgar.files.html_documents import HtmlDocument
-from edgar.files.htmltools import ChunkedDocument, chunks2df, detect_decimal_items, adjust_for_empty_items
+from edgar.files.htmltools import ChunkedDocument, adjust_for_empty_items, chunks2df, detect_decimal_items
 from edgar.financials import Financials
+from edgar.formatting import datefmt
 from edgar.richtools import repr_rich, rich_to_text
 
 __all__ = [
@@ -62,17 +61,16 @@ class CompanyReport:
     def cash_flow_statement(self):
         return self.financials.cashflow_statement() if self.financials else None
 
-    @property
-    @lru_cache(1)
+    @cached_property
     def financials(self):
+        """Get the financials for this filing"""
         return Financials.extract(self._filing)
 
     @property
     def period_of_report(self):
         return self._filing.header.period_of_report
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def chunked_document(self):
         return ChunkedDocument(self._filing.html())
 
@@ -99,7 +97,7 @@ class CompanyReport:
         return Panel(
             Group(
                 self._filing.__rich__(),
-                self.financials or Text("No financial data available")
+                self.financials() or Text("No financial data available")
             )
         )
 
@@ -269,17 +267,16 @@ class TenK(CompanyReport):
     @property
     def directors_officers_and_governance(self):
         return self['Item 10']
-    
-    @property
-    @lru_cache(maxsize=1)
+
+    @cached_property
     def chunked_document(self):
         return ChunkedDocument(self._filing.html(), prefix_src=self._filing.base_dir)
-    
+
     @lru_cache(maxsize=1)
     def id_parse_document(self, markdown:bool=False):
         from edgar.files.html_documents_id_parser import ParsedHtml10K
         return ParsedHtml10K().extract_html(self._filing.html(), self.structure, markdown=markdown)
-            
+
     def __str__(self):
         return f"""TenK('{self.company}')"""
 
@@ -302,7 +299,7 @@ class TenK(CompanyReport):
         if not item_text or not item_text.strip():
             return self.id_parse_document(markdown).get(part.lower(), {}).get(item.lower())
         return item_text
-    
+
     def get_structure(self):
         # Create the main tree
         tree = Tree("📄 ")
@@ -425,12 +422,12 @@ class TenQ(CompanyReport):
 
     def __str__(self):
         return f"""TenQ('{self.company}')"""
-    
+
     def __getitem__(self, item_or_part: str):
         # Show the item or part from the filing document. e.g. Item 1 Business from 10-K or Part I from 10-Q
         item_text = self.chunked_document[item_or_part]
         return item_text
-    
+
     def get_item_with_part(self, part: str, item: str, markdown:bool=True):
         if not part:
             return self.id_parse_document(markdown).get(part.lower(), {}).get(item.lower())
@@ -440,17 +437,16 @@ class TenQ(CompanyReport):
         if not item_text or not item_text.strip():
             return self.id_parse_document(markdown).get(part.lower(), {}).get(item.lower())
         return item_text
-    
+
     @lru_cache(maxsize=1)
     def id_parse_document(self, markdown:bool=True):
         from edgar.files.html_documents_id_parser import ParsedHtml10Q
         return ParsedHtml10Q().extract_html(self._filing.html(), self.structure, markdown=markdown)
-            
-    @property
-    @lru_cache(maxsize=1)
+
+    @cached_property
     def chunked_document(self):
         return ChunkedDocument(self._filing.html(), prefix_src=self._filing.base_dir)
-    
+
     def get_structure(self):
         # Create the main tree
         tree = Tree("📄 ")
@@ -721,8 +717,7 @@ class CurrentReport(CompanyReport):
         if press_release_results:
             return PressReleases(press_release_results)
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def chunked_document(self):
         html = self._filing.html()
         if not html:

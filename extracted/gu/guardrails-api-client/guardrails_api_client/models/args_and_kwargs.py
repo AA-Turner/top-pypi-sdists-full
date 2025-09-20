@@ -72,9 +72,9 @@ class ArgsAndKwargs(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of each item in args (list)
         _items = []
         if self.args:
-            for _item in self.args:
-                if _item:
-                    _items.append(_item.to_dict() if hasattr(_item, "to_dict") and callable(_item.to_dict) else _item)
+            for _item_args in self.args:
+                if _item_args:
+                    _items.append(_item_args.to_dict())
             _dict['args'] = _items
         return _dict
 
@@ -89,6 +89,7 @@ class ArgsAndKwargs(BaseModel):
 
         _obj = cls.model_validate({
             "args": obj.get("args"),
+            "kwargs": obj.get("kwargs")
         })
         return _obj
 

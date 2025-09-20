@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bump-my-version
-Version: 1.2.2
+Version: 1.2.3
 Summary: Version bump your Python project
 Project-URL: homepage, https://github.com/callowayproject/bump-my-version
 Project-URL: repository, https://github.com/callowayproject/bump-my-version.git
@@ -47,7 +47,7 @@ Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Version Control
 Classifier: Topic :: System :: Software Distribution
 Requires-Python: >=3.8
-Requires-Dist: click
+Requires-Dist: click<8.3
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: pydantic-settings
 Requires-Dist: pydantic>=2.0.0

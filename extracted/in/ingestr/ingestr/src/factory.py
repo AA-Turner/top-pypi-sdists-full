@@ -11,7 +11,9 @@ from ingestr.src.destinations import (
     CsvDestination,
     DatabricksDestination,
     DuckDBDestination,
+    ElasticsearchDestination,
     GCSDestination,
+    MongoDBDestination,
     MotherduckDestination,
     MsSQLDestination,
     MySqlDestination,
@@ -21,10 +23,12 @@ from ingestr.src.destinations import (
     SnowflakeDestination,
     SqliteDestination,
     SynapseDestination,
+    TrinoDestination,
 )
 from ingestr.src.sources import (
     AdjustSource,
     AirtableSource,
+    AnthropicSource,
     AppleAppStoreSource,
     ApplovinMaxSource,
     AppLovinSource,
@@ -41,6 +45,7 @@ from ingestr.src.sources import (
     FluxxSource,
     FrankfurterSource,
     FreshdeskSource,
+    FundraiseupSource,
     GCSSource,
     GitHubSource,
     GoogleAdsSource,
@@ -106,6 +111,7 @@ SQL_SOURCE_SCHEMES = [
     "databricks",
     "db2",
     "spanner",
+    "trino",
 ]
 
 
@@ -144,6 +150,7 @@ class SourceDestinationFactory:
     source_scheme: str
     destination_scheme: str
     sources: Dict[str, Type[SourceProtocol]] = {
+        "anthropic": AnthropicSource,
         "csv": LocalCsvSource,
         "docebo": DoceboSource,
         "mongodb": MongoDbSource,
@@ -185,6 +192,7 @@ class SourceDestinationFactory:
         "pipedrive": PipedriveSource,
         "frankfurter": FrankfurterSource,
         "freshdesk": FreshdeskSource,
+        "fundraiseup": FundraiseupSource,
         "trustpilot": TrustpilotSource,
         "phantombuster": PhantombusterSource,
         "elasticsearch": ElasticsearchSource,
@@ -221,11 +229,15 @@ class SourceDestinationFactory:
         "athena": AthenaDestination,
         "clickhouse+native": ClickhouseDestination,
         "clickhouse": ClickhouseDestination,
+        "elasticsearch": ElasticsearchDestination,
+        "mongodb": MongoDBDestination,
+        "mongodb+srv": MongoDBDestination,
         "s3": S3Destination,
         "gs": GCSDestination,
         "sqlite": SqliteDestination,
         "mysql": MySqlDestination,
         "mysql+pymysql": MySqlDestination,
+        "trino": TrinoDestination,
     }
 
     def __init__(self, source_uri: str, destination_uri: str):

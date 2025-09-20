@@ -5,6 +5,7 @@ from typing import Any, Optional, Union
 
 from agents import (
     Agent,
+    AgentsException,
     Handoff,
     RunConfig,
     RunContextWrapper,
@@ -21,6 +22,7 @@ from pydantic_core import to_json
 from temporalio import workflow
 from temporalio.contrib.openai_agents._model_parameters import ModelActivityParameters
 from temporalio.contrib.openai_agents._temporal_model_stub import _TemporalModelStub
+from temporalio.contrib.openai_agents.workflow import AgentsWorkflowError
 
 
 class TemporalOpenAIRunner(AgentRunner):
@@ -57,14 +59,22 @@ class TemporalOpenAIRunner(AgentRunner):
                 )
 
         if starting_agent.mcp_servers:
-            raise ValueError(
-                "Temporal OpenAI agent does not support on demand MCP servers."
+            from temporalio.contrib.openai_agents._mcp import (
+                _StatefulMCPServerReference,
+                _StatelessMCPServerReference,
             )
 
-        # workaround for https://github.com/pydantic/pydantic/issues/9541
-        # ValidatorIterator returned
-        input_json = to_json(input)
-        input = json.loads(input_json)
+            for s in starting_agent.mcp_servers:
+                if not isinstance(
+                    s,
+                    (
+                        _StatelessMCPServerReference,
+                        _StatefulMCPServerReference,
+                    ),
+                ):
+                    raise ValueError(
+                        f"Unknown mcp_server type {type(s)} may not work durably."
+                    )
 
         context = kwargs.get("context")
         max_turns = kwargs.get("max_turns", DEFAULT_MAX_TURNS)
@@ -136,16 +146,28 @@ class TemporalOpenAIRunner(AgentRunner):
                 handoffs=new_handoffs,
             )
 
-        return await self._runner.run(
-            starting_agent=convert_agent(starting_agent, None),
-            input=input,
-            context=context,
-            max_turns=max_turns,
-            hooks=hooks,
-            run_config=run_config,
-            previous_response_id=previous_response_id,
-            session=session,
-        )
+        try:
+            return await self._runner.run(
+                starting_agent=convert_agent(starting_agent, None),
+                input=input,
+                context=context,
+                max_turns=max_turns,
+                hooks=hooks,
+                run_config=run_config,
+                previous_response_id=previous_response_id,
+                session=session,
+            )
+        except AgentsException as e:
+            # In order for workflow failures to properly fail the workflow, we need to rewrap them in
+            # a Temporal error
+            if e.__cause__ and workflow.is_failure_exception(e.__cause__):
+                reraise = AgentsWorkflowError(
+                    f"Workflow failure exception in Agents Framework: {e}"
+                )
+                reraise.__traceback__ = e.__traceback__
+                raise reraise from e.__cause__
+            else:
+                raise e
 
     def run_sync(
         self,

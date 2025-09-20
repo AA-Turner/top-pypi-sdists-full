@@ -15,6 +15,8 @@
 #ifndef TENSORSTORE_UTIL_EXECUTION_FLOW_SENDER_OPERATION_STATE_H_
 #define TENSORSTORE_UTIL_EXECUTION_FLOW_SENDER_OPERATION_STATE_H_
 
+#include <utility>
+
 #include "absl/status/status.h"
 #include "tensorstore/internal/intrusive_ptr.h"
 #include "tensorstore/util/execution/any_receiver.h"
@@ -49,7 +51,7 @@ struct FlowSenderOperationState
     auto [promise, future] = PromiseFuturePair<void>::Make(MakeResult());
     this->promise = std::move(promise);
     execution::set_starting(
-        this->shared_receiver->receiver, [promise = this->promise] {
+        shared_receiver->receiver, [promise = this->promise] {
           SetDeferredResult(promise, absl::CancelledError(""));
         });
     future.Force();
@@ -68,6 +70,10 @@ struct FlowSenderOperationState
 
   void SetError(absl::Status status) {
     SetDeferredResult(promise, std::move(status));
+  }
+
+  void YieldValue(T... v) {
+    execution::set_value(shared_receiver->receiver, std::forward<T>(v)...);
   }
 
   bool cancelled() const { return !promise.result_needed(); }

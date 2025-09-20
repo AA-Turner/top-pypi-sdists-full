@@ -21,10 +21,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import sys
+from datetime import datetime, timezone
 from typing import IO, NewType, Union
+from urllib import parse
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.x509 import (
     Certificate,
     ExtensionNotFound,
@@ -32,7 +34,7 @@ from cryptography.x509 import (
     load_der_x509_certificate,
 )
 from cryptography.x509.oid import ExtendedKeyUsageOID, ExtensionOID
-from sigstore_protobuf_specs.dev.sigstore.common.v1 import HashAlgorithm
+from sigstore_models.common.v1 import HashAlgorithm, TimeRange
 
 from sigstore import hashes as sigstore_hashes
 from sigstore.errors import VerificationError
@@ -43,9 +45,13 @@ else:
     from importlib import resources
 
 
-PublicKey = Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey]
+PublicKey = Union[rsa.RSAPublicKey, ec.EllipticCurvePublicKey, ed25519.Ed25519PublicKey]
 
-PublicKeyTypes = Union[type[rsa.RSAPublicKey], type[ec.EllipticCurvePublicKey]]
+PublicKeyTypes = Union[
+    type[rsa.RSAPublicKey],
+    type[ec.EllipticCurvePublicKey],
+    type[ed25519.Ed25519PublicKey],
+]
 
 HexStr = NewType("HexStr", str)
 """
@@ -64,7 +70,11 @@ A newtype for `bytes` objects that contain a key id.
 def load_pem_public_key(
     key_pem: bytes,
     *,
-    types: tuple[PublicKeyTypes, ...] = (rsa.RSAPublicKey, ec.EllipticCurvePublicKey),
+    types: tuple[PublicKeyTypes, ...] = (
+        rsa.RSAPublicKey,
+        ec.EllipticCurvePublicKey,
+        ed25519.Ed25519PublicKey,
+    ),
 ) -> PublicKey:
     """
     A specialization of `cryptography`'s `serialization.load_pem_public_key`
@@ -86,7 +96,11 @@ def load_pem_public_key(
 def load_der_public_key(
     key_der: bytes,
     *,
-    types: tuple[PublicKeyTypes, ...] = (rsa.RSAPublicKey, ec.EllipticCurvePublicKey),
+    types: tuple[PublicKeyTypes, ...] = (
+        rsa.RSAPublicKey,
+        ec.EllipticCurvePublicKey,
+        ed25519.Ed25519PublicKey,
+    ),
 ) -> PublicKey:
     """
     The `load_pem_public_key` specialization, but DER.
@@ -195,12 +209,13 @@ def _sha256_streaming(io: IO[bytes]) -> bytes:
     return sha256.digest()
 
 
-def read_embedded(name: str, prefix: str) -> bytes:
+def read_embedded(name: str, url: str) -> bytes:
     """
-    Read a resource embedded in this distribution of sigstore-python,
-    returning its contents as bytes.
+    Read a resource for a given TUF repository embedded in this distribution
+    of sigstore-python, returning its contents as bytes.
     """
-    b: bytes = resources.files("sigstore._store").joinpath(prefix, name).read_bytes()
+    embed_dir = parse.quote(url, safe="")
+    b: bytes = resources.files("sigstore._store").joinpath(embed_dir, name).read_bytes()
     return b
 
 
@@ -340,3 +355,25 @@ def cert_is_leaf(cert: Certificate) -> bool:
         return ExtendedKeyUsageOID.CODE_SIGNING in extended_key_usage.value  # type: ignore[operator]
     except ExtensionNotFound:
         raise VerificationError("invalid X.509 certificate: missing ExtendedKeyUsage")
+
+
+def is_timerange_valid(period: TimeRange | None, *, allow_expired: bool) -> bool:
+    """
+    Given a `period`, checks that the the current time is not before `start`. If
+    `allow_expired` is `False`, also checks that the current time is not after
+    `end`.
+    """
+    now = datetime.now(timezone.utc)
+
+    # If there was no validity period specified, the key is always valid.
+    if not period:
+        return True
+
+    # Active: if the current time is before the starting period, we are not yet
+    # valid.
+    if now < period.start:
+        return False
+
+    # If we want Expired keys, the key is valid at this point. Otherwise, check
+    # that we are within range.
+    return allow_expired or (period.end is None or now <= period.end)

@@ -648,6 +648,7 @@ class Client(object):
         layout=None,
         multi_archive_tag=None,
         max_bitrate=None,
+        quantization_parameter=None,
     ):
         """
         Starts archiving an OpenTok session.
@@ -708,6 +709,8 @@ class Client(object):
 
         :param String max_bitrate (Optional): The maximum video bitrate for the archive, in bits per second. The minimum value is 100,000 and the maximum is 6,000,000.
 
+        :param Number quantization_parameter (Optional): The quantization parameter (QP) for video encoding quality. Values between 15-40, where smaller values generate higher quality and larger archives, larger values generate lower quality and smaller archives. QP uses variable bitrate (VBR).
+
         :rtype: The Archive object, which includes properties defining the archive,
           including the archive ID.
         """
@@ -725,6 +728,16 @@ class Client(object):
                 )
             )
 
+        if quantization_parameter is not None:
+            if not isinstance(quantization_parameter, (int, float)):
+                raise OpenTokException(
+                    u("quantization_parameter must be a number")
+                )
+            if quantization_parameter < 15 or quantization_parameter > 40:
+                raise OpenTokException(
+                    u("quantization_parameter must be between 15 and 40")
+                )
+
         payload = {
             "name": name,
             "sessionId": session_id,
@@ -736,6 +749,9 @@ class Client(object):
             "multiArchiveTag": multi_archive_tag,
             "maxBitrate": max_bitrate,
         }
+
+        if quantization_parameter is not None:
+            payload["quantizationParameter"] = quantization_parameter
 
         if layout is not None:
             payload["layout"] = layout
@@ -1993,6 +2009,7 @@ class Client(object):
             String 'uri': A publicly reachable WebSocket URI to be used for the destination of the audio stream (such as "wss://example.com/ws-endpoint").
             List 'streams' Optional: A list of stream IDs for the OpenTok streams you want to include in the WebSocket audio. If you omit this property, all streams in the session will be included.
             Dictionary 'headers' Optional: An object of key-value pairs of headers to be sent to your WebSocket server with each message, with a maximum length of 512 bytes.
+            Boolean 'bidirectional' Optional: If true, enables bidirectional audio streaming over the WebSocket connection.
         """
         self.validate_websocket_options(websocket_options)
 
@@ -2043,6 +2060,10 @@ class Client(object):
             )
         if "uri" not in options:
             raise InvalidWebSocketOptionsError("Provide a WebSocket URI.")
+
+        if "bidirectional" in options:
+            if not isinstance(options["bidirectional"], bool):
+                raise InvalidWebSocketOptionsError("'bidirectional' must be a boolean if provided.")
 
     def start_captions(
         self,

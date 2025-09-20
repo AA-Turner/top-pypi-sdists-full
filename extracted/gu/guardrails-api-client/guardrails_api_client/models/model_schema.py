@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from guardrails_api_client.models.validation_type import ValidationType
@@ -34,7 +34,7 @@ class ModelSchema(BaseModel):
     ref: Optional[str] = Field(default=None, alias="$ref")
     dynamic_ref: Optional[str] = Field(default=None, alias="$dynamicRef")
     dynamic_anchor: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, alias="$dynamicAnchor")
-    vocabulary: Optional[Dict[str, Any]] = Field(default=None, alias="$vocabulary")
+    vocabulary: Optional[Dict[str, StrictBool]] = Field(default=None, alias="$vocabulary")
     comment: Optional[str] = Field(default=None, alias="$comment")
     defs: Optional[Dict[str, Any]] = Field(default=None, alias="$defs")
     prefix_items: Optional[Annotated[List[Any], Field(min_length=1)]] = Field(default=None, alias="prefixItems")
@@ -69,7 +69,7 @@ class ModelSchema(BaseModel):
     min_contains: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, alias="minContains")
     max_properties: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, alias="maxProperties")
     min_properties: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, alias="minProperties")
-    required: Optional[List[Any]] = None
+    required: Optional[List[str]] = None
     dependent_required: Optional[Dict[str, List[str]]] = Field(default=None, alias="dependentRequired")
     const: Optional[Any] = None
     enum: Optional[List[Any]] = None
@@ -231,11 +231,16 @@ class ModelSchema(BaseModel):
             "$ref": obj.get("$ref"),
             "$dynamicRef": obj.get("$dynamicRef"),
             "$dynamicAnchor": obj.get("$dynamicAnchor"),
+            "$vocabulary": obj.get("$vocabulary"),
             "$comment": obj.get("$comment"),
+            "$defs": obj.get("$defs"),
             "prefixItems": obj.get("prefixItems"),
             "items": obj.get("items"),
             "contains": obj.get("contains"),
             "additionalProperties": obj.get("additionalProperties"),
+            "properties": obj.get("properties"),
+            "patternProperties": obj.get("patternProperties"),
+            "dependentSchemas": obj.get("dependentSchemas"),
             "propertyNames": obj.get("propertyNames"),
             "if": obj.get("if"),
             "then": obj.get("then"),
@@ -262,6 +267,7 @@ class ModelSchema(BaseModel):
             "maxProperties": obj.get("maxProperties"),
             "minProperties": obj.get("minProperties"),
             "required": obj.get("required"),
+            "dependentRequired": obj.get("dependentRequired"),
             "const": obj.get("const"),
             "enum": obj.get("enum"),
             "type": ValidationType.from_dict(obj["type"]) if obj.get("type") is not None else None,

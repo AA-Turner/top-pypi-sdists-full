@@ -1,10 +1,9 @@
-from typing import Optional
-
 import dagster as dg
 from pydantic import Field, PrivateAttr
 from typing_extensions import override
 
-from dagster_ray._base.resources import BaseRayResource, Lifecycle
+from dagster_ray._base.resources import RayResource
+from dagster_ray.configs import Lifecycle
 from dagster_ray.kuberay.client import RayClusterClient
 from dagster_ray.kuberay.client.base import load_kubeconfig
 from dagster_ray.kuberay.configs import RayClusterConfig
@@ -16,8 +15,8 @@ from dagster_ray.types import AnyDagsterContext
 class KubeRayClusterClientResource(dg.ConfigurableResource[RayClusterClient]):
     """This configurable resource provides a `dagster_ray.kuberay.client.RayClusterClient`."""
 
-    kube_context: Optional[str] = None
-    kube_config: Optional[str] = None
+    kube_context: str | None = None
+    kube_config: str | None = None
 
     def create_resource(self, context: dg.InitResourceContext) -> RayClusterClient:
         load_kubeconfig(context=self.kube_context, config_file=self.kube_config)
@@ -25,7 +24,7 @@ class KubeRayClusterClientResource(dg.ConfigurableResource[RayClusterClient]):
         return RayClusterClient(kube_context=self.kube_context, kube_config=self.kube_config)
 
 
-class KubeRayCluster(BaseKubeRayResourceConfig, BaseRayResource):
+class KubeRayCluster(BaseKubeRayResourceConfig, RayResource):
     """
     Provides a `RayCluster` for Dagster steps.
 

@@ -1,18 +1,20 @@
-from typing import Optional, Any, Dict, Generator
-from pathlib import Path
-from lxml import etree as ET
 import io
 import logging
+from pathlib import Path
+from typing import Any, Dict, Generator, Optional
+
+from lxml import etree as ET
+
 from .data import (
     ClassInfo,
     IncludedManager,
     PrimaryDoc,
+    ProxyTable,
+    ProxyVoteTable,
     ReportSeriesClassInfo,
     SeriesReport,
-    ProxyTable,
     VoteCategory,
     VoteRecord,
-    ProxyVoteTable,
 )
 
 log = logging.getLogger(__name__)
@@ -34,7 +36,7 @@ class BaseExtractor:
                     "Failed to parse XML: root element is None even after recovery."
                 )
         except ET.ParseError as e:
-            raise ValueError(f"Error parsing XML bytes during initial check: {e}")
+            raise ValueError(f"Error parsing XML bytes during initial check: {e}") from e
 
     @classmethod
     def from_file(cls, xml_file_path: Path) -> "BaseExtractor":
@@ -724,7 +726,7 @@ class ProxyVoteTableExtractor(BaseExtractor):
 
             except (ValueError, TypeError) as e:
                 log.error(
-                    f"Skipping proxyTable due to missing/invalid data or parsing error: {e} on element {element.tag if element is not None else 'Unknown Element'}"
+                    "Skipping proxyTable due to missing/invalid data or parsing error: %s on element %s", e, element.tag if element is not None else 'Unknown Element'
                 )
 
             if element is not None:

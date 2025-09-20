@@ -158,57 +158,6 @@ class CachePool : private internal_cache::CachePoolImpl {
   friend class internal_cache::Access;
 };
 
-/// Returns a cache of type `CacheType` for the specified `cache_key`.
-///
-/// If such a cache does not already exist, or `cache_key` is empty,
-/// `make_cache()` is called to obtain a new such cache.
-///
-/// \tparam CacheType Must be a class that inherits from `Cache`, or defines a
-///     `Cache& cache()` method.
-/// \param pool Cache pool, may be `nullptr` to indicate that caching is
-///     disabled.
-/// \param type_info Additional key used in looking up the cache.  Has no effect
-///     if `cache_key` is the empty string or `pool` is `nullptr`.  Set to
-///     `typeid(CacheType)` when calling `GetCache`, but can be any arbitrary
-///     `std::type_info` object.
-/// \param cache_key Specifies the cache key.
-/// \param make_cache Nullary function that returns an
-///     `std::unique_ptr<CacheType>`, where `CacheType` as a type that inherits
-///     from `Cache` or defines a `Cache& cache()` method.  A `nullptr` may be
-///     returned to indicate an error creating the cache (any additional error
-///     information must be communicated via some separate out-of-band channel).
-template <typename CacheType, typename MakeCache>
-CachePtr<CacheType> GetCacheWithExplicitTypeInfo(
-    CachePool* pool, const std::type_info& type_info,
-    std::string_view cache_key, MakeCache&& make_cache) {
-  auto cache = internal_cache::GetCacheInternal(
-      internal_cache::Access::StaticCast<internal_cache::CachePoolImpl>(pool),
-      type_info, cache_key, [&]() -> std::unique_ptr<internal::Cache> {
-        std::unique_ptr<CacheType> cache = make_cache();
-        if (!cache) return nullptr;
-        void* user_ptr = cache.get();
-        auto base_ptr = std::unique_ptr<internal::Cache>(
-            &internal_cache::GetCacheObject(cache.release()));
-        internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
-            base_ptr.get())
-            ->user_ptr_ = user_ptr;
-        return base_ptr;
-      });
-  if (!cache) return nullptr;
-  return CachePtr<CacheType>(
-      static_cast<CacheType*>(
-          internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
-              cache.release())
-              ->user_ptr_),
-      internal::adopt_object_ref);
-}
-template <typename CacheType, typename MakeCache>
-CachePtr<CacheType> GetCache(CachePool* pool, std::string_view cache_key,
-                             MakeCache&& make_cache) {
-  return GetCacheWithExplicitTypeInfo<CacheType>(
-      pool, typeid(CacheType), cache_key, std::forward<MakeCache>(make_cache));
-}
-
 /// Pointer to a cache entry that prevents it from being evicted due to memory
 /// pressure, but still permits it to be destroyed if its parent cache is
 /// destroyed.
@@ -216,8 +165,7 @@ using WeakPinnedCacheEntry = internal_cache::WeakPinnedCacheEntry;
 
 /// Base class for cache entries.
 ///
-/// This class can be used with `tensorstore::UniqueWriterLock`.  Refer to
-/// `WriterLock` and `WriterUnlock` for details.
+/// This class can be used with `std::std::unique_lock`.
 class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
  public:
   /// Alias required by the `GetOwningCache` function.  Derived `Entry` classes
@@ -241,12 +189,12 @@ class ABSL_LOCKABLE CacheEntry : private internal_cache::CacheEntryImpl {
   absl::Mutex& mutex() { return mutex_; }
 
   /// Acquires a lock on `mutex()`.
-  void WriterLock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
+  void lock() ABSL_EXCLUSIVE_LOCK_FUNCTION();
 
   /// Releases a previously-acquired lock on `mutex()`, and updates the size in
   /// the cache pool, if the size is being tracked and `NotifySizeChanged()` was
   /// called.
-  void WriterUnlock() ABSL_UNLOCK_FUNCTION();
+  void unlock() ABSL_UNLOCK_FUNCTION();
 
   void DebugAssertMutexHeld() {
 #ifndef NDEBUG
@@ -372,6 +320,57 @@ class Cache : private internal_cache::CacheImpl {
  private:
   friend class internal_cache::Access;
 };
+
+/// Returns a cache of type `CacheType` for the specified `cache_key`.
+///
+/// If such a cache does not already exist, or `cache_key` is empty,
+/// `make_cache()` is called to obtain a new such cache.
+///
+/// \tparam CacheType Must be a class that inherits from `Cache`, or defines a
+///     `Cache& cache()` method.
+/// \param pool Cache pool, may be `nullptr` to indicate that caching is
+///     disabled.
+/// \param type_info Additional key used in looking up the cache.  Has no effect
+///     if `cache_key` is the empty string or `pool` is `nullptr`.  Set to
+///     `typeid(CacheType)` when calling `GetCache`, but can be any arbitrary
+///     `std::type_info` object.
+/// \param cache_key Specifies the cache key.
+/// \param make_cache Nullary function that returns an
+///     `std::unique_ptr<CacheType>`, where `CacheType` as a type that inherits
+///     from `Cache` or defines a `Cache& cache()` method.  A `nullptr` may be
+///     returned to indicate an error creating the cache (any additional error
+///     information must be communicated via some separate out-of-band channel).
+template <typename CacheType, typename MakeCache>
+CachePtr<CacheType> GetCacheWithExplicitTypeInfo(
+    CachePool* pool, const std::type_info& type_info,
+    std::string_view cache_key, MakeCache&& make_cache) {
+  auto cache = internal_cache::GetCacheInternal(
+      internal_cache::Access::StaticCast<internal_cache::CachePoolImpl>(pool),
+      type_info, cache_key, [&]() -> std::unique_ptr<internal::Cache> {
+        std::unique_ptr<CacheType> cache = make_cache();
+        if (!cache) return nullptr;
+        void* user_ptr = cache.get();
+        auto base_ptr = std::unique_ptr<internal::Cache>(
+            &internal_cache::GetCacheObject(cache.release()));
+        internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+            base_ptr.get())
+            ->user_ptr_ = user_ptr;
+        return base_ptr;
+      });
+  if (!cache) return nullptr;
+  return CachePtr<CacheType>(
+      static_cast<CacheType*>(
+          internal_cache::Access::StaticCast<internal_cache::CacheImpl>(
+              cache.release())
+              ->user_ptr_),
+      internal::adopt_object_ref);
+}
+template <typename CacheType, typename MakeCache>
+CachePtr<CacheType> GetCache(CachePool* pool, std::string_view cache_key,
+                             MakeCache&& make_cache) {
+  return GetCacheWithExplicitTypeInfo<CacheType>(
+      pool, typeid(CacheType), cache_key, std::forward<MakeCache>(make_cache));
+}
 
 /// Returns a reference to the cache that contains `entry`.  The reference
 /// lifetime is tied to the lifetime of `entry`, but the lifetime of the cache

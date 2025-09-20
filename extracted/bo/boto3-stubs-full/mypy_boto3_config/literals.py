@@ -242,8 +242,10 @@ RecordingScopeType = Literal["INTERNAL", "PAID"]
 RecordingStrategyTypeType = Literal[
     "ALL_SUPPORTED_RESOURCE_TYPES", "EXCLUSION_BY_RESOURCE_TYPES", "INCLUSION_BY_RESOURCE_TYPES"
 ]
-RemediationExecutionStateType = Literal["FAILED", "IN_PROGRESS", "QUEUED", "SUCCEEDED"]
-RemediationExecutionStepStateType = Literal["FAILED", "PENDING", "SUCCEEDED"]
+RemediationExecutionStateType = Literal["FAILED", "IN_PROGRESS", "QUEUED", "SUCCEEDED", "UNKNOWN"]
+RemediationExecutionStepStateType = Literal[
+    "EXITED", "FAILED", "IN_PROGRESS", "PENDING", "SUCCEEDED", "UNKNOWN"
+]
 RemediationTargetTypeType = Literal["SSM_DOCUMENT"]
 ResourceConfigurationSchemaTypeType = Literal["CFN_RESOURCE_SCHEMA"]
 ResourceCountGroupKeyType = Literal["ACCOUNT_ID", "AWS_REGION", "RESOURCE_TYPE"]

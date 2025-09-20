@@ -11,7 +11,7 @@ from ably.sync.rest.auth import AuthSync
 from ably.sync.http.httputils import HttpUtils
 from ably.sync.transport.defaults import Defaults
 from ably.sync.util.exceptions import AblyException
-from ably.sync.util.helper import is_token_error
+from ably.sync.util.helper import is_token_error, extract_url_params
 
 log = logging.getLogger(__name__)
 
@@ -198,11 +198,13 @@ class HttpSync:
                                        self.preferred_port)
             url = urljoin(base_url, path)
 
+            (clean_url, url_params) = extract_url_params(url)
+
             request = self.__client.build_request(
                 method=method,
-                url=url,
+                url=clean_url,
                 content=body,
-                params=params,
+                params=dict(url_params, **params),
                 headers=all_headers,
                 timeout=timeout,
             )

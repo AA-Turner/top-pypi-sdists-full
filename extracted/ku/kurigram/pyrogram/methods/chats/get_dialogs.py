@@ -121,7 +121,7 @@ class GetDialogs:
             )), None)
 
             offset_id = last_message.id if last_message else 0
-            offset_date = utils.datetime_to_timestamp(last_message.date) if last_message else None
+            offset_date = utils.datetime_to_timestamp(last_message.date) if last_message else 0
             offset_peer = await self.resolve_peer(dialogs[-1].chat.id)
 
             for dialog in dialogs:

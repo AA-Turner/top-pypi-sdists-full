@@ -42,7 +42,21 @@ class RateLimitedClient(AsyncClient):
 
         async def request_func():
             func = getattr(self.base_client, method)
-            return await func(*args, **kwargs)
+            response = await func(*args, **kwargs)
+            # This raises for the RateLimiter to handle
+            if (
+                hasattr(response, "raise_for_status")
+                and hasattr(response, "_request")
+                and response._request is not None
+            ):
+                try:
+                    response.raise_for_status()
+                except Exception as e:
+                    if RateLimiter.is_rate_limit_error(e):
+                        raise e
+                    else:
+                        return response
+            return response
 
         # We're only sending one request, but using the batch API
         responses = await self.rate_limiter.execute_requests([request_func], lambda x: x())
@@ -97,7 +111,21 @@ class RateLimitedClient(AsyncClient):
                     # Merge default kwargs with request-specific kwargs
                     merged_kwargs = {**default_kwargs, **request_kwargs}
                     func = getattr(self.base_client, method)
-                    return await func(*request_args, **merged_kwargs)
+                    response = await func(*request_args, **merged_kwargs)
+                    # This raises for the RateLimiter to handle
+                    if (
+                        hasattr(response, "raise_for_status")
+                        and hasattr(response, "_request")
+                        and response._request is not None
+                    ):
+                        try:
+                            response.raise_for_status()
+                        except Exception as e:
+                            if RateLimiter.is_rate_limit_error(e):
+                                raise e
+                            else:
+                                return response
+                    return response
 
                 return execute_single_request
 
@@ -188,6 +216,8 @@ class BaseIntegrationClient:
                 merged_kwargs = {**default_kwargs, **kwargs}
                 func = getattr(self._http_client, method)
                 response = await func(*args, **merged_kwargs)
+                # We are not raising here because we want to return the responses to the caller
+                # And we are not rate-limiting these, hence the raise should be on the caller
                 responses.append(response)
             return responses
 

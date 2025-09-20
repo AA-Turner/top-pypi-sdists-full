@@ -14,7 +14,7 @@ from typing_extensions import TypedDict  # compatibility with python < 3.12
 
 from .utils import serialize
 
-EVALUATION_DATAPOINT_MAX_DATA_LENGTH = 8_000_000  # 8MB
+DEFAULT_DATAPOINT_MAX_DATA_LENGTH = 16_000_000  # 16MB
 
 
 Numeric = int | float
@@ -79,16 +79,26 @@ class PartialEvaluationDatapoint(pydantic.BaseModel):
     metadata: EvaluationDatapointMetadata = pydantic.Field(default=None)
 
     # uuid is not serializable by default, so we need to convert it to a string
-    def to_dict(self):
+    def to_dict(self, max_data_length: int = DEFAULT_DATAPOINT_MAX_DATA_LENGTH):
+        serialized_data = serialize(self.data)
+        serialized_target = serialize(self.target)
+        # TODO: use json_dumps instead of json.dumps once we
+        # move it to utils so we can avoid circular imports
+        str_data = json.dumps(serialized_data)
+        str_target = json.dumps(serialized_target)
         try:
             return {
                 "id": str(self.id),
-                "data": str(serialize(self.data))[
-                    :EVALUATION_DATAPOINT_MAX_DATA_LENGTH
-                ],
-                "target": str(serialize(self.target))[
-                    :EVALUATION_DATAPOINT_MAX_DATA_LENGTH
-                ],
+                "data": (
+                    str_data[:max_data_length]
+                    if len(str_data) > max_data_length
+                    else serialized_data
+                ),
+                "target": (
+                    str_target[:max_data_length]
+                    if len(str_target) > max_data_length
+                    else serialized_target
+                ),
                 "index": self.index,
                 "traceId": str(self.trace_id),
                 "executorSpanId": str(self.executor_span_id),
@@ -112,21 +122,33 @@ class EvaluationResultDatapoint(pydantic.BaseModel):
     metadata: EvaluationDatapointMetadata = pydantic.Field(default=None)
 
     # uuid is not serializable by default, so we need to convert it to a string
-    def to_dict(self):
+    def to_dict(self, max_data_length: int = DEFAULT_DATAPOINT_MAX_DATA_LENGTH):
         try:
+            serialized_data = serialize(self.data)
+            serialized_target = serialize(self.target)
+            serialized_executor_output = serialize(self.executor_output)
+            str_data = json.dumps(serialized_data)
+            str_target = json.dumps(serialized_target)
+            str_executor_output = json.dumps(serialized_executor_output)
             return {
                 # preserve only preview of the data, target and executor output
                 # (full data is in trace)
                 "id": str(self.id),
-                "data": str(serialize(self.data))[
-                    :EVALUATION_DATAPOINT_MAX_DATA_LENGTH
-                ],
-                "target": str(serialize(self.target))[
-                    :EVALUATION_DATAPOINT_MAX_DATA_LENGTH
-                ],
-                "executorOutput": str(serialize(self.executor_output))[
-                    :EVALUATION_DATAPOINT_MAX_DATA_LENGTH
-                ],
+                "data": (
+                    str_data[:max_data_length]
+                    if len(str_data) > max_data_length
+                    else serialized_data
+                ),
+                "target": (
+                    str_target[:max_data_length]
+                    if len(str_target) > max_data_length
+                    else serialized_target
+                ),
+                "executorOutput": (
+                    str_executor_output[:max_data_length]
+                    if len(str_executor_output) > max_data_length
+                    else serialized_executor_output
+                ),
                 "scores": self.scores,
                 "traceId": str(self.trace_id),
                 "executorSpanId": str(self.executor_span_id),

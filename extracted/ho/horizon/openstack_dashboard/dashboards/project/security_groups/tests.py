@@ -461,8 +461,7 @@ class SecurityGroupsViewTests(test.TestCase):
                     'rule_menu': 'http',
                     'port_or_range': 'port',
                     'cidr': rule.ip_range['cidr'],
-                    'remote': 'cidr',
-                    'ip_protocol': 6}
+                    'remote': 'cidr'}
         res = self.client.post(self.edit_url, formData)
         self.assertRedirectsNoFollow(res, self.detail_url)
 
@@ -545,8 +544,7 @@ class SecurityGroupsViewTests(test.TestCase):
                     'port_or_range': 'port',
                     'cidr': '0.0.0.0/0',
                     'security_group': sec_group.id,
-                    'remote': 'sg',
-                    'ip_protocol': 6}
+                    'remote': 'sg'}
         res = self.client.post(self.edit_url, formData)
         self.assertRedirectsNoFollow(res, self.detail_url)
 
@@ -933,8 +931,7 @@ class SecurityGroupsViewTests(test.TestCase):
                     'port_or_range': 'range',
                     'rule_menu': 'all_tcp',
                     'cidr': rule.ip_range['cidr'],
-                    'remote': 'cidr',
-                    'ip_protocol': 6}
+                    'remote': 'cidr'}
         res = self.client.post(self.edit_url, formData)
         self.assertRedirectsNoFollow(res, self.detail_url)
 
@@ -1042,7 +1039,7 @@ class SecurityGroupsViewTests(test.TestCase):
                     'etherype': 'IPv4',
                     'remote': 'cidr'}
         res = self.client.post(self.edit_url, formData)
-        self.assertFormError(res, 'form', 'cidr',
+        self.assertFormError(res.context['form'], 'cidr',
                              'Invalid version for IP address')
         self.assert_mock_multiple_calls_with_same_arguments(
             self.mock_security_group_list, 2,
