@@ -1569,6 +1569,7 @@ class JsiiProject(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -1739,6 +1740,7 @@ class JsiiProject(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -1911,6 +1913,7 @@ class JsiiProject(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -2025,6 +2028,7 @@ class JsiiProject(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -2199,6 +2203,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -2369,6 +2374,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -2618,6 +2624,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -2878,6 +2885,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -4171,6 +4180,19 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -5556,6 +5578,7 @@ class ConstructLibrary(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -5727,6 +5750,7 @@ class ConstructLibrary(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -5900,6 +5924,7 @@ class ConstructLibrary(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -6021,6 +6046,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -6196,6 +6222,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -6367,6 +6394,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -6619,6 +6647,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -6880,6 +6909,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -8177,6 +8208,19 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
 
     @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
         '''(experimental) The name of the default release workflow.
 
@@ -9391,6 +9435,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -9583,6 +9628,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,

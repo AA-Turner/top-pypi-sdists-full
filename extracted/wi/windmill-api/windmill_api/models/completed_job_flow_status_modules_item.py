@@ -20,6 +20,9 @@ if TYPE_CHECKING:
         CompletedJobFlowStatusModulesItemBranchChosen,
     )
     from ..models.completed_job_flow_status_modules_item_branchall import CompletedJobFlowStatusModulesItemBranchall
+    from ..models.completed_job_flow_status_modules_item_flow_jobs_duration import (
+        CompletedJobFlowStatusModulesItemFlowJobsDuration,
+    )
     from ..models.completed_job_flow_status_modules_item_iterator import CompletedJobFlowStatusModulesItemIterator
 
 
@@ -38,6 +41,7 @@ class CompletedJobFlowStatusModulesItem:
         iterator (Union[Unset, CompletedJobFlowStatusModulesItemIterator]):
         flow_jobs (Union[Unset, List[str]]):
         flow_jobs_success (Union[Unset, List[bool]]):
+        flow_jobs_duration (Union[Unset, CompletedJobFlowStatusModulesItemFlowJobsDuration]):
         branch_chosen (Union[Unset, CompletedJobFlowStatusModulesItemBranchChosen]):
         branchall (Union[Unset, CompletedJobFlowStatusModulesItemBranchall]):
         approvers (Union[Unset, List['CompletedJobFlowStatusModulesItemApproversItem']]):
@@ -56,6 +60,7 @@ class CompletedJobFlowStatusModulesItem:
     iterator: Union[Unset, "CompletedJobFlowStatusModulesItemIterator"] = UNSET
     flow_jobs: Union[Unset, List[str]] = UNSET
     flow_jobs_success: Union[Unset, List[bool]] = UNSET
+    flow_jobs_duration: Union[Unset, "CompletedJobFlowStatusModulesItemFlowJobsDuration"] = UNSET
     branch_chosen: Union[Unset, "CompletedJobFlowStatusModulesItemBranchChosen"] = UNSET
     branchall: Union[Unset, "CompletedJobFlowStatusModulesItemBranchall"] = UNSET
     approvers: Union[Unset, List["CompletedJobFlowStatusModulesItemApproversItem"]] = UNSET
@@ -95,6 +100,10 @@ class CompletedJobFlowStatusModulesItem:
         flow_jobs_success: Union[Unset, List[bool]] = UNSET
         if not isinstance(self.flow_jobs_success, Unset):
             flow_jobs_success = self.flow_jobs_success
+
+        flow_jobs_duration: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.flow_jobs_duration, Unset):
+            flow_jobs_duration = self.flow_jobs_duration.to_dict()
 
         branch_chosen: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.branch_chosen, Unset):
@@ -156,6 +165,8 @@ class CompletedJobFlowStatusModulesItem:
             field_dict["flow_jobs"] = flow_jobs
         if flow_jobs_success is not UNSET:
             field_dict["flow_jobs_success"] = flow_jobs_success
+        if flow_jobs_duration is not UNSET:
+            field_dict["flow_jobs_duration"] = flow_jobs_duration
         if branch_chosen is not UNSET:
             field_dict["branch_chosen"] = branch_chosen
         if branchall is not UNSET:
@@ -188,6 +199,9 @@ class CompletedJobFlowStatusModulesItem:
             CompletedJobFlowStatusModulesItemBranchChosen,
         )
         from ..models.completed_job_flow_status_modules_item_branchall import CompletedJobFlowStatusModulesItemBranchall
+        from ..models.completed_job_flow_status_modules_item_flow_jobs_duration import (
+            CompletedJobFlowStatusModulesItemFlowJobsDuration,
+        )
         from ..models.completed_job_flow_status_modules_item_iterator import CompletedJobFlowStatusModulesItemIterator
 
         d = src_dict.copy()
@@ -211,6 +225,13 @@ class CompletedJobFlowStatusModulesItem:
         flow_jobs = cast(List[str], d.pop("flow_jobs", UNSET))
 
         flow_jobs_success = cast(List[bool], d.pop("flow_jobs_success", UNSET))
+
+        _flow_jobs_duration = d.pop("flow_jobs_duration", UNSET)
+        flow_jobs_duration: Union[Unset, CompletedJobFlowStatusModulesItemFlowJobsDuration]
+        if isinstance(_flow_jobs_duration, Unset):
+            flow_jobs_duration = UNSET
+        else:
+            flow_jobs_duration = CompletedJobFlowStatusModulesItemFlowJobsDuration.from_dict(_flow_jobs_duration)
 
         _branch_chosen = d.pop("branch_chosen", UNSET)
         branch_chosen: Union[Unset, CompletedJobFlowStatusModulesItemBranchChosen]
@@ -276,6 +297,7 @@ class CompletedJobFlowStatusModulesItem:
             iterator=iterator,
             flow_jobs=flow_jobs,
             flow_jobs_success=flow_jobs_success,
+            flow_jobs_duration=flow_jobs_duration,
             branch_chosen=branch_chosen,
             branchall=branchall,
             approvers=approvers,

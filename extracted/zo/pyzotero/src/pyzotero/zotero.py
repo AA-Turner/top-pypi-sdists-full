@@ -7,7 +7,6 @@ __author__ = "Stephan Hügel"
 __api_version__ = "3"
 
 import copy
-import datetime
 import hashlib
 import io
 import json
@@ -33,7 +32,7 @@ from urllib.parse import (
 import bibtexparser
 import feedparser
 import httpx
-import pytz
+import whenever
 from httpx import Request
 
 import pyzotero as pz
@@ -361,6 +360,11 @@ class Zotero:
         if c := self.client:
             c.close()
 
+    @property
+    def __version__(self):
+        """Return the version of the pyzotero library"""
+        return pz.__version__
+
     def _check_for_component(self, url, component):
         """Check a url path query fragment for a specific query parameter"""
         return bool(parse_qs(url).get(component))
@@ -419,13 +423,9 @@ class Zotero:
         """
         # cache template and retrieval time for subsequent calls
         try:
-            thetime = datetime.datetime.now(datetime.UTC).replace(
-                tzinfo=pytz.timezone("GMT"),
-            )
+            thetime = whenever.ZonedDateTime.now("Europe/London").py_datetime()
         except AttributeError:
-            thetime = datetime.datetime.now(tz=datetime.timezone.utc).replace(
-                tzinfo=pytz.timezone("GMT"),
-            )
+            thetime = whenever.ZonedDateTime.now("Europe/London").py_datetime()
         self.templates[key] = {"tmplt": response.json(), "updated": thetime}
         return copy.deepcopy(response.json())
 
@@ -470,7 +470,7 @@ class Zotero:
             params = {}
         if not self.url_params:
             self.url_params = {}
-        merged_params = params | self.url_params
+        merged_params = {**params, **self.url_params}
         # our incoming url might be from the "links" dict, in which case it will contain url parameters.
         # Unfortunately, httpx doesn't like to merge query paramaters in the url string and passed params
         # so we strip the url params, combining them with our existing url_params
@@ -545,9 +545,7 @@ class Zotero:
         # If the template is more than an hour old, try a 304
         if (
             abs(
-                datetime.datetime.now(tz=datetime.timezone.utc).replace(
-                    tzinfo=pytz.timezone("GMT"),
-                )
+                whenever.ZonedDateTime.now("Europe/London").py_datetime()
                 - self.templates[template]["updated"],
             ).seconds
             > ONE_HOUR

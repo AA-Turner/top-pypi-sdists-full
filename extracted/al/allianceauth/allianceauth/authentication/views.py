@@ -27,6 +27,7 @@ from allianceauth.hooks import get_hooks
 
 from .constants import ESI_ERROR_MESSAGE_OVERRIDES
 from .core.celery_workers import active_tasks_count, queued_tasks_count
+from allianceauth.templatetags.admin_status import _celery_stats
 from .forms import RegistrationForm
 from .models import CharacterOwnership
 
@@ -370,10 +371,10 @@ def registration_closed(request):
 @user_passes_test(lambda u: u.is_superuser)
 def task_counts(request) -> JsonResponse:
     """Return task counts as JSON for an AJAX call."""
-    data = {
-        "tasks_running": active_tasks_count(),
-        "tasks_queued": queued_tasks_count()
-    }
+    data = _celery_stats()
+    data.update(
+        {"tasks_running": active_tasks_count(), "tasks_queued": queued_tasks_count()}
+    )
     return JsonResponse(data)
 
 

@@ -12,5 +12,6 @@ scm:
                     branch-regex: ^$
                 - pipeline-branch-durability-override: max-survivability
                 - trigger-build-on-pr-comment: "Ci build!"
+                - trigger-build-on-pr-label: "some label"
                 - trigger-build-on-pr-review: true
                 - trigger-build-on-pr-update: true

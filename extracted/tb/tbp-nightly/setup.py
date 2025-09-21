@@ -18,7 +18,7 @@ import os
 import setuptools
 
 PROJECT_NAME = 'tbp-nightly'
-VERSION = '2.21.6a20250919'
+VERSION = '2.21.6a20250920'
 
 
 def get_long_description():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.335
+Version: 0.3.339
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -25,15 +25,17 @@ Requires-Dist: httpcore==1.0.7
 Requires-Dist: urllib3>=2
 Requires-Dist: certifi==2024.8.30
 Provides-Extra: runtime
-Requires-Dist: langchain_core==0.3.49; extra == "runtime"
-Requires-Dist: langchain<=0.3.22; extra == "runtime"
-Requires-Dist: langchain_community~=0.3.7; extra == "runtime"
-Requires-Dist: langchain-openai~=0.3.0; extra == "runtime"
+Requires-Dist: langchain_core<0.4.0,>=0.3.76; extra == "runtime"
+Requires-Dist: langchain<0.4.0,>=0.3.22; extra == "runtime"
+Requires-Dist: langchain_community<0.4.0,>=0.3.7; extra == "runtime"
+Requires-Dist: langchain-openai<0.4.0,>=0.3.0; extra == "runtime"
+Requires-Dist: langchain-anthropic<0.4.0,>=0.3.10; extra == "runtime"
+Requires-Dist: anthropic>=0.57.0; extra == "runtime"
 Requires-Dist: langgraph-checkpoint-sqlite~=2.0.0; extra == "runtime"
 Requires-Dist: langgraph-checkpoint-postgres==2.0.21; extra == "runtime"
 Requires-Dist: langsmith>=0.3.45; extra == "runtime"
 Requires-Dist: langgraph<0.5,>=0.4.8; extra == "runtime"
-Requires-Dist: langchain_chroma~=0.2.2; extra == "runtime"
+Requires-Dist: langchain_chroma<0.3.0,>=0.2.2; extra == "runtime"
 Requires-Dist: langchain-unstructured~=0.1.6; extra == "runtime"
 Requires-Dist: langchain-postgres~=0.0.13; extra == "runtime"
 Requires-Dist: keybert==0.8.3; extra == "runtime"
@@ -68,6 +70,7 @@ Requires-Dist: opentelemetry_instrumentation==0.46b0; extra == "runtime"
 Requires-Dist: grpcio_status==1.63.0rc1; extra == "runtime"
 Requires-Dist: protobuf==4.25.7; extra == "runtime"
 Requires-Dist: sentence-transformers==2.7.0; extra == "runtime"
+Requires-Dist: langchain-sandbox>=0.0.6; extra == "runtime"
 Provides-Extra: tools
 Requires-Dist: dulwich==0.21.6; extra == "tools"
 Requires-Dist: paramiko==3.3.1; extra == "tools"
@@ -96,8 +99,6 @@ Requires-Dist: azure-search-documents==11.5.2; extra == "tools"
 Requires-Dist: PyMySQL==1.1.1; extra == "tools"
 Requires-Dist: psycopg2-binary==2.9.10; extra == "tools"
 Requires-Dist: Office365-REST-Python-Client==2.5.14; extra == "tools"
-Requires-Dist: python-docx==1.1.2; extra == "tools"
-Requires-Dist: python-pptx==1.0.2; extra == "tools"
 Requires-Dist: pypdf2~=3.0.1; extra == "tools"
 Requires-Dist: FigmaPy==2018.1.0; extra == "tools"
 Requires-Dist: pandas==2.2.3; extra == "tools"
@@ -114,7 +115,6 @@ Requires-Dist: playwright>=1.52.0; extra == "tools"
 Requires-Dist: google-api-python-client==2.154.0; extra == "tools"
 Requires-Dist: wikipedia==1.4.0; extra == "tools"
 Requires-Dist: lxml==5.2.2; extra == "tools"
-Requires-Dist: beautifulsoup4; extra == "tools"
 Requires-Dist: pymupdf==1.24.9; extra == "tools"
 Requires-Dist: googlemaps==4.10.0; extra == "tools"
 Requires-Dist: yagmail==0.15.293; extra == "tools"

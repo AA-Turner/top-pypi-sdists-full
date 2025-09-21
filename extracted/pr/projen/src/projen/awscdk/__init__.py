@@ -449,6 +449,7 @@ class AwsCdkConstructLibrary(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -635,6 +636,7 @@ class AwsCdkConstructLibrary(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -823,6 +825,7 @@ class AwsCdkConstructLibrary(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -2601,6 +2604,7 @@ class AwsCdkTypeScriptApp(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -2779,6 +2783,7 @@ class AwsCdkTypeScriptApp(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -2959,6 +2964,7 @@ class AwsCdkTypeScriptApp(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -3736,6 +3742,7 @@ class ConstructLibraryAws(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -3922,6 +3929,7 @@ class ConstructLibraryAws(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -4110,6 +4118,7 @@ class ConstructLibraryAws(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -6139,6 +6148,7 @@ class AutoDiscoverOptions(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -6332,6 +6342,7 @@ class AwsCdkConstructLibraryOptions(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -6519,6 +6530,7 @@ class AwsCdkConstructLibraryOptions(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -6788,6 +6800,7 @@ class AwsCdkConstructLibraryOptions(
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -7065,6 +7078,8 @@ class AwsCdkConstructLibraryOptions(
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -8388,6 +8403,19 @@ class AwsCdkConstructLibraryOptions(
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -12378,6 +12406,7 @@ class AwsCdkPythonAppOptions(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -12564,6 +12593,7 @@ class AwsCdkTypeScriptAppOptions(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -12742,6 +12772,7 @@ class AwsCdkTypeScriptAppOptions(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -12989,6 +13020,7 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -13255,6 +13287,8 @@ class AwsCdkTypeScriptAppOptions(
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -14570,6 +14604,19 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
 
     @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
         '''(experimental) The name of the default release workflow.
 
@@ -15712,6 +15759,7 @@ class AwsCdkTypeScriptAppOptions(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -15902,6 +15950,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -16088,6 +16137,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -16359,6 +16409,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -16636,6 +16687,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -17959,6 +18012,19 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -19719,6 +19785,7 @@ def _typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -20061,6 +20128,7 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -20243,6 +20311,7 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,

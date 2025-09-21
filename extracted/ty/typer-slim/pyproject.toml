@@ -40,7 +40,7 @@ dependencies = [
     "typing-extensions >= 3.7.4.3",
 ]
 readme = "README.md"
-version = "0.18.0"
+version = "0.19.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"
@@ -165,15 +165,20 @@ select = [
     "B",
     "C4",
     "UP",
+    "TID",
 ]
 ignore = [
     "E501",
     "B008",
     "C901",
     "W191",
+    "TID252",
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"typer/rich_utils.py" = [
+    "TID251",
+]
 "docs_src/progressbar/tutorial004.py" = [
     "UP028",
     "B007",
@@ -214,6 +219,9 @@ ignore = [
 "docs_src/using_click/tutorial001.py" = [
     "B007",
 ]
+"docs_src/*" = [
+    "TID",
+]
 
 [tool.ruff.lint.isort]
 known-third-party = [
@@ -230,3 +238,11 @@ known-first-party = [
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+banned-module-level-imports = [
+    "typer.rich_utils",
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api.rich]
+msg = "Use 'typer.rich_utils' instead of importing from 'rich' directly."

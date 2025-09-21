@@ -12,5 +12,7 @@ show-total-build-time: yes
 allow-rebuild: yes
 allow-pipeline-start: yes
 allow-abort: yes
+embedded-css: foo
+full-screen-css: bar
 paging-enabled: yes
 link-to-console-log: yes

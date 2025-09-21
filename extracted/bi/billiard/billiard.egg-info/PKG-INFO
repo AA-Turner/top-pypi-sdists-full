@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: billiard
-Version: 4.2.1
+Version: 4.2.2
 Summary: Python multiprocessing fork with improvements and bugfixes
 Home-page: https://github.com/celery/billiard
 Author: R Oudkerk / Python Software Foundation
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: Microsoft :: Windows
@@ -32,9 +33,14 @@ License-File: LICENSE.txt
 ========
 billiard
 ========
-:version: 4.2.1
 
 |build-status-lin| |build-status-win| |license| |wheel| |pyversion| |pyimp|
+
+:Version: 4.2.2
+:Web: https://billiard.readthedocs.io
+:Download: https://pypi.org/project/billiard/
+:Source: https://github.com/celery/billiard/
+:DeepWiki: |deepwiki|
 
 .. |build-status-lin| image:: https://github.com/celery/billiard/actions/workflows/ci.yaml/badge.svg
     :alt: Build status on Linux
@@ -59,6 +65,11 @@ billiard
 .. |pyimp| image:: https://img.shields.io/pypi/implementation/billiard.svg
     :alt: Support Python implementations.
     :target: https://pypi.org/project/billiard/
+
+.. |deepwiki| image:: https://devin.ai/assets/deepwiki-badge.png
+    :alt: Ask http://DeepWiki.com
+    :target: https://deepwiki.com/celery/billiard
+    :width: 125px
 
 About
 -----

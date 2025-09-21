@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-reversion
-Version: 5.1.0
+Version: 6.0.0
 Summary: An extension to the Django web framework that provides version control for model instances.
 Home-page: https://github.com/etianen/django-reversion
 Author: Dave Hall
@@ -12,15 +12,25 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: django>=4.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ================
 django-reversion
@@ -35,8 +45,8 @@ version control for model instances.
 Requirements
 ============
 
-- Python 3.7 or later
-- Django 3.2 or later
+- Python 3.8 or later
+- Django 4.2 or later
 
 Features
 ========

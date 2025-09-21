@@ -11,6 +11,7 @@ scm:
                     suppression-strategy: suppress-webhooks
                 - pipeline-branch-durability-override: max-survivability
                 - trigger-build-on-pr-comment: "Ci build!"
+                - trigger-build-on-pr-label: false
                 - trigger-build-on-pr-review:
                     allow-untrusted-users: false
                 - trigger-build-on-pr-update:

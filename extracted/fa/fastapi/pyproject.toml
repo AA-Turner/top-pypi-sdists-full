@@ -49,7 +49,7 @@ dependencies = [
     "pydantic>=1.7.4,!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0",
     "typing-extensions>=4.8.0",
 ]
-version = "0.116.2"
+version = "0.117.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"
@@ -61,7 +61,7 @@ Changelog = "https://fastapi.tiangolo.com/release-notes/"
 [project.optional-dependencies]
 standard = [
     "fastapi-cli[standard] >=0.0.8",
-    "httpx >=0.23.0",
+    "httpx >=0.23.0,<1.0.0",
     "jinja2 >=3.1.5",
     "python-multipart >=0.0.18",
     "email-validator >=2.0.0",
@@ -69,7 +69,7 @@ standard = [
 ]
 standard-no-fastapi-cloud-cli = [
     "fastapi-cli[standard-no-fastapi-cloud-cli] >=0.0.8",
-    "httpx >=0.23.0",
+    "httpx >=0.23.0,<1.0.0",
     "jinja2 >=3.1.5",
     "python-multipart >=0.0.18",
     "email-validator >=2.0.0",
@@ -77,7 +77,7 @@ standard-no-fastapi-cloud-cli = [
 ]
 all = [
     "fastapi-cli[standard] >=0.0.8",
-    "httpx >=0.23.0",
+    "httpx >=0.23.0,<1.0.0",
     "jinja2 >=3.1.5",
     "python-multipart >=0.0.18",
     "itsdangerous >=1.1.0",
@@ -113,6 +113,9 @@ source-includes = [
 name = "fastapi-slim"
 
 [tool.mypy]
+plugins = [
+    "pydantic.mypy",
+]
 strict = true
 
 [[tool.mypy.overrides]]

@@ -1492,6 +1492,12 @@ def property_strategies(xml_parent, data):
                 is a collaborator of the GitHub project.
                 Requires the :jenkins-plugins:`GitHub PR Comment Build Plugin
                 <github-pr-comment-build>`
+            * **trigger-build-on-pr-label** (str or dict): PR label to trigger
+                a new build for a PR job when it is applied to the PR.
+                If dictionary syntax is used, the option requires 1 field:
+                ``label-regex`` with the label regular expression.
+                Requires the :jenkins-plugins:`GitHub PR Comment Build Plugin
+                <github-pr-comment-build>`
             * **trigger-build-on-pr-review** (bool or dict): This property will
                 cause a job for a pull request ``(PR-*)`` to be triggered
                 immediately when a review is made on the PR in GitHub.
@@ -1856,6 +1862,38 @@ def apply_property_strategies(props_elem, props_list):
                     pos=dbs_list.value_pos.get(attr),
                     ctx=ctx,
                 )
+
+        tbopl_val = dbs_list.get("trigger-build-on-pr-label", None)
+        if tbopl_val:
+            tbopl_elem = XML.SubElement(
+                props_elem,
+                "".join([pr_comment_build, ".TriggerPRLabelBranchProperty"]),
+                {"plugin": "github-pr-comment-build"},
+            )
+            if isinstance(tbopl_val, dict):
+                if "label-regex" not in tbopl_val:
+                    raise MissingAttributeError(
+                        "trigger-build-on-pr-label[label-regex]",
+                        pos=dbs_list.key_pos.get("trigger-build-on-pr-label"),
+                    )
+
+                XML.SubElement(tbopl_elem, "label").text = tbopl_val["label-regex"]
+            elif isinstance(tbopl_val, str):
+                XML.SubElement(tbopl_elem, "label").text = str(tbopl_val)
+            else:
+                attr = "trigger-build-on-pr-label"
+                ctx = [Context(f"For attribute {attr!r}", dbs_list.key_pos.get(attr))]
+                raise InvalidAttributeError(
+                    attr,
+                    tbopl_val,
+                    pos=dbs_list.value_pos.get(attr),
+                    ctx=ctx,
+                )
+
+            # currently the only permissions available is WRITE and untrusted users are not allowed
+            XML.SubElement(tbopl_elem, "allowUntrusted").text = "false"
+            XML.SubElement(tbopl_elem, "minimumPermissions").text = "WRITE"
+
         for opt in pcb_bool_opts:
             opt_value = dbs_list.get(opt, None)
             if opt_value:

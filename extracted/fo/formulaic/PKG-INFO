@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: formulaic
-Version: 1.2.0
+Version: 1.2.1
 Summary: An implementation of Wilkinson formulas.
 Project-URL: repository, https://github.com/matthewwardrop/formulaic
 Project-URL: documentation, https://matthewwardrop.github.io/formulaic
@@ -77,7 +77,7 @@ It provides:
 
 ## Example code
 
-```
+```python
 import pandas
 from formulaic import Formula
 
@@ -152,7 +152,7 @@ y, X = Formula('y ~ x + z').get_model_matrix(df)
 
 Note that the above can be short-handed to:
 
-```
+```python
 from formulaic import model_matrix
 model_matrix('y ~ x + z', df)
 ```

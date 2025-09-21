@@ -1,6 +1,6 @@
 import asyncio
 
-from arpakitlib.pydantic_schema_from_sqlalchemy_model import pydantic_schema_from_sqlalchemy_model
+from arpakitlib.ar_pydantic_schema_from_sqlalchemy_model import pydantic_schema_from_sqlalchemy_model
 from project.sqlalchemy_db_.sqlalchemy_model import UserDBM
 
 

@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from ..models.queued_job_flow_status_modules_item_approvers_item import QueuedJobFlowStatusModulesItemApproversItem
     from ..models.queued_job_flow_status_modules_item_branch_chosen import QueuedJobFlowStatusModulesItemBranchChosen
     from ..models.queued_job_flow_status_modules_item_branchall import QueuedJobFlowStatusModulesItemBranchall
+    from ..models.queued_job_flow_status_modules_item_flow_jobs_duration import (
+        QueuedJobFlowStatusModulesItemFlowJobsDuration,
+    )
     from ..models.queued_job_flow_status_modules_item_iterator import QueuedJobFlowStatusModulesItemIterator
 
 
@@ -34,6 +37,7 @@ class QueuedJobFlowStatusModulesItem:
         iterator (Union[Unset, QueuedJobFlowStatusModulesItemIterator]):
         flow_jobs (Union[Unset, List[str]]):
         flow_jobs_success (Union[Unset, List[bool]]):
+        flow_jobs_duration (Union[Unset, QueuedJobFlowStatusModulesItemFlowJobsDuration]):
         branch_chosen (Union[Unset, QueuedJobFlowStatusModulesItemBranchChosen]):
         branchall (Union[Unset, QueuedJobFlowStatusModulesItemBranchall]):
         approvers (Union[Unset, List['QueuedJobFlowStatusModulesItemApproversItem']]):
@@ -52,6 +56,7 @@ class QueuedJobFlowStatusModulesItem:
     iterator: Union[Unset, "QueuedJobFlowStatusModulesItemIterator"] = UNSET
     flow_jobs: Union[Unset, List[str]] = UNSET
     flow_jobs_success: Union[Unset, List[bool]] = UNSET
+    flow_jobs_duration: Union[Unset, "QueuedJobFlowStatusModulesItemFlowJobsDuration"] = UNSET
     branch_chosen: Union[Unset, "QueuedJobFlowStatusModulesItemBranchChosen"] = UNSET
     branchall: Union[Unset, "QueuedJobFlowStatusModulesItemBranchall"] = UNSET
     approvers: Union[Unset, List["QueuedJobFlowStatusModulesItemApproversItem"]] = UNSET
@@ -91,6 +96,10 @@ class QueuedJobFlowStatusModulesItem:
         flow_jobs_success: Union[Unset, List[bool]] = UNSET
         if not isinstance(self.flow_jobs_success, Unset):
             flow_jobs_success = self.flow_jobs_success
+
+        flow_jobs_duration: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.flow_jobs_duration, Unset):
+            flow_jobs_duration = self.flow_jobs_duration.to_dict()
 
         branch_chosen: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.branch_chosen, Unset):
@@ -152,6 +161,8 @@ class QueuedJobFlowStatusModulesItem:
             field_dict["flow_jobs"] = flow_jobs
         if flow_jobs_success is not UNSET:
             field_dict["flow_jobs_success"] = flow_jobs_success
+        if flow_jobs_duration is not UNSET:
+            field_dict["flow_jobs_duration"] = flow_jobs_duration
         if branch_chosen is not UNSET:
             field_dict["branch_chosen"] = branch_chosen
         if branchall is not UNSET:
@@ -184,6 +195,9 @@ class QueuedJobFlowStatusModulesItem:
             QueuedJobFlowStatusModulesItemBranchChosen,
         )
         from ..models.queued_job_flow_status_modules_item_branchall import QueuedJobFlowStatusModulesItemBranchall
+        from ..models.queued_job_flow_status_modules_item_flow_jobs_duration import (
+            QueuedJobFlowStatusModulesItemFlowJobsDuration,
+        )
         from ..models.queued_job_flow_status_modules_item_iterator import QueuedJobFlowStatusModulesItemIterator
 
         d = src_dict.copy()
@@ -207,6 +221,13 @@ class QueuedJobFlowStatusModulesItem:
         flow_jobs = cast(List[str], d.pop("flow_jobs", UNSET))
 
         flow_jobs_success = cast(List[bool], d.pop("flow_jobs_success", UNSET))
+
+        _flow_jobs_duration = d.pop("flow_jobs_duration", UNSET)
+        flow_jobs_duration: Union[Unset, QueuedJobFlowStatusModulesItemFlowJobsDuration]
+        if isinstance(_flow_jobs_duration, Unset):
+            flow_jobs_duration = UNSET
+        else:
+            flow_jobs_duration = QueuedJobFlowStatusModulesItemFlowJobsDuration.from_dict(_flow_jobs_duration)
 
         _branch_chosen = d.pop("branch_chosen", UNSET)
         branch_chosen: Union[Unset, QueuedJobFlowStatusModulesItemBranchChosen]
@@ -272,6 +293,7 @@ class QueuedJobFlowStatusModulesItem:
             iterator=iterator,
             flow_jobs=flow_jobs,
             flow_jobs_success=flow_jobs_success,
+            flow_jobs_duration=flow_jobs_duration,
             branch_chosen=branch_chosen,
             branchall=branchall,
             approvers=approvers,

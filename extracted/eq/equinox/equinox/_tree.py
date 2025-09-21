@@ -92,7 +92,9 @@ def tree_at(
 
     **Returns:**
 
-    A copy of the input PyTree, with the appropriate modifications.
+    A new PyTree with the same structure as the input PyTree and the appropriate modifications.
+
+    (If donating JAX arrays on JIT boundaries, then note that this function does not make a copy of the JAX arrays.)
 
     !!! Example
 

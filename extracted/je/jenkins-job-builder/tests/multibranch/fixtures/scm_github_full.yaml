@@ -52,6 +52,8 @@ scm:
                 - trigger-build-on-pr-comment:
                     comment: "Ci build!"
                     allow-untrusted-users: true
+                - trigger-build-on-pr-label:
+                    label-regex: "some label"
                 - trigger-build-on-pr-review:
                     allow-untrusted-users: true
                 - trigger-build-on-pr-update:

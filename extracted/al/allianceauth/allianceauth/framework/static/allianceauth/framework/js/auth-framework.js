@@ -273,6 +273,49 @@ function objectDeepMerge (target, ...sources) {
 }
 
 /**
+ * Formats a number according to the specified locale.
+ * This function uses the Intl.NumberFormat API to format the number.
+ *
+ * @usage
+ * In your Django template get the current language code:
+ * ```django
+ * {% get_current_language as LANGUAGE_CODE %}
+ * ```
+ * Then use it in your JavaScript:
+ * ```javascript
+ * const userLocale = '{{ LANGUAGE_CODE }}'; // e.g., 'en-US', 'de-DE'
+ * const number = 1234567.89;
+ * const formattedNumber = numberFormatter({
+ *     value: number,
+ *     locales: userLocale,
+ *     options: {
+ *         style: 'currency',
+ *         currency: 'ISK'
+ *     }
+ * });
+ *
+ * // Output will vary based on locale
+ * // e.g., '1,234,567.89' for 'en-US', '1.234.567,89' for 'de-DE'
+ * console.log(formattedNumber);
+ * ```
+ *
+ * @param {number} value The number to format
+ * @param {string | string[]} locales The locale(s) to use for formatting (e.g., 'en-US', 'de-DE', ['en-US', 'de-DE']). If not provided, the browser's default locale will be used and any language settings from the user will be ignored.
+ * @param {Object} [options={}] Additional options for number formatting (see `Intl.NumberFormat` documentation - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat)
+ * @return {string} The formatted number as a string
+ */
+const numberFormatter = ({value, locales, options = {}}) => {
+    console.log('Formatting number:', value, 'for locale(s):', locales, 'with options:', options);
+    const formatter = new Intl.NumberFormat(locales, {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0,
+        ...options
+    });
+
+    return formatter.format(value);
+};
+
+/**
  * When the document is ready …
  */
 $(document).ready(() => {

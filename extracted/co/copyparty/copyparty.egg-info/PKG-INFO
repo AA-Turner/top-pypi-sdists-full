@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copyparty
-Version: 1.19.10
+Version: 1.19.11
 Summary:   Portable file server with accelerated resumable uploads, deduplication, WebDAV, FTP, zeroconf, media indexer, video thumbnails, audio transcoding, and write-only folders
 Author-email: ed <copyparty@ocv.me>
 License: MIT

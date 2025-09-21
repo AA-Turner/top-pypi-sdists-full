@@ -202,6 +202,8 @@ std::string HelmholtzEOSMixtureBackend::fluid_param_string(const std::string& Pa
         return cpfluid.name;
     } else if (!ParamName.compare("aliases")) {
         return strjoin(cpfluid.aliases, get_config_string(LIST_STRING_DELIMITER));
+    } else if (!ParamName.compare("aliases_bar")) {
+        return strjoin(cpfluid.aliases, "|");
     } else if (!ParamName.compare("CAS") || !ParamName.compare("CAS_number")) {
         return cpfluid.CAS;
     } else if (!ParamName.compare("formula")) {
@@ -1554,13 +1556,24 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
 
     // Maximum saturation temperature - Equal to critical pressure for pure fluids
     CoolPropDbl psat_max = calc_pmax_sat();
+    
+    double T_crit_ = T_critical(), p_crit_ = p_critical(), rhomolar_crit_ = rhomolar_critical();
+    auto smolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_smolar_nocache(T_crit_, rhomolar_crit_);
+    };
+    auto hmolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_hmolar_nocache(T_crit_, rhomolar_crit_);
+    };
+    auto umolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_umolar_nocache(T_crit_, rhomolar_crit_);
+    };
 
     // Check supercritical pressure
     if (_p > psat_max) {
         _Q = 1e9;
         switch (other) {
             case iT: {
-                if (_T > _crit.T) {
+                if (_T > T_crit_) {
                     this->_phase = iphase_supercritical;
                     return;
                 } else {
@@ -1569,7 +1582,7 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iDmolar: {
-                if (_rhomolar < _crit.rhomolar) {
+                if (_rhomolar < rhomolar_crit_) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -1578,7 +1591,7 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iSmolar: {
-                if (_smolar.pt() > _crit.smolar) {
+                if (_smolar.pt() > smolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -1587,7 +1600,7 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iHmolar: {
-                if (_hmolar.pt() > _crit.hmolar) {
+                if (_hmolar.pt() > hmolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -1596,7 +1609,7 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iUmolar: {
-                if (_umolar.pt() > _crit.umolar) {
+                if (_umolar.pt() > umolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -1611,7 +1624,78 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
     }
     // Check between triple point pressure and psat_max
     else if (_p >= components[0].EOS().ptriple * 0.9999 && _p <= psat_max) {
-        // First try the ancillaries, use them to determine the state if you can
+        
+        // First try the superancillaries, use them to determine the state if you can
+        if (get_config_bool(ENABLE_SUPERANCILLARIES) && is_pure()){
+            auto& optsuperanc = get_superanc_optional();
+            // Superancillaries are enabled and available, they will be used to determine the phase
+            if (optsuperanc){
+                auto& superanc = optsuperanc.value();
+                CoolPropDbl pmax_num = superanc.get_pmax();
+                if (_p > pmax_num){
+                    throw ValueError(format("Pressure to PQ_flash [%0.8Lg Pa] may not be above the numerical critical point of %0.15Lg Pa", _p, pmax_num));
+                }
+                auto Tsat = superanc.get_T_from_p(_p);
+                auto rhoL = superanc.eval_sat(Tsat, 'D', 0);
+                auto rhoV = superanc.eval_sat(Tsat, 'D', 1);
+                auto psat = _p;
+                
+                if (other == iT) {
+                    if (value < Tsat - 100 * DBL_EPSILON) {
+                        this->_phase = iphase_liquid;
+                        _Q = -1000;
+                        return;
+                    } else if (value > Tsat + 100 * DBL_EPSILON) {
+                        this->_phase = iphase_gas;
+                        _Q = 1000;
+                        return;
+                    } else {
+                        this->_phase = iphase_twophase;
+                    }
+                }
+                SatL->update_TDmolarP_unchecked(Tsat, rhoL, psat);
+                SatV->update_TDmolarP_unchecked(Tsat, rhoV, psat);
+                double Q;
+                switch (other) {
+                    case iDmolar:
+                        Q = (1 / value - 1 / SatL->rhomolar()) / (1 / SatV->rhomolar() - 1 / SatL->rhomolar());
+                        break;
+                    case iSmolar:
+                        Q = (value - SatL->smolar()) / (SatV->smolar() - SatL->smolar());
+                        break;
+                    case iHmolar:
+                        Q = (value - SatL->hmolar()) / (SatV->hmolar() - SatL->hmolar());
+                        break;
+                    case iUmolar:
+                        Q = (value - SatL->umolar()) / (SatV->umolar() - SatL->umolar());
+                        break;
+                    default:
+                        throw ValueError(format("bad input for other"));
+                }
+                // Start off by setting variables based on assumption that the state is two-phase
+                if (Q < -1e-9) {
+                    this->_phase = iphase_liquid;
+                    SatL->clear();
+                    SatV->clear();
+                    _Q = -1000;
+                    _TLanc = Tsat;
+                } else if (Q > 1 + 1e-9) {
+                    this->_phase = iphase_gas;
+                    SatL->clear();
+                    SatV->clear();
+                    _Q = 1000;
+                } else {
+                    _T = Tsat;
+                    _Q = Q;
+                    _rhomolar = 1 / (_Q / SatV->rhomolar() + (1 - _Q) / SatL->rhomolar());
+                    this->_phase = iphase_twophase;
+                }
+                return;
+            }
+        }
+        
+        
+        // Then fall back to normal ancillaries, use them to determine the state if you can
 
         // Calculate dew and bubble temps from the ancillaries (everything needs them)
         _TLanc = components[0].ancillaries.pL.invert(_p);
@@ -1771,77 +1855,81 @@ void HelmholtzEOSMixtureBackend::p_phase_determination_pure_or_pseudopure(int ot
         if (!is_pure_or_pseudopure) {
             throw ValueError("possibly two-phase inputs not supported for mixtures for now");
         }
-
-        // Actually have to use saturation information sadly
-        // For the given pressure, find the saturation state
-        // Run the saturation routines to determine the saturation densities and pressures
-        HelmholtzEOSMixtureBackend HEOS(components);
-        HEOS._p = this->_p;
-        HEOS._Q = 0;  // ?? What is the best to do here? Doesn't matter for our purposes since pure fluid
-        FlashRoutines::PQ_flash(HEOS);
-
-        // We called the saturation routines, so HEOS.SatL and HEOS.SatV are now updated
-        // with the saturated liquid and vapor values, which can therefore be used in
-        // the other solvers
-        saturation_called = true;
-
-        CoolPropDbl Q;
-
-        if (other == iT) {
-            if (value < HEOS.SatL->T() - 100 * DBL_EPSILON) {
+        
+        // The slow full VLE calculation is required
+        {
+            
+            // Actually have to use saturation information sadly
+            // For the given pressure, find the saturation state
+            // Run the saturation routines to determine the saturation densities and pressures
+            HelmholtzEOSMixtureBackend HEOS(components);
+            HEOS._p = this->_p;
+            HEOS._Q = 0;  // ?? What is the best to do here? Doesn't matter for our purposes since pure fluid
+            FlashRoutines::PQ_flash(HEOS);
+            
+            // We called the saturation routines, so HEOS.SatL and HEOS.SatV are now updated
+            // with the saturated liquid and vapor values, which can therefore be used in
+            // the other solvers
+            saturation_called = true;
+            
+            CoolPropDbl Q;
+            
+            if (other == iT) {
+                if (value < HEOS.SatL->T() - 100 * DBL_EPSILON) {
+                    this->_phase = iphase_liquid;
+                    _Q = -1000;
+                    return;
+                } else if (value > HEOS.SatV->T() + 100 * DBL_EPSILON) {
+                    this->_phase = iphase_gas;
+                    _Q = 1000;
+                    return;
+                } else {
+                    this->_phase = iphase_twophase;
+                }
+            }
+            switch (other) {
+                case iDmolar:
+                    Q = (1 / value - 1 / HEOS.SatL->rhomolar()) / (1 / HEOS.SatV->rhomolar() - 1 / HEOS.SatL->rhomolar());
+                    break;
+                case iSmolar:
+                    Q = (value - HEOS.SatL->smolar()) / (HEOS.SatV->smolar() - HEOS.SatL->smolar());
+                    break;
+                case iHmolar:
+                    Q = (value - HEOS.SatL->hmolar()) / (HEOS.SatV->hmolar() - HEOS.SatL->hmolar());
+                    break;
+                case iUmolar:
+                    Q = (value - HEOS.SatL->umolar()) / (HEOS.SatV->umolar() - HEOS.SatL->umolar());
+                    break;
+                default:
+                    throw ValueError(format("bad input for other"));
+            }
+            // TODO: Check the speed penalty of these calls
+            // Update the states
+            if (this->SatL) this->SatL->update(DmolarT_INPUTS, HEOS.SatL->rhomolar(), HEOS.SatL->T());
+            if (this->SatV) this->SatV->update(DmolarT_INPUTS, HEOS.SatV->rhomolar(), HEOS.SatV->T());
+            // Update the two-Phase variables
+            _rhoLmolar = HEOS.SatL->rhomolar();
+            _rhoVmolar = HEOS.SatV->rhomolar();
+            
+            //
+            if (Q < -1e-9) {
                 this->_phase = iphase_liquid;
                 _Q = -1000;
                 return;
-            } else if (value > HEOS.SatV->T() + 100 * DBL_EPSILON) {
+            } else if (Q > 1 + 1e-9) {
                 this->_phase = iphase_gas;
                 _Q = 1000;
                 return;
             } else {
                 this->_phase = iphase_twophase;
             }
-        }
-        switch (other) {
-            case iDmolar:
-                Q = (1 / value - 1 / HEOS.SatL->rhomolar()) / (1 / HEOS.SatV->rhomolar() - 1 / HEOS.SatL->rhomolar());
-                break;
-            case iSmolar:
-                Q = (value - HEOS.SatL->smolar()) / (HEOS.SatV->smolar() - HEOS.SatL->smolar());
-                break;
-            case iHmolar:
-                Q = (value - HEOS.SatL->hmolar()) / (HEOS.SatV->hmolar() - HEOS.SatL->hmolar());
-                break;
-            case iUmolar:
-                Q = (value - HEOS.SatL->umolar()) / (HEOS.SatV->umolar() - HEOS.SatL->umolar());
-                break;
-            default:
-                throw ValueError(format("bad input for other"));
-        }
-        // TODO: Check the speed penalty of these calls
-        // Update the states
-        if (this->SatL) this->SatL->update(DmolarT_INPUTS, HEOS.SatL->rhomolar(), HEOS.SatL->T());
-        if (this->SatV) this->SatV->update(DmolarT_INPUTS, HEOS.SatV->rhomolar(), HEOS.SatV->T());
-        // Update the two-Phase variables
-        _rhoLmolar = HEOS.SatL->rhomolar();
-        _rhoVmolar = HEOS.SatV->rhomolar();
-
-        //
-        if (Q < -1e-9) {
-            this->_phase = iphase_liquid;
-            _Q = -1000;
+            
+            _Q = Q;
+            // Load the outputs
+            _T = _Q * HEOS.SatV->T() + (1 - _Q) * HEOS.SatL->T();
+            _rhomolar = 1 / (_Q / HEOS.SatV->rhomolar() + (1 - _Q) / HEOS.SatL->rhomolar());
             return;
-        } else if (Q > 1 + 1e-9) {
-            this->_phase = iphase_gas;
-            _Q = 1000;
-            return;
-        } else {
-            this->_phase = iphase_twophase;
         }
-
-        _Q = Q;
-        // Load the outputs
-        _T = _Q * HEOS.SatV->T() + (1 - _Q) * HEOS.SatL->T();
-        _rhomolar = 1 / (_Q / HEOS.SatV->rhomolar() + (1 - _Q) / HEOS.SatL->rhomolar());
-        return;
     } else if (_p < components[0].EOS().ptriple * 0.9999) {
         if (other == iT) {
             if (_T > std::max(Tmin(), Ttriple())) {
@@ -1926,19 +2014,30 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
     if (!ValidNumber(value)) {
         throw ValueError(format("value to T_phase_determination_pure_or_pseudopure is invalid"));
     };
+    
+    double T_crit_ = T_critical(), p_crit_ = p_critical(), rhomolar_crit_ = rhomolar_critical();
+    auto smolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_smolar_nocache(T_crit_, rhomolar_crit_);
+    };
+    auto hmolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_hmolar_nocache(T_crit_, rhomolar_crit_);
+    };
+    auto umolar_critical = [this, &T_crit_, &rhomolar_crit_](){
+        return this->calc_umolar_nocache(T_crit_, rhomolar_crit_);
+    };
 
     // T is known, another input P, T, H, S, U is given (all molar)
-    if (_T < _crit.T && _p > _crit.p) {
+    if (_T < T_crit_ && _p > p_crit_) {
         // Only ever true if (other = iP); otherwise _p = -HUGE
         _phase = iphase_supercritical_liquid;
-    } else if (std::abs(_T - _crit.T) < 10 * DBL_EPSILON)  // Exactly at Tcrit
+    } else if (std::abs(_T - T_crit_) < 10 * DBL_EPSILON)  // Exactly at Tcrit
     {
         switch (other) {
             case iDmolar:
-                if (std::abs(_rhomolar - _crit.rhomolar) < 10 * DBL_EPSILON) {
+                if (std::abs(_rhomolar - rhomolar_crit_) < 10 * DBL_EPSILON) {
                     _phase = iphase_critical_point;
                     break;
-                } else if (_rhomolar > _crit.rhomolar) {
+                } else if (_rhomolar > rhomolar_crit_) {
                     _phase = iphase_supercritical_liquid;
                     break;
                 } else {
@@ -1946,10 +2045,10 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
                     break;
                 }
             case iP: {
-                if (std::abs(_p - _crit.p) < 10 * DBL_EPSILON) {
+                if (std::abs(_p - p_crit_) < 10 * DBL_EPSILON) {
                     _phase = iphase_critical_point;
                     break;
-                } else if (_p > _crit.p) {
+                } else if (_p > p_crit_) {
                     _phase = iphase_supercritical_liquid;
                     break;
                 } else {
@@ -1960,8 +2059,99 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
             default:
                 throw ValueError(format("T=Tcrit; invalid input for other to T_phase_determination_pure_or_pseudopure"));
         }
-    } else if (_T < _crit.T)  // Gas, 2-Phase, Liquid, or Supercritical Liquid Region
+    } else if (_T < T_crit_)  // Gas, 2-Phase, Liquid, or Supercritical Liquid Region
     {
+        if (get_config_bool(ENABLE_SUPERANCILLARIES) && is_pure()){
+            auto& optsuperanc = get_superanc_optional();
+            // Superancillaries are enabled and available, they will be used to determine the phase
+            if (optsuperanc){
+                auto& superanc = optsuperanc.value();
+                auto rhoL = superanc.eval_sat(_T, 'D', 0);
+                auto rhoV = superanc.eval_sat(_T, 'D', 1);
+                auto psat = superanc.eval_sat(_T, 'P', 1);
+                _rhoLanc = rhoL;
+                _rhoVanc = rhoV;
+                _rhoLmolar = rhoL;
+                _rhoVmolar = rhoV;
+                
+                if (other == iP){
+                    if (std::abs(psat/value-1) < 1e-6){
+                        throw ValueError(
+                                         format("Saturation pressure [%g Pa] corresponding to T [%g K] is within 1e-4 %% of given p [%Lg Pa]", psat, _T, value)
+                                         );
+                    }
+                    else if (value < psat) {
+                        _phase = iphase_gas;
+                        _Q = -1000;
+                    } else if (value > psat) {
+                        _phase = iphase_liquid;
+                        _Q = 1000;
+                    }
+                    return;
+                }
+                double Q = -1;
+                if (other == iDmolar){
+                    // Special case density as an input
+                    Q = (1 / value - 1 / rhoL) / (1 / rhoV - 1 / rhoL);
+                    if (Q <= 0) {
+                        _phase = iphase_liquid;
+                        _Q = -1000;
+                    } else if (Q >= 1) {
+                        _phase = iphase_gas;
+                        _Q = 1000;
+                    } else {
+                        _phase = iphase_twophase;
+                        _p = psat;
+                        this->_Q = Q;
+                        SatL->update(DmolarT_INPUTS, rhoL, _T);
+                        SatV->update(DmolarT_INPUTS, rhoV, _T);
+                    }
+                    _rhomolar = value;
+                    return;
+                }
+
+                SatL->update(DmolarT_INPUTS, rhoL, _T);
+                SatV->update(DmolarT_INPUTS, rhoV, _T);
+                
+                switch (other) {
+                    case iDmolar:
+                        Q = (1/value - 1/SatL->rhomolar()) / (1/SatV->rhomolar() - 1/SatL->rhomolar());
+                        break;
+                    case iSmolar:
+                        Q = (value - SatL->smolar()) / (SatV->smolar() - SatL->smolar());
+                        break;
+                    case iHmolar:
+                        Q = (value - SatL->hmolar()) / (SatV->hmolar() - SatL->hmolar());
+                        break;
+                    case iUmolar:
+                        Q = (value - SatL->umolar()) / (SatV->umolar() - SatL->umolar());
+                        break;
+                    default:
+                        throw ValueError(format("bad input for other"));
+                }
+                
+                if (Q < 0) {
+                    this->_phase = iphase_liquid;
+                    SatL->clear();
+                    SatV->clear();
+                    _Q = -1000;
+                    
+                } else if (Q > 1) {
+                    this->_phase = iphase_gas;
+                    SatL->clear();
+                    SatV->clear();
+                    _Q = 1000;
+                } else {
+                    _phase = iphase_twophase;
+                    _p = psat;
+                    _Q = Q;
+                    _rhomolar = 1 / (_Q / rhoV + (1 - _Q) / rhoL);
+                }
+                return;
+            }
+        }
+        
+        
         // Start to think about the saturation stuff
         // First try to use the ancillary equations if you are far enough away
         // You know how accurate the ancillary equations are thanks to using CoolProp code to refit them
@@ -2151,12 +2341,12 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
         _p = _Q * HEOS.SatV->p() + (1 - _Q) * HEOS.SatL->p();
         _rhomolar = 1 / (_Q / HEOS.SatV->rhomolar() + (1 - _Q) / HEOS.SatL->rhomolar());
         return;
-    } else if (_T > _crit.T && _T > components[0].EOS().Ttriple)  // Supercritical or Supercritical Gas Region
+    } else if (_T > T_crit_ && _T > components[0].EOS().Ttriple)  // Supercritical or Supercritical Gas Region
     {
         _Q = 1e9;
         switch (other) {
             case iP: {
-                if (_p > _crit.p) {
+                if (_p > p_crit_) {
                     this->_phase = iphase_supercritical;
                     return;
                 } else {
@@ -2165,7 +2355,7 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iDmolar: {
-                if (_rhomolar > _crit.rhomolar) {
+                if (_rhomolar > rhomolar_crit_) {
                     this->_phase = iphase_supercritical_liquid;
                     return;
                 } else {
@@ -2174,7 +2364,7 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iSmolar: {
-                if (_smolar.pt() > _crit.smolar) {
+                if (_smolar.pt() > smolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -2183,7 +2373,7 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iHmolar: {
-                if (_hmolar.pt() > _crit.hmolar) {
+                if (_hmolar.pt() > hmolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {
@@ -2192,7 +2382,7 @@ void HelmholtzEOSMixtureBackend::T_phase_determination_pure_or_pseudopure(int ot
                 }
             }
             case iUmolar: {
-                if (_umolar.pt() > _crit.umolar) {
+                if (_umolar.pt() > umolar_critical()) {
                     this->_phase = iphase_supercritical_gas;
                     return;
                 } else {

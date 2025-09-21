@@ -307,7 +307,7 @@ if __name__ == '__main__':
             _profiling_enabled = False
             raise ImportError('Your version of Cython (%s) must be >= 0.20 .  Please update your version of cython' % (cython_version,))
         else:
-            _profiling_enabled = True
+            _profiling_enabled = os.environ.get('COOLPROP_PROFILE', None) is not None
 
         cython_directives = dict(
             profile=_profiling_enabled,
@@ -504,7 +504,7 @@ if __name__ == '__main__':
     
     try:
         setup(name='coolprop',
-               version='7.0.0',  # look above for the definition of version variable - don't modify it here
+               version='7.1.0',  # look above for the definition of version variable - don't modify it here
                author="Ian Bell",
                author_email='ian.h.bell@gmail.com',
                url='http://www.coolprop.org',

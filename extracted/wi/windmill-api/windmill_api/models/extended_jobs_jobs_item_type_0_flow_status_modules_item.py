@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_branchall import (
         ExtendedJobsJobsItemType0FlowStatusModulesItemBranchall,
     )
+    from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_flow_jobs_duration import (
+        ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration,
+    )
     from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_iterator import (
         ExtendedJobsJobsItemType0FlowStatusModulesItemIterator,
     )
@@ -44,6 +47,7 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
         iterator (Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemIterator]):
         flow_jobs (Union[Unset, List[str]]):
         flow_jobs_success (Union[Unset, List[bool]]):
+        flow_jobs_duration (Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration]):
         branch_chosen (Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemBranchChosen]):
         branchall (Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemBranchall]):
         approvers (Union[Unset, List['ExtendedJobsJobsItemType0FlowStatusModulesItemApproversItem']]):
@@ -62,6 +66,7 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
     iterator: Union[Unset, "ExtendedJobsJobsItemType0FlowStatusModulesItemIterator"] = UNSET
     flow_jobs: Union[Unset, List[str]] = UNSET
     flow_jobs_success: Union[Unset, List[bool]] = UNSET
+    flow_jobs_duration: Union[Unset, "ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration"] = UNSET
     branch_chosen: Union[Unset, "ExtendedJobsJobsItemType0FlowStatusModulesItemBranchChosen"] = UNSET
     branchall: Union[Unset, "ExtendedJobsJobsItemType0FlowStatusModulesItemBranchall"] = UNSET
     approvers: Union[Unset, List["ExtendedJobsJobsItemType0FlowStatusModulesItemApproversItem"]] = UNSET
@@ -101,6 +106,10 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
         flow_jobs_success: Union[Unset, List[bool]] = UNSET
         if not isinstance(self.flow_jobs_success, Unset):
             flow_jobs_success = self.flow_jobs_success
+
+        flow_jobs_duration: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.flow_jobs_duration, Unset):
+            flow_jobs_duration = self.flow_jobs_duration.to_dict()
 
         branch_chosen: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.branch_chosen, Unset):
@@ -164,6 +173,8 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
             field_dict["flow_jobs"] = flow_jobs
         if flow_jobs_success is not UNSET:
             field_dict["flow_jobs_success"] = flow_jobs_success
+        if flow_jobs_duration is not UNSET:
+            field_dict["flow_jobs_duration"] = flow_jobs_duration
         if branch_chosen is not UNSET:
             field_dict["branch_chosen"] = branch_chosen
         if branchall is not UNSET:
@@ -198,6 +209,9 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
         from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_branchall import (
             ExtendedJobsJobsItemType0FlowStatusModulesItemBranchall,
         )
+        from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_flow_jobs_duration import (
+            ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration,
+        )
         from ..models.extended_jobs_jobs_item_type_0_flow_status_modules_item_iterator import (
             ExtendedJobsJobsItemType0FlowStatusModulesItemIterator,
         )
@@ -223,6 +237,15 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
         flow_jobs = cast(List[str], d.pop("flow_jobs", UNSET))
 
         flow_jobs_success = cast(List[bool], d.pop("flow_jobs_success", UNSET))
+
+        _flow_jobs_duration = d.pop("flow_jobs_duration", UNSET)
+        flow_jobs_duration: Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration]
+        if isinstance(_flow_jobs_duration, Unset):
+            flow_jobs_duration = UNSET
+        else:
+            flow_jobs_duration = ExtendedJobsJobsItemType0FlowStatusModulesItemFlowJobsDuration.from_dict(
+                _flow_jobs_duration
+            )
 
         _branch_chosen = d.pop("branch_chosen", UNSET)
         branch_chosen: Union[Unset, ExtendedJobsJobsItemType0FlowStatusModulesItemBranchChosen]
@@ -292,6 +315,7 @@ class ExtendedJobsJobsItemType0FlowStatusModulesItem:
             iterator=iterator,
             flow_jobs=flow_jobs,
             flow_jobs_success=flow_jobs_success,
+            flow_jobs_duration=flow_jobs_duration,
             branch_chosen=branch_chosen,
             branchall=branchall,
             approvers=approvers,

@@ -71,6 +71,7 @@ scm:
             after: true
             before: true
         prune: true
+        prune-tags: true
         local-branch: true
         sparse-checkout:
             paths:

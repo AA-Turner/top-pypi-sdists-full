@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: trickkiste
-Version: 0.3.0
+Version: 0.3.1
 Summary: Random useful stuff
-Project-URL: Repository, https://projects.om-office.de/frans/trickkiste.git
+Project-URL: Repository, https://github.com/frans-fuerst/trickkiste
 Author-email: Frans Fürst <frans.fuerst+om-office@protonmail.com>
 Requires-Python: <4,>=3.10.4
 Requires-Dist: python-dateutil>=2.9.0.post0
@@ -22,10 +22,13 @@ reason might be there are better built in solutions which are harder (but more
 flexible) to use or I just didn't find them back then. In most cases you're
 advised to build them your own (to avoid dependencies and bugs).
 
+
+## Content
+
 Here is an overview of what's in here, see the docstings for a better
 description (some even have a doctest!):
 
-## misc
+### misc
 
 * `throw(BaseException)`: functional `raise` for closed expressions
 * `md5from(Path)`: convenient wrapper returning an MD5 file checksum
@@ -46,7 +49,7 @@ description (some even have a doctest!):
 * `compact_dict(mapping, [maxlen], [delim])`: create a short one-string map
 * `def split_params(string: str)`:  inverse of `compact_dict`
 
-## logging
+### logging
 
 * `apply_common_logging_cli_args(ArgumentParser)`: enrich a given parser to recognize default stuff like `--verbose`, etc.
 * `setup_logging`: sets up a `rich` enhanced logger with useful stuff like call stack and posix thread id
@@ -58,14 +61,14 @@ description (some even have a doctest!):
     - `logger_funcname_filter`: adds the function name (`rich` edition)
     - `logger_levelname_filter`: adds the level name (`rich` edition)
 
-## Textual stuff / TuiBaseApp
+### Textual stuff / TuiBaseApp
 
 * `TuiBaseApp`: like `textual.App` but with convenience stuff mostly regarding logging
 * `RichLogHandler`: a logging handler for a `textual` widget
 * `LockingRichLog`: locks your log view scroll position until you scroll to the bottom
 * `HeatBar`: a colorful heat bar widget for things like CPU monitoring
 
-## std_suppress
+### std_suppress
 
 `std_suppress` (with it's own shell entry point `suppress`) can be prefixed
 to a command and acts like adding `>/dev/null 2>&1` but will print the output
@@ -73,4 +76,32 @@ if the command needs 'longer than expected' something bad happens (i.e.
 nonzero exit).
 Use it in scripts where you don't need the output to spam your log but you still
 want to know if something unusual happend.
+
+
+## License
+
+See [License.md](License.md).
+
+
+## Contribution
+
+### Initialize
+
+```bash
+git clone https://github.com/frans-fuerst/trickkiste
+cd trickkiste
+uv run pre-commit install
+```
+
+### Version bump and publishing
+
+```bash
+uv version --bump <patch|minor|major>
+uv build
+
+# do manual tests here
+
+git push
+uv publish --token <TOKEN>
+```
 

@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from jenkins_jobs.modules import view_all
+from jenkins_jobs.modules import view_categorized
 from jenkins_jobs.modules import view_delivery_pipeline
 from jenkins_jobs.modules import view_list
 from jenkins_jobs.modules import view_nested
@@ -42,6 +43,7 @@ def scenario(request):
 def project(input, registry):
     type_to_class = {
         "all": view_all.All,
+        "categorized": view_categorized.Categorized,
         "delivery_pipeline": view_delivery_pipeline.DeliveryPipeline,
         "list": view_list.List,
         "nested": view_nested.Nested,
@@ -58,6 +60,7 @@ def project(input, registry):
 
 view_class_list = [
     view_all.All,
+    view_categorized.Categorized,
     view_delivery_pipeline.DeliveryPipeline,
     view_list.List,
     view_nested.Nested,

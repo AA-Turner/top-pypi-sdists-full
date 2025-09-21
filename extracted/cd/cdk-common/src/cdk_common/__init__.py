@@ -5648,6 +5648,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    BEDROCK_AGENT_CORE_NETWORK_SERVICE_ROLE_POLICY = "BEDROCK_AGENT_CORE_NETWORK_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

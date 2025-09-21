@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 4.9.0
+Version: 4.10.0
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -157,7 +157,7 @@ Alliance Auth is maintained and developed by the community and we welcome every 
 
 To see what needs to be worked on please review our issue list or chat with our active developers on Discord.
 
-Also, please make sure you have signed the [License Agreement](https://developers.eveonline.com/resource/license-agreement) by logging in at [https://developers.eveonline.com](https://developers.eveonline.com) before submitting any pull requests.
+Also, please make sure you have signed the [License Agreement](https://developers.eveonline.com/license-agreement) by logging in at [https://developers.eveonline.com](https://developers.eveonline.com) before submitting any pull requests.
 
 In addition to the core AA system we also very much welcome contributions to our growing list of 3rd party services and plugin apps. Please see [AA Community Creations](https://gitlab.com/allianceauth/community-creations) for details.
 

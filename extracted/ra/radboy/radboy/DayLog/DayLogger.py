@@ -22,7 +22,7 @@ from sqlalchemy.sql import functions as func
 from collections import OrderedDict
 from radboy.DayLog.BhTrSa.bhtrsaa import *
 import radboy.TasksMode as TM
-
+import nanoid
 class DayLogger:
     helpText=f"""
 {Fore.light_red}
@@ -404,11 +404,20 @@ fxtbl - update table with correct columns
 
     def addToday(self):
         with Session(self.engine) as session:
+            recieptid=nanoid.generate(alphabet=string.digits,size=10)
+            recieptidFile=detectGetOrSet("RecieptIdFile","reciept_id.txt",setValue=False,literal=True)
+            if recieptidFile is not None:
+                recieptidFile=Path(recieptidFile)
+                with recieptidFile.open("w") as f:
+                    f.write(recieptid+"\n")
+
             recieptID=Prompt.__init2__(None,func=FormBuilderMkText,ptext="reciept id info (If Any)",helpText="anything to identify the reciept",data="string")
             if recieptID is None:
                 return
             elif recieptID in ['d',]:
-                recieptID=f'No_Receipt_ID_Provided:{datetime.now().strftime("%m/%d/%Y @ %H:%M:%S")}:Grouping UUID:{uuid.uuid1()}'
+                recieptID=f'No_Receipt_ID_Provided:{datetime.now().strftime("%m/%d/%Y @ %H:%M:%S")}:Grouping UUID:{uuid.uuid1()}/RecieptId("{recieptid}")'
+            else:
+                recieptID+=f'/RecieptId("{recieptid}")'
             state=f"{Fore.orange_red_1}{Style.bold}will be{Style.reset}"
             rcpt_msg=f'{Fore.light_sea_green}RecieptId({Fore.light_yellow}"{recieptID}"{Fore.light_sea_green}) {state} embedded into DayLog.Name for grouped searches!{Style.reset}'
             print(rcpt_msg)
@@ -434,6 +443,8 @@ fxtbl - update table with correct columns
             state=f"{Fore.orange_red_1}{Style.bold}has been{Style.reset}"
             rcpt_msg=f'{Fore.light_sea_green}RecieptId({Fore.light_yellow}"{recieptID}"{Fore.light_sea_green}) {state} embedded into DayLog.Name for grouped searches!{Style.reset}'
             print(rcpt_msg)
+            if recieptidFile is not None:
+                print(f"{Fore.grey_70}Receipt ID({Fore.light_red}{recieptid}{Fore.grey_70}) was saved to {Fore.orange_red_1}{recieptidFile.absolute()}{Fore.grey_70}. Please write that on the receiept and file it away for safekeeping; keep scans, or images, in an image directory that reflects the id, for the receipt displayed in the file, in the name of the file so that it can easily be found. Ensure it is visible with the receipt indicated in the image.")
 
     def searchTags(self):
         with Session(ENGINE) as session:

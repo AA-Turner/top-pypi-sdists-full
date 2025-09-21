@@ -43,5 +43,11 @@
          type: groovy
          name: foo
          command: return [one,two,three]
+      - axis:
+         type: elastic
+         name: nodes
+         label: workers
+         ignore-offline-nodes: false
+         once-per-label: true
     builders:
       - shell: make && make check

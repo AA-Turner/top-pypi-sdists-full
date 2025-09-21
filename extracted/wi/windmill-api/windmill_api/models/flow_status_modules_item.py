@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..models.flow_status_modules_item_approvers_item import FlowStatusModulesItemApproversItem
     from ..models.flow_status_modules_item_branch_chosen import FlowStatusModulesItemBranchChosen
     from ..models.flow_status_modules_item_branchall import FlowStatusModulesItemBranchall
+    from ..models.flow_status_modules_item_flow_jobs_duration import FlowStatusModulesItemFlowJobsDuration
     from ..models.flow_status_modules_item_iterator import FlowStatusModulesItemIterator
 
 
@@ -30,6 +31,7 @@ class FlowStatusModulesItem:
         iterator (Union[Unset, FlowStatusModulesItemIterator]):
         flow_jobs (Union[Unset, List[str]]):
         flow_jobs_success (Union[Unset, List[bool]]):
+        flow_jobs_duration (Union[Unset, FlowStatusModulesItemFlowJobsDuration]):
         branch_chosen (Union[Unset, FlowStatusModulesItemBranchChosen]):
         branchall (Union[Unset, FlowStatusModulesItemBranchall]):
         approvers (Union[Unset, List['FlowStatusModulesItemApproversItem']]):
@@ -48,6 +50,7 @@ class FlowStatusModulesItem:
     iterator: Union[Unset, "FlowStatusModulesItemIterator"] = UNSET
     flow_jobs: Union[Unset, List[str]] = UNSET
     flow_jobs_success: Union[Unset, List[bool]] = UNSET
+    flow_jobs_duration: Union[Unset, "FlowStatusModulesItemFlowJobsDuration"] = UNSET
     branch_chosen: Union[Unset, "FlowStatusModulesItemBranchChosen"] = UNSET
     branchall: Union[Unset, "FlowStatusModulesItemBranchall"] = UNSET
     approvers: Union[Unset, List["FlowStatusModulesItemApproversItem"]] = UNSET
@@ -81,6 +84,10 @@ class FlowStatusModulesItem:
         flow_jobs_success: Union[Unset, List[bool]] = UNSET
         if not isinstance(self.flow_jobs_success, Unset):
             flow_jobs_success = self.flow_jobs_success
+
+        flow_jobs_duration: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.flow_jobs_duration, Unset):
+            flow_jobs_duration = self.flow_jobs_duration.to_dict()
 
         branch_chosen: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.branch_chosen, Unset):
@@ -142,6 +149,8 @@ class FlowStatusModulesItem:
             field_dict["flow_jobs"] = flow_jobs
         if flow_jobs_success is not UNSET:
             field_dict["flow_jobs_success"] = flow_jobs_success
+        if flow_jobs_duration is not UNSET:
+            field_dict["flow_jobs_duration"] = flow_jobs_duration
         if branch_chosen is not UNSET:
             field_dict["branch_chosen"] = branch_chosen
         if branchall is not UNSET:
@@ -170,6 +179,7 @@ class FlowStatusModulesItem:
         from ..models.flow_status_modules_item_approvers_item import FlowStatusModulesItemApproversItem
         from ..models.flow_status_modules_item_branch_chosen import FlowStatusModulesItemBranchChosen
         from ..models.flow_status_modules_item_branchall import FlowStatusModulesItemBranchall
+        from ..models.flow_status_modules_item_flow_jobs_duration import FlowStatusModulesItemFlowJobsDuration
         from ..models.flow_status_modules_item_iterator import FlowStatusModulesItemIterator
 
         d = src_dict.copy()
@@ -193,6 +203,13 @@ class FlowStatusModulesItem:
         flow_jobs = cast(List[str], d.pop("flow_jobs", UNSET))
 
         flow_jobs_success = cast(List[bool], d.pop("flow_jobs_success", UNSET))
+
+        _flow_jobs_duration = d.pop("flow_jobs_duration", UNSET)
+        flow_jobs_duration: Union[Unset, FlowStatusModulesItemFlowJobsDuration]
+        if isinstance(_flow_jobs_duration, Unset):
+            flow_jobs_duration = UNSET
+        else:
+            flow_jobs_duration = FlowStatusModulesItemFlowJobsDuration.from_dict(_flow_jobs_duration)
 
         _branch_chosen = d.pop("branch_chosen", UNSET)
         branch_chosen: Union[Unset, FlowStatusModulesItemBranchChosen]
@@ -255,6 +272,7 @@ class FlowStatusModulesItem:
             iterator=iterator,
             flow_jobs=flow_jobs,
             flow_jobs_success=flow_jobs_success,
+            flow_jobs_duration=flow_jobs_duration,
             branch_chosen=branch_chosen,
             branchall=branchall,
             approvers=approvers,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vininfo
-Version: 1.9.1
+Version: 1.9.2
 Summary: Extracts useful information from Vehicle Identification Number (VIN)
 Project-URL: Homepage, https://github.com/idlesign/vininfo
 Author-email: Igor Starikov <idlesign@yandex.ru>

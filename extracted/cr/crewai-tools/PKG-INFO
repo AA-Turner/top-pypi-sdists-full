@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.73.0
+Version: 0.73.1
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -11,14 +11,13 @@ Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4>=4.13.4
 Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.186.1
+Requires-Dist: crewai>=0.193.2
 Requires-Dist: docker>=7.1.0
 Requires-Dist: lancedb>=0.5.4
 Requires-Dist: openai>=1.12.0
 Requires-Dist: portalocker==2.7.0
 Requires-Dist: pydantic>=2.6.1
 Requires-Dist: pypdf>=5.9.0
-Requires-Dist: pyright>=1.1.350
 Requires-Dist: python-docx>=1.2.0
 Requires-Dist: pytube>=15.0.0
 Requires-Dist: requests>=2.31.0

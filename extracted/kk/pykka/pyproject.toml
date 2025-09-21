@@ -1,6 +1,6 @@
 [project]
 name = "pykka"
-version = "4.3.0"
+version = "4.4.0"
 description = "Pykka is a Python implementation of the actor model"
 authors = [{ name = "Stein Magnus Jodal", email = "stein.magnus@jodal.no" }]
 requires-python = ">=3.10"
@@ -34,14 +34,13 @@ dev = [
     { include-group = "tests" },
 ]
 docs = [
-    "sphinx>=6.2.1",
-    "sphinx_rtd_theme>=1.3.0",
-    "tomli>=2.0.1 ; python_version < '3.11'",
+    "mkdocs-material>=9.6.4",
+    "mkdocstrings[python]>=0.29.1",
 ]
-mypy = ["mypy>=1.17.1"]
-pyright = ["pyright>=1.1.403"]
-ruff = ["ruff>=0.12.8"]
-tests = ["pytest>=7.4.2", "pytest-cov>=4.1.0", "pytest-mock>=3.11.1"]
+mypy = ["mypy>=1.18.2"]
+pyright = ["pyright>=1.1.405"]
+ruff = ["ruff>=0.13.1"]
+tests = ["pytest>=8.3.5", "pytest-cov>=5.0.0", "pytest-mock>=3.14.0"]
 
 
 [tool.coverage.paths]
@@ -154,6 +153,7 @@ commands = [
     [
         "mypy",
         { replace = "posargs", default = [
+            "examples",
             "src",
             "tests",
         ], extend = true },
@@ -166,6 +166,7 @@ commands = [
     [
         "pyright",
         { replace = "posargs", default = [
+            "examples",
             "src",
             "tests",
         ], extend = true },
@@ -184,4 +185,4 @@ commands = [["ruff", "check", "{posargs:.}"]]
 
 [tool.tox.env.docs]
 dependency_groups = ["docs"]
-commands = [["sphinx-build", "docs", "{envtmpdir}"]]
+commands = [["mkdocs", "build", "-d", "{envtmpdir}"]]

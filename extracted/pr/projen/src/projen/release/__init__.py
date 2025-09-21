@@ -3017,6 +3017,7 @@ class Release(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -3052,6 +3053,7 @@ class Release(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -3091,6 +3093,7 @@ class Release(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -3246,6 +3249,7 @@ class Release(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -3277,6 +3281,7 @@ class ReleaseProjectOptions:
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional["ReleaseTrigger"] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -3305,6 +3310,7 @@ class ReleaseProjectOptions:
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -3337,6 +3343,7 @@ class ReleaseProjectOptions:
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -3382,6 +3389,8 @@ class ReleaseProjectOptions:
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -3667,6 +3676,19 @@ class ReleaseProjectOptions:
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional["ReleaseTrigger"], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -4868,6 +4890,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -4906,6 +4929,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[ReleaseTrigger] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -4941,6 +4965,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -4982,6 +5007,7 @@ class ReleaseOptions(ReleaseProjectOptions):
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -5039,6 +5065,8 @@ class ReleaseOptions(ReleaseProjectOptions):
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -5330,6 +5358,19 @@ class ReleaseOptions(ReleaseProjectOptions):
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional[ReleaseTrigger], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -5787,6 +5828,7 @@ def _typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -5845,6 +5887,7 @@ def _typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -5945,6 +5988,7 @@ def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[ReleaseTrigger] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,

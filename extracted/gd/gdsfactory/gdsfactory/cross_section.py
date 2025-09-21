@@ -572,7 +572,6 @@ def cross_section(
            │                                                            │
            └────────────────────────────────────────────────────────────┘
     """
-    radius = radius or width
     section_list: list[Section] = list(sections or [])
     cladding_simplify_not_none: list[float | None] | None = None
     cladding_offsets_not_none: list[float] | None = None
@@ -662,7 +661,15 @@ def strip(
     radius_min: float = 5,
     **kwargs: Any,
 ) -> CrossSection:
-    """Return Strip cross_section."""
+    """Return Strip cross_section.
+
+    Args:
+        width: main Section width (um).
+        layer: main section layer.
+        radius: routing bend radius (um).
+        radius_min: min acceptable bend radius.
+        kwargs: cross_section settings.
+    """
     return cross_section(
         width=width,
         layer=layer,
@@ -681,7 +688,16 @@ def strip_no_ports(
     port_names: typings.IOPorts = ("", ""),
     **kwargs: Any,
 ) -> CrossSection:
-    """Return Strip cross_section."""
+    """Return Strip cross_section without ports.
+
+    Args:
+        width: main Section width (um).
+        layer: main section layer.
+        radius: routing bend radius (um).
+        radius_min: min acceptable bend radius.
+        port_names: for input and output ('o1', 'o2').
+        kwargs: cross_section settings.
+    """
     return cross_section(
         width=width,
         layer=layer,
@@ -790,7 +806,7 @@ def strip_rib_tip(
     radius_min: float | None = 5,
     **kwargs: Any,
 ) -> CrossSection:
-    """Return Strip cross_section."""
+    """Return Rib tip cross_section."""
     sections = (Section(width=width_tip, layer=layer_slab, name="slab"),)
     return cross_section(
         width=width,
@@ -813,7 +829,19 @@ def strip_nitride_tip(
     radius_min: float | None = None,
     **kwargs: Any,
 ) -> CrossSection:
-    """Return Strip cross_section."""
+    """Return the end of the nitride tip.
+
+    Args:
+        width: main Section width (um).
+        layer: main section layer.
+        layer_silicon: silicon layer.
+        width_tip_nitride: in um.
+        width_tip_silicon: in um.
+        radius: routing bend radius (um).
+        radius_min: min acceptable bend radius.
+        kwargs: cross_section settings.
+
+    """
     sections = (
         Section(width=width_tip_nitride, layer=layer, name="tip_nitride"),
         Section(width=width_tip_silicon, layer=layer_silicon, name="tip_silicon"),
@@ -1066,6 +1094,7 @@ def metal1(
     **kwargs: Any,
 ) -> CrossSection:
     """Return Metal Strip cross_section."""
+    radius = radius or width
     return cross_section(
         width=width,
         layer=layer,
@@ -1086,6 +1115,7 @@ def metal2(
     **kwargs: Any,
 ) -> CrossSection:
     """Return Metal Strip cross_section."""
+    radius = radius or width
     return cross_section(
         width=width,
         layer=layer,
@@ -1106,6 +1136,7 @@ def metal3(
     **kwargs: Any,
 ) -> CrossSection:
     """Return Metal Strip cross_section."""
+    radius = radius or width
     return cross_section(
         width=width,
         layer=layer,
@@ -1190,6 +1221,8 @@ def metal_routing(
 ) -> CrossSection:
     """Return Metal Strip cross_section."""
 
+    radius = radius or width
+
     return cross_section(
         width=width,
         layer=layer,
@@ -1210,6 +1243,7 @@ def heater_metal(
     **kwargs: Any,
 ) -> CrossSection:
     """Return Metal Strip cross_section."""
+    radius = radius or width
     return cross_section(
         width=width,
         layer=layer,

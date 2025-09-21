@@ -1,48 +1,45 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: pyzotero
-Version: 1.6.11
+Version: 1.6.13
 Summary: Python wrapper for the Zotero API
+Keywords: Zotero,DH
+Author: Stephan Hügel
 Author-email: Stephan Hügel <urschrei@gmail.com>
 License: # Blue Oak Model License
-        
-        Version 1.0.0
-        
-        ## Purpose
-        
-        This license gives everyone as much permission to work with this software as possible, while protecting contributors from liability.
-        
-        ## Acceptance
-        
-        In order to receive this license, you must agree to its rules. The rules of this license are both obligations under that agreement and conditions to your license. You must not do anything with this software that triggers a rule that you cannot or will not follow.
-        
-        ## Copyright
-        
-        Each contributor licenses you to do everything with this software that would otherwise infringe that contributor's copyright in it.
-        
-        ## Notices
-        
-        You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also gets the text of this license or a link to <https://blueoakcouncil.org/license/1.0.0>.
-        
-        ## Excuse
-        
-        If anyone notifies you in writing that you have not complied with [Notices](#notices), you can keep your license by taking all practical steps to comply within 30 days after the notice. If you do not do so, your license ends immediately.
-        
-        ## Patent
-        
-        Each contributor licenses you to do everything with this software that would otherwise infringe any patent claims they can license or become able to license.
-        
-        ## Reliability
-        
-        No contributor can revoke this license.
-        
-        ## No Liability
-        
-        ***As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.***
-        
-Project-URL: Repository, https://github.com/urschrei/pyzotero
-Project-URL: Tracker, https://github.com/urschrei/pyzotero/issues
-Project-URL: documentation, https://pyzotero.readthedocs.org
-Keywords: Zotero,DH
+         
+         Version 1.0.0
+         
+         ## Purpose
+         
+         This license gives everyone as much permission to work with this software as possible, while protecting contributors from liability.
+         
+         ## Acceptance
+         
+         In order to receive this license, you must agree to its rules. The rules of this license are both obligations under that agreement and conditions to your license. You must not do anything with this software that triggers a rule that you cannot or will not follow.
+         
+         ## Copyright
+         
+         Each contributor licenses you to do everything with this software that would otherwise infringe that contributor's copyright in it.
+         
+         ## Notices
+         
+         You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also gets the text of this license or a link to <https://blueoakcouncil.org/license/1.0.0>.
+         
+         ## Excuse
+         
+         If anyone notifies you in writing that you have not complied with [Notices](#notices), you can keep your license by taking all practical steps to comply within 30 days after the notice. If you do not do so, your license ends immediately.
+         
+         ## Patent
+         
+         Each contributor licenses you to do everything with this software that would otherwise infringe any patent claims they can license or become able to license.
+         
+         ## Reliability
+         
+         No contributor can revoke this license.
+         
+         ## No Liability
+         
+         ***As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.***
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -56,22 +53,15 @@ Classifier: Intended Audience :: Education
 Classifier: License :: OSI Approved :: Blue Oak Model License (BlueOak-1.0.0)
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
-License-File: AUTHORS
-Requires-Dist: feedparser>=6.0.11
-Requires-Dist: pytz
-Requires-Dist: bibtexparser
+Requires-Dist: feedparser>=6.0.12
+Requires-Dist: bibtexparser>=1.4.3,<2.0.0
 Requires-Dist: httpx>=0.28.1
-Provides-Extra: test
-Requires-Dist: pytest>=7.4.2; extra == "test"
-Requires-Dist: httpretty; extra == "test"
-Requires-Dist: python-dateutil; extra == "test"
-Requires-Dist: ipython; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: pytest-cov>=6.0.0; extra == "test"
-Dynamic: license-file
+Requires-Dist: whenever>=0.8.8
+Requires-Python: >=3.9
+Project-URL: Repository, https://github.com/urschrei/pyzotero
+Project-URL: Tracker, https://github.com/urschrei/pyzotero/issues
+Project-URL: documentation, https://pyzotero.readthedocs.org
+Description-Content-Type: text/markdown
 
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/Pyzotero.svg?style=flat)](https://pypi.python.org/pypi/Pyzotero/) [![Docs](https://readthedocs.org/projects/pyzotero/badge/?version=latest)](http://pyzotero.readthedocs.org/en/latest/?badge=latest) [![PyPI Version](https://img.shields.io/pypi/v/Pyzotero.svg)](https://pypi.python.org/pypi/Pyzotero) [![Anaconda-Server Badge](https://anaconda.org/conda-forge/pyzotero/badges/version.svg)](https://anaconda.org/conda-forge/pyzotero) [![Downloads](https://pepy.tech/badge/pyzotero)](https://pepy.tech/project/pyzotero)  
 
@@ -79,7 +69,7 @@ Dynamic: license-file
 
 # Quickstart
 
-1. `pip install pyzotero` **or** `conda config --add channels conda-forge && conda install pyzotero`
+1. `uv add pyzotero` **or** `pip install pyzotero` **or** `conda install conda-forge::pyzotero`
 2. You'll need the ID of the personal or group library you want to access:
     - Your **personal library ID** is available [here](https://www.zotero.org/settings/keys), in the section `Your userID for use in API calls`
     - For **group libraries**, the ID can be found by opening the group's page: `https://www.zotero.org/groups/groupname`, and hovering over the `group settings` link. The ID is the integer after `/groups/`

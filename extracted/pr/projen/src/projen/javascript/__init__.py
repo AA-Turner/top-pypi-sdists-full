@@ -5814,6 +5814,7 @@ class NodeProject(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -5950,6 +5951,7 @@ class NodeProject(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -6088,6 +6090,7 @@ class NodeProject(
             release_schedule=release_schedule,
             release_tag_prefix=release_tag_prefix,
             release_trigger=release_trigger,
+            release_workflow_env=release_workflow_env,
             release_workflow_name=release_workflow_name,
             release_workflow_setup_steps=release_workflow_setup_steps,
             versionrc_options=versionrc_options,
@@ -6680,6 +6683,7 @@ class NodeProject(
         "release_schedule": "releaseSchedule",
         "release_tag_prefix": "releaseTagPrefix",
         "release_trigger": "releaseTrigger",
+        "release_workflow_env": "releaseWorkflowEnv",
         "release_workflow_name": "releaseWorkflowName",
         "release_workflow_setup_steps": "releaseWorkflowSetupSteps",
         "versionrc_options": "versionrcOptions",
@@ -6824,6 +6828,7 @@ class NodeProjectOptions(
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
         release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
         release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -6960,6 +6965,7 @@ class NodeProjectOptions(
         :param release_schedule: (deprecated) CRON schedule to trigger new releases. Default: - no scheduled releases
         :param release_tag_prefix: (experimental) Automatically add the given prefix to release tags. Useful if you are releasing on multiple branches with overlapping version numbers. Note: this prefix is used to detect the latest tagged version when bumping, so if you change this on a project with an existing version history, you may need to manually tag your latest release with the new prefix. Default: "v"
         :param release_trigger: (experimental) The release trigger to use. Default: - Continuous releases (``ReleaseTrigger.continuous()``)
+        :param release_workflow_env: (experimental) Build environment variables for release workflows. Default: {}
         :param release_workflow_name: (experimental) The name of the default release workflow. Default: "release"
         :param release_workflow_setup_steps: (experimental) A set of workflow steps to execute in order to setup the workflow container.
         :param versionrc_options: (experimental) Custom configuration used when creating changelog with commit-and-tag-version package. Given values either append to default configuration or overwrite values in it. Default: - standard configuration applicable for GitHub repositories
@@ -7153,6 +7159,7 @@ class NodeProjectOptions(
             check_type(argname="argument release_schedule", value=release_schedule, expected_type=type_hints["release_schedule"])
             check_type(argname="argument release_tag_prefix", value=release_tag_prefix, expected_type=type_hints["release_tag_prefix"])
             check_type(argname="argument release_trigger", value=release_trigger, expected_type=type_hints["release_trigger"])
+            check_type(argname="argument release_workflow_env", value=release_workflow_env, expected_type=type_hints["release_workflow_env"])
             check_type(argname="argument release_workflow_name", value=release_workflow_name, expected_type=type_hints["release_workflow_name"])
             check_type(argname="argument release_workflow_setup_steps", value=release_workflow_setup_steps, expected_type=type_hints["release_workflow_setup_steps"])
             check_type(argname="argument versionrc_options", value=versionrc_options, expected_type=type_hints["versionrc_options"])
@@ -7376,6 +7383,8 @@ class NodeProjectOptions(
             self._values["release_tag_prefix"] = release_tag_prefix
         if release_trigger is not None:
             self._values["release_trigger"] = release_trigger
+        if release_workflow_env is not None:
+            self._values["release_workflow_env"] = release_workflow_env
         if release_workflow_name is not None:
             self._values["release_workflow_name"] = release_workflow_name
         if release_workflow_setup_steps is not None:
@@ -8605,6 +8614,19 @@ class NodeProjectOptions(
         '''
         result = self._values.get("release_trigger")
         return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+
+    @builtins.property
+    def release_workflow_env(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for release workflows.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_workflow_env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def release_workflow_name(self) -> typing.Optional[builtins.str]:
@@ -12683,6 +12705,7 @@ class UpgradeDependenciesSchedule(
         "assignees": "assignees",
         "branches": "branches",
         "container": "container",
+        "env": "env",
         "git_identity": "gitIdentity",
         "labels": "labels",
         "permissions": "permissions",
@@ -12699,6 +12722,7 @@ class UpgradeDependenciesWorkflowOptions:
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
         container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -12712,6 +12736,7 @@ class UpgradeDependenciesWorkflowOptions:
         :param assignees: (experimental) Assignees to add on the PR. Default: - no assignees
         :param branches: (experimental) List of branches to create PR's for. Default: - All release branches configured for the project.
         :param container: (experimental) Job container options. Default: - defaults
+        :param env: (experimental) Build environment variables for the upgrade job. Default: {}
         :param git_identity: (experimental) The git identity to use for commits. Default: "github-actions@github.com"
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param permissions: (experimental) Permissions granted to the upgrade job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.READ }``
@@ -12735,6 +12760,7 @@ class UpgradeDependenciesWorkflowOptions:
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -12749,6 +12775,8 @@ class UpgradeDependenciesWorkflowOptions:
             self._values["branches"] = branches
         if container is not None:
             self._values["container"] = container
+        if env is not None:
+            self._values["env"] = env
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if labels is not None:
@@ -12796,6 +12824,17 @@ class UpgradeDependenciesWorkflowOptions:
         '''
         result = self._values.get("container")
         return typing.cast(typing.Optional[_ContainerOptions_f50907af], result)
+
+    @builtins.property
+    def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables for the upgrade job.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
@@ -17066,6 +17105,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     release_schedule: typing.Optional[builtins.str] = None,
     release_tag_prefix: typing.Optional[builtins.str] = None,
     release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+    release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     release_workflow_name: typing.Optional[builtins.str] = None,
     release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -17466,6 +17506,7 @@ def _typecheckingstub__59fa39c2475322c21b2f7d03f2f2ada171b7e546b1d88beb8a75baa82
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
     branches: typing.Optional[typing.Sequence[builtins.str]] = None,
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,

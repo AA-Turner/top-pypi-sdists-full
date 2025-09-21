@@ -62,15 +62,18 @@ class FileMeta:
         self.metadata = metadata
 
     def __str__(self):
-        return f"FileMeta({self.filename}:{self.treename})"
+        return f"FileMeta({self.dataset}:{self.filename}:{self.treename})"
 
     def __hash__(self):
-        # As used to lookup metadata, no need for dataset
-        return _hash((self.filename, self.treename))
+        return _hash((self.dataset, self.filename, self.treename))
 
     def __eq__(self, other):
         # In case of hash collisions
-        return self.filename == other.filename and self.treename == other.treename
+        return (
+            self.dataset == other.dataset
+            and self.filename == other.filename
+            and self.treename == other.treename
+        )
 
     def maybe_populate(self, cache):
         if cache and self in cache:
@@ -1389,14 +1392,19 @@ class Runner:
         if not isinstance(processor_instance, ProcessorABC):
             processor_instance = cloudpickle.loads(lz4f.decompress(processor_instance))
 
-        if format == "root":
-            filecontext = uproot.open(
-                {item.filename: None},
-                timeout=xrootdtimeout,
-                **uproot_options,
-            )
-        elif format == "parquet":
-            raise NotImplementedError("Parquet format is not supported yet.")
+        try:
+            if format == "root":
+                filecontext = uproot.open(
+                    {item.filename: None},
+                    timeout=xrootdtimeout,
+                    **uproot_options,
+                )
+            elif format == "parquet":
+                raise NotImplementedError("Parquet format is not supported yet.")
+        except Exception as e:
+            raise Exception(
+                f"Failed to open file: {item!r}. The error was: {e!r}."
+            ) from e
 
         metadata = {
             "dataset": item.dataset,
@@ -1415,23 +1423,30 @@ class Runner:
             if schema is None:
                 raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
-                # change here
-                if format == "root":
-                    materialized = []
-                    factory = NanoEventsFactory.from_root(
-                        file=file,
-                        treepath=item.treename,
-                        schemaclass=schema,
-                        metadata=metadata,
-                        access_log=materialized,
-                        mode="virtual",
-                        entry_start=item.entrystart,
-                        entry_stop=item.entrystop,
-                        iteritems_options=iteritems_options,
-                    )
-                    events = factory.events()
-                elif format == "parquet":
-                    raise NotImplementedError("Parquet format is not supported yet.")
+                try:
+                    # change here
+                    if format == "root":
+                        materialized = []
+                        factory = NanoEventsFactory.from_root(
+                            file=file,
+                            treepath=item.treename,
+                            schemaclass=schema,
+                            metadata=metadata,
+                            access_log=materialized,
+                            mode="virtual",
+                            entry_start=item.entrystart,
+                            entry_stop=item.entrystop,
+                            iteritems_options=iteritems_options,
+                        )
+                        events = factory.events()
+                    elif format == "parquet":
+                        raise NotImplementedError(
+                            "Parquet format is not supported yet."
+                        )
+                except Exception as e:
+                    raise Exception(
+                        f"Failed creating nanoevents: {item!r}. The error was: {e!r}."
+                    ) from e
             else:
                 raise ValueError(
                     "Expected schema to derive from nanoevents.BaseSchema, instead got %r"

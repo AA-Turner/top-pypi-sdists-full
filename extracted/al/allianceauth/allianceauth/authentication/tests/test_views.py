@@ -9,6 +9,7 @@ from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.authentication.constants import ESI_ERROR_MESSAGE_OVERRIDES
 
 MODULE_PATH = "allianceauth.authentication.views"
+TEMPLATETAGS_PATH = "allianceauth.templatetags.admin_status"
 
 
 def jsonresponse_to_dict(response) -> dict:
@@ -17,6 +18,7 @@ def jsonresponse_to_dict(response) -> dict:
 
 @patch(MODULE_PATH + ".queued_tasks_count")
 @patch(MODULE_PATH + ".active_tasks_count")
+@patch(MODULE_PATH + "._celery_stats")
 class TestRunningTasksCount(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -26,36 +28,64 @@ class TestRunningTasksCount(TestCase):
         cls.user.is_superuser = True
         cls.user.save()
 
-    def test_should_return_data(
-        self, mock_active_tasks_count, mock_queued_tasks_count
-    ):
+    def test_should_return_data(self, mock_celery_stats, mock_tasks_queued, mock_tasks_running):
         # given
-        mock_active_tasks_count.return_value = 2
-        mock_queued_tasks_count.return_value = 3
+        mock_tasks_running.return_value = 2
+        mock_tasks_queued.return_value = 3
+        mock_celery_stats.return_value = {
+            "tasks_succeeded": 5,
+            "tasks_retried": 1,
+            "tasks_failed": 4,
+            "tasks_total": 11,
+            "tasks_hours": 24,
+            "earliest_task": "2025-08-14T22:47:54.853Z",
+        }
+
         request = self.factory.get("/")
         request.user = self.user
+
         # when
         response = task_counts(request)
+
         # then
         self.assertEqual(response.status_code, 200)
         self.assertDictEqual(
-            jsonresponse_to_dict(response), {
-                "tasks_running": 2, "tasks_queued": 3}
+            jsonresponse_to_dict(response),
+            {
+                "tasks_succeeded": 5,
+                "tasks_retried": 1,
+                "tasks_failed": 4,
+                "tasks_total": 11,
+                "tasks_hours": 24,
+                "earliest_task": "2025-08-14T22:47:54.853Z",
+                "tasks_running": 3,
+                "tasks_queued": 2,
+            }
         )
 
-    def test_su_only(
-        self, mock_active_tasks_count, mock_queued_tasks_count
-    ):
+    def test_su_only(self, mock_celery_stats, mock_tasks_queued, mock_tasks_running):
         self.user.is_superuser = False
         self.user.save()
         self.user.refresh_from_db()
+
         # given
-        mock_active_tasks_count.return_value = 2
-        mock_queued_tasks_count.return_value = 3
+        mock_tasks_running.return_value = 2
+        mock_tasks_queued.return_value = 3
+        mock_celery_stats.return_value = {
+            "tasks_succeeded": 5,
+            "tasks_retried": 1,
+            "tasks_failed": 4,
+            "tasks_total": 11,
+            "tasks_hours": 24,
+            "earliest_task": "2025-08-14T22:47:54.853Z",
+        }
+
         request = self.factory.get("/")
         request.user = self.user
+
         # when
         response = task_counts(request)
+
         # then
         self.assertEqual(response.status_code, 302)
 

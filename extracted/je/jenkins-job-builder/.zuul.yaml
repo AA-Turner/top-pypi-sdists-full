@@ -23,7 +23,6 @@
 - project:
     templates:
       - docs-on-readthedocs
-      - openstack-python37-jobs-no-constraints
     vars:
       rtd_webhook_id: '47271'
     check:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: equinox
-Version: 0.13.0
+Version: 0.13.1
 Summary: Elegant easy-to-use neural networks in JAX.
 Project-URL: repository, https://github.com/patrick-kidger/equinox
 Author-email: Patrick Kidger <contact@kidger.site>
@@ -219,19 +219,27 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.10
-Requires-Dist: jax>=0.4.38
+Requires-Dist: jax!=0.7.0,!=0.7.1,>=0.4.38
 Requires-Dist: jaxtyping>=0.2.20
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: wadler-lindig>=0.1.0
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: griffe==1.7.3; extra == 'docs'
-Requires-Dist: hippogriffe==0.2.0; extra == 'docs'
+Requires-Dist: hippogriffe==0.2.1; extra == 'docs'
 Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-ipynb==0.1.0; extra == 'docs'
+Requires-Dist: mkdocs-ipynb==0.1.1; extra == 'docs'
 Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'
 Requires-Dist: mkdocs==1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings[python]==0.28.3; extra == 'docs'
+Requires-Dist: mkdocstrings-python==1.16.8; extra == 'docs'
+Requires-Dist: mkdocstrings==0.28.3; extra == 'docs'
 Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
+Provides-Extra: tests
+Requires-Dist: beartype; extra == 'tests'
+Requires-Dist: jaxlib; extra == 'tests'
+Requires-Dist: optax; extra == 'tests'
+Requires-Dist: pytest; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align='center'>Equinox</h1>

@@ -36,6 +36,8 @@ The module also supports additional, plugin-defined axes:
   :jenkins-github:`GroovyAxis Plugin <groovyaxis-plugin>`
 * YamlAxis (``yaml``), requires the Jenkins
   :jenkins-plugins:`Yaml Axis Plugin <yaml-axis>`
+* ElasticAxis (``elastic``), requires the Jenkins
+  :jenkins-plugins:`Elastic Axis Plugin <elastic-axis>`
 
 To tie the parent job to a specific node, you should use ``node`` parameter.
 On a matrix project, this will tie *only* the parent job.  To restrict axes
@@ -122,6 +124,7 @@ class Matrix(jenkins_jobs.modules.base.Base):
         "tox": "jenkins.plugins.shiningpanda.matrix.ToxAxis",
         "groovy": "org.jenkinsci.plugins.GroovyAxis",
         "yaml": "org.jenkinsci.plugins.yamlaxis.YamlAxis",
+        "elastic": "org.jenkinsci.plugins.elasticaxisplugin.ElasticAxis",
     }
 
     supported_strategies = {
@@ -235,9 +238,11 @@ class Matrix(jenkins_jobs.modules.base.Base):
                 XML.SubElement(lbl_root, "name").text = "PYTHON"
             elif axis_type == "tox":
                 XML.SubElement(lbl_root, "name").text = "TOXENV"
+            elif axis_type == "elastic":
+                XML.SubElement(lbl_root, "name").text = str(axis.get("name", "label"))
             else:
                 XML.SubElement(lbl_root, "name").text = str(name)
-            if axis_type != "groovy":
+            if axis_type not in ("groovy", "elastic"):
                 v_root = XML.SubElement(lbl_root, "values")
             if axis_type == "dynamic":
                 XML.SubElement(v_root, "string").text = str(values[0])
@@ -250,6 +255,14 @@ class Matrix(jenkins_jobs.modules.base.Base):
                 XML.SubElement(lbl_root, "computedValues").text = ""
             elif axis_type == "yaml":
                 XML.SubElement(v_root, "string").text = axis.get("filename")
+            elif axis_type == "elastic":
+                XML.SubElement(lbl_root, "label").text = str(axis.get("label", ""))
+                XML.SubElement(lbl_root, "ignoreOffline").text = str(
+                    axis.get("ignore-offline-nodes", False)
+                ).lower()
+                XML.SubElement(lbl_root, "dontExpandLabels").text = str(
+                    axis.get("once-per-label", False)
+                ).lower()
             else:
                 for v in values:
                     XML.SubElement(v_root, "string").text = str(v)

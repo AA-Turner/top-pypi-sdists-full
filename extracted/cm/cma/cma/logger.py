@@ -240,8 +240,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         try:
             with open(fn, 'w') as f:
-                f.write('% # columns="iteration, evaluation, sigma, axis ratio, ' +
-                        'bestever, best, median, worst objective function value, interquartile range, ' +
+                f.write('% # columns="iteration, evaluation, sigma, axis ratio, bestever, ' +
+                        'best, median, worst objective function value, ' +
+                        'interquartile range, ' +
+                        '25%tile, ' +
+                        'current best feasible f-value, ' +
                         'further/more values", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
@@ -488,8 +491,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             bestf = es.fit.fit[0]
             worstf = es.fit.fit[-1]
             medianf = es.fit.fit[len(es.fit.fit) // 2]
-            iqrangef = np.diff(_mathutils.Mh.prctile(
-                es.fit.fit, [25, 75], sorted_=True))[0]
+            p25, iqrangef = _mathutils.Mh.prctile(es.fit.fit, [25, 75], sorted_=True)
+            iqrangef -= p25
+            feasiblef = getattr(es, '_last_feasible_f', np.nan)
+            if feasiblef is None:  # the original value may be None
+                feasiblef = np.nan
         except Exception:
             if iteration > 0:  # first call without f-values is OK
                 raise
@@ -561,6 +567,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(float(medianf)) + ' '
                             + str(float(worstf)) + ' '
                             + str(float(iqrangef)) + ' '
+                            + str(float(p25)) + ' '  # 10th value (index 9)
+                            + str(float(feasiblef)) + ' '
                             # + str(es.sp.popsize) + ' '
                             # + str(10**es.noiseS) + ' '
                             # + str(es.sp.cmean) + ' '
@@ -1008,7 +1016,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
-            self.plot_mean(iabscissa, x_opt, xsemilog=False if plot_mean=='linear' else xsemilog, xnormalize=xnormalize)
+            if plot_mean == "log":
+                xsemilog = True
+            elif plot_mean == "linear":
+                xsemilog = False
+            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         else:
             self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         pyplot.xlabel('')
@@ -1398,16 +1410,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [6, 7]]) + foffset, '-k')
             # hold(True)
-        if dat.f.shape[1] > 8:  # interquartile f-range
+        # plot interquartile f-range
+        if dat.f.shape[1] > 8:
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
-            semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.7)  # darkorange is nice
+            semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.75)  # darkorange is nice
             text(_x[-2], abs(dat.f[-2, 8]) + foffset, 'IQR(f)', fontsize=fontsize)
-        # (larger indices): additional fitness data, for example constraints values
-        if dat.f.shape[1] > 9:
+        if dat.f.shape[1] > 11:  # plot the largest columns in yellow
             # dd = abs(dat.f[:,7:]) + 10*foffset
             # dd = _where(dat.f[:,7:]==0, np.nan, dd) # cannot be
-            semilogy(_x, np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
+            semilogy(_x, np.abs(dat.f[:, 11:]) + 10 * foffset, 'y', linewidth=0.7)
             # hold(True)
+        # we may now overwrite some yellow lines (currently not)
+        # column 9=p25 is not plotted
+        # plot feasible f col index 10
+        if dat.f.shape[1] > 10 and np.isfinite(dat.f[-1, [10]]):
+            # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
+            semilogy(_x, abs(dat.f[:, [10]]) + foffset, 'b', linewidth=0.65)
+            text(_x[-2], abs(dat.f[-2, 10]) + foffset, 'feasible f', fontsize=fontsize)
+        # (larger indices): additional fitness data, for example constraints values
 
         idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
         semilogy(_x[idx], dat.f[idx, 5] + foffset, '.b')
@@ -1503,13 +1523,23 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     np.abs(dfit[i]) + foffset, '.r')
             # postcondition: dfit, idx = dfit1, ...
 
-        # fat red dot for overall minimum
-        i = np.argmin(dat.f[:, 5])
-        semilogy(_x[i], np.abs(dat.f[i, 5]), 'ro',
-                 markersize=9)
-        if any(idx):  # another fat red dot
-            semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
-                 + 1e-98, 'ro', markersize=9)
+        # fat red dot for overall minimum (fitness and
+        # feasible only with ask-and-tell interface)
+        for icol, sym in [(5, 'ro'), (10, 'rh')]:
+            try:
+                i = np.nanargmin(dat.f[:, icol])
+            except (IndexError, ValueError):
+                if icol == 10:
+                    continue
+                raise
+            # print(icol, i, _x[i], dat.f[i, icol])
+            # is almost always the same index, except on
+            # 9-D cigar with con(x) = x + 1.1 after 111 iterations
+            semilogy(_x[i], np.abs(dat.f[i, icol]), sym,
+                    markersize=9)
+            if any(idx):  # another fat red dot
+                semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
+                    + 1e-98, sym, markersize=9)
         # semilogy(dat.f[-1, iabscissa]*np.ones(2), dat.f[-1,4]*np.ones(2), 'rd')
 
         # AR and sigma

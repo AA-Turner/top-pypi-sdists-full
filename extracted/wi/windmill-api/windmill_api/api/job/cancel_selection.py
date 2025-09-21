@@ -5,15 +5,21 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     *,
     json_body: List[str],
+    force_cancel: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["force_cancel"] = force_cancel
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     json_json_body = json_body
 
@@ -23,6 +29,7 @@ def _get_kwargs(
             workspace=workspace,
         ),
         "json": json_json_body,
+        "params": params,
     }
 
 
@@ -51,11 +58,13 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: List[str],
+    force_cancel: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """cancel jobs based on the given uuids
 
     Args:
         workspace (str):
+        force_cancel (Union[Unset, None, bool]):
         json_body (List[str]):
 
     Raises:
@@ -69,6 +78,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         json_body=json_body,
+        force_cancel=force_cancel,
     )
 
     response = client.get_httpx_client().request(
@@ -83,11 +93,13 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: List[str],
+    force_cancel: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """cancel jobs based on the given uuids
 
     Args:
         workspace (str):
+        force_cancel (Union[Unset, None, bool]):
         json_body (List[str]):
 
     Raises:
@@ -102,6 +114,7 @@ def sync(
         workspace=workspace,
         client=client,
         json_body=json_body,
+        force_cancel=force_cancel,
     ).parsed
 
 
@@ -110,11 +123,13 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: List[str],
+    force_cancel: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
     """cancel jobs based on the given uuids
 
     Args:
         workspace (str):
+        force_cancel (Union[Unset, None, bool]):
         json_body (List[str]):
 
     Raises:
@@ -128,6 +143,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         json_body=json_body,
+        force_cancel=force_cancel,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -140,11 +156,13 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: List[str],
+    force_cancel: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
     """cancel jobs based on the given uuids
 
     Args:
         workspace (str):
+        force_cancel (Union[Unset, None, bool]):
         json_body (List[str]):
 
     Raises:
@@ -160,5 +178,6 @@ async def asyncio(
             workspace=workspace,
             client=client,
             json_body=json_body,
+            force_cancel=force_cancel,
         )
     ).parsed

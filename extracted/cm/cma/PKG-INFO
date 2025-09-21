@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: cma
-Version: 4.3.0
+Version: 4.4.0
 Summary: CMA-ES, Covariance Matrix Adaptation Evolution Strategy for non-linear numerical optimization in Python
-Author: Youhei Akimoto, Petr Baudis
-Author-email: Nikolaus Hansen <authors_firstname.lastname@inria.fr>
+Author: Nikolaus Hansen, Youhei Akimoto, Petr Baudis
 Maintainer-email: Nikolaus Hansen <authors_firstname.lastname@inria.fr>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/CMA-ES/pycma
@@ -37,46 +36,49 @@ CMA-ES Covariance Matrix Adaptation Evolution Strategy
 
 A stochastic numerical optimization algorithm for difficult (non-convex,
 ill-conditioned, multi-modal, rugged, noisy) optimization problems in
-continuous search spaces, implemented in Python.
+continuous or mixed-integer search spaces, implemented in Python.
 
 Typical domain of application are unconstrained or bound-constrained
 objective functions with:
 
-* search space dimension between, say, 5 and (a few) 100,
+* search space dimension between, say, five and a few hundred,
 * no gradients available,
-* at least, say, 100 times dimension function evaluations needed to
-  get satisfactory solutions,
+* at least, say, 100 times dimension function evaluations needed
+  to get satisfactory solutions,
 * non-separable, ill-conditioned, or rugged/multi-modal landscapes.
 
-More recently nonlinear constraints handling is available too.
+Nonlinear constraints handling is available too.
 The CMA-ES is quite reliable, however for small budgets (fewer function
 evaluations than, say, 100 times dimension) or in very small dimensions
 faster methods are available.
 
 The ``pycma`` module provides two independent implementations of the 
-CMA-ES algorithm in the classes ``cma.CMAEvolutionStrategy`` and 
-``cma.purecma.CMAES``. 
+CMA-ES algorithm in the classes `cma.CMAEvolutionStrategy`_ and 
+`cma.purecma.CMAES`_.
 
 Installation
 ------------
-In the terminal command line type::
+In the terminal command line type ::
 
       python -m pip install cma
 
 The package will be downloaded and installed automatically. To **upgrade**
-an existing installation, '``pip``' must be replaced by '``pip -U``'. For
+an existing installation, '``install``' must be replaced by '``install -U``'. For
 the documentation of ``pip``, `see here`_.
 
 .. _`see here`: http://www.pip-installer.org
 
-Alternatively, download and unpack the ``cma-...tar.gz``. The folder
-``cma`` from the ``tar`` archive can used without any installation
-(for ``import`` to find it, it must be in the current folder or the Python
-search paths) or can be installed by ``pip install -e .``.
+Alternatively, download and unpack the ``cma-...tar.gz`` file under the
+above ``Download files link``. The folder ``cma`` from the ``tar`` archive
+can be used without any installation (for ``import`` to find it, it must be
+in the current folder or the Python search paths) or can be installed by
+``pip install -e .``.
 
 Usage Example
 -------------
-In a Python shell::
+In a Python shell:
+
+.. code-block:: python
 
     >>> import cma
     >>> help(cma)
@@ -106,13 +108,20 @@ In a Python shell::
 optimizes the 8-dimensional Rosenbrock function with initial solution all
 zeros and initial ``sigma = 0.5``.
 
-Pretty much the same can be achieved a little less "elaborate" with::
+Pretty much the same can be achieved with the "one-liner"
+
+.. code-block:: python
 
     >>> import cma
     >>> xopt, es = cma.fmin2(cma.ff.rosen, 8 * [0], 0.5)
         <output omitted>
 
-And a little more elaborate exposing the **ask-and-tell interface**::
+where `cma.fmin2`_ provides also options for restarts.
+
+The same can be run via the **ask-and-tell interface** which gives the user direct
+control over the iteration loop of the algorithm:
+
+.. code-block:: python
 
     >>> import cma
     >>> es = cma.CMAEvolutionStrategy(12 * [0], 0.5)
@@ -134,8 +143,12 @@ And a little more elaborate exposing the **ask-and-tell interface**::
     A single run on the 12-dimensional Rosenbrock function. 
 
 
-The ``CMAOptions`` class manages options for ``CMAEvolutionStrategy``,
-e.g. verbosity options can be found like::
+The `CMAOptions`_ class manages the options for `CMAEvolutionStrategy`_.
+The options class allows for substring search.
+For example, verbosity options can be found like
+
+
+.. code-block:: python
 
     >>> import cma
     >>> cma.s.pprint(cma.CMAOptions('erb'))
@@ -147,30 +160,39 @@ e.g. verbosity options can be found like::
      'verb_append': '0  # initial evaluation counter, if append, do not overwrite output files'
      'verb_time': 'True  #v output timings on console'}
 
-Options are passed like::
+Options are passed as another argument, after ``sigma``, to `cma.fmin2`_ or
+`cma.CMAEvolutionStrategy`_ like
+
+.. code-block:: python
 
     >>> import cma
     >>> es = cma.CMAEvolutionStrategy(8 * [0], 0.5,
                                       {'verb_disp': 1}) # display each iteration
 
+.. _`cma.CMAEvolutionStrategy`: https://cma-es.github.io/apidocs-pycma/cma.evolution_strategy.CMAEvolutionStrategy.html
+.. _`cma.purecma.CMAES`: https://cma-es.github.io/apidocs-pycma/cma.purecma.CMAES.html
+.. _`CMAOptions`: https://cma-es.github.io/apidocs-pycma/cma.options_parameters.CMAOptions.html
+.. _`CMAEvolutionStrategy`: https://cma-es.github.io/apidocs-pycma/cma.evolution_strategy.CMAEvolutionStrategy.html
+.. _`cma.fmin2`: https://cma-es.github.io/apidocs-pycma/cma.evolution_strategy.html#fmin2
 
 Documentations
 --------------
 The full package API documentation:
 
-* `version 3+`_ (recent)
+* `current`_
 * `version 1.x`_
 
-.. _`version 3+`: https://cma-es.github.io/apidocs-pycma/
+.. _`current`: https://cma-es.github.io/apidocs-pycma/
 .. _`version 1.x`: http://www.cmap.polytechnique.fr/~nikolaus.hansen/html-pythoncma/
 
 See also
 
-* `Github page hosting this code`_ and its `FAQ`_ (under development)
+* `Links to more documentation`_
+* An `FAQ`_ (under development)
 * `General CMA-ES source code page`_ with practical hints
 * `CMA-ES on Wikipedia`_
 
-.. _`Github page hosting this code`: https://github.com/CMA-ES/pycma
+.. _`Links to more documentation`: https://github.com/CMA-ES/pycma/tree/development?tab=readme-ov-file#documentation-and-getting-started-links
 .. _`FAQ`: https://github.com/CMA-ES/pycma/issues?q=is:issue+label:FAQ
 .. _`General CMA-ES source code page`: https://cma-es.github.io/cmaes_sourcecode_page.html
 .. _`CMA-ES on Wikipedia`: http://en.wikipedia.org/wiki/CMA-ES

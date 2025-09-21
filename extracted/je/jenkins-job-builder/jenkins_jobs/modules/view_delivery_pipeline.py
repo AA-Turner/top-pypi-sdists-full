@@ -48,6 +48,8 @@ Requires the Jenkins :jenkins-plugins:`Delivery Pipeline Plugin
       the delivery pipeline view. (default false)
     * **allow-rebuild** (`bool`): Allow rerunning a task from the delivery
       pipeline view. (default false)
+    * **embedded-css** (`str`): URL for custom CSS file (default '')
+    * **full-screen-css** (`str`): URL for custom CSS file for full screen (default '')
     * **link-relative** (`bool`): Use relative links for jobs in this pipeline
       view to allow for easier navigation. (default false)
     * **link-to-console-log** (`bool`): Changes behaviour of task link in
@@ -134,6 +136,8 @@ class DeliveryPipeline(jenkins_jobs.modules.base.Base):
             ("allow-manual-triggers", "allowManualTriggers", False),
             ("allow-pipeline-start", "allowPipelineStart", False),
             ("allow-rebuild", "allowRebuild", False),
+            ("embedded-css", "embeddedCss", ""),
+            ("full-screen-css", "fullScreenCss", ""),
             ("link-relative", "linkRelative", False),
             ("link-to-console-log", "linkToConsoleLog", False),
             ("max-number-of-visible-pipelines", "maxNumberOfVisiblePipelines", -1),

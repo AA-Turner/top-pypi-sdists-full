@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uvicorn-worker
-Version: 0.3.0
+Version: 0.4.0
 Summary: Uvicorn worker for Gunicorn! ✨
 Project-URL: Changelog, https://github.com/Kludex/uvicorn-worker/releases
 Project-URL: Funding, https://github.com/sponsors/Kludex
@@ -19,9 +19,10 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
-Requires-Dist: gunicorn>=20.1.0
-Requires-Dist: uvicorn>=0.15.0
+Requires-Dist: gunicorn>=21.0.0
+Requires-Dist: uvicorn>=0.36.0
 Description-Content-Type: text/markdown
 
 # Uvicorn Worker

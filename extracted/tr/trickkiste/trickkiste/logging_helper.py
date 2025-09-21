@@ -160,10 +160,18 @@ def setup_logging(  # pylint: disable=too-many-arguments
                 show_path=False,
                 markup=True,
                 console=Console(
+                    # rich defaults to stdout even for logging so we have to fix it here
                     stderr=True,
-                    color_system="standard"
-                    if os.environ.get("FORCE_COLOR")
-                    else "auto",
+                    # also rich only runs isatty() on the output file to check whether to
+                    # activate color, which can be True for sys.stderr in pipes.
+                    # so we turn it off here if we know sys.stdout is not atty.
+                    # In case FORCE_COLOR is set we leave it up to rich again (because otherwise
+                    # we'd efectively ignore FORCE_COLOR when running in a pipe)
+                    color_system=(
+                        "auto"
+                        if sys.stdout.isatty() or os.getenv("FORCE_COLOR")
+                        else None
+                    ),
                 ),
             ),
             show_level,

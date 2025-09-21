@@ -2075,7 +2075,7 @@ def unsubdivide(
     :type iterations: int
     """
 
-def weld_verts(bm: bmesh.types.BMesh, targetmap={}) -> None:
+def weld_verts(bm: bmesh.types.BMesh, targetmap={}, use_centroid: bool = False) -> None:
     """Weld Verts.Welds verts together (kind-of like remove doubles, merge, etc, all of which
     use or will use this BMOP). You pass in mappings from vertices to the vertices
     they weld with.
@@ -2083,6 +2083,9 @@ def weld_verts(bm: bmesh.types.BMesh, targetmap={}) -> None:
         :param bm: The bmesh to operate on.
         :type bm: bmesh.types.BMesh
         :param targetmap: Maps welded vertices to verts they should weld to.
+        :param use_centroid: Merged vertices to their centroid position,
+    otherwise the position of the target vertex is used.
+        :type use_centroid: bool
     """
 
 def wireframe(

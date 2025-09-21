@@ -30,6 +30,117 @@ from copy import copy
 from radboy.DB.OrderedAndRxd import *
 
 class HealthLogUi:
+	def last_dose(self):
+		with localcontext() as ctx:
+			with Session(ENGINE) as session:
+				status=0
+				ct=5
+				
+				lai=session.query(HealthLog).filter(and_(HealthLog.LongActingInsulinName!=None,HealthLog.LongActingInsulinTaken!=None))
+				lai=orderQuery(lai,HealthLog.DTOE,inverse=True).first()
+				if lai:
+					print(f"{Fore.light_steel_blue}Long Acting Insulin : HowLongAgo({Fore.sea_green_2}{datetime.now()-lai.DTOE}){Style.reset}")
+					num=0
+					view=[]
+					view.append(f"{Fore.green_3b}Name: {Fore.sea_green_2}'\n{lai.LongActingInsulinName}' {Fore.green_3b}\nTaken: {Fore.sea_green_2}{lai.LongActingInsulinTaken} {Fore.green_3b}Unit: {Fore.sea_green_2}{lai.LongActingInsulinUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{lai.HLID} {Fore.green_3b}DTOE:{Fore.sea_green_2}{lai.DTOE}{Style.reset}")
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				sai=session.query(HealthLog).filter(and_(HealthLog.ShortActingInsulinName!=None,HealthLog.ShortActingInsulinTaken!=None))
+				sai=orderQuery(sai,HealthLog.DTOE,inverse=True).first()
+				if sai:
+					print(f"{Fore.light_steel_blue}Short Acting Insulin : {Fore.green_3b}HowLongAgo({Fore.sea_green_2}{datetime.now()-sai.DTOE}){Style.reset}")
+					num=1
+					view=[]
+					view.append(f"{Fore.green_3b}Name: {Fore.sea_green_2}'\n{sai.ShortActingInsulinName}' {Fore.green_3b}\nTaken: {Fore.sea_green_2}{sai.ShortActingInsulinTaken} {Fore.green_3b}Unit: {Fore.sea_green_2}{sai.ShortActingInsulinUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{sai.HLID} {Fore.green_3b}DTOE:{Fore.sea_green_2}{sai.DTOE}{Style.reset}")
+
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				last_carb=session.query(HealthLog).filter(and_(HealthLog.CarboHydrateIntake!=None,HealthLog.EntryName!=None))
+				last_carb=orderQuery(last_carb,HealthLog.DTOE,inverse=True).first()
+				if last_carb:
+					print(f"{Fore.light_steel_blue}CarboHydrateIntake : HowLongAgo({Fore.sea_green_2}{datetime.now()-last_carb.DTOE}){Style.reset}")
+					num=2					
+					view=[]
+					for x in last_carb.__table__.columns:
+						if getattr(last_carb,str(x.name)) not in [None]:
+							view.append(f'{Fore.green_3b}{Style.bold}{str(x.name)}{Fore.deep_sky_blue_1}={Fore.sea_green_2}{str(getattr(last_carb,str(x.name)))}{Style.reset}')
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				drug=session.query(HealthLog).filter(HealthLog.DrugQtyConsumed!=None)
+				drug=orderQuery(drug,HealthLog.DTOE,inverse=True).first()
+				if drug:
+					print(f"{Fore.light_steel_blue}Last Drug Dose Taken : HowLongAgo({Fore.sea_green_2}{datetime.now()-drug.DTOE}){Style.reset}")
+					num=3
+					view=[]
+					view.append(f"{Fore.green_3b}Name:{Fore.sea_green_2}{drug.EntryName} {Fore.green_3b}\nBarcode:{Fore.sea_green_2}{drug.EntryBarcode} \n{Fore.green_3b}Drug Name: {Fore.sea_green_2}'{drug.DrugConsumed}' \n{Fore.green_3b}Taken: {Fore.sea_green_2}{lai.DrugQtyConsumed} {Fore.green_3b}Unit: {Fore.sea_green_2}{drug.DrugQtyConsumedUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{drug.HLID} {Fore.green_3b}DTOE:{Fore.sea_green_2}{drug.DTOE}{Style.reset}")
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+
+				glucose=session.query(HealthLog).filter(and_(HealthLog.BloodSugar!=None,))
+				glucose=orderQuery(glucose,HealthLog.DTOE,inverse=True).first()
+				if glucose:
+					print(f"{Fore.light_steel_blue}Blood Sugar : HowLongAgo({Fore.sea_green_2}{datetime.now()-glucose.DTOE})")
+					num=0
+					view=[]
+					view.append(f"{Fore.green_3b}Blood Sugar/Glucose No. : {Fore.sea_green_2}{glucose.BloodSugar} {Fore.green_3b}Unit:{Fore.sea_green_2}{glucose.BloodSugarUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{glucose.HLID} {Fore.green_3b}DTOE: {Fore.sea_green_2}{glucose.DTOE}{Style.reset}")
+
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				height=session.query(HealthLog).filter(and_(HealthLog.Height!=None,))
+				height=orderQuery(height,HealthLog.DTOE,inverse=True).first()
+				if height:
+					print(f"{Fore.light_steel_blue}Height : HowLongAgo({Fore.sea_green_2}{datetime.now()-height.DTOE})")
+					num=0
+					view=[]
+					view.append(f"{Fore.green_3b}Height : {Fore.sea_green_2}{height.Height} {Fore.green_3b}Unit:{Fore.sea_green_2}{height.HeightUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{height.HLID} {Fore.green_3b}DTOE: {Fore.sea_green_2}{height.DTOE}{Style.reset}")
+
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				weight=session.query(HealthLog).filter(and_(HealthLog.Weight!=None,))
+				weight=orderQuery(weight,HealthLog.DTOE,inverse=True).first()
+				if weight:
+					print(f"{Fore.green_3b}Weight : HowLongAgo({Fore.sea_green_2}{datetime.now()-weight.DTOE})")
+					num=0
+					view=[]
+					view.append(f"{Fore.light_steel_blue}Weight : {Fore.sea_green_2}{weight.Weight} {Fore.green_3b}Unit:{Fore.sea_green_2}{weight.WeightUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{weight.HLID} {Fore.green_3b}DTOE: {Fore.sea_green_2}{weight.DTOE}{Style.reset}")
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				heartRate=session.query(HealthLog).filter(and_(HealthLog.HeartRate!=None,))
+				heartRate=orderQuery(heartRate,HealthLog.DTOE,inverse=True).first()
+				if heartRate:
+					print(f"{Fore.light_steel_blue}Heart Rate : HowLongAgo({Fore.sea_green_2}{datetime.now()-heartRate.DTOE})")
+					num=0
+					view=[]
+					view.append(f"{Fore.green_3b}HeartRate : {Fore.sea_green_2}{heartRate.HeartRate} {Fore.green_3b}Unit:{Fore.sea_green_2}{heartRate.HeartRateUnitName} {Fore.green_3b}\nHLID: {Fore.sea_green_2}{heartRate.HLID} {Fore.green_3b}DTOE: {Fore.sea_green_2}{heartRate.DTOE}")
+					msg=f"{'|'.join(view)}"
+					print(std_colorize(msg,num,ct))
+				else:
+					status+=1
+
+				if status >= 4:
+					print("There is nothing to display!")
+				
 	def edit_hlid(self):
 		with Session(ENGINE) as session:
 			hlid=Prompt.__init2__(None,func=FormBuilderMkText,ptext="HLID to Edit?: ",helpText="what healthlod id do you wish to edit?",data="integer")
@@ -275,6 +386,10 @@ class HealthLogUi:
 				'default':retVal(i.default),
 				'type':str(i.type).lower(),
 				} for i in hl.__table__.columns if str(i.name) not in excludes and str(i.name) in useColumns
+			}
+			fields['DTOE']={
+			'default':datetime.now(),
+			'type':'datetime',
 			}
 			if fields in [{},None]:
 				print(fields,"empty!")
@@ -1070,6 +1185,11 @@ class HealthLogUi:
 			'cmds':['ordered and recieved','oar','ordered and rxd','ordered & rxd','ordered & recieved','o&r'],
 			'desc':'ordered and recieved journal',
 			'exec':lambda self=self:OrderAndRxdUi()
+			},
+			str(uuid1()):{
+			'cmds':generate_cmds(startcmd=['last',],endCmd=['dse','dose','ds']),
+			'desc':'review last doses',
+			'exec':lambda self=self:self.last_dose()
 			},
 			'xpt consumed':{
 				'cmds':['xptfd','xpt fd','xpt food','xpt-fd','xpt fuel','xpt fl','xlfl'],

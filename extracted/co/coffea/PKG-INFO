@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2025.7.3
+Version: 2025.9.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -28,11 +28,11 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Requires-Dist: aiohttp
-Requires-Dist: awkward>=2.8.2
+Requires-Dist: awkward>=2.8.9
 Requires-Dist: cachetools
 Requires-Dist: cloudpickle>=1.2.3
 Requires-Dist: correctionlib>=2.6.0
-Requires-Dist: dask-awkward>=2025.5.0
+Requires-Dist: dask-awkward>=2025.9.0
 Requires-Dist: dask-histogram>=2025.2.0
 Requires-Dist: dask[array]>=2024.3.0
 Requires-Dist: hist>=2
@@ -43,7 +43,7 @@ Requires-Dist: numba>=0.58.1
 Requires-Dist: numpy>=1.22
 Requires-Dist: packaging
 Requires-Dist: pandas
-Requires-Dist: pyarrow<21.0.0,>=6.0.0
+Requires-Dist: pyarrow>=6.0.0
 Requires-Dist: requests
 Requires-Dist: scipy>=1.1.0
 Requires-Dist: toml>=0.10.2

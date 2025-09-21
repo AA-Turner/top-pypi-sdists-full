@@ -14,21 +14,15 @@ class ListAvailableTeamsChannelsResponse200Item:
     Attributes:
         channel_name (Union[Unset, str]):
         channel_id (Union[Unset, str]):
-        service_url (Union[Unset, str]):
-        tenant_id (Union[Unset, str]):
     """
 
     channel_name: Union[Unset, str] = UNSET
     channel_id: Union[Unset, str] = UNSET
-    service_url: Union[Unset, str] = UNSET
-    tenant_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         channel_name = self.channel_name
         channel_id = self.channel_id
-        service_url = self.service_url
-        tenant_id = self.tenant_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -37,10 +31,6 @@ class ListAvailableTeamsChannelsResponse200Item:
             field_dict["channel_name"] = channel_name
         if channel_id is not UNSET:
             field_dict["channel_id"] = channel_id
-        if service_url is not UNSET:
-            field_dict["service_url"] = service_url
-        if tenant_id is not UNSET:
-            field_dict["tenant_id"] = tenant_id
 
         return field_dict
 
@@ -51,15 +41,9 @@ class ListAvailableTeamsChannelsResponse200Item:
 
         channel_id = d.pop("channel_id", UNSET)
 
-        service_url = d.pop("service_url", UNSET)
-
-        tenant_id = d.pop("tenant_id", UNSET)
-
         list_available_teams_channels_response_200_item = cls(
             channel_name=channel_name,
             channel_id=channel_id,
-            service_url=service_url,
-            tenant_id=tenant_id,
         )
 
         list_available_teams_channels_response_200_item.additional_properties = d

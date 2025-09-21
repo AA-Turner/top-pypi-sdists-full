@@ -4,7 +4,7 @@ import requests
 
 from django.contrib.auth.models import User
 
-from allianceauth import NAME
+from allianceauth import __title_useragent__, __url__, __version__
 from allianceauth.srp.providers import esi
 
 from .models import SrpUserRequest
@@ -24,7 +24,7 @@ class SRPManager:
     def get_kill_data(kill_id):
         url = ("https://zkillboard.com/api/killID/%s/" % kill_id)
         headers = {
-            'User-Agent': NAME,
+            'User-Agent': f'{__title_useragent__}/{__version__} (+{__url__})',
             'Content-Type': 'application/json',
         }
         r = requests.get(url, headers=headers)

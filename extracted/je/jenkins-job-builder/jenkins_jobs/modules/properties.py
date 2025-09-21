@@ -73,6 +73,13 @@ def builds_chain_fingerprinter(registry, xml_parent, data):
     helpers.convert_mapping_to_xml(fingerprinter, data, mapping, fail_required=True)
 
 
+def _get_ownership_tag(xml_parent):
+    ownership_tag = (
+        "com.synopsys.arc.jenkins.plugins.ownership.jobs.JobOwnerJobProperty"
+    )
+    return xml_parent.find(ownership_tag) or XML.SubElement(xml_parent, ownership_tag)
+
+
 def ownership(registry, xml_parent, data):
     """yaml: ownership
     Plugin provides explicit ownership for jobs and slave nodes.
@@ -88,10 +95,7 @@ def ownership(registry, xml_parent, data):
     .. literalinclude:: /../../tests/properties/fixtures/ownership.yaml
        :language: yaml
     """
-    ownership_plugin = XML.SubElement(
-        xml_parent,
-        "com.synopsys.arc.jenkins.plugins.ownership.jobs.JobOwnerJobProperty",
-    )
+    ownership_plugin = _get_ownership_tag(xml_parent)
     ownership = XML.SubElement(ownership_plugin, "ownership")
     owner = str(data.get("enabled", True)).lower()
     XML.SubElement(ownership, "ownershipEnabled").text = owner
@@ -101,6 +105,27 @@ def ownership(registry, xml_parent, data):
     coownersIds = XML.SubElement(ownership, "coownersIds")
     for coowner in data.get("co-owners", []):
         XML.SubElement(coownersIds, "string").text = coowner
+
+
+def ownership_item_specific_security(registry, xml_parent, data, job_data):
+    """yaml: ownership-item-specific-security
+    Item-specific access rights provided by the ownership plugin.
+
+    Requires the Jenkins :jenkins-plugins:`Ownership Plugin <ownership>`.
+
+    See :func:`authorization` for details.
+
+    Example:
+
+    .. literalinclude:: /../../tests/properties/fixtures/ownership-item-specific-security.yaml
+       :language: yaml
+    """
+    ownership_plugin = _get_ownership_tag(xml_parent)
+    security = XML.SubElement(ownership_plugin, "itemSpecificSecurity")
+    authorization(registry, security, data, job_data)
+    security.find(
+        "hudson.security.AuthorizationMatrixProperty"
+    ).tag = "permissionsMatrix"
 
 
 def promoted_build(registry, xml_parent, data):
@@ -634,7 +659,7 @@ def authorization(registry, xml_parent, data, job_data):
             {"class": inheritance_strategy},
         )
 
-        for (username, perms) in data.items():
+        for username, perms in data.items():
             if username != "inheritance-strategy":
                 for perm in perms:
                     pe = XML.SubElement(matrix, "permission")

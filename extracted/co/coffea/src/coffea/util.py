@@ -11,6 +11,7 @@ import hist
 import numba
 import numpy
 import uproot
+from dask.base import unpack_collections
 from rich.progress import (
     BarColumn,
     Column,
@@ -41,14 +42,33 @@ def load(filename):
     return output
 
 
-def save(output, filename):
-    """Save a coffea object or collection thereof to disk
+def save(output, filename, fast=True):
+    """Save a coffea object or collection thereof to disk.
 
     This function can accept any picklable object.  Suggested suffix: ``.coffea``
+
+    If `fast` is set to `True`, it will use fast mode of the python pickler
+    (see https://docs.python.org/3/library/pickle.html).
+    This has no memory overhead, while the default creates a copy in memory.
+    However, it could in principle cause issues with recursive objects, so
+    care should be taken.
     """
-    with lz4.frame.open(filename, "wb") as fout:
-        thepickle = cloudpickle.dumps(output)
-        fout.write(thepickle)
+    try:
+        with lz4.frame.open(filename, "wb") as fout:
+            p = cloudpickle.Pickler(fout)
+            p.fast = fast
+            p.dump(output)
+    except ValueError as e:
+        if fast:
+            # Try again without fast on a cyclic error
+            save(output, filename, fast=False)
+            warnings.warn(
+                f"Could not save object to path '{filename}' "
+                "in fast mode due to possible recursion in object. "
+                "Falling back to default saving."
+            )
+        else:
+            raise e
 
 
 def _hex(string):
@@ -197,6 +217,26 @@ def rewrap_recordarray(layout, depth, data, **kwargs):
     if isinstance(layout, awkward.contents.RecordArray):
         return data
     return None
+
+
+def maybe_map_partitions(func, *args, **kwargs):
+    _MP_ONLY = {
+        "label",
+        "token",
+        "meta",
+        "output_divisions",
+        "traverse",
+        "opt_touch_all",
+    }
+    traverse = kwargs.pop("traverse", True)
+
+    func_kwargs = {k: v for k, v in kwargs.items() if k not in _MP_ONLY}
+    deps, _ = unpack_collections(*args, *func_kwargs.values(), traverse=traverse)
+
+    if len(deps) > 0:
+        return dask_awkward.map_partitions(func, *args, traverse=traverse, **kwargs)
+
+    return func(*args, **func_kwargs)
 
 
 # shorthand for compressing forms

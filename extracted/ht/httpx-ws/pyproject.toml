@@ -1,11 +1,23 @@
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["I", "UP"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=httpx_ws/ --cov-report=term-missing"
+
+[tool.basedpyright]
+venv = "httpx-ws"
+venvPath = "./.hatch"
+reportUnannotatedClassAttribute = 'none'
+reportUnknownArgumentType = 'none'
+reportUnknownParameterType = 'none'
+reportMissingParameterType = 'none'
+reportUnusedParameter = 'none'
+reportUnusedCallResult = 'none'
+reportUnknownVariableType = 'none'
+reportExplicitAny = 'none'
 
 [tool.hatch]
 
@@ -68,7 +80,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -76,7 +87,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Internet :: WWW/HTTP :: Session",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "anyio>=4",
     "httpx>=0.23.1",

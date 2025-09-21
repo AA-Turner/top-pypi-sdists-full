@@ -1133,46 +1133,60 @@ class IApplication(IContainer):
     @abstractmethod
     def config(
         self,
-        key: str = None
+        key: str = None,
+        value: Any = None
     ) -> Any:
         """
-        Retrieve application configuration values using dot notation.
+        Retrieve or set application configuration values using dot notation.
 
-        This method provides access to the application's configuration settings,
-        supporting retrieval of nested values using dot notation (e.g., "database.default").
-        If a key is provided, the method returns the corresponding configuration value.
-        If no key is provided, it returns the entire configuration dictionary, excluding
-        path-related configuration (which should be accessed via the `path()` method).
+        If only `key` is provided, returns the configuration value for that key.
+        If both `key` and `value` are provided, sets the configuration value.
+        If neither is provided, returns the entire configuration dictionary (excluding 'path').
 
         Parameters
         ----------
         key : str, optional
-            The configuration key to retrieve, supporting dot notation for nested
-            values (e.g., "database.default", "app.name"). If None, the method returns
-            the entire configuration dictionary except for the 'path' configuration.
-            Default is None.
+            Dot-notated configuration key (e.g., "database.default"). If None, returns all config.
+        value : Any, optional
+            Value to set for the given key. If None, performs a get operation.
 
         Returns
         -------
         Any
-            If `key` is provided and found, returns the corresponding configuration value.
-            If `key` is None, returns the entire configuration dictionary (excluding 'path').
-            If the key is not found, returns None.
+            The configuration value, or None if not found.
 
         Raises
         ------
         OrionisRuntimeError
-            If the application configuration has not been initialized (i.e., if `create()`
-            has not been called before accessing configuration).
+            If configuration is not initialized.
         OrionisValueError
-            If the provided `key` parameter is not a string type.
+            If key is not a string.
+        """
+        pass
+
+    @abstractmethod
+    def resetConfig(
+        self
+    ) -> 'IApplication':
+        """
+        Reset the application configuration to an uninitialized state.
+
+        This method clears the current runtime configuration and marks the application
+        as unconfigured, allowing for re-initialization of the configuration by calling
+        `create()` again. This is useful in scenarios such as testing or when dynamic
+        reloading of configuration is required.
 
         Notes
         -----
-        The method traverses nested configuration structures by splitting the key
-        on dots and navigating through dictionary levels. Path configurations are
-        excluded from full configuration returns and should be accessed via the
-        `path()` method instead.
+        - After calling this method, you must call `create()` to reinitialize
+          the configuration before accessing it again.
+        - This method does not affect other aspects of the application state,
+          such as registered providers or boot status.
+
+        Returns
+        -------
+        Application
+            Returns the current `Application` instance to enable method chaining.
         """
         pass
 
@@ -1184,7 +1198,7 @@ class IApplication(IContainer):
         """
         Retrieve application path configuration values using dot notation.
 
-        Provides access to the application's path configuration, allowing retrieval of either a specific path value or the entire paths configuration dictionary. If a key is provided, the corresponding path is returned as a `Path` object. If no key is provided, a dictionary mapping all path configuration keys to their resolved `Path` objects is returned.
+        This method provides access to the application's path configuration, allowing retrieval of either a specific path value or the entire paths configuration dictionary. If a key is provided, the corresponding path is returned as a `Path` object. If no key is provided, a dictionary mapping all path configuration keys to their resolved `Path` objects is returned.
 
         Parameters
         ----------
@@ -1196,7 +1210,7 @@ class IApplication(IContainer):
         -------
         Path or dict
             If `key` is provided and found, returns the resolved `Path` object for that key.
-            If `key` is None, returns a dictionary mapping all path keys to their `Path` objects.
+            If `key` is None, returns a dictionary mapping all path keys to their resolved `Path` objects.
             If `key` is not found, returns None.
 
         Raises
@@ -1237,9 +1251,8 @@ class IApplication(IContainer):
         1. Load and process all configuration from configurators
         2. Register core framework service providers
         3. Register and boot all service providers
-        4. Initialize framework kernels (Testing, CLI)
-        5. Log successful startup with timing information
-        6. Mark application as booted to prevent re-initialization
+        4. Initialize framework kernels
+        5. Mark application as booted to prevent re-initialization
 
         This method is idempotent - calling it multiple times will not cause
         duplicate initialization. The startup time is calculated and logged
@@ -1271,5 +1284,32 @@ class IApplication(IContainer):
         -----
         The environment is typically defined in the application configuration and can be set to values such as 'development', 'testing', or 'production'.
         This method is useful for conditionally executing code based on the environment, such as enabling/disabling debug features or logging verbosity.
+        """
+        pass
+
+    @abstractmethod
+    def isDebug(
+        self
+    ) -> bool:
+        """
+        Check if the application is running in debug mode.
+
+        This method determines whether the current application is set to run in debug mode.
+        It checks the 'app.debug' configuration value to make this determination.
+
+        Returns
+        -------
+        bool
+            True if the application is in debug mode, False otherwise.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If the application configuration has not been initialized (i.e., if `create()` has not been called).
+
+        Notes
+        -----
+        The debug mode is typically defined in the application configuration and can be enabled or disabled based on the environment or specific settings.
+        This method is useful for conditionally executing code based on whether debugging features should be active, such as detailed error reporting or verbose logging.
         """
         pass

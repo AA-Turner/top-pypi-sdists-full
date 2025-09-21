@@ -649,6 +649,63 @@ def svn_tags_param(registry, xml_parent, data):
     helpers.convert_mapping_to_xml(pdef, data, mapping, fail_required=True)
 
 
+def rest_list_param(registry, xml_parent, data):
+    """yaml: rest-list
+    REST List Parameter
+
+    Requires the Jenkins :jenkins-plugins:`REST List Parameter
+    <rest-list-parameter>`.
+
+    :arg str name: the name of the parameter
+    :arg str rest-endpoint: the url of the REST API endpoint
+    :arg str credentials-id: Credentials ID to use for authentication
+        (default '')
+    :arg str filter: the regular expression to filter the already parsed values (default '.*')
+    :arg str mime-type: the expected response type of the endpoint
+    :arg str value-expression: the Json-Path or xPath used to parse values
+    :arg str display-expression: the Json-Path or xPath used to dictate how the values get displayed
+    :arg int cache-time: the time in minutes to cache API response
+    :arg str default-value: the per-selected default value (must be within the received value list)
+        (default '')
+    :arg str value-order: the sort order of the values ('ASC' || 'DSC' || 'NONE') (default: 'NONE')
+
+    Example::
+
+      parameters:
+        - rest-list:
+            name: REST_VALUE
+            description: ''
+            rest-endpoint: 'http://test.lan'
+            credentials-id: ''
+            mime-type: 'APPLICATION_JSON'
+            value-expression: '$.*'
+            display-expression: '$'
+            cache-time: 10
+            default-value: ''
+            filter: '.*'
+            value-order: 'ASC'
+    """
+    pdef = base_param(
+        registry,
+        xml_parent,
+        data,
+        False,
+        "io.jenkins.plugins.restlistparam.RestListParameterDefinition",
+    )
+    mapping = [
+        ("rest-endpoint", "restEndpoint", ""),
+        ("mime-type", "mimeType", ""),
+        ("credentials-id", "credentialId", ""),
+        ("value-expression", "valueExpression", "$.*"),
+        ("display-expression", "displayExpression", "$"),
+        ("cache-time", "cacheTime", 0),
+        ("default-value", "defaultValue", ""),
+        ("filter", "filter", ".*"),
+        ("value-order", "valueOrder", "NONE"),
+    ]
+    helpers.convert_mapping_to_xml(pdef, data, mapping, fail_required=True)
+
+
 def dynamic_choice_param(registry, xml_parent, data):
     """yaml: dynamic-choice
     Dynamic Choice Parameter

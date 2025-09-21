@@ -104,6 +104,9 @@ view_contents_keys = {
     "columns",
     "regex",
     "recurse",
+    # Categorized.
+    "regex_to_ignore_on_color_computing",
+    "categorization_criteria",
     # Sectioned.
     "sections",
     # SectionedText.
@@ -117,6 +120,8 @@ view_contents_keys = {
     "allow-manual-triggers",
     "allow-pipeline-start",
     "allow-rebuild",
+    "embedded-css",
+    "full-screen-css",
     "link-relative",
     "link-to-console-log",
     "max-number-of-visible-pipelines",

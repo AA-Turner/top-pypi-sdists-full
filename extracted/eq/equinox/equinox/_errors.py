@@ -1,10 +1,9 @@
 import functools as ft
-import inspect
 import traceback
 import types
 import warnings
 from collections.abc import Sequence
-from typing import Literal
+from typing import Any, cast, Literal
 
 import jax
 import jax._src.traceback_util as traceback_util
@@ -131,22 +130,12 @@ def _error(x, pred, index, *, msgs, on_error, stack):
 
         def handle_error():
             index_struct = jax.eval_shape(lambda: index)
-            _index = jax.pure_callback(
-                display_msg, index_struct, index, vectorized=True
+            _index = jax.pure_callback(display_msg, index_struct, index)
+            _index = jax.debug.breakpoint(
+                token=_index, num_frames=EQX_ON_ERROR_BREAKPOINT_FRAMES
             )
-            # Support JAX with and without DCE behaviour on breakpoints.
-            breakpoint_params = inspect.signature(
-                jax.debug.breakpoint
-            ).parameters.keys()
-            breakpoint_kwargs = {}
-            if "token" in breakpoint_params:
-                breakpoint_kwargs["token"] = _index
-            if "vectorized" in breakpoint_params:
-                breakpoint_kwargs["vectorized"] = True
-            if EQX_ON_ERROR_BREAKPOINT_FRAMES is not None:
-                breakpoint_kwargs["num_frames"] = EQX_ON_ERROR_BREAKPOINT_FRAMES
-            _index = jax.debug.breakpoint(**breakpoint_kwargs)
-            return jax.pure_callback(to_nan, struct, _index, vectorized=True)
+            _index = unvmap_max(cast(Any, _index))
+            return jax.pure_callback(to_nan, struct, _index)
 
         struct = jax.eval_shape(lambda: x)
         return lax.cond(pred, handle_error, lambda: x)

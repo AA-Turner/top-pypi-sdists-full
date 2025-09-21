@@ -16,8 +16,7 @@ from redis import Redis
 
 from allianceauth.utils.cache import get_redis_client
 
-from allianceauth import __title__ as AUTH_TITLE
-from allianceauth import __url__, __version__
+from allianceauth import __title_useragent__, __url__, __version__
 
 from .. import __title__
 from ..utils import LoggerAddTag
@@ -647,7 +646,7 @@ class DiscordClient:
         if self.is_rate_limited:
             self._ensure_rate_limed_not_exhausted(uid)
         headers = {
-            'User-Agent': f'{AUTH_TITLE} ({__url__}, {__version__})',
+            'User-Agent': f'{__title_useragent__}/{__version__} (+{__url__})',
             'accept': 'application/json',
             'X-RateLimit-Precision': 'millisecond',
             'authorization': str(authorization)
@@ -675,10 +674,12 @@ class DiscordClient:
         )
         logger.debug('%s: response:\n%s', uid, r.text)
         if not r.ok:
+            member_id = url.split("/")[-1]
             logger.error(
-                '%s: Discord API returned error code %d and this response: %s',
+                '%s: Discord API returned error code %d for member ID %s with this response: %s.',
                 uid,
                 r.status_code,
+                member_id,
                 r.text
             )
 

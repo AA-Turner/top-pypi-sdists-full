@@ -7,8 +7,7 @@ import requests_mock
 from redis import Redis
 from requests.exceptions import HTTPError
 
-from allianceauth import __title__ as AUTH_TITLE
-from allianceauth import __url__, __version__
+from allianceauth import __title_useragent__, __url__, __version__
 from allianceauth.utils.testing import NoSocketsTestCase
 
 from ...utils import set_logger_to_file
@@ -46,7 +45,7 @@ API_BASE_URL = 'https://discord.com/api/'
 TEST_RETRY_AFTER = 3000
 
 DEFAULT_REQUEST_HEADERS = {
-    'User-Agent': f'{AUTH_TITLE} ({__url__}, {__version__})',
+    'User-Agent': f'{__title_useragent__}/{__version__} (+{__url__})',
     'accept': 'application/json',
     'authorization': 'Bot ' + TEST_BOT_TOKEN
 }

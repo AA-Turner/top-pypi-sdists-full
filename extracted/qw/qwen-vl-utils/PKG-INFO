@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qwen-vl-utils
-Version: 0.0.11
+Version: 0.0.13
 Summary: Qwen Vision Language Model Utils - PyTorch
 Project-URL: Homepage, https://github.com/QwenLM/Qwen2-VL/tree/main/qwen-vl-utils
 Project-URL: Repository, https://github.com/QwenLM/Qwen2-VL.git

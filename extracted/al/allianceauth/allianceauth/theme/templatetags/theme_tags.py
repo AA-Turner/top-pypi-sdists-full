@@ -37,7 +37,8 @@ def get_theme(request):
 
 def get_theme_context(request):
     return {
-        'theme': get_theme(request)
+        'theme': get_theme(request),
+        'request': request
     }
 
 

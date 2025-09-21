@@ -265,8 +265,13 @@ GROUPP_CUSER_ = '☐☑'
 GROUPP_CADMIN_ = '☑☐'
 GROUPP_CPAY_ = '☐☐☐'
 GROUPP_CCOMMENT_ = '☑☑'
-GROUPP_CDECOR_ = '☐☐☐'
+GROUPP_CDIALOG_ = '☑☐☐'
 GROUPP_CSYSTEM_ = '☑'
+GROUPP_CCHANNEL_ = '☑☑'
+GROUPP_CLINK_ = '☑☑☑'
+GROUPP_CSYMBOLS_ = '☑☑☑'
+GROUPP_CWORDS_ = '☐☐'
+GROUPP_CVOTE_ = '☑☑'
 
 CHANNEL_CONFIG_ = '☑☑☑☐☐☐☐'
 CHANNEL_CCHECK_ = '☑☐☐☐☐'
@@ -7834,7 +7839,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
     page = data.get('page', '')
     connectedAddress = data.get('connectedAddress', '')
     USER_TID = chat_id
-    USER_DT = USER_HID = None
+    USER_HID = USER_LZ = USER_DT = None
     USER_VARS = json.loads(USER_VARS_)
     USER_LSTS = json.loads(USER_LSTS_)
     USER_GAMES = {}
@@ -7844,49 +7849,47 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
 
     print(f"upd_user_data_main: {lc=}, {USER_LSTS=}")
     try:
-        sql = (f"SELECT USER_TID, USER_HID, USER_DT, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS "
+        sql = (f"SELECT USER_TID, USER_HID, USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS "
                f"FROM \"USER\" WHERE USER_TID=$1")
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # region data
         if len(data_user):
-            USER_TID, USER_HID, USER_DT, USER_LZ, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
+            USER_TID, USER_HID, USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
             if page in ['msg', 'pst']: USER_GAMES = await ch_games(USER_GAMES, 'web', True, balls)
-
-            if lc:
-                USER_VARS['USER_LC'] = lc
-                lz = 'en'
-                if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
-                    lz = 'zh'
-                # arabic    # ir, af
-                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
-                            'af']:
-                    lz = 'ar'
-                # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
-                elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
-                    lz = 'es'
-                # french
-                elif lc in ['fr', 'ch', 'be', 'ca']:
-                    lz = 'fr'
-                # europe
-                elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
-                    lz = 'ru'
-                USER_VARS['USER_LZ'] = lz if not USER_LZ else USER_LZ
+        if not USER_LZ:
+            USER_VARS['USER_LC'] = lc
+            lz = 'en'
+            if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
+                lz = 'zh'
+            # arabic    # ir, af
+            elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
+                        'af']:
+                lz = 'ar'
+            # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
+            elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
+                lz = 'es'
+            # french
+            elif lc in ['fr', 'ch', 'be', 'ca']:
+                lz = 'fr'
+            # europe
+            elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
+                lz = 'ru'
+            USER_LZ = lz
+        if not USER_DT:
+            USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+            USER_HID = hashlib.blake2b(f"{'tid'}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+            if utm: USER_VARS['USER_UTM'] = utm
 
         now = datetime.now(timezone.utc)
         USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now.strftime('%Y-%m-%d')]))
         USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now.strftime('%Y-%m')]))
         USER_VARS['USER_SIG'] = usr_sig
         USER_VARS['USER_ISPREMIUM'] = is_premium
-        lz = USER_VARS.get('USER_LZ', 'en')
-
-        if not USER_DT:
-            USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
-            USER_HID = hashlib.blake2b(f"{'tid'}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
-            if utm: USER_VARS['USER_UTM'] = utm
+        USER_VARS['USER_LZ'] = USER_LZ
         print(f"after {USER_VARS=}")
         # endregion
 
@@ -7931,7 +7934,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
         if not is_paid:
             extra_bot = None
             try:
-                lib_id = channel_library_ru if lz == 'ru' else channel_library_en
+                lib_id = channel_library_ru if USER_LZ == 'ru' else channel_library_en
                 print(f"{channel_library_ru=}, {channel_library_en=}")
                 extra_bot = Bot(token=BOT_TOKEN_E18B)
                 member_ = await extra_bot.get_chat_member(chat_id=lib_id, user_id=chat_id)
@@ -7956,11 +7959,12 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
             USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
             USER_LZ = EXCLUDED.USER_LZ,
             USER_DT = EXCLUDED.USER_DT,
+            
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, lz, USER_DT,
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT,
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)
@@ -7984,7 +7988,7 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
     page = data.get('page', '')
     connectedAddress = data.get('connectedAddress', '')
     USER_TID = chat_id
-    USER_DT = USER_HID = None
+    USER_HID = USER_LZ = USER_DT = None
     USER_VARS = json.loads(USER_VARS_)
     USER_LSTS = json.loads(USER_LSTS_)
     USER_GAMES = {}
@@ -8003,45 +8007,45 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         elif PROJECT_USERNAME == 'FereyUserBot':
             schema_name = 'UB'
         
-        sql = (f"SELECT USER_TID, USER_HID, USER_DT, USER_GAMES, USER_VARS, USER_LSTS "
+        sql = (f"SELECT USER_TID, USER_HID, USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS "
                f"FROM {schema_name}_{tid}.USER WHERE USER_TID=$1")
         data_user = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # region data
         if len(data_user):
-            USER_TID, USER_HID, USER_DT, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
+            USER_TID, USER_HID, USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS = data_user[0]
             USER_GAMES = json.loads(USER_GAMES)
             USER_VARS = json.loads(USER_VARS)
             USER_LSTS = json.loads(USER_LSTS)
             if page in ['msg', 'pst']: USER_GAMES = await ch_games(USER_GAMES, 'web', True, balls)
-
-            if lc:
-                USER_VARS['USER_LC'] = lc
-                lz = 'en'
-                if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
-                    lz = 'zh'
-                # arabic    # ir, af
-                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
-                            'af']:
-                    lz = 'ar'
-                # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
-                elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
-                    lz = 'es'
-                # french
-                elif lc in ['fr', 'ch', 'be', 'ca']:
-                    lz = 'fr'
-                # europe
-                elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
-                    lz = 'ru'
-                USER_VARS['USER_LZ'] = lz
+        if not USER_LZ:
+            USER_VARS['USER_LC'] = lc
+            lz = 'en'
+            if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
+                lz = 'zh'
+            # arabic    # ir, af
+            elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
+                        'af']:
+                lz = 'ar'
+            # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
+            elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
+                lz = 'es'
+            # french
+            elif lc in ['fr', 'ch', 'be', 'ca']:
+                lz = 'fr'
+            # europe
+            elif lc in ['ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky']:
+                lz = 'ru'
+            USER_LZ = lz
+        if not USER_DT: USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
+        if not USER_HID: USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
 
         now = datetime.now(timezone.utc)
         USER_LSTS["USER_DAU"] = list(set(USER_LSTS.get("USER_DAU", []) + [now.strftime('%Y-%m-%d')]))
         USER_LSTS["USER_MAU"] = list(set(USER_LSTS.get("USER_MAU", []) + [now.strftime('%Y-%m')]))
         USER_VARS['USER_SIG'] = usr_sig
         USER_VARS['USER_ISPREMIUM'] = is_premium
-        if not USER_DT: USER_VARS['USER_DT'] = USER_DT = datetime.now(timezone.utc).strftime("%d-%m-%Y_%H-%M-%S")
-        if not USER_HID: USER_HID = hashlib.blake2b(f"{tid}-{chat_id}".encode('utf-8'), digest_size=4).hexdigest()
+        USER_VARS['USER_LZ'] = USER_LZ
         # endregion
 
         # region tx
@@ -8070,21 +8074,23 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         sql = f""" 
         INSERT INTO {schema_name}_{tid}.USER (
             USER_TID, USER_HID, USER_USERNAME, USER_FULLNAME, USER_ISPREMIUM, 
-            USER_DT, USER_GAMES, USER_VARS, USER_LSTS
+            USER_LZ, USER_DT, USER_GAMES, USER_VARS, USER_LSTS
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (USER_TID) DO UPDATE
         SET 
             USER_HID = EXCLUDED.USER_HID,
             USER_USERNAME = EXCLUDED.USER_USERNAME,
             USER_FULLNAME = EXCLUDED.USER_FULLNAME,
             USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
+            USER_LZ = EXCLUDED.USER_LZ,
             USER_DT = EXCLUDED.USER_DT,
+            
             USER_GAMES = EXCLUDED.USER_GAMES,
             USER_VARS = EXCLUDED.USER_VARS,
             USER_LSTS = EXCLUDED.USER_LSTS
         """
-        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_DT,
+        await db_change_pg(sql, (USER_TID, USER_HID, username, full_name, is_premium, USER_LZ, USER_DT,
                                  json.dumps(USER_GAMES, ensure_ascii=False),
                                  json.dumps(USER_VARS, ensure_ascii=False),
                                  json.dumps(USER_LSTS, ensure_ascii=False),), BASE_P)

@@ -85,7 +85,9 @@ def _check_response_for_errors(response: dict) -> None:
         "Key not authorized: Token is expired": AuthenticationError
     }
 
-    if not any(x in response for x in ["retCode", "resCode", "resMsg", "error"]):
+    if not any(
+        x in response for x in ["retCode", "resCode", "resMsg", "error", "access_token"]
+    ):
         _LOGGER.error(f"Unknown API response format: {response}")
         raise InvalidAPIResponseError()
 
@@ -335,6 +337,10 @@ class ApiImplType1(ApiImpl):
         vehicle.ev_battery_percentage = get_child_value(
             state, "Green.BatteryManagement.BatteryRemain.Ratio"
         )
+        if get_child_value(state, "Green.Electric.SmartGrid.RealTimePower"):
+            vehicle.ev_charging_power = get_child_value(
+                state, "Green.Electric.SmartGrid.RealTimePower"
+            )
         vehicle.ev_battery_remain = get_child_value(
             state, "Green.BatteryManagement.BatteryRemain.Value"
         )

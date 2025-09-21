@@ -8385,6 +8385,73 @@ def discord_notifier(registry, xml_parent, data):
         (XML.SubElement(notifier, attr).text) = value
 
 
+def discard_old_build(registry, xml_parent, data):
+    """yaml: discard-old-build
+    This plugin allows for more settings on which build to discard
+    Requires the Jenkins :jenkins-plugins:`discard-old-build`.
+
+    :arg int day-to-Keep: Sets the amount of days a build will be kept before
+        being discarded by the plugin (default -1)
+    :arg int num-to-keep: Sets the quantity of builds that can be present in
+        the history before the plugin begins discarding them (default -1)
+    :arg int min-log-fileSize: Sets a file size in bytes (B) that log files
+        must remain over to be kept in the build history (default -1)
+    :arg int max-log-fileSize: Sets a file size in bytes (B) that log files
+        must remain under to be kept in the build history (default -1)
+    :arg int interval-days-to-keep: A specialized setting allowing a user to
+        request that builds separated by a declared interval of age are always
+        kept (default -1)
+    :arg int interval-num-to-keep: A specialized setting allowing a user to
+        request that builds separated by a declared interval of build quantity
+        are always kept (default -1)
+    :arg bool keep-last-builds: Removes last builds from build history array
+        prior to being passed through any discard conditions. The last builds
+        are: lastCompletedBuild, lastFailedBuild, lastStableBuild,
+        lastSuccessfulBuild, lastUnstableBuild and lastUnsuccessfulBuild
+        (default false)
+    :arg bool hold-max-builds: Allows a user to request both quantity and age
+        conditions be met prior to build discard (default false)
+    :arg str regexp: Parses log files and discards those that contain a
+        user-defined expression (default '')
+
+    Minimal Example:
+
+     .. literalinclude::
+         /../../tests/publishers/fixtures/discard-old-build-minimal.yaml
+        :language: yaml
+
+     Full Example:
+
+     .. literalinclude::
+         /../../tests/publishers/fixtures/discard-old-build-full.yaml
+         :language: yaml
+
+    """
+
+    root = XML.SubElement(
+        xml_parent, "org.jenkinsci.plugins.discardbuild.DiscardBuildPublisher"
+    )
+
+    mapping1 = [
+        ("day-to-Keep", "daysToKeep", -1),
+        ("num-to-keep", "numToKeep", -1),
+    ]
+    helpers.convert_mapping_to_xml(root, data, mapping1, fail_required=True)
+
+    XML.SubElement(root, "resultsToDiscard")
+
+    mapping2 = [
+        ("min-log-fileSize", "minLogFileSize", -1),
+        ("max-log-fileSize", "maxLogFileSize", -1),
+        ("interval-days-to-keep", "intervalDaysToKeep", -1),
+        ("interval-num-to-keep", "intervalNumToKeep", -1),
+        ("keep-last-builds", "keepLastBuilds", False),
+        ("hold-max-builds", "holdMaxBuilds", False),
+        ("regexp", "regexp", ""),
+    ]
+    helpers.convert_mapping_to_xml(root, data, mapping2, fail_required=True)
+
+
 class Publishers(jenkins_jobs.modules.base.Base):
     sequence = 70
 

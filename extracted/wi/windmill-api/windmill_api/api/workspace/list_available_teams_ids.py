@@ -6,19 +6,27 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_available_teams_ids_response_200_item import ListAvailableTeamsIdsResponse200Item
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
+    *,
+    search: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["search"] = search
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/w/{workspace}/workspaces/available_teams_ids".format(
             workspace=workspace,
         ),
+        "params": params,
     }
 
 
@@ -55,11 +63,13 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    search: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAvailableTeamsIdsResponse200Item"]]:
     """list available teams ids
 
     Args:
         workspace (str):
+        search (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +81,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        search=search,
     )
 
     response = client.get_httpx_client().request(
@@ -84,11 +95,13 @@ def sync(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    search: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAvailableTeamsIdsResponse200Item"]]:
     """list available teams ids
 
     Args:
         workspace (str):
+        search (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,6 +114,7 @@ def sync(
     return sync_detailed(
         workspace=workspace,
         client=client,
+        search=search,
     ).parsed
 
 
@@ -108,11 +122,13 @@ async def asyncio_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    search: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAvailableTeamsIdsResponse200Item"]]:
     """list available teams ids
 
     Args:
         workspace (str):
+        search (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +140,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        search=search,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -135,11 +152,13 @@ async def asyncio(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    search: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAvailableTeamsIdsResponse200Item"]]:
     """list available teams ids
 
     Args:
         workspace (str):
+        search (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,5 +172,6 @@ async def asyncio(
         await asyncio_detailed(
             workspace=workspace,
             client=client,
+            search=search,
         )
     ).parsed

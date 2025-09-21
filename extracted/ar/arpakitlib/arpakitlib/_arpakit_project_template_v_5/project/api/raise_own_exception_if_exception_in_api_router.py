@@ -1,7 +1,7 @@
 from typing import Any
 
 import fastapi
-from arpakitlib.raise_own_exception_if_exception import raise_own_exception_if_exception
+from arpakitlib.ar_raise_own_exception_if_exception import raise_own_exception_if_exception
 
 from project.api.api_exception import APIException
 from project.api.schema.out.common.error import ErrorCommonSO

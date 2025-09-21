@@ -1,9 +1,9 @@
 """The main module containing the `Report` class."""
 
+from datetime import datetime, timezone
 import importlib
 from importlib.metadata import PackageNotFoundError, distribution, version as importlib_version
 import sys
-import time
 from types import ModuleType
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
@@ -140,7 +140,8 @@ class PlatformInfo:
     @property
     def date(self) -> str:
         """Return the date formatted as a string."""
-        return time.strftime('%a %b %d %H:%M:%S %Y %Z')
+        now_utc = datetime.now(timezone.utc)
+        return now_utc.strftime('%a %b %d %H:%M:%S %Y %Z')
 
     @property
     def filesystem(self) -> Union[str, Literal[False]]:
@@ -582,4 +583,10 @@ def get_distribution_dependencies(dist_name: str):
         dist = distribution(dist_name)
     except PackageNotFoundError:
         raise PackageNotFoundError(f"Package `{dist_name}` has no distribution.")
-    return [pkg.split()[0] for pkg in dist.requires]
+
+    def _package_name(requirement: str) -> str:
+        for sep in (" ", ";", "<", "=", ">"):
+            requirement = requirement.split(sep, 1)[0]
+        return requirement.strip()
+
+    return [_package_name(pkg) for pkg in dist.requires]

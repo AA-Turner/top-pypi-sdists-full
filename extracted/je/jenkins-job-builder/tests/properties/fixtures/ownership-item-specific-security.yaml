@@ -1,0 +1,13 @@
+properties:
+ - ownership-item-specific-security:
+    inheritance-strategy: parent
+    Anonymous:
+      - job-discover
+      - job-read
+      - job-extended-read
+    authenticated:
+      - job-build
+      - job-cancel
+      - job-discover
+      - job-read
+      - job-extended-read

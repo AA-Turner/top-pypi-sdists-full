@@ -1690,31 +1690,53 @@ class DependabotAllow:
 @jsii.data_type(
     jsii_type="projen.github.DependabotGroup",
     jsii_struct_bases=[],
-    name_mapping={"patterns": "patterns", "exclude_patterns": "excludePatterns"},
+    name_mapping={
+        "patterns": "patterns",
+        "applies_to": "appliesTo",
+        "dependency_type": "dependencyType",
+        "exclude_patterns": "excludePatterns",
+        "update_types": "updateTypes",
+    },
 )
 class DependabotGroup:
     def __init__(
         self,
         *,
         patterns: typing.Sequence[builtins.str],
+        applies_to: typing.Optional["DependabotGroupAppliesTo"] = None,
+        dependency_type: typing.Optional["DependabotGroupDependencyType"] = None,
         exclude_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        update_types: typing.Optional[typing.Sequence["DependabotGroupUpdateType"]] = None,
     ) -> None:
         '''(experimental) Defines a single group for dependency updates.
 
         :param patterns: (experimental) Define a list of strings (with or without wildcards) that will match package names to form this dependency group.
+        :param applies_to: (experimental) Specify which type of update the group applies to. Default: - version updates
+        :param dependency_type: (experimental) Limit the group to a type of dependency. Default: - all types of dependencies
         :param exclude_patterns: (experimental) Optionally you can use this to exclude certain dependencies from the group.
+        :param update_types: (experimental) Limit the group to one or more semantic versioning levels. If specified, must contain at least one element and elements must be unique. Default: - all semantic versioning levels
 
+        :see: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#groups--
         :stability: experimental
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97650f1e1a170d34a5bd50211445090d04d890ec494749c1eb3f5a1fabbec7d4)
             check_type(argname="argument patterns", value=patterns, expected_type=type_hints["patterns"])
+            check_type(argname="argument applies_to", value=applies_to, expected_type=type_hints["applies_to"])
+            check_type(argname="argument dependency_type", value=dependency_type, expected_type=type_hints["dependency_type"])
             check_type(argname="argument exclude_patterns", value=exclude_patterns, expected_type=type_hints["exclude_patterns"])
+            check_type(argname="argument update_types", value=update_types, expected_type=type_hints["update_types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "patterns": patterns,
         }
+        if applies_to is not None:
+            self._values["applies_to"] = applies_to
+        if dependency_type is not None:
+            self._values["dependency_type"] = dependency_type
         if exclude_patterns is not None:
             self._values["exclude_patterns"] = exclude_patterns
+        if update_types is not None:
+            self._values["update_types"] = update_types
 
     @builtins.property
     def patterns(self) -> typing.List[builtins.str]:
@@ -1727,6 +1749,29 @@ class DependabotGroup:
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
+    def applies_to(self) -> typing.Optional["DependabotGroupAppliesTo"]:
+        '''(experimental) Specify which type of update the group applies to.
+
+        :default: - version updates
+
+        :stability: experimental
+        '''
+        result = self._values.get("applies_to")
+        return typing.cast(typing.Optional["DependabotGroupAppliesTo"], result)
+
+    @builtins.property
+    def dependency_type(self) -> typing.Optional["DependabotGroupDependencyType"]:
+        '''(experimental) Limit the group to a type of dependency.
+
+        :default: - all types of dependencies
+
+        :see: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#dependency-type-groups
+        :stability: experimental
+        '''
+        result = self._values.get("dependency_type")
+        return typing.cast(typing.Optional["DependabotGroupDependencyType"], result)
+
+    @builtins.property
     def exclude_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Optionally you can use this to exclude certain dependencies from the group.
 
@@ -1734,6 +1779,20 @@ class DependabotGroup:
         '''
         result = self._values.get("exclude_patterns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def update_types(self) -> typing.Optional[typing.List["DependabotGroupUpdateType"]]:
+        '''(experimental) Limit the group to one or more semantic versioning levels.
+
+        If specified, must contain at least one element and elements must be unique.
+
+        :default: - all semantic versioning levels
+
+        :see: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#update-types-groups
+        :stability: experimental
+        '''
+        result = self._values.get("update_types")
+        return typing.cast(typing.Optional[typing.List["DependabotGroupUpdateType"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1745,6 +1804,68 @@ class DependabotGroup:
         return "DependabotGroup(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.github.DependabotGroupAppliesTo")
+class DependabotGroupAppliesTo(enum.Enum):
+    '''(experimental) The type of update a group applies to.
+
+    :stability: experimental
+    '''
+
+    VERSION_UPDATES = "VERSION_UPDATES"
+    '''(experimental) Apply only to version updates.
+
+    :stability: experimental
+    '''
+    SECURITY_UPDATES = "SECURITY_UPDATES"
+    '''(experimental) Apply only to security updates.
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="projen.github.DependabotGroupDependencyType")
+class DependabotGroupDependencyType(enum.Enum):
+    '''(experimental) The type of dependency a group may be limited to.
+
+    :stability: experimental
+    '''
+
+    DEVELOPMENT = "DEVELOPMENT"
+    '''(experimental) Include only dependencies in the "Development dependency group".
+
+    :stability: experimental
+    '''
+    PRODUCTION = "PRODUCTION"
+    '''(experimental) Include only dependencies in the "Production dependency group".
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="projen.github.DependabotGroupUpdateType")
+class DependabotGroupUpdateType(enum.Enum):
+    '''(experimental) The semantic versioning levels a group may be limited to.
+
+    :stability: experimental
+    '''
+
+    MAJOR = "MAJOR"
+    '''(experimental) Include major releases.
+
+    :stability: experimental
+    '''
+    MINOR = "MINOR"
+    '''(experimental) Include minor releases.
+
+    :stability: experimental
+    '''
+    PATCH = "PATCH"
+    '''(experimental) Include patch releases.
+
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
@@ -9098,6 +9219,9 @@ __all__ = [
     "Dependabot",
     "DependabotAllow",
     "DependabotGroup",
+    "DependabotGroupAppliesTo",
+    "DependabotGroupDependencyType",
+    "DependabotGroupUpdateType",
     "DependabotIgnore",
     "DependabotOptions",
     "DependabotRegistry",
@@ -9354,7 +9478,10 @@ def _typecheckingstub__95f7e72bd3f0d0b83df633a27522aaab6cab1baeaf4b90de44beff992
 def _typecheckingstub__97650f1e1a170d34a5bd50211445090d04d890ec494749c1eb3f5a1fabbec7d4(
     *,
     patterns: typing.Sequence[builtins.str],
+    applies_to: typing.Optional[DependabotGroupAppliesTo] = None,
+    dependency_type: typing.Optional[DependabotGroupDependencyType] = None,
     exclude_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    update_types: typing.Optional[typing.Sequence[DependabotGroupUpdateType]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

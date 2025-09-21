@@ -2437,6 +2437,143 @@ TEST_CASE("Github issue #2558", "[2558]") {
     CHECK(std::isfinite(Delta));
 }
 
+TEST_CASE("Github issue #2491", "[2491]") {
+    std::shared_ptr<CoolProp::AbstractState> AS(AbstractState::factory("HEOS", "Xenon"));
+    CHECK_NOTHROW(AS->update(CoolProp::HmassP_INPUTS, 59867.351071950761, 5835843.7305891514));
+    CHECK(std::isfinite(AS->rhomolar()));
+}
+
+TEST_CASE("Github issue #2608", "[2608]") {
+    std::shared_ptr<CoolProp::AbstractState> AS(AbstractState::factory("HEOS", "CO2"));
+    double pc = AS->p_critical();
+    CHECK_NOTHROW(AS->update(CoolProp::PT_INPUTS, 73.8e5, 218.048));
+    SECTION("Without phase"){
+        AS->unspecify_phase();
+        CHECK_NOTHROW(AS->update(CoolProp::PSmass_INPUTS, 73.8e5, 1840.68));
+    }
+    SECTION("With phase"){
+        AS->specify_phase(iphase_supercritical_gas);
+        CHECK_NOTHROW(AS->update(CoolProp::PSmass_INPUTS, 73.8e5, 1840.68));
+        AS->unspecify_phase();
+    }
+}
+
+template <typename T>
+std::vector<T> linspace(T start, T end, int num) {
+    std::vector<T> linspaced;
+    if (num <= 0) {
+        return linspaced; // Return empty vector for invalid num
+    }
+    if (num == 1) {
+        linspaced.push_back(start);
+        return linspaced;
+    }
+
+    T step = (end - start) / (num - 1);
+    for (int i = 0; i < num; ++i) {
+        linspaced.push_back(start + step * i);
+    }
+    return linspaced;
+}
+
+TEST_CASE("Github issue #2582", "[2582]") {
+    std::shared_ptr<CoolProp::AbstractState> AS(AbstractState::factory("HEOS", "CO2"));
+    double pc = AS->p_critical();
+    AS->update(PQ_INPUTS, 73.33e5, 0);
+    double hmass_liq = AS->saturated_liquid_keyed_output(iHmass);
+    double hmass_vap = AS->saturated_vapor_keyed_output(iHmass);
+//    std::cout << pc << std::endl;
+//    std::cout << hmass_liq << std::endl;
+//    std::cout << hmass_vap << std::endl;
+    for (auto hmass: linspace(100e3, 700e3, 1000)){
+        CAPTURE(hmass);
+        CHECK_NOTHROW(AS->update(CoolProp::HmassP_INPUTS, hmass, 73.76e5));
+    }
+    for (auto hmass: linspace(100e3, 700e3, 1000)){
+        CAPTURE(hmass);
+        CHECK_NOTHROW(AS->update(CoolProp::HmassP_INPUTS, hmass, 73.33e5));
+    }
+}
+
+TEST_CASE("Github issue #2594", "[2594]") {
+    std::shared_ptr<CoolProp::AbstractState> AS(AbstractState::factory("HEOS", "CO2"));
+    auto p = 7377262.928140703;
+    double pc = AS->p_critical();
+    AS->update(PQ_INPUTS, p, 0);
+    double Tsat = AS->T();
+    double rholiq = AS->rhomolar();
+    double umass_liq = AS->saturated_liquid_keyed_output(iUmass);
+    double umass_vap = AS->saturated_vapor_keyed_output(iUmass);
+//    std::cout << std::setprecision(20) << pc << std::endl;
+//    std::cout << umass_liq << std::endl;
+//    std::cout << umass_vap << std::endl;
+    
+    auto umass = 314719.5306503257;
+//    auto& rHEOS = *dynamic_cast<HelmholtzEOSMixtureBackend*>(AS.get());
+//    bool sat_called = false;
+//    auto MM = AS->molar_mass();
+//    rHEOS.p_phase_determination_pure_or_pseudopure(iUmolar, umass*MM, sat_called);
+//    CHECK(rHEOS.phase() == iphase_liquid);
+    
+    AS->update(DmolarP_INPUTS, rholiq, p);
+    double rho1 = AS->rhomolar();
+    double T1 = AS->T();
+    double dumolardT_P = AS->first_partial_deriv(iUmolar, iT, iP);
+    double dpdrho_T = AS->first_partial_deriv(iP, iDmolar, iT);
+//    double dumassdT_P = AS->first_partial_deriv(iUmass, iT, iP);
+    
+    AS->specify_phase(iphase_liquid);
+    AS->update(PT_INPUTS, p, Tsat);
+    double rho2 = AS->rhomolar();
+    double T2 = AS->T();
+    double dpdrho_T_imposed = AS->first_partial_deriv(iP, iDmolar, iT);	
+    double dumolardT_P_imposed = AS->first_partial_deriv(iUmolar, iT, iP);
+//    double dumassdT_P_imposed = AS->first_partial_deriv(iUmass, iT, iP);
+    AS->unspecify_phase();
+    
+    CHECK_NOTHROW(AS->update(CoolProp::PUmass_INPUTS, p, umass));
+    
+    BENCHMARK("dp/drho|T"){
+        return AS->first_partial_deriv(iP, iDmolar, iT);
+    };
+    BENCHMARK("du/dT|p"){
+        return AS->first_partial_deriv(iUmolar, iT, iP);
+    };
+}
+
+
+TEST_CASE("CoolProp.jl tests", "[2598]") {
+//    // Whoah, actually quite a few change meaningfully
+//    SECTION("Check pcrit doesn't change too much with SA on"){
+//        auto init = get_config_bool(ENABLE_SUPERANCILLARIES);
+//        for (auto fluid : strsplit(get_global_param_string("fluids_list"), ',')){
+//            CAPTURE(fluid);
+//            set_config_bool(ENABLE_SUPERANCILLARIES, true); auto pcrit_SA = Props1SI(fluid, "pcrit");
+//            set_config_bool(ENABLE_SUPERANCILLARIES, false); auto pcrit_noSA = Props1SI(fluid, "pcrit");
+//            CAPTURE(pcrit_SA - pcrit_noSA);
+//            CHECK(std::abs(pcrit_SA/pcrit_noSA-1) < 1E-2);
+//        }
+//        set_config_bool(ENABLE_SUPERANCILLARIES, init);
+//    }
+    
+    for (auto fluid : strsplit(get_global_param_string("fluids_list"), ',')){
+        auto pcrit = Props1SI(fluid, "pcrit");
+        auto Tcrit = Props1SI(fluid, "Tcrit");
+        CAPTURE(fluid);
+        CAPTURE(PhaseSI("P", pcrit+50000, "T", Tcrit+3, fluid));
+        CAPTURE(PhaseSI("P", pcrit+50000, "T", Tcrit-3, fluid));
+        CAPTURE(PhaseSI("P", pcrit-50000, "T", Tcrit+3, fluid));
+        
+        CAPTURE(PropsSI("Q", "P", pcrit+50000, "T", Tcrit+3, fluid));
+        CAPTURE(PropsSI("Q", "P", pcrit+50000, "T", Tcrit-3, fluid));
+        CAPTURE(PropsSI("Q", "P", pcrit-50000, "T", Tcrit+3, fluid));
+        
+        CHECK(PhaseSI("P", pcrit+50000, "T", Tcrit+3, fluid)=="supercritical");
+        CHECK(PhaseSI("P", pcrit+50000, "T", Tcrit-3, fluid)=="supercritical_liquid");
+        CHECK(PhaseSI("P", pcrit-50000, "T", Tcrit+3, fluid)=="supercritical_gas");
+    }
+}
+
 TEST_CASE("Check methanol EOS matches REFPROP 10", "[2538]"){
     auto TNBP_RP = PropsSI("T", "P", 101325, "Q", 0, "REFPROP::METHANOL");
     auto TNBP_CP = PropsSI("T", "P", 101325, "Q", 0, "HEOS::METHANOL");
@@ -2676,6 +2813,49 @@ TEST_CASE_METHOD(SuperAncillaryOnFixture, "Check h_fg", "[superanc]") {
     CHECK_THROWS(AS->saturated_vapor_keyed_output(iHmolar) - AS->saturated_liquid_keyed_output(iHmolar));
     AS->update_QT_pure_superanc(1, 300);
     CHECK_NOTHROW(AS->saturated_vapor_keyed_output(iHmolar) - AS->saturated_liquid_keyed_output(iHmolar));
+}
+
+TEST_CASE_METHOD(SuperAncillaryOnFixture, "Performance regression; on", "[2438]") {
+    shared_ptr<CoolProp::AbstractState> AS(CoolProp::AbstractState::factory("HEOS", "CO2"));
+    BENCHMARK("HP regression"){
+        AS->update(HmassP_INPUTS, 300e3, 70e5);
+        return AS;
+    };
+    AS->update(HmassP_INPUTS, 300e3, 70e5);
+    std::cout << AS->Q() << std::endl;
+}
+TEST_CASE_METHOD(SuperAncillaryOffFixture, "Performance regression; off", "[2438]") {
+    shared_ptr<CoolProp::AbstractState> AS(CoolProp::AbstractState::factory("HEOS", "CO2"));
+    BENCHMARK("HP regression"){
+        AS->update(HmassP_INPUTS, 300e3, 70e5);
+        return AS;
+    };
+    AS->update(HmassP_INPUTS, 300e3, 70e5);
+    std::cout << AS->Q() << std::endl;
+}
+
+TEST_CASE_METHOD(SuperAncillaryOnFixture, "Performance regression for TS; on", "[2438]") {
+    shared_ptr<CoolProp::AbstractState> AS(CoolProp::AbstractState::factory("HEOS", "CO2"));
+    double T = 298.0;
+    AS->update(QT_INPUTS, 1, T);
+    auto sL = AS->saturated_liquid_keyed_output(iSmolar);
+    auto sV = AS->saturated_vapor_keyed_output(iSmolar);
+    BENCHMARK("ST regression"){
+        AS->update(SmolarT_INPUTS, (sL + sV)/2, T);
+        return AS;
+    };
+}
+
+TEST_CASE_METHOD(SuperAncillaryOffFixture, "Performance regression for TS; off", "[2438]") {
+    shared_ptr<CoolProp::AbstractState> AS(CoolProp::AbstractState::factory("HEOS", "CO2"));
+    double T = 298.0;
+    AS->update(QT_INPUTS, 1, T);
+    auto sL = AS->saturated_liquid_keyed_output(iSmolar);
+    auto sV = AS->saturated_vapor_keyed_output(iSmolar);
+    BENCHMARK("ST regression"){
+        AS->update(SmolarT_INPUTS, (sL + sV)/2, T);
+        return AS;
+    };
 }
 
 TEST_CASE_METHOD(SuperAncillaryOnFixture, "Benchmarking caching options", "[caching]") {

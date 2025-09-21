@@ -5222,6 +5222,7 @@ class HealthLog(BASE,Template):
     def __init__(self,**kwargs):
         if 'DTOE' not in kwargs:
             self.DTOE=datetime.now()
+            
         for k in kwargs.keys():
             if k in [s.name for s in self.__table__.columns]:
                 setattr(self,k,kwargs.get(k))

@@ -53134,41 +53134,58 @@ scout_compute_api_ScatterFitOptions.__module__ = "nominal_api.scout_compute_api"
 
 class scout_compute_api_ScatterSummarizationStrategy(ConjureUnionType):
     _spatial: Optional["scout_compute_api_SpatialDecimateStrategy"] = None
+    _temporal: Optional["scout_compute_api_TemporalDecimateStrategy"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'spatial': ConjureFieldDefinition('spatial', scout_compute_api_SpatialDecimateStrategy)
+            'spatial': ConjureFieldDefinition('spatial', scout_compute_api_SpatialDecimateStrategy),
+            'temporal': ConjureFieldDefinition('temporal', scout_compute_api_TemporalDecimateStrategy)
         }
 
     def __init__(
             self,
             spatial: Optional["scout_compute_api_SpatialDecimateStrategy"] = None,
+            temporal: Optional["scout_compute_api_TemporalDecimateStrategy"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (spatial is not None) != 1:
+            if (spatial is not None) + (temporal is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if spatial is not None:
                 self._spatial = spatial
                 self._type = 'spatial'
+            if temporal is not None:
+                self._temporal = temporal
+                self._type = 'temporal'
 
         elif type_of_union == 'spatial':
             if spatial is None:
                 raise ValueError('a union value must not be None')
             self._spatial = spatial
             self._type = 'spatial'
+        elif type_of_union == 'temporal':
+            if temporal is None:
+                raise ValueError('a union value must not be None')
+            self._temporal = temporal
+            self._type = 'temporal'
 
     @builtins.property
     def spatial(self) -> Optional["scout_compute_api_SpatialDecimateStrategy"]:
         return self._spatial
+
+    @builtins.property
+    def temporal(self) -> Optional["scout_compute_api_TemporalDecimateStrategy"]:
+        return self._temporal
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ScatterSummarizationStrategyVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ScatterSummarizationStrategyVisitor'.format(visitor.__class__.__name__))
         if self._type == 'spatial' and self.spatial is not None:
             return visitor._spatial(self.spatial)
+        if self._type == 'temporal' and self.temporal is not None:
+            return visitor._temporal(self.temporal)
 
 
 scout_compute_api_ScatterSummarizationStrategy.__name__ = "ScatterSummarizationStrategy"
@@ -53182,10 +53199,38 @@ class scout_compute_api_ScatterSummarizationStrategyVisitor:
     def _spatial(self, spatial: "scout_compute_api_SpatialDecimateStrategy") -> Any:
         pass
 
+    @abstractmethod
+    def _temporal(self, temporal: "scout_compute_api_TemporalDecimateStrategy") -> Any:
+        pass
+
 
 scout_compute_api_ScatterSummarizationStrategyVisitor.__name__ = "ScatterSummarizationStrategyVisitor"
 scout_compute_api_ScatterSummarizationStrategyVisitor.__qualname__ = "ScatterSummarizationStrategyVisitor"
 scout_compute_api_ScatterSummarizationStrategyVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ScatterTemporalAggregation(ConjureEnumType):
+
+    MEAN = 'MEAN'
+    '''MEAN'''
+    MIN = 'MIN'
+    '''MIN'''
+    MAX = 'MAX'
+    '''MAX'''
+    FIRST = 'FIRST'
+    '''FIRST'''
+    LAST = 'LAST'
+    '''LAST'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_ScatterTemporalAggregation.__name__ = "ScatterTemporalAggregation"
+scout_compute_api_ScatterTemporalAggregation.__qualname__ = "ScatterTemporalAggregation"
+scout_compute_api_ScatterTemporalAggregation.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_SearchEventOriginType(ConjureEnumType):
@@ -54404,14 +54449,16 @@ class scout_compute_api_SummarizeCartesian(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_Cartesian),
             'bounds': ConjureFieldDefinition('bounds', OptionalTypeWrapper[scout_compute_api_CartesianBounds]),
+            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_ScatterSummarizationStrategy]),
             'max_points': ConjureFieldDefinition('maxPoints', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_input', '_bounds', '_max_points']
+    __slots__: List[str] = ['_input', '_bounds', '_summarization_strategy', '_max_points']
 
-    def __init__(self, input: "scout_compute_api_Cartesian", bounds: Optional["scout_compute_api_CartesianBounds"] = None, max_points: Optional[int] = None) -> None:
+    def __init__(self, input: "scout_compute_api_Cartesian", bounds: Optional["scout_compute_api_CartesianBounds"] = None, max_points: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_ScatterSummarizationStrategy"] = None) -> None:
         self._input = input
         self._bounds = bounds
+        self._summarization_strategy = summarization_strategy
         self._max_points = max_points
 
     @builtins.property
@@ -54421,6 +54468,12 @@ class scout_compute_api_SummarizeCartesian(ConjureBeanType):
     @builtins.property
     def bounds(self) -> Optional["scout_compute_api_CartesianBounds"]:
         return self._bounds
+
+    @builtins.property
+    def summarization_strategy(self) -> Optional["scout_compute_api_ScatterSummarizationStrategy"]:
+        """The summarization strategy to use when there are more than `maxPoints`. Defaults to spatial.
+        """
+        return self._summarization_strategy
 
     @builtins.property
     def max_points(self) -> Optional[int]:
@@ -54786,6 +54839,43 @@ class scout_compute_api_TagFiltersVisitor:
 scout_compute_api_TagFiltersVisitor.__name__ = "TagFiltersVisitor"
 scout_compute_api_TagFiltersVisitor.__qualname__ = "TagFiltersVisitor"
 scout_compute_api_TagFiltersVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_TemporalDecimateStrategy(ConjureBeanType):
+    """Buckets the input by time range into equally sized buckets.
+The number of buckets is determined by the maxPoints parameter.
+Returns a CartesianPlot.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x_aggregation': ConjureFieldDefinition('xAggregation', scout_compute_api_ScatterTemporalAggregation),
+            'y_aggregation': ConjureFieldDefinition('yAggregation', scout_compute_api_ScatterTemporalAggregation)
+        }
+
+    __slots__: List[str] = ['_x_aggregation', '_y_aggregation']
+
+    def __init__(self, x_aggregation: "scout_compute_api_ScatterTemporalAggregation", y_aggregation: "scout_compute_api_ScatterTemporalAggregation") -> None:
+        self._x_aggregation = x_aggregation
+        self._y_aggregation = y_aggregation
+
+    @builtins.property
+    def x_aggregation(self) -> "scout_compute_api_ScatterTemporalAggregation":
+        """The strategy to use for aggregating the x values in each bucket.
+        """
+        return self._x_aggregation
+
+    @builtins.property
+    def y_aggregation(self) -> "scout_compute_api_ScatterTemporalAggregation":
+        """The strategy to use for aggregating the y values in each bucket.
+        """
+        return self._y_aggregation
+
+
+scout_compute_api_TemporalDecimateStrategy.__name__ = "TemporalDecimateStrategy"
+scout_compute_api_TemporalDecimateStrategy.__qualname__ = "TemporalDecimateStrategy"
+scout_compute_api_TemporalDecimateStrategy.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Threshold(ConjureUnionType):
@@ -64294,15 +64384,17 @@ class scout_compute_resolved_api_SummarizeCartesianNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_CartesianNode),
             'bounds': ConjureFieldDefinition('bounds', OptionalTypeWrapper[scout_compute_resolved_api_CartesianBounds]),
-            'max_points': ConjureFieldDefinition('maxPoints', OptionalTypeWrapper[int])
+            'max_points': ConjureFieldDefinition('maxPoints', OptionalTypeWrapper[int]),
+            'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', scout_compute_api_ScatterSummarizationStrategy)
         }
 
-    __slots__: List[str] = ['_input', '_bounds', '_max_points']
+    __slots__: List[str] = ['_input', '_bounds', '_max_points', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_resolved_api_CartesianNode", bounds: Optional["scout_compute_resolved_api_CartesianBounds"] = None, max_points: Optional[int] = None) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_CartesianNode", summarization_strategy: "scout_compute_api_ScatterSummarizationStrategy", bounds: Optional["scout_compute_resolved_api_CartesianBounds"] = None, max_points: Optional[int] = None) -> None:
         self._input = input
         self._bounds = bounds
         self._max_points = max_points
+        self._summarization_strategy = summarization_strategy
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_CartesianNode":
@@ -64315,6 +64407,10 @@ class scout_compute_resolved_api_SummarizeCartesianNode(ConjureBeanType):
     @builtins.property
     def max_points(self) -> Optional[int]:
         return self._max_points
+
+    @builtins.property
+    def summarization_strategy(self) -> "scout_compute_api_ScatterSummarizationStrategy":
+        return self._summarization_strategy
 
 
 scout_compute_resolved_api_SummarizeCartesianNode.__name__ = "SummarizeCartesianNode"

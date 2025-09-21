@@ -62,16 +62,23 @@ def http_endpoint(registry, xml_parent, data):
     supported_events = ["started", "completed", "finalized", "all"]
     fmt = data.get("format", "JSON").upper()
     event = data.get("event", "all").lower()
+    branch = data.get("branch", ".*")
     mapping = [
         ("", "format", fmt, supported_formats),
         ("", "protocol", "HTTP"),
         ("", "event", event, supported_events),
         ("timeout", "timeout", 30000),
         ("retries", "retries", 0),
-        ("url", "url", None),
         ("log", "loglines", 0),
+        ("buildNotes", "buildNotes", ""),
+        ("branch", "branch", branch),
     ]
     helpers.convert_mapping_to_xml(endpoint_element, data, mapping, fail_required=True)
+
+    # Add nested <urlInfo> block
+    url_info = XML.SubElement(endpoint_element, "urlInfo")
+    XML.SubElement(url_info, "urlOrId").text = data["url"]
+    XML.SubElement(url_info, "urlType").text = data.get("url-type", "PUBLIC")
 
 
 class Notifications(jenkins_jobs.modules.base.Base):

@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2025-09-06 AT 14:09:40
+# AUTO GENERATED ON 2025-09-20 AT 15:57:04
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -827,80 +827,227 @@ def by_signature(cuda_kernel_templates):
     out['awkward_ListArray_broadcast_tooffsets', int64, int64, uint32, uint32] = f
 
     def f(grid, block, args):
+        """
+        (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code)
+        - tocarry: sequence/array of device arrays (length >= n), each 1D of total output size
+        - toindex: device array of length >= n (receives total output length per field)
+        - fromindex: kept for signature parity
+        """
+        import math
         (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code) = args
+        # Pass A: per-list counts (offsets[0] must be 0)
         scan_in_array_offsets = cupy.zeros(length + 1, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_a", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))(grid, block, (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, invocation_index, err_code))
-        cupy.cumsum(scan_in_array_offsets, out = scan_in_array_offsets)
-        totallen=int(scan_in_array_offsets[length])
-        if totallen == 0:
-            return  # Nothing to do if no combinations, skip the rest
-        block_size = min(totallen, 1024)
-        grid_size = max(1, math.ceil(totallen / block_size))
-        scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
-        scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_a",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, invocation_index, err_code)
+        )
+        # Inclusive scan (device-only)
+        scan_in_array_offsets = cupy.cumsum(scan_in_array_offsets)
+        # Allocate parents/local_indices (device-only), sized to total outputs
+        total = int(scan_in_array_offsets[length])
+        scan_in_array_parents = cupy.zeros(total, dtype=cupy.int64)
+        scan_in_array_local_indices = cupy.zeros(total, dtype=cupy.int64)
+        # Fill parents as a run-length expansion of [0..length-1]
+        # (pure device write in a trivial loop would be another kernel; your original loop is fine)
+        for i in range(1, length + 1):
+            scan_in_array_parents[scan_in_array_offsets[i - 1]:scan_in_array_offsets[i]] = i - 1
+        # Choose launch for passes B and C
+        block_size = min(1024, total) if total > 0 else 1
+        grid_size = (total + block_size - 1)//block_size if block_size > 0 else 1
+        # Pass B: compute local ranks
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_b",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
+        # Pass C: unrank and write carries
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_c",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
     out["awkward_ListArray_combinations_a", int64, int64, int64, int32, int32] = None
     out["awkward_ListArray_combinations_b", int64, int64, int64, int32, int32] = None
     out["awkward_ListArray_combinations_c", int64, int64, int64, int32, int32] = None
-    out["awkward_ListArray_combinations_d", int64, int64, int64, int32, int32] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, True, True, False]
     out['awkward_ListArray_combinations', int64, int64, int64, int32, int32] = f
 
     def f(grid, block, args):
+        """
+        (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code)
+        - tocarry: sequence/array of device arrays (length >= n), each 1D of total output size
+        - toindex: device array of length >= n (receives total output length per field)
+        - fromindex: kept for signature parity
+        """
+        import math
         (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code) = args
+        # Pass A: per-list counts (offsets[0] must be 0)
         scan_in_array_offsets = cupy.zeros(length + 1, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_a", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))(grid, block, (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, invocation_index, err_code))
-        cupy.cumsum(scan_in_array_offsets, out = scan_in_array_offsets)
-        totallen=int(scan_in_array_offsets[length])
-        if totallen == 0:
-            return  # Nothing to do if no combinations, skip the rest
-        block_size = min(totallen, 1024)
-        grid_size = max(1, math.ceil(totallen / block_size))
-        scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
-        scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_a",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, invocation_index, err_code)
+        )
+        # Inclusive scan (device-only)
+        scan_in_array_offsets = cupy.cumsum(scan_in_array_offsets)
+        # Allocate parents/local_indices (device-only), sized to total outputs
+        total = int(scan_in_array_offsets[length])
+        scan_in_array_parents = cupy.zeros(total, dtype=cupy.int64)
+        scan_in_array_local_indices = cupy.zeros(total, dtype=cupy.int64)
+        # Fill parents as a run-length expansion of [0..length-1]
+        # (pure device write in a trivial loop would be another kernel; your original loop is fine)
+        for i in range(1, length + 1):
+            scan_in_array_parents[scan_in_array_offsets[i - 1]:scan_in_array_offsets[i]] = i - 1
+        # Choose launch for passes B and C
+        block_size = min(1024, total) if total > 0 else 1
+        grid_size = (total + block_size - 1)//block_size if block_size > 0 else 1
+        # Pass B: compute local ranks
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_b",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
+        # Pass C: unrank and write carries
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_c",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
     out["awkward_ListArray_combinations_a", int64, int64, int64, int64, int64] = None
     out["awkward_ListArray_combinations_b", int64, int64, int64, int64, int64] = None
     out["awkward_ListArray_combinations_c", int64, int64, int64, int64, int64] = None
-    out["awkward_ListArray_combinations_d", int64, int64, int64, int64, int64] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, True, True, False]
     out['awkward_ListArray_combinations', int64, int64, int64, int64, int64] = f
 
     def f(grid, block, args):
+        """
+        (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code)
+        - tocarry: sequence/array of device arrays (length >= n), each 1D of total output size
+        - toindex: device array of length >= n (receives total output length per field)
+        - fromindex: kept for signature parity
+        """
+        import math
         (tocarry, toindex, fromindex, n, replacement, starts, stops, length, invocation_index, err_code) = args
+        # Pass A: per-list counts (offsets[0] must be 0)
         scan_in_array_offsets = cupy.zeros(length + 1, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_a", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))(grid, block, (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, invocation_index, err_code))
-        cupy.cumsum(scan_in_array_offsets, out = scan_in_array_offsets)
-        totallen=int(scan_in_array_offsets[length])
-        if totallen == 0:
-            return  # Nothing to do if no combinations, skip the rest
-        block_size = min(totallen, 1024)
-        grid_size = max(1, math.ceil(totallen / block_size))
-        scan_in_array_parents = cupy.zeros(totallen, dtype=cupy.int64)
-        scan_in_array_local_indices = cupy.zeros(totallen, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_b", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_c", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_d", tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype]))((grid_size,), (block_size,), (tocarry, toindex, fromindex, n, replacement, starts, stops, length, scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_a",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, invocation_index, err_code)
+        )
+        # Inclusive scan (device-only)
+        scan_in_array_offsets = cupy.cumsum(scan_in_array_offsets)
+        # Allocate parents/local_indices (device-only), sized to total outputs
+        total = int(scan_in_array_offsets[length])
+        scan_in_array_parents = cupy.zeros(total, dtype=cupy.int64)
+        scan_in_array_local_indices = cupy.zeros(total, dtype=cupy.int64)
+        # Fill parents as a run-length expansion of [0..length-1]
+        # (pure device write in a trivial loop would be another kernel; your original loop is fine)
+        for i in range(1, length + 1):
+            scan_in_array_parents[scan_in_array_offsets[i - 1]:scan_in_array_offsets[i]] = i - 1
+        # Choose launch for passes B and C
+        block_size = min(1024, total) if total > 0 else 1
+        grid_size = (total + block_size - 1)//block_size if block_size > 0 else 1
+        # Pass B: compute local ranks
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_b",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
+        # Pass C: unrank and write carries
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_c",
+            tocarry[0].dtype, toindex.dtype, fromindex.dtype, starts.dtype, stops.dtype
+        ]))(
+            (grid_size,), (block_size,),
+            (tocarry, toindex, fromindex, n, bool(replacement), starts, stops, length,
+             scan_in_array_offsets, scan_in_array_parents, scan_in_array_local_indices,
+             invocation_index, err_code)
+        )
     out["awkward_ListArray_combinations_a", int64, int64, int64, uint32, uint32] = None
     out["awkward_ListArray_combinations_b", int64, int64, int64, uint32, uint32] = None
     out["awkward_ListArray_combinations_c", int64, int64, int64, uint32, uint32] = None
-    out["awkward_ListArray_combinations_d", int64, int64, int64, uint32, uint32] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, True, True, False]
     out['awkward_ListArray_combinations', int64, int64, int64, uint32, uint32] = f
 
     def f(grid, block, args):
+        """
+        Device-only two-pass launcher for combinations length with general n.
+        Parameters
+        ----------
+        grid, block : CUDA launch config
+        args : tuple
+            (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code)
+            - totallen: cupy.ndarray shape (), dtype=int64 or compatible scalar buffer
+            - tooffsets: cupy.ndarray shape (length+1,), dtype matches C
+            - n: Python int
+            - replacement: Python bool
+            - starts, stops: cupy.ndarray 1D
+            - length: Python int
+            - invocation_index: Python int (uint64)
+            - err_code: cupy.ndarray shape (1,), dtype=uint64
+        """
         (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code) = args
-        scan_out = cupy.zeros(length, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_a", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
-        cupy.cumsum(scan_out, out=scan_out)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_b", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
+        scan_in_array_totallen = cupy.empty(length, dtype=cupy.int64)
+        scan_in_array_tooffsets = cupy.empty(length, dtype=cupy.int64)
+        # Pass A: compute per-list combination counts (unsummed)
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_a",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+        # Device-only inclusive scans, **in-place** (no new allocations):
+        # (CuPy supports 'out='; we use it to avoid extra temporaries.)
+        cupy.cumsum(scan_in_array_totallen, out=scan_in_array_totallen)
+        cupy.cumsum(scan_in_array_tooffsets, out=scan_in_array_tooffsets)
+        # Pass B: finalize totallen and tooffsets using the scans
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_b",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+    # Register specializations (handled elsewhere by your template system):
     out["awkward_ListArray_combinations_length_a", int64, int64, int32, int32] = None
     out["awkward_ListArray_combinations_length_b", int64, int64, int32, int32] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in']
@@ -908,11 +1055,50 @@ def by_signature(cuda_kernel_templates):
     out['awkward_ListArray_combinations_length', int64, int64, int32, int32] = f
 
     def f(grid, block, args):
+        """
+        Device-only two-pass launcher for combinations length with general n.
+        Parameters
+        ----------
+        grid, block : CUDA launch config
+        args : tuple
+            (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code)
+            - totallen: cupy.ndarray shape (), dtype=int64 or compatible scalar buffer
+            - tooffsets: cupy.ndarray shape (length+1,), dtype matches C
+            - n: Python int
+            - replacement: Python bool
+            - starts, stops: cupy.ndarray 1D
+            - length: Python int
+            - invocation_index: Python int (uint64)
+            - err_code: cupy.ndarray shape (1,), dtype=uint64
+        """
         (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code) = args
-        scan_out = cupy.zeros(length, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_a", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
-        cupy.cumsum(scan_out, out=scan_out)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_b", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
+        scan_in_array_totallen = cupy.empty(length, dtype=cupy.int64)
+        scan_in_array_tooffsets = cupy.empty(length, dtype=cupy.int64)
+        # Pass A: compute per-list combination counts (unsummed)
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_a",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+        # Device-only inclusive scans, **in-place** (no new allocations):
+        # (CuPy supports 'out='; we use it to avoid extra temporaries.)
+        cupy.cumsum(scan_in_array_totallen, out=scan_in_array_totallen)
+        cupy.cumsum(scan_in_array_tooffsets, out=scan_in_array_tooffsets)
+        # Pass B: finalize totallen and tooffsets using the scans
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_b",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+    # Register specializations (handled elsewhere by your template system):
     out["awkward_ListArray_combinations_length_a", int64, int64, int64, int64] = None
     out["awkward_ListArray_combinations_length_b", int64, int64, int64, int64] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in']
@@ -920,11 +1106,50 @@ def by_signature(cuda_kernel_templates):
     out['awkward_ListArray_combinations_length', int64, int64, int64, int64] = f
 
     def f(grid, block, args):
+        """
+        Device-only two-pass launcher for combinations length with general n.
+        Parameters
+        ----------
+        grid, block : CUDA launch config
+        args : tuple
+            (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code)
+            - totallen: cupy.ndarray shape (), dtype=int64 or compatible scalar buffer
+            - tooffsets: cupy.ndarray shape (length+1,), dtype matches C
+            - n: Python int
+            - replacement: Python bool
+            - starts, stops: cupy.ndarray 1D
+            - length: Python int
+            - invocation_index: Python int (uint64)
+            - err_code: cupy.ndarray shape (1,), dtype=uint64
+        """
         (totallen, tooffsets, n, replacement, starts, stops, length, invocation_index, err_code) = args
-        scan_out = cupy.zeros(length, dtype=cupy.int64)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_a", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
-        cupy.cumsum(scan_out, out=scan_out)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_ListArray_combinations_length_b", totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype]))(grid, block, (totallen, tooffsets, n, replacement, starts, stops, length, scan_out, invocation_index, err_code))
+        scan_in_array_totallen = cupy.empty(length, dtype=cupy.int64)
+        scan_in_array_tooffsets = cupy.empty(length, dtype=cupy.int64)
+        # Pass A: compute per-list combination counts (unsummed)
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_a",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+        # Device-only inclusive scans, **in-place** (no new allocations):
+        # (CuPy supports 'out='; we use it to avoid extra temporaries.)
+        cupy.cumsum(scan_in_array_totallen, out=scan_in_array_totallen)
+        cupy.cumsum(scan_in_array_tooffsets, out=scan_in_array_tooffsets)
+        # Pass B: finalize totallen and tooffsets using the scans
+        cuda_kernel_templates.get_function(fetch_specialization([
+            "awkward_ListArray_combinations_length_b",
+            totallen.dtype, tooffsets.dtype, starts.dtype, stops.dtype
+        ]))(
+            grid, block,
+            (totallen, tooffsets, n, bool(replacement), starts, stops, length,
+             scan_in_array_totallen, scan_in_array_tooffsets,
+             invocation_index, err_code)
+        )
+    # Register specializations (handled elsewhere by your template system):
     out["awkward_ListArray_combinations_length_a", int64, int64, uint32, uint32] = None
     out["awkward_ListArray_combinations_length_b", int64, int64, uint32, uint32] = None
     f.dir = ['out', 'out', 'in', 'in', 'in', 'in', 'in']
@@ -2533,53 +2758,437 @@ def by_signature(cuda_kernel_templates):
     f.is_ptr = [True, True, False, False, False]
     out['awkward_missing_repeat', int64, int64] = f
 
-    out['awkward_reduce_argmax', int64, int8, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, int8, int64] = None
+    out["awkward_reduce_argmax_b", int64, int8, int64] = None
+    out["awkward_reduce_argmax_c", int64, int8, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, int8, int64] = f
 
-    out['awkward_reduce_argmax', int64, int16, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, int16, int64] = None
+    out["awkward_reduce_argmax_b", int64, int16, int64] = None
+    out["awkward_reduce_argmax_c", int64, int16, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, int16, int64] = f
 
-    out['awkward_reduce_argmax', int64, int32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, int32, int64] = None
+    out["awkward_reduce_argmax_b", int64, int32, int64] = None
+    out["awkward_reduce_argmax_c", int64, int32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, int32, int64] = f
 
-    out['awkward_reduce_argmax', int64, int64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, int64, int64] = None
+    out["awkward_reduce_argmax_b", int64, int64, int64] = None
+    out["awkward_reduce_argmax_c", int64, int64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, int64, int64] = f
 
-    out['awkward_reduce_argmax', int64, uint8, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, uint8, int64] = None
+    out["awkward_reduce_argmax_b", int64, uint8, int64] = None
+    out["awkward_reduce_argmax_c", int64, uint8, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, uint8, int64] = f
 
-    out['awkward_reduce_argmax', int64, uint16, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, uint16, int64] = None
+    out["awkward_reduce_argmax_b", int64, uint16, int64] = None
+    out["awkward_reduce_argmax_c", int64, uint16, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, uint16, int64] = f
 
-    out['awkward_reduce_argmax', int64, uint32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, uint32, int64] = None
+    out["awkward_reduce_argmax_b", int64, uint32, int64] = None
+    out["awkward_reduce_argmax_c", int64, uint32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, uint32, int64] = f
 
-    out['awkward_reduce_argmax', int64, uint64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, uint64, int64] = None
+    out["awkward_reduce_argmax_b", int64, uint64, int64] = None
+    out["awkward_reduce_argmax_c", int64, uint64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, uint64, int64] = f
 
-    out['awkward_reduce_argmax', int64, float32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, float32, int64] = None
+    out["awkward_reduce_argmax_b", int64, float32, int64] = None
+    out["awkward_reduce_argmax_c", int64, float32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, float32, int64] = f
 
-    out['awkward_reduce_argmax', int64, float64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_a", int64, float64, int64] = None
+    out["awkward_reduce_argmax_b", int64, float64, int64] = None
+    out["awkward_reduce_argmax_c", int64, float64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax', int64, float64, int64] = f
 
-    out['awkward_reduce_argmax_complex', int64, float32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_complex_a", int64, float32, int64] = None
+    out["awkward_reduce_argmax_complex_b", int64, float32, int64] = None
+    out["awkward_reduce_argmax_complex_c", int64, float32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax_complex', int64, float32, int64] = f
 
-    out['awkward_reduce_argmax_complex', int64, float64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmax_complex_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmax_complex_a", int64, float64, int64] = None
+    out["awkward_reduce_argmax_complex_b", int64, float64, int64] = None
+    out["awkward_reduce_argmax_complex_c", int64, float64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmax_complex', int64, float64, int64] = f
 
-    out['awkward_reduce_argmin', int64, int8, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, int8, int64] = None
+    out["awkward_reduce_argmin_b", int64, int8, int64] = None
+    out["awkward_reduce_argmin_c", int64, int8, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, int8, int64] = f
 
-    out['awkward_reduce_argmin', int64, int16, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, int16, int64] = None
+    out["awkward_reduce_argmin_b", int64, int16, int64] = None
+    out["awkward_reduce_argmin_c", int64, int16, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, int16, int64] = f
 
-    out['awkward_reduce_argmin', int64, int32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, int32, int64] = None
+    out["awkward_reduce_argmin_b", int64, int32, int64] = None
+    out["awkward_reduce_argmin_c", int64, int32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, int32, int64] = f
 
-    out['awkward_reduce_argmin', int64, int64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, int64, int64] = None
+    out["awkward_reduce_argmin_b", int64, int64, int64] = None
+    out["awkward_reduce_argmin_c", int64, int64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, int64, int64] = f
 
-    out['awkward_reduce_argmin', int64, uint8, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, uint8, int64] = None
+    out["awkward_reduce_argmin_b", int64, uint8, int64] = None
+    out["awkward_reduce_argmin_c", int64, uint8, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, uint8, int64] = f
 
-    out['awkward_reduce_argmin', int64, uint16, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, uint16, int64] = None
+    out["awkward_reduce_argmin_b", int64, uint16, int64] = None
+    out["awkward_reduce_argmin_c", int64, uint16, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, uint16, int64] = f
 
-    out['awkward_reduce_argmin', int64, uint32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, uint32, int64] = None
+    out["awkward_reduce_argmin_b", int64, uint32, int64] = None
+    out["awkward_reduce_argmin_c", int64, uint32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, uint32, int64] = f
 
-    out['awkward_reduce_argmin', int64, uint64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, uint64, int64] = None
+    out["awkward_reduce_argmin_b", int64, uint64, int64] = None
+    out["awkward_reduce_argmin_c", int64, uint64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, uint64, int64] = f
 
-    out['awkward_reduce_argmin', int64, float32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, float32, int64] = None
+    out["awkward_reduce_argmin_b", int64, float32, int64] = None
+    out["awkward_reduce_argmin_c", int64, float32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, float32, int64] = f
 
-    out['awkward_reduce_argmin', int64, float64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_a", int64, float64, int64] = None
+    out["awkward_reduce_argmin_b", int64, float64, int64] = None
+    out["awkward_reduce_argmin_c", int64, float64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin', int64, float64, int64] = f
 
-    out['awkward_reduce_argmin_complex', int64, float32, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_complex_a", int64, float32, int64] = None
+    out["awkward_reduce_argmin_complex_b", int64, float32, int64] = None
+    out["awkward_reduce_argmin_complex_c", int64, float32, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin_complex', int64, float32, int64] = f
 
-    out['awkward_reduce_argmin_complex', int64, float64, int64] = None
+    def f(grid, block, args):
+        (toptr, fromptr, parents, lenparents, outlength, invocation_index, err_code) = args
+        if block[0] > 0:
+            grid_size = math.floor((lenparents + block[0] - 1) / block[0])
+        else:
+            grid_size = 1
+        atomic_toptr = cupy.array(toptr, dtype=cupy.uint64)
+        temp = cupy.zeros(lenparents, dtype=toptr.dtype)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_argmin_complex_c", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, atomic_toptr, temp, invocation_index, err_code))
+    out["awkward_reduce_argmin_complex_a", int64, float64, int64] = None
+    out["awkward_reduce_argmin_complex_b", int64, float64, int64] = None
+    out["awkward_reduce_argmin_complex_c", int64, float64, int64] = None
+    f.dir = ['out', 'in', 'in', 'in', 'in']
+    f.is_ptr = [True, True, True, False, False]
+    out['awkward_reduce_argmin_complex', int64, float64, int64] = f
 
     def f(grid, block, args):
         (toptr, parents, lenparents, outlength, invocation_index, err_code) = args
@@ -2972,151 +3581,511 @@ def by_signature(cuda_kernel_templates):
     out['awkward_reduce_max_complex', float64, float64, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", int8, int8, int64] = None
     out["awkward_reduce_min_b", int8, int8, int64] = None
+    out["awkward_reduce_min_c", int8, int8, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', int8, int8, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", int16, int16, int64] = None
     out["awkward_reduce_min_b", int16, int16, int64] = None
+    out["awkward_reduce_min_c", int16, int16, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', int16, int16, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", int32, int32, int64] = None
     out["awkward_reduce_min_b", int32, int32, int64] = None
+    out["awkward_reduce_min_c", int32, int32, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', int32, int32, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", int64, int64, int64] = None
     out["awkward_reduce_min_b", int64, int64, int64] = None
+    out["awkward_reduce_min_c", int64, int64, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', int64, int64, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", uint8, uint8, int64] = None
     out["awkward_reduce_min_b", uint8, uint8, int64] = None
+    out["awkward_reduce_min_c", uint8, uint8, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', uint8, uint8, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", uint16, uint16, int64] = None
     out["awkward_reduce_min_b", uint16, uint16, int64] = None
+    out["awkward_reduce_min_c", uint16, uint16, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', uint16, uint16, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", uint32, uint32, int64] = None
     out["awkward_reduce_min_b", uint32, uint32, int64] = None
+    out["awkward_reduce_min_c", uint32, uint32, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', uint32, uint32, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", uint64, uint64, int64] = None
     out["awkward_reduce_min_b", uint64, uint64, int64] = None
+    out["awkward_reduce_min_c", uint64, uint64, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', uint64, uint64, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", float32, float32, int64] = None
     out["awkward_reduce_min_b", float32, float32, int64] = None
+    out["awkward_reduce_min_c", float32, float32, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', float32, float32, int64] = f
 
     def f(grid, block, args):
-        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code) = args
+        """
+        Min reduction for sorted, present parents on device:
+        (toptr, fromptr, parents, lenparents, outlength, identity, invocation_index, err_code)
+        """
+        (toptr, fromptr, parents, lenparents,
+         outlength, identity, invocation_index, err_code) = args
         if block[0] > 0:
             grid_size = math.floor((lenparents + block[0] - 1) / block[0])
         else:
             grid_size = 1
-        temp = cupy.full(lenparents, cupy.array([identity]), dtype=toptr.dtype)
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_a", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
-        cuda_kernel_templates.get_function(fetch_specialization(["awkward_reduce_min_b", cupy.dtype(toptr.dtype).type, cupy.dtype(fromptr.dtype).type, parents.dtype]))((grid_size,), block, (toptr, fromptr, parents, lenparents, outlength, toptr.dtype.type(identity), temp, invocation_index, err_code))
+        # atomic_toptr initialized to identity
+        atomic_toptr = cupy.full(outlength, identity, dtype=fromptr.dtype)
+        temp = cupy.zeros(lenparents, dtype=fromptr.dtype)
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_a",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_b",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
+        cuda_kernel_templates.get_function(
+            fetch_specialization([
+                "awkward_reduce_min_c",
+                cupy.dtype(toptr.dtype).type,
+                cupy.dtype(fromptr.dtype).type,
+                parents.dtype
+            ])
+        )((grid_size,), block,
+          (toptr, fromptr, parents, lenparents, outlength,
+           atomic_toptr, temp, identity, invocation_index, err_code))
     out["awkward_reduce_min_a", float64, float64, int64] = None
     out["awkward_reduce_min_b", float64, float64, int64] = None
+    out["awkward_reduce_min_c", float64, float64, int64] = None
     f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
     f.is_ptr = [True, True, True, False, False, False]
     out['awkward_reduce_min', float64, float64, int64] = f

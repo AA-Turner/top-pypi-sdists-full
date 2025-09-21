@@ -131,15 +131,14 @@ class Application(Container, IApplication):
             # Propierty to store service providers.
             self.__providers: List[IServiceProvider, Any] = []
 
-            # Property to store configurators and paths
-            self.__configurators : dict = {}
-
             # Property to indicate if the application has been booted
             self.__booted: bool = False
+            self.__configured: bool = False
 
-            # Property to store application configuration
-            # This will be initialized with default values or from configurators
+            # Properties to store configuration and runtime configuration
             self.__config: dict = {}
+            self.__runtime_config: dict = {}
+            self.__runtime_path_config: dict = {}
 
             # Property to store the scheduler instance
             self.__scheduler: BaseScheduler = None
@@ -205,6 +204,7 @@ class Application(Container, IApplication):
         ensure core framework services are available before any user-defined
         providers are registered.
         """
+
         # Import core framework providers
         from orionis.foundation.providers.catch_provider import CathcProvider
         from orionis.foundation.providers.cli_request_provider import CLRequestProvider
@@ -277,6 +277,10 @@ class Application(Container, IApplication):
         for each provider class, which performs individual validation and
         registration.
         """
+
+        # Validate providers parameter
+        if not isinstance(providers, list):
+            raise OrionisTypeError(f"Expected list of IServiceProvider classes, got {type(providers).__name__}")
 
         # Add each provider class
         for provider_cls in providers:
@@ -413,7 +417,7 @@ class Application(Container, IApplication):
         - This method is called automatically during application bootstrapping, after all providers
           have been registered.
         - Supports both synchronous and asynchronous `boot()` methods on providers.
-        - The providers list is cleared after booting to prevent memory leaks.
+        - The providers list is deleted after booting to optimize memory usage.
 
         Returns
         -------
@@ -437,8 +441,8 @@ class Application(Container, IApplication):
                 else:
                     boot_method()
 
-        # Clear the providers list to free memory after booting is complete
-        self.__providers.clear()
+        # Delete the providers list property to free memory after booting is complete
+        del self.__providers
 
     # === Application Skeleton Configuration Methods ===
     # The Orionis framework provides methods to configure each component of the application,
@@ -786,7 +790,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected App instance or dict, got {type(app).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['app'] = _app
+        self.__config['app'] = _app
 
         # Return self for method chaining
         return self
@@ -882,7 +886,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Auth instance or dict, got {type(auth).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['auth'] = _auth
+        self.__config['auth'] = _auth
 
         # Return self for method chaining
         return self
@@ -978,7 +982,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Cache instance or dict, got {type(cache).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['cache'] = _cache
+        self.__config['cache'] = _cache
 
         # Return self for method chaining
         return self
@@ -1074,7 +1078,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Cors instance or dict, got {type(cors).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['cors'] = _cors
+        self.__config['cors'] = _cors
 
         # Return self for method chaining
         return self
@@ -1170,7 +1174,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Database instance or dict, got {type(database).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['database'] = _database
+        self.__config['database'] = _database
 
         # Return self for method chaining
         return self
@@ -1266,7 +1270,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Filesystems instance or dict, got {type(filesystems).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['filesystems'] = _filesystems
+        self.__config['filesystems'] = _filesystems
 
         # Return self for method chaining
         return self
@@ -1362,7 +1366,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Logging instance or dict, got {type(logging).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['logging'] = _logging
+        self.__config['logging'] = _logging
 
         # Return self for method chaining
         return self
@@ -1458,7 +1462,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Mail instance or dict, got {type(mail).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['mail'] = _mail
+        self.__config['mail'] = _mail
 
         # Return self for method chaining
         return self
@@ -1554,7 +1558,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Queue instance or dict, got {type(queue).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['queue'] = _queue
+        self.__config['queue'] = _queue
 
         # Return self for method chaining
         return self
@@ -1650,7 +1654,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Session instance or dict, got {type(session).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['session'] = _session
+        self.__config['session'] = _session
 
         # Return self for method chaining
         return self
@@ -1746,7 +1750,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Testing instance or dict, got {type(testing).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['testing'] = _testing
+        self.__config['testing'] = _testing
 
         # Return self for method chaining
         return self
@@ -1802,25 +1806,25 @@ class Application(Container, IApplication):
             Returns the current Application instance to enable method chaining.
         """
 
-        self.__configurators['path'] = {
-            'root': str(root),
-            'app': str(app),
-            'console': str(console),
-            'exceptions': str(exceptions),
-            'http': str(http),
-            'models': str(models),
-            'providers': str(providers),
-            'notifications': str(notifications),
-            'services': str(services),
-            'jobs': str(jobs),
-            'bootstrap': str(bootstrap),
-            'config': str(config),
-            'database': str(database),
-            'resources': str(resources),
-            'routes': str(routes),
-            'storage': str(storage),
-            'tests': str(tests)
-        }
+        self.loadConfigPaths({
+            'root': root,
+            'app': app,
+            'console': console,
+            'exceptions': exceptions,
+            'http': http,
+            'models': models,
+            'providers': providers,
+            'notifications': notifications,
+            'services': services,
+            'jobs': jobs,
+            'bootstrap': bootstrap,
+            'config': config,
+            'database': database,
+            'resources': resources,
+            'routes': routes,
+            'storage': storage,
+            'tests': tests
+        })
 
         return self
 
@@ -1878,7 +1882,7 @@ class Application(Container, IApplication):
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(paths).__name__}")
 
         # Store the configuration dictionary in internal configurators
-        self.__configurators['path'] = _paths
+        self.__config['path'] = _paths
 
         # Return self for method chaining
         return self
@@ -1911,17 +1915,16 @@ class Application(Container, IApplication):
         # Try to load the configuration
         try:
 
-            # Check if configuration is a dictionary
+            # Check if there are any configurators set
             if not self.__config:
+                self.__config = Configuration().toDict()
 
-                # Initialize with default configuration
-                if not self.__configurators:
-                    self.__config = Configuration().toDict()
+            # Store copy of the config as runtime config
+            # Copy all config except the 'path' key
+            self.__runtime_config = {k: v for k, v in self.__config.items() if k != 'path'}
 
-                # Assign the configurators to config and clean up
-                else:
-                    self.__config = self.__configurators
-                    del self.__configurators
+            # Copy contains only the 'path' key
+            self.__runtime_path_config = self.__config.get('path', {})
 
         except Exception as e:
 
@@ -1936,87 +1939,101 @@ class Application(Container, IApplication):
 
     def config(
         self,
-        key: str = None
+        key: str = None,
+        value: Any = None
     ) -> Any:
         """
-        Retrieve application configuration values using dot notation.
+        Retrieve or set application configuration values using dot notation.
 
-        This method provides access to the application's configuration settings,
-        supporting retrieval of nested values using dot notation (e.g., "database.default").
-        If a key is provided, the method returns the corresponding configuration value.
-        If no key is provided, it returns the entire configuration dictionary, excluding
-        path-related configuration (which should be accessed via the `path()` method).
+        If only `key` is provided, returns the configuration value for that key.
+        If both `key` and `value` are provided, sets the configuration value.
+        If neither is provided, returns the entire configuration dictionary (excluding 'path').
 
         Parameters
         ----------
         key : str, optional
-            The configuration key to retrieve, supporting dot notation for nested
-            values (e.g., "database.default", "app.name"). If None, the method returns
-            the entire configuration dictionary except for the 'path' configuration.
-            Default is None.
+            Dot-notated configuration key (e.g., "database.default"). If None, returns all config.
+        value : Any, optional
+            Value to set for the given key. If None, performs a get operation.
 
         Returns
         -------
         Any
-            If `key` is provided and found, returns the corresponding configuration value.
-            If `key` is None, returns the entire configuration dictionary (excluding 'path').
-            If the key is not found, returns None.
+            The configuration value, or None if not found.
 
         Raises
         ------
         OrionisRuntimeError
-            If the application configuration has not been initialized (i.e., if `create()`
-            has not been called before accessing configuration).
+            If configuration is not initialized.
         OrionisValueError
-            If the provided `key` parameter is not a string type.
-
-        Notes
-        -----
-        The method traverses nested configuration structures by splitting the key
-        on dots and navigating through dictionary levels. Path configurations are
-        excluded from full configuration returns and should be accessed via the
-        `path()` method instead.
+            If key is not a string.
         """
 
-        # Create a local copy of the configuration to avoid mutating the original
-        if not hasattr(self, '_Application__runtime_config') or self.__runtime_config is None:
-            self.__runtime_config = self.__config.copy()
-
-        # Remove 'path' from the local copy to ensure path config is not returned here
-        if 'path' in self.__runtime_config:
-            del self.__runtime_config['path']
-
-        # Ensure the application is booted before accessing configuration
-        if not self.__runtime_config:
+        if not self.__configured:
             raise OrionisRuntimeError(
                 "Application configuration is not initialized. Please call create() before accessing configuration."
             )
 
-        # If no key is provided, return the entire configuration (excluding 'path')
-        if key is None:
+        # Return all config if no key is provided
+        if key is None and value is None:
             return self.__runtime_config
 
-        # Ensure the key is a string
         if not isinstance(key, str):
             raise OrionisValueError(
-                "Key must be a string. Use config() without arguments to retrieve the entire configuration."
+                "The configuration key must be a string. To retrieve the entire configuration, call config() without any arguments."
             )
 
-        # Split the key by dot notation to support nested access
-        parts = key.split('.')
+        key_parts = key.split('.')
+        config_dict = self.__runtime_config
 
-        # Start with the full config and traverse according to the key parts
-        config_value = self.__runtime_config
-        for part in parts:
-            # If the part exists in the current config_value, go deeper
-            if isinstance(config_value, dict) and part in config_value:
-                config_value = config_value[part]
+        # If setting a value
+        if value is not None:
+            current_dict = config_dict
+            for part in key_parts[:-1]:
+                if part not in current_dict or not isinstance(current_dict[part], dict):
+                    current_dict[part] = {}
+                current_dict = current_dict[part]
+            current_dict[key_parts[-1]] = value
+            return value
+
+        # Getting a value
+        current_dict = config_dict
+        for part in key_parts:
+            if isinstance(current_dict, dict) and part in current_dict:
+                current_dict = current_dict[part]
             else:
-                # If any part is missing, return None
                 return None
+        return current_dict
 
-        # Return the final configuration value found
-        return config_value
+    def resetConfig(
+        self
+    ) -> 'Application':
+        """
+        Reset the application configuration to an uninitialized state.
+
+        This method clears the current runtime configuration and marks the application
+        as unconfigured, allowing for re-initialization of the configuration by calling
+        `create()` again. This is useful in scenarios such as testing or when dynamic
+        reloading of configuration is required.
+
+        Notes
+        -----
+        - After calling this method, you must call `create()` to reinitialize
+          the configuration before accessing it again.
+        - This method does not affect other aspects of the application state,
+          such as registered providers or boot status.
+
+        Returns
+        -------
+        Application
+            Returns the current `Application` instance to enable method chaining.
+        """
+
+        # Reset the runtime configuration to match the current config (excluding 'path')
+        self.__runtime_config = {k: v for k, v in self.__config.items() if k != 'path'}
+
+        # Return the application instance for method chaining
+        return self
 
     # === Path Configuration Access Method ===
     # The path() method provides access to application path configurations.
@@ -2030,7 +2047,7 @@ class Application(Container, IApplication):
         """
         Retrieve application path configuration values using dot notation.
 
-        Provides access to the application's path configuration, allowing retrieval of either a specific path value or the entire paths configuration dictionary. If a key is provided, the corresponding path is returned as a `Path` object. If no key is provided, a dictionary mapping all path configuration keys to their resolved `Path` objects is returned.
+        This method provides access to the application's path configuration, allowing retrieval of either a specific path value or the entire paths configuration dictionary. If a key is provided, the corresponding path is returned as a `Path` object. If no key is provided, a dictionary mapping all path configuration keys to their resolved `Path` objects is returned.
 
         Parameters
         ----------
@@ -2042,7 +2059,7 @@ class Application(Container, IApplication):
         -------
         Path or dict
             If `key` is provided and found, returns the resolved `Path` object for that key.
-            If `key` is None, returns a dictionary mapping all path keys to their `Path` objects.
+            If `key` is None, returns a dictionary mapping all path keys to their resolved `Path` objects.
             If `key` is not found, returns None.
 
         Raises
@@ -2058,23 +2075,21 @@ class Application(Container, IApplication):
         - This method is specifically designed for path-related configuration access, separate from general application configuration.
         - All returned paths are resolved as `Path` objects for consistency and ease of use.
         """
-
-        # Create a local copy of the path configuration to avoid mutation
-        if not hasattr(self, '_Application__runtime_path_config') or self.__runtime_path_config is None:
-            self.__runtime_path_config = self.__config.get('path', {}).copy() if self.__config else {}
-
-        # Ensure the application is booted before accessing configuration
-        if not self.__runtime_path_config:
+        # Ensure the application configuration has been initialized
+        if not self.__configured:
             raise OrionisRuntimeError(
-                "Application configuration is not initialized. Please call create() before accessing path configuration."
+                "Application configuration is not initialized. Please call create() before accessing configuration."
             )
 
         # If no key is provided, return all paths as a dictionary of Path objects
         if key is None:
             path_resolved: Dict[str, Path] = {}
+            # Convert all path values to Path objects
             for k, v in self.__runtime_path_config.items():
-                # Convert each path string to a Path object
-                path_resolved[k] = Path(v)
+                if not isinstance(v, Path):
+                    path_resolved[k] = Path(v)
+                else:
+                    path_resolved[k] = v
             return path_resolved
 
         # Ensure the key is a string
@@ -2117,9 +2132,8 @@ class Application(Container, IApplication):
         1. Load and process all configuration from configurators
         2. Register core framework service providers
         3. Register and boot all service providers
-        4. Initialize framework kernels (Testing, CLI)
-        5. Log successful startup with timing information
-        6. Mark application as booted to prevent re-initialization
+        4. Initialize framework kernels
+        5. Mark application as booted to prevent re-initialization
 
         This method is idempotent - calling it multiple times will not cause
         duplicate initialization. The startup time is calculated and logged
@@ -2139,6 +2153,7 @@ class Application(Container, IApplication):
 
             # Load configuration if not already set
             self.__loadConfig()
+            self.__configured = True
 
             # Load framework providers and register them
             self.__loadFrameworkProviders()
@@ -2150,15 +2165,6 @@ class Application(Container, IApplication):
 
             # Load core framework kernels with app booted
             self.__loadFrameworksKernel()
-
-            # Retrieve logger and console instances from the container
-            logger: ILogger = self.make(ILogger)
-
-            # Calculate elapsed time in milliseconds since application start
-            elapsed_ms = (time.time_ns() - self.startAt) // 1_000_000
-
-            # Log message to the logger
-            logger.info(f"Orionis Framework has been successfully booted. Startup time: {elapsed_ms} ms. Started at: {self.startAt} ns")
 
         # Return the application instance for method chaining
         return self
@@ -2199,3 +2205,40 @@ class Application(Container, IApplication):
 
         # Return True if the environment is 'production', otherwise False
         return str(app_env).lower() == 'production'
+
+    def isDebug(
+        self
+    ) -> bool:
+        """
+        Check if the application is running in debug mode.
+
+        This method determines whether the current application is set to run in debug mode.
+        It checks the 'app.debug' configuration value to make this determination.
+
+        Returns
+        -------
+        bool
+            True if the application is in debug mode, False otherwise.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If the application configuration has not been initialized (i.e., if `create()` has not been called).
+
+        Notes
+        -----
+        The debug mode is typically defined in the application configuration and can be enabled or disabled based on the environment or specific settings.
+        This method is useful for conditionally executing code based on whether debugging features should be active, such as detailed error reporting or verbose logging.
+        """
+
+        # Retrieve the current debug setting from configuration
+        app_debug = self.config('app.debug')
+
+        # Ensure the application is booted before accessing configuration
+        if app_debug is None:
+            raise OrionisRuntimeError(
+                "Application configuration is not initialized. Please call create() before checking the debug mode."
+            )
+
+        # Return True if the debug mode is enabled, otherwise False
+        return bool(app_debug)

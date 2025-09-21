@@ -229,6 +229,7 @@ latex_documents = [
 # If set, override pythons default socket timeout
 # testing has shown the default is too short so explicitly increase to 15 secs
 linkcheck_timeout = 15
+linkcheck_retries = 3
 
 
 # -- Options for manual page output ------------------------------------------
